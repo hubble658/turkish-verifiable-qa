@@ -1,6 +1,6 @@
 """Doğrulanabilir Türkçe soru veri seti: istem kurma ve puanlama.
 
-    from puanlama import istem, puanla, orijinal
+    from puanlama import istem, puanla, orijinal   # paket satiri ya da Hugging Face satiri
     metin = model(istem(satir))          # satir: veri/*.jsonl'dan bir kayit (dict)
     dogru = puanla(satir, metin)         # True / False; Excel'de sure asiminda None
 
@@ -142,13 +142,25 @@ def tablo_metni(o):
     return o["tablo_metni"] if o.get("tablo_metni") else _dilim_tablolari()[o["dilim_id"]]
 
 
+SET_KAYNAK = {"bulmaca": "bulmaca", "meb_tek_ders": "korpus", "meb_capraz": "korpus", "hesaplama": "hesaplama",
+              "excel_veritabani": "hesaplama", "solver": "solver"}
+
+
+def _uyarla(satir):
+    """Hugging Face satiri (`set`, `meta`) paket satirina (`kaynak`, `orijinal`) cevrilir."""
+    if "orijinal" in satir:
+        return satir
+    return {**satir, "orijinal": satir["meta"], "kaynak": SET_KAYNAK.get(satir["set"], "sql")}
+
+
 def orijinal(satir):
-    """`orijinal` alani dosyada JSON metni (HF datasets semasi icin); nesne de kabul edilir."""
-    o = satir["orijinal"]
+    """`orijinal` (HF'de `meta`) alani dosyada JSON metni (HF datasets semasi icin); nesne de kabul edilir."""
+    o = _uyarla(satir)["orijinal"]
     return json.loads(o) if isinstance(o, str) else o
 
 
 def istem(satir):
+    satir = _uyarla(satir)
     k, o, soru = satir["kategori"], orijinal(satir), satir["soru"]
     if satir["kaynak"] == "bulmaca":
         return bulmaca_scoring.INSTRUCTION + o["prompt"]
@@ -203,7 +215,8 @@ def grade_sinirli(r, text, sure=EXCEL_SURE_SN):
 
 def puanla(satir, metin, hakem=None):
     """True/False; Excel kategorilerinde sure asiminda None. hakem yalniz MEB setlerinde kullanilir
-    (bkz. meb.puanla)."""
+    (bkz. meb.puanla). Paket satiri da Hugging Face satiri da verilebilir."""
+    satir = _uyarla(satir)
     k, o = satir["kategori"], orijinal(satir)
     if satir["kaynak"] == "bulmaca":
         kesin, _gevsek = bulmaca_scoring.score_record(o, bulmaca_scoring.extract_answer(metin or ""))

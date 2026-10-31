@@ -20,7 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from puanlama import istem, orijinal, puanla  # noqa: E402
+from puanlama import _uyarla, istem, orijinal, puanla  # noqa: E402
 
 
 def altin_metin(r):
@@ -61,6 +61,7 @@ def yanlis_metin(r):
 
 
 def sina(r, ters=False):
+    r = _uyarla(r)
     try:
         istem(r)  # istem kurulabiliyor mu (sema, eslik dosyasi, iskelet)
         if ters:
@@ -71,6 +72,9 @@ def sina(r, ters=False):
 
 
 def ac(d):
+    if str(d).endswith(".parquet"):  # Hugging Face surumu
+        import pyarrow.parquet as pq
+        return (json.dumps(x, ensure_ascii=False) for x in pq.read_table(d).to_pylist())
     return gzip.open(d, "rt", encoding="utf-8") if str(d).endswith(".gz") else open(d, encoding="utf-8")
 
 

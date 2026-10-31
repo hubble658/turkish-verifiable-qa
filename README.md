@@ -48,6 +48,8 @@ Cevabı programla kontrol edilebilen **137.997** Türkçe soru: mantık bulmacal
 
 Sürüm: 30 Ekim 2026.
 
+> **Yalnız veriyi kullanacaksanız:** Hugging Face sürümü düz bir tablodur. Her satırda modele verilecek hazır istem (`istem`) ve altın cevap (`cevap`) bulunur: https://huggingface.co/datasets/hubble658/turkish-verifiable-qa. Bu depo ise puanlama kodunu ve SQL veritabanlarını içerir. `puanla()` HF satırını da doğrudan kabul eder.
+
 ## İçerik
 
 | Dosya (`veri/`) | Soru | Köken | Cevabı kim belirler | Modelden istenen |
