@@ -1,6 +1,6 @@
 """Doğrulanabilir Türkçe soru veri seti: istem kurma ve puanlama.
 
-    from puanlama import istem, puanla
+    from puanlama import istem, puanla, orijinal
     metin = model(istem(satir))          # satir: veri/*.jsonl'dan bir kayit (dict)
     dogru = puanla(satir, metin)         # True / False; Excel'de sure asiminda None
 
@@ -142,8 +142,14 @@ def tablo_metni(o):
     return o["tablo_metni"] if o.get("tablo_metni") else _dilim_tablolari()[o["dilim_id"]]
 
 
+def orijinal(satir):
+    """`orijinal` alani dosyada JSON metni (HF datasets semasi icin); nesne de kabul edilir."""
+    o = satir["orijinal"]
+    return json.loads(o) if isinstance(o, str) else o
+
+
 def istem(satir):
-    k, o, soru = satir["kategori"], satir["orijinal"], satir["soru"]
+    k, o, soru = satir["kategori"], orijinal(satir), satir["soru"]
     if satir["kaynak"] == "bulmaca":
         return bulmaca_scoring.INSTRUCTION + o["prompt"]
     if satir["kaynak"] == "korpus":
@@ -198,7 +204,7 @@ def grade_sinirli(r, text, sure=EXCEL_SURE_SN):
 def puanla(satir, metin, hakem=None):
     """True/False; Excel kategorilerinde sure asiminda None. hakem yalniz MEB setlerinde kullanilir
     (bkz. meb.puanla)."""
-    k, o = satir["kategori"], satir["orijinal"]
+    k, o = satir["kategori"], orijinal(satir)
     if satir["kaynak"] == "bulmaca":
         kesin, _gevsek = bulmaca_scoring.score_record(o, bulmaca_scoring.extract_answer(metin or ""))
         return kesin

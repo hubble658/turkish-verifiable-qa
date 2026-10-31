@@ -1,3 +1,47 @@
+---
+license: cc-by-sa-4.0
+language:
+- tr
+pretty_name: Doğrulanabilir Türkçe Soru Veri Seti
+size_categories:
+- 100K<n<1M
+task_categories:
+- question-answering
+- text-generation
+- table-question-answering
+tags:
+- verifiable
+- reasoning
+- text-to-sql
+- excel
+- logic-puzzles
+- turkish
+- rlvr
+configs:
+- config_name: bulmaca
+  data_files: veri/bulmaca.jsonl.gz
+- config_name: excel_veritabani
+  data_files: veri/excel_veritabani.jsonl.gz
+- config_name: hesaplama
+  data_files: veri/hesaplama.jsonl.gz
+- config_name: meb_capraz
+  data_files: veri/meb_capraz.jsonl.gz
+- config_name: meb_tek_ders
+  data_files: veri/meb_tek_ders.jsonl.gz
+- config_name: solver
+  data_files: veri/solver.jsonl.gz
+- config_name: sql_belediye_disi
+  data_files: veri/sql_belediye_disi.jsonl.gz
+- config_name: sql_cikti_tahmini
+  data_files: veri/sql_cikti_tahmini.jsonl.gz
+- config_name: sql_cognipeer
+  data_files: veri/sql_cognipeer.jsonl.gz
+- config_name: sql_il_ilce
+  data_files: veri/sql_il_ilce.jsonl.gz
+- config_name: sql_turspider
+  data_files: veri/sql_turspider.jsonl.gz
+---
+
 # Doğrulanabilir Türkçe Soru Veri Seti
 
 Cevabı programla kontrol edilebilen **137.997** Türkçe soru: mantık bulmacaları, hesaplama, Excel formülü, optimizasyon, SQL yazma, SQL çıktısı tahmini ve MEB ders kitaplarından kısa cevaplı sorular. Her sorunun yanında altın cevap ve onu puanlayan kod var: Excel ve SQL cevapları çalıştırılarak, sayılar toleransla, bulmacalar normalize eşleşmeyle puanlanır.
@@ -46,11 +90,22 @@ Her dosya satır başına bir JSON nesnesi içerir:
 | `zorluk_uretim` | Üretimdeki etiket. Setler arasında karşılaştırılamaz (bulmacada kolay/zor, hesaplama ve SQL'de orta/zor, TURSpider'da easy…extra, Cognipeer'de karmaşıklık sınıfı; MEB, solver ve çıktı tahmininde `null`) |
 | `soru` | Soru metni (istem değil; istem `puanlama.istem` ile kurulur) |
 | `cevap` | Altın cevap. SQL yazma setlerinde gold SQL; çıktı tahmininde beklenen tablo |
-| `orijinal` | Kaynak kaydın tamamı. Puanlayıcının ihtiyaç duyduğu ek alanlar burada: `tolerans_yuzde`, `calisma_kitaplari`, `db`, `ekler`, `gercek_sonuc`, `sira_onemli`, `baglam`, `lisans`… |
+| `orijinal` | Kaynak kaydın tamamı, **JSON metni olarak** (`json.loads(satir["orijinal"])` ya da `puanlama.orijinal(satir)`). İç yapısı setten sete değiştiği ve tablolarda metin ile sayı karıştığı için metin olarak saklanır. Puanlayıcının ihtiyaç duyduğu ek alanlar burada: `tolerans_yuzde`, `calisma_kitaplari`, `db`, `ekler`, `gercek_sonuc`, `sira_onemli`, `baglam`, `lisans`… |
 
 ## Kullanım
 
+Hugging Face'ten:
+
+```python
+from datasets import load_dataset
+ds = load_dataset("hubble658/turkish-verifiable-qa", "hesaplama", split="train")   # set adı = config
+```
+
+Puanlama kodu ve veritabanları depoda; puanlamak için depoyu indirin:
+
 ```bash
+huggingface-cli download hubble658/turkish-verifiable-qa --repo-type dataset --local-dir turkish-verifiable-qa
+cd turkish-verifiable-qa
 pip install openpyxl          # yalnız LibreOffice yedeği için; çekirdek puanlama standart kütüphaneyle çalışır
 bash araclar/turspider_indir.sh   # sql_turspider için 166 veritabanı (~470 MB)
 ```
@@ -127,7 +182,7 @@ Puanlayıcılar (eski skorlar bu yüzden biraz farklı çıkabilir):
 
 ## Lisans ve atıf
 
-Kaynaklar ve lisansları:
+Veri seti **CC BY-SA 4.0** ile dağıtılır. TURSpider alt seti CC BY-SA olduğu için "aynı lisansla paylaş" şartı bütüne uygulanır. Diğer kaynakların lisansları bununla birlikte dağıtılabilir; her kaynağa ayrıca atıf yapılmalıdır. Puanlama kodu da aynı lisansla verilir. Kaynaklar ve lisansları:
 
 | Kaynak | Lisans |
 |---|---|

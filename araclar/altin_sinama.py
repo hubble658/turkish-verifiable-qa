@@ -20,11 +20,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from puanlama import istem, puanla  # noqa: E402
+from puanlama import istem, orijinal, puanla  # noqa: E402
 
 
 def altin_metin(r):
-    k, o, c = r["kategori"], r["orijinal"], r["cevap"]
+    k, o, c = r["kategori"], orijinal(r), r["cevap"]
     if r["kaynak"] == "korpus":
         return json.dumps({"cevap": c}, ensure_ascii=False)
     if k == "solver":
@@ -40,7 +40,7 @@ def altin_metin(r):
 
 def yanlis_metin(r):
     """Ters sinama: bariz yanlis cevap; gecen olmamali (her seye dogru diyen puanlayiciyi yakalar)."""
-    k, o = r["kategori"], r["orijinal"]
+    k, o = r["kategori"], orijinal(r)
     if r["kaynak"] == "korpus":
         return json.dumps({"cevap": "bilmiyorum"}, ensure_ascii=False)
     if k == "solver":
