@@ -1,0 +1,1336 @@
+{
+ "guncelleme": "2026-10-30",
+ "aciklama": "Alt setlerin köken bilgisi. Birleştirmede her kayda ilgili setin 'uretim' nesnesi eklenebilir. Yollar verifiable-data/ köküne görelidir.",
+ "setler": [
+  {
+   "ad": "bulmaca",
+   "soru_sayisi": 3000,
+   "dosyalar": [
+    "bulmaca/bulmaca_dataset.jsonl",
+    "bulmaca/yeni_tipler_dataset.jsonl"
+   ],
+   "alanlar": {
+    "soru": "prompt",
+    "cevap": "answer",
+    "tip": "type",
+    "zorluk": "difficulty",
+    "dogrulama_verisi": "meta"
+   },
+   "uretim": {
+    "yontem": "program",
+    "llm": null,
+    "cevap_kaynagi": "üretici kod; yapısal kısıtlardan kesin hesap",
+    "dogrulama": "tek çözüm kontrolü (bütün durumların taranması) ya da simülasyon; main.py --verify",
+    "kaynak": "yok (sentetik)"
+   },
+   "tipler": [
+    "siralama",
+    "zebra",
+    "dogrucu_yalanci",
+    "akrabalik",
+    "yon",
+    "nesne_takip",
+    "sayac_takip",
+    "zaman_aritmetigi",
+    "sahiplik_zinciri"
+   ],
+   "zorluk_olcumu": {
+    "orneklem": 180,
+    "gpt-oss-20b": 0.761,
+    "DeepSeek-V3": 0.728,
+    "Nemotron-3-Ultra-550B": 0.928
+   },
+   "maliyet_usd": {
+    "uretim": 0,
+    "olcum": 0.4
+   },
+   "kodlar": "yontem/kodlar/bulmaca/"
+  },
+  {
+   "ad": "hesaplama",
+   "soru_sayisi": 14613,
+   "dosyalar": [
+    "hesaplama/cikti/*.jsonl"
+   ],
+   "alanlar": {
+    "soru": "soru",
+    "cevap": "cevap",
+    "kategori": "kategori",
+    "alt_tip": "alt_tip",
+    "zorluk": "zorluk",
+    "dogrulama": "dogrulama_yontemi",
+    "cevap_tr": "cevap_tr (yalnız excel_formulu: aynı formülün Türkçe Excel yazımı)"
+   },
+   "uretim": {
+    "yontem": "program (şablon + rastgele parametre)",
+    "llm": null,
+    "cevap_kaynagi": "formül bankası, sympy, datetime, Excel semantiği (Decimal + ROUND_HALF_UP; LibreOffice ile çapraz doğrulama), JSON Schema, XML gidiş-dönüş",
+    "dogrulama": "kayıt başına dogrulama_yontemi alanı; tam tekrarlar kanonik anahtarla atıldı",
+    "kaynak": "yok (sentetik); kimyada ~34 gerçek bileşik ve atom ağırlıkları"
+   },
+   "kategoriler": {
+    "birim_donusumu": 2400,
+    "excel_formulu": 2100,
+    "fizik_hesabi": 2400,
+    "json_uretimi": 1200,
+    "kimya_hesabi": 1116,
+    "matris_islemleri": 2100,
+    "tarih_hesaplama": 2100,
+    "xml_uretimi": 1200
+   },
+   "zorluk_olcumu": {
+    "gemma-3-27b-it": 0.938,
+    "Nemotron-3-Ultra-550B": 0.973
+   },
+   "maliyet_usd": {
+    "uretim": 0
+   },
+   "kodlar": "yontem/kodlar/hesaplama/; yontem/kodlar/hesaplama/ (duzelt_ters_problem.py, duzelt_oran_sifir.py)",
+   "duzeltmeler": [
+    {
+     "tarih": "2026-10-20",
+     "kategori": "excel_formulu",
+     "sorun": "beklenen_sonuc Python float+round() (half-to-even) ile hesaplanmıştı; Excel/LibreOffice ROUND sıfırdan uzağa yuvarlar",
+     "denetim": {
+      "excel_motor_decimal": {
+       "kapsam": 2100,
+       "kayitli_ile_fark": 24
+      },
+      "libreoffice_7.3.7.2": {
+       "kapsam": 2100,
+       "kayitli_ile_fark": 24,
+       "motorla_fark": 0
+      },
+      "formulas_1.3.4": {
+       "kapsam": 280,
+       "motorla_fark": 0
+      }
+     },
+     "fark_dagilimi": {
+      "tek_hucre_yuzde_hesabi": 17,
+      "kosullu_ortalama": 5,
+      "temel_istatistik_fonksiyonu": 1,
+      "ic_ice_ortalama_yuvarlama": 1
+     },
+     "duzeltme": "common.fmt_num ve gen_excel ROUND -> Decimal ROUND_HALF_UP; seed 21 ile yeniden üretildi, yalnız 24 satırın beklenen_sonuc'u değişti; yeniden denetim 0 fark",
+     "yan_etki_uretilmedi": {
+      "birim_donusumu": 8,
+      "fizik_hesabi": 36,
+      "kimya_hesabi": 3,
+      "not": "yeni fmt_num ile yeniden üretilirse son basamak 0.001 kayar; ≥%1 tolerans nedeniyle puan etkilenmez; dosyalar yeniden üretilmedi"
+     }
+    },
+    {
+     "tarih": "2026-10-21",
+     "kategori": "excel_formulu",
+     "konu": "puanlama",
+     "sorun": "metin eşleşmesi: EĞERSAY (gerçek TR COUNTIF adı) sözlükte yoktu; eşdeğer formüller (ORTALAMA(EĞER()), $ başvuru, SUMPRODUCT(B*C)) reddediliyordu",
+     "duzeltme": "grade_excel: metin eşleşmesi yoksa formül excel_motor ile soru tablosu + döngüsel kaydırma + sınır/yuvarlama/kriter kitapları + 6 rastgele kitapta çalıştırılır; ROUND'lu gold için tam yarımda üç eşitlik kuralı (HALF_UP/HALF_EVEN/HALF_DOWN) kabul",
+     "sinama": {
+      "dogru_bicimler_kabul": "2100/2100 (gold, Türkçe gold, $ gold) + alt tip başına eşdeğerler 300/300",
+      "yanlis_kaliplar_kabul": 0
+     },
+     "kayitli_cevaplar": {
+      "skor_sonuclari_deepinfra.jsonl": {
+       "yanlis_to_dogru": 4,
+       "dogru_to_yanlis": 0
+      },
+      "skor_sonuclari.jsonl": {
+       "yanlis_to_dogru": 8,
+       "dogru_to_yanlis": 0
+      }
+     },
+     "olcum_etkisi_260_soru": {
+      "gemma-3-27b-it": "+3",
+      "DeepSeek-V3": "+1",
+      "Qwen3.8-27B": 0,
+      "Nemotron-3-Ultra-550B": 0
+     }
+    },
+    "2026-10-22: excel_formulu sorularına 'Formülü İngilizce Excel yazımıyla verin…' cümlesi eklendi (2.100/2.100, değişen tek alan soru); birleşik dosya yeniden oluşturuldu",
+    "2026-10-26: kosullu_sayma_toplam'da tabloda olmayan bölge (33/300, gold 0) tablodaki bölgelerden belirlenimci seçimle değiştirildi; yalnız 33 kayıt değişti, cevabı 0 olan 0; excel_dogrula LO≠motor 0/2100; birleşik dosya yeniden kuruldu (33 satır)"
+   ],
+   "notlar": [
+    "2026-10-30: ters_problem 34 cevap duzeltildi, oran_capraz_birim 139 soru degistirildi (0'a yuvarlanan oranlar), birlesikte 3 tekrar atildi; YONTEM.md S11"
+   ]
+  },
+  {
+   "ad": "meb_tekli",
+   "soru_sayisi": 2914,
+   "dosyalar": [
+    "korpus/verifiable_dataset_v6_son.jsonl"
+   ],
+   "alanlar": {
+    "soru": "soru",
+    "cevap": "cevap",
+    "ders": "ders",
+    "sinif": "sinif",
+    "konu": "konu_baslik",
+    "tip": "tip",
+    "gerekce": "gerekce"
+   },
+   "uretim": {
+    "yontem": "LLM üretimi + LLM tutarlılık kontrolü",
+    "llm": {
+     "uretici": "deepseek-ai/DeepSeek-V3",
+     "gidis_donus_ve_hakem": "deepseek-ai/DeepSeek-V3",
+     "gomu": "BAAI/bge-m3",
+     "tekrar_hakemi": "deepseek-ai/DeepSeek-V4-Flash-0731"
+    },
+    "cevap_kaynagi": "MEB ders kitabı pasajı",
+    "dogrulama": "gidiş-dönüş (pasajla yeniden cevaplama) + anlamca eşdeğerlik hakemi; kesin değil",
+    "kaynak": "MEB ortaöğretim Fizik, Kimya, Biyoloji 9-12 ders kitapları (12 PDF)"
+   },
+   "suzgec_hunisi": {
+    "ham": 4108,
+    "tutarli_ve_tekrarsiz": 3507,
+    "kisa_cevap": 2946,
+    "anlamca_tekrarsiz": 2914
+   },
+   "zorluk_olcumu": {
+    "Mistral-Small-3.2-24B": 0.692
+   },
+   "maliyet_usd": {
+    "uretim": 4.06,
+    "tekrar": 0.02,
+    "olcum": 0.4
+   },
+   "kodlar": "yontem/kodlar/meb_tekli/"
+  },
+  {
+   "ad": "meb_capraz",
+   "soru_sayisi": 3993,
+   "dosyalar": [
+    "korpus/uretim3k/capraz_son.jsonl"
+   ],
+   "alanlar": {
+    "soru": "soru",
+    "cevap": "cevap",
+    "sinif": "sinif",
+    "dersler": "secilen_dersler",
+    "pasajlar": "secilen_parcalar",
+    "tip": "tip",
+    "gerekce": "gerekce",
+    "hakem": "hakem"
+   },
+   "uretim": {
+    "yontem": "LLM üretimi + LLM hakem süzgeci",
+    "llm": {
+     "uretici": "zai-org/GLM-5.3-Flash",
+     "istem": [
+      "secmeli_v4",
+      "secmeli_v5"
+     ],
+     "hakem": "deepseek-ai/DeepSeek-V4-Flash-0731",
+     "gomu": "BAAI/bge-m3",
+     "tekrar_hakemi": "deepseek-ai/DeepSeek-V4-Flash-0731"
+    },
+    "cevap_kaynagi": "iki farklı dersin MEB kitap pasajı",
+    "dogrulama": "hakem tut/ele (zorlama, etiket yanlış, çok cevaplı, eksik bilgi); kesin değil",
+    "kaynak": "MEB ortaöğretim Fizik, Kimya, Biyoloji 9-12 ders kitapları (12 PDF)"
+   },
+   "suzgec_hunisi": {
+    "uretilen": 5723,
+    "hakem_tut": 4569,
+    "kisa_cevap_ve_tekrarsiz": 4132,
+    "anlamca_tekrarsiz": 3993
+   },
+   "zorluk_olcumu": {
+    "Mistral-Small-3.2-24B": 0.703
+   },
+   "uyarilar": [
+    "509 soru (%12,7) cevabı artar/azalır/değişmez: tahminle tutturulabilir"
+   ],
+   "maliyet_usd": {
+    "uretim_ve_hakem": 7.15,
+    "tekrar": 0.04,
+    "olcum": 0.4
+   },
+   "kodlar": "yontem/kodlar/meb_capraz/"
+  },
+  {
+   "ad": "solver",
+   "soru_sayisi": 4986,
+   "dosyalar": [
+    "konu_agaci/agac_v2/sablon/uretim5k/sorular.jsonl"
+   ],
+   "alanlar": {
+    "soru": "soru",
+    "cevap": "cevap",
+    "set": "set (orta|kod)",
+    "aile": "aile (secim|atama|sirala)",
+    "boyut": "boyut",
+    "disiplin": "disiplin",
+    "konu_agaci_yolu": "yol",
+    "kurallar": "kurallar",
+    "aceleci_cozum": "acgozlu",
+    "ham_veri": "ornek"
+   },
+   "uretim": {
+    "yontem": "program + kesin çözücü; LLM yalnız meslek kostümü ve giriş paragrafı",
+    "llm": {
+     "kostum_ve_giris": "deepseek-ai/DeepSeek-V4-Flash-0731"
+    },
+    "cozucu": "OR-Tools CP-SAT 9.15 (en iyilik kanıtlı)",
+    "cevap_kaynagi": "çözücü",
+    "dogrulama": "en iyilik kanıtı; her kural kaldırılınca cevap değişmeli; aceleci çözüm doğru cevabı bulmamalı; küçük örneklerde bağımsız kaba kuvvetle karşılaştırma (16/16)",
+    "kaynak": "Türkçe Konu Ağacı (ISCED-F 2013 altında 3.794 disiplin; 400 meslek disiplini kullanıldı)"
+   },
+   "dagilim": {
+    "orta": {
+     "secim": 1000,
+     "atama": 993,
+     "sirala": 1000
+    },
+    "kod": {
+     "secim": 750,
+     "atama": 750,
+     "sirala": 493
+    }
+   },
+   "zorluk_olcumu": {
+    "orneklem": 200,
+    "dusunen_V4-Flash": {
+     "orta_secim": 0.62,
+     "orta_atama": 0.71,
+     "orta_sirala": 0.52,
+     "kod_secim_1deneme": 0.382,
+     "kod_atama_1deneme": 0.147,
+     "kod_sirala_1deneme": 0.688,
+     "kod_secim_5turda": 0.647,
+     "kod_atama_5turda": 0.735,
+     "kod_sirala_5turda": 0.875
+    },
+    "Mistral-Small-3.2-24B": {
+     "orta": 0.015,
+     "kod_1deneme": 0.0,
+     "kod_5turda": 0.0
+    },
+    "not": "orta setinde kod yok, tek cevap; kod (zor) setinde en fazla 4 ek düzeltme turu (toplam 5 deneme) verildi, hem Flash'a hem 24B'ye",
+    "yorum": [
+     "Orta set hedefte: düşünen Flash %52-71, 24B neredeyse hiç çözemiyor; sonuçlar pilotla tutarlı",
+     "Zor sette, 5 tur hakkıyla, üç aile de hedefte: Flash %65-88 arası çözüyor (1. denemeye göre büyük artış, özellikle atama %15->%74)",
+     "Düzeltme turları gerçekten işe yarıyor: Flash ortalama 1,25-2,41 tur kullanıyor, hiçbir turda çözemediği soru sayısı çok düşük (seçimde 3/34, diğer ikisinde 0)",
+     "Mistral-24B 5 tur hakkına rağmen zor sette hiçbir soruyu çözemedi (%0) - ölçüm kusuru değil, gerçek bir yetersizlik"
+    ],
+    "flash_hicbir_turda_cozemedigi": {
+     "orta_secim": "6/34",
+     "orta_atama": "5/33",
+     "orta_sirala": "9/33",
+     "kod_secim_5turluk_olcum": "3/34",
+     "kod_atama_5turluk_olcum": "0/34",
+     "kod_sirala_5turluk_olcum": "0/32"
+    },
+    "kod_olcum_orneklemi": {
+     "secim": 17,
+     "atama": 17,
+     "sirala": 16,
+     "not": "orta ölçümünden ayrı, 50 soruluk yeni örneklem (olcum_kod5tur.py)"
+    },
+    "flash_ort_tur_5turluk_olcum": {
+     "secim": 2.03,
+     "atama": 2.41,
+     "sirala": 1.25
+    }
+   },
+   "maliyet_usd": {
+    "uretim": 0.2,
+    "olcum_orta": 2.9,
+    "olcum_zor_5tur": {
+     "ilk_deneme": 0.639,
+     "duzeltme_turlari": 0.859,
+     "toplam": 1.498
+    }
+   },
+   "kodlar": "yontem/kodlar/solver/"
+  },
+  {
+   "ad": "sql_sehir_acik_veri",
+   "soru_sayisi": 17895,
+   "dosyalar": [
+    "sql_arastirma/uretim/pilot_sorular_buyuk.jsonl",
+    "sql_arastirma/uretim/kayseri_sorular.jsonl",
+    "sql_arastirma/uretim/konya_sorular.jsonl",
+    "sql_arastirma/uretim/konya_zincir_sorular.jsonl",
+    "sql_arastirma/uretim/trabzon_sorular.jsonl",
+    "sql_arastirma/uretim/izmir_sorular.jsonl",
+    "sql_arastirma/uretim/izmir_zincir_sorular.jsonl",
+    "sql_arastirma/uretim/ankara_sorular.jsonl",
+    "sql_arastirma/uretim/ankara_zincir_sorular.jsonl",
+    "sql_arastirma/uretim/manisa_sorular.jsonl",
+    "sql_arastirma/uretim/sakarya_sorular.jsonl",
+    "sql_arastirma/uretim/sakarya_zincir_sorular.jsonl",
+    "sql_arastirma/uretim/kadikoy_sorular.jsonl",
+    "sql_arastirma/uretim/kadikoy_zincir_sorular.jsonl",
+    "sql_arastirma/uretim/tuzla_sorular.jsonl",
+    "sql_arastirma/uretim/tuzla_zincir_sorular.jsonl"
+   ],
+   "alanlar": {
+    "soru": "soru",
+    "cevap": "cevap (gold SQL)",
+    "kategori": "kategori",
+    "alt_tip": "alt_tip",
+    "zorluk": "zorluk",
+    "dogrulama_verisi": "orijinal.gercek_sonuc, orijinal.sql, orijinal.sira_onemli, orijinal.db, orijinal.lisans"
+   },
+   "uretim": {
+    "yontem": "program (şablon + parametre/kategori taraması VE çok-tablolu zincir/skeleton kombinasyonu); LLM yok",
+    "llm": null,
+    "cevap_kaynagi": "Python şablon fonksiyonu, SQL gerçek SQLite dosyasına karşı çalıştırılır",
+    "dogrulama": "program — cevap SQL'i kayıttan sonra tekrar çalıştırıp orijinal.gercek_sonuc ile birebir karşılaştırma; bu oturumda değiştirilen/üretilen her dosya %100 geçti",
+    "kaynak": "İBB (İstanbul) + 8 belediye açık veri portalı (Kayseri, Konya, Trabzon, İzmir, Ankara, Manisa, Sakarya, Kadıköy/Tuzla — ilçe bazlı İBB yayını); her satırda orijinal.lisans"
+   },
+   "sehir_dagilimi": {
+    "istanbul": {
+     "toplam": 12375,
+     "orta": 312,
+     "zor": 12063
+    },
+    "kayseri": {
+     "toplam": 784,
+     "orta": 674,
+     "zor": 110
+    },
+    "konya": {
+     "toplam": 2902,
+     "orta": 336,
+     "zor": 2566
+    },
+    "trabzon": {
+     "toplam": 2823,
+     "orta": 2734,
+     "zor": 89
+    },
+    "izmir": {
+     "toplam": 583,
+     "orta": 275,
+     "zor": 308
+    },
+    "ankara": {
+     "toplam": 124,
+     "orta": 100,
+     "zor": 24
+    },
+    "manisa": {
+     "toplam": 110,
+     "orta": 74,
+     "zor": 36,
+     "uyari": "lisans DOĞRULANMADI (kaynak sayfası 404)"
+    },
+    "sakarya": {
+     "toplam": 212,
+     "orta": 67,
+     "zor": 145
+    },
+    "kadikoy": {
+     "toplam": 107,
+     "orta": 43,
+     "zor": 64
+    },
+    "tuzla": {
+     "toplam": 118,
+     "orta": 61,
+     "zor": 57
+    }
+   },
+   "suzgec_hunisi_ornekler": {
+    "konya_zincir": {
+     "aday": 11584,
+     "uretildi": 2632,
+     "duzeltme_oncesi": 2740
+    },
+    "izmir_zincir": {
+     "aday": 1192,
+     "uretildi": 319,
+     "duzeltme_oncesi": 335
+    },
+    "trabzon_kosullu": {
+     "bos_elenen": 554,
+     "ayni_cevap_elenen": 377,
+     "uretildi": 2491
+    },
+    "kayseri_kosullu": {
+     "bos_elenen": 143,
+     "ayni_cevap_elenen": 54,
+     "uretildi": 559
+    }
+   },
+   "zorluk_olcumu": {
+    "modeller": {
+     "24B": "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
+     "Flash": "deepseek-ai/DeepSeek-V4-Flash-0731",
+     "8B": "meta-llama/Meta-Llama-3.1-8B-Instruct"
+    },
+    "yontem": "solver'a sadece sema + düşük-kardinalite TEXT sütun değer envanteri verilir (gold SQL gizli); 3 deneme/soru; satır/sütun-sırası bağımsız + sayısal toleranslı karşılaştırma",
+    "24B_8B_20_soru_orneklem": {
+     "kayseri": {
+      "24B": 0.583,
+      "8B": 0.133
+     },
+     "konya": {
+      "24B": 0.2,
+      "8B": 0.033
+     },
+     "trabzon": {
+      "24B": 0.217,
+      "8B": 0.0
+     }
+    },
+    "not": "izmir/ankara/manisa/sakarya/kadikoy/tuzla için 24B+8B ölçümü bu belge yazılırken sürüyordu, henüz eklenmedi",
+    "24B_flash_duzeltme_oncesi_sonrasi": {
+     "ankara": {
+      "24B": [
+       0.7,
+       0.883
+      ],
+      "Flash": [
+       0.733,
+       0.9
+      ]
+     },
+     "konya": {
+      "Flash": [
+       0.717,
+       0.983
+      ]
+     },
+     "kayseri": {
+      "24B": [
+       0.15,
+       0.633
+      ]
+     }
+    },
+    "yeniden_olcum_2026_10_21": {
+     "kod": "sql_arastirma/uretim/batch_sehir_v2.py",
+     "yontem": "şema DB'den (sema_v2), şablon+zincir havuzundan şehir başına 50 soru (seed 31), 3 deneme, max_tokens 1500, sıkı puan",
+     "sonuc_siki": {
+      "konya": {
+       "24B": 0.4,
+       "Flash": 0.64
+      },
+      "kadikoy": {
+       "24B": 0.713,
+       "Flash": 0.86
+      },
+      "ankara": {
+       "24B": 0.713,
+       "Flash": 0.813
+      },
+      "trabzon": {
+       "24B": 0.76,
+       "Flash": 0.967
+      },
+      "manisa": {
+       "24B": 0.593,
+       "Flash": 0.72
+      },
+      "izmir": {
+       "24B": 0.38,
+       "Flash": 0.46
+      },
+      "sakarya": {
+       "24B": 0.687,
+       "Flash": 0.813
+      },
+      "kayseri": {
+       "24B": 0.58,
+       "Flash": 0.94
+      },
+      "tuzla": {
+       "24B": 0.547,
+       "Flash": 0.813
+      }
+     },
+     "maliyet_usd": 1.4084,
+     "eski_olcum_gecersiz": "_bench_<sehir>.py: elle yazılmış şemada eksik tür listeleri (Sakarya, Trabzon), yalnız şablon dosyası, gevşek puan"
+    }
+   },
+   "bulunan_hatalar": [
+    "eksik kimlik/metrik alanı: SELECT edilen bir sütun (ilçe/mahalle adı ya da sıralama kriterinin kendisi) soru metninde açıkça istenmiyordu, sadece ima ediliyordu",
+    "SQLite Türkçe harf körlüğü: 'İlkokul' LIKE '%ilkokul%' -> 0 (false); solver şemasına düşük-kardinalite sütunların gerçek değer envanteri eklendi",
+    "Python .lower()'ın Türkçe İ/I hatası: ör. Konya'da 'mısır'->'misir' bozuk çıkıyordu; tr_lower() ile düzeltildi",
+    "Sakarya (2026-10-20): t_yogunluk ve t_evlenme şablonlarında SELECT edilen oran/yoğunluk sütunu soru metninde istenmiyordu; t_evlenme_dusus'ta fark işareti (2025-2024, negatif) belirtilmiyordu - üçü düzeltilip yeniden üretildi, 196/196 doğrulandı",
+    "zincir soruları: gold INNER JOIN eksik verili ilçe/mahalleyi düşürüyor, soru söylemiyor (örneklemde Konya 9/43, İzmir 13/31 sorunun sonucu LEFT JOIN ile değişiyor); düzeltilmedi"
+   ],
+   "model_sinirlari_bug_degil": [
+    "24B'nin yapı_sayısı/konut_sayısı sütunlarını karıştırması",
+    "LAG() için gereksiz varsayılan değer (NULL yerine)",
+    "tam sayı bölmesi (SUM(x)/y yerine SUM(x)*1.0/y gerekirken)",
+    "Sakarya 'cami yoğunluğu' sorularında Flash LEFT JOIN'in ON koşuluna tür filtresi koyup COUNT'u filtresiz sütundan alıyor (tüm tesisleri sayıyor, 24B doğru WHERE ile yapıyor) - tekrar eden Flash SQL-yazım hatası",
+    "Kayseri 'X sayısı Y'den fazla' sorularında 24B tutarlı biçimde tur_adi sütununu tesisler takma adından (t.tur_adi) okumaya çalışıyor, doğrusu tesis_turleri (tt.tur_adi) - 7/10 soruda 'no such column' hatası; tekrar eden 24B şema-karıştırma hatası"
+   ],
+   "uyarilar": [
+    "Trabzon setinin %88'i, Kayseri setinin %71'i 'kosullu' (ikili tür karşılaştırması) şablonundan — hacim yüksek ama SQL-şekli çeşitliliği hacimle orantılı değil",
+    "Kayseri ve Trabzon'da çok-tablolu zincir yöntemi uygulanamadı (ilçe/mahalle+yıl anahtarlı 2. tablo yok)",
+    "birlesik_acik_veri.sqlite için hiç soru üretici yazılmadı",
+    "iller arası karşılaştırma tablosu önerildi, henüz kurulmadı (nüfus referans yılları Ankara 2020 - Trabzon 2025 arası, 5 yıl fark)"
+   ],
+   "maliyet_usd": {
+    "uretim": 0,
+    "olcum": "~0.3-0.5 (DeepInfra, bu oturumdaki tüm turlar toplamı, kesin değil - devam eden ölçüm var)",
+    "olcum_2026_10_21": 1.4084
+   },
+   "kodlar": "yontem/kodlar/sql_sehir_acik_veri/",
+   "duzeltmeler": [
+    {
+     "tarih": "2026-10-21 (belgeye 2026-10-26)",
+     "konu": "zincir: soruda adı geçmeyen metrik INNER JOIN e giriyordu, aynı metin farklı cevapla tekrar ediyordu (Konya 94 metin/188 satır, İzmir 14/28)",
+     "cozum": "zincir_ortak.build_sql(yalniz_gecenler=True), konya_skeleton combo süzgeci, soru eki (yalnız geçen göstergelerin verisi olanlar); okuma bilmeyen oranı (%); askıda fatura kapanış kaydı sayısı",
+     "sonuc": {
+      "konya_zincir": "2740 -> 2632",
+      "izmir_zincir": "335 -> 319",
+      "tekrar_metin": 0,
+      "gold_yeniden_calistirma_uyusmazlik": 0
+     },
+     "yedek": "sql_arastirma/uretim/yedek_2026-10-21_zincir/"
+    }
+   ],
+   "notlar": [
+    "2026-10-30: 2.243 birebir tekrar atildi (20.138 -> 17.895); YONTEM.md S11"
+   ]
+  },
+  {
+   "ad": "sql_belediye_disi",
+   "soru_sayisi": 9234,
+   "dosyalar": [
+    "sql_arastirma/uretim/deprem_sorular_son.jsonl",
+    "sql_arastirma/uretim/eurostat_sorular_son.jsonl",
+    "sql_arastirma/uretim/dunyabankasi_sorular_son.jsonl",
+    "sql_arastirma/uretim/wikidata_sorular_son.jsonl",
+    "sql_arastirma/uretim/capraz_sorular_son.jsonl",
+    "sql_arastirma/uretim/eurostat_zincir_sorular_son.jsonl",
+    "sql_arastirma/uretim/eurostat_bolge_zincir_sorular_son.jsonl",
+    "sql_arastirma/uretim/dunyabankasi_zincir_sorular_son.jsonl"
+   ],
+   "alanlar": {
+    "soru": "soru",
+    "cevap": "cevap (gold SQL)",
+    "kategori": "kategori",
+    "alt_tip": "alt_tip",
+    "zorluk": "zorluk",
+    "dogrulama_verisi": "orijinal.gercek_sonuc, orijinal.sql, orijinal.sira_onemli, orijinal.db, orijinal.lisans, orijinal.ekler (yalnız capraz: ATTACH edilecek DB'ler); orijinal.birlesen (bu temsilciye birleştirilen soruların kimlikleri)"
+   },
+   "uretim": {
+    "yontem": "program (79 şablon + 3 zincir üreticisi + DB'ler arası ATTACH şablonları); LLM yok",
+    "llm": null,
+    "cevap_kaynagi": "Python şablon fonksiyonu, SQL gerçek SQLite dosyasına karşı çalıştırılır",
+    "dogrulama": "program — dogrula_sorular.py; son set 9.234/9.234 geçti (ayıklama öncesi 70.989/70.989)",
+    "kaynak": "USGS ComCat (kamu malı), Eurostat bölgesel (CC BY 4.0, kaynağı TÜİK), World Bank WDI (CC BY 4.0), Wikidata (CC0, köy/mahalle nüfusu TÜİK ADNKS); sınırlar OCHA/HGK CC BY-IGO",
+    "db_raporu": "sql_arastirma/uretim/BELEDIYE_DISI_DB_RAPORU.md"
+   },
+   "suzgec_hunisi": {
+    "eurostat_il_zincir": {
+     "aday": 48272,
+     "bos": 72,
+     "ayni_cevap": 31083,
+     "esitlik": 286,
+     "uretildi": 16831
+    },
+    "eurostat_bolge_zincir": {
+     "aday": 23184,
+     "bos": 1936,
+     "ayni_cevap": 10139,
+     "esitlik": 277,
+     "uretildi": 10832
+    },
+    "dunyabankasi_zincir": {
+     "aday": 44352,
+     "bos": 200,
+     "ayni_cevap": 6474,
+     "esitlik": 1013,
+     "uretildi": 36665
+    },
+    "sablon_dosyalari_toplam": {
+     "uretildi": 6661
+    },
+    "tekrar_ayiklama": {
+     "once": 70989,
+     "etkisiz_filtre_atilan": 2851,
+     "son": 9234,
+     "kural": "şablon: LIMIT/RANK farkı birleştirilir; zincir: etkisiz filtre atılır, aynı odak+yıl+filtre kümesi+ilk 3 varlık birleştirilir",
+     "dosya": {
+      "deprem": 250,
+      "eurostat": 887,
+      "dunyabankasi": 3398,
+      "wikidata": 931,
+      "capraz": 109,
+      "eurostat_zincir": 535,
+      "eurostat_bolge_zincir": 413,
+      "dunyabankasi_zincir": 2711
+     },
+     "zorluk": {
+      "orta": 974,
+      "zor": 8260
+     }
+    }
+   },
+   "zorluk_olcumu": {
+    "modeller": {
+     "24B": "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
+     "Flash": "deepseek-ai/DeepSeek-V4-Flash-0731"
+    },
+    "yontem": "çekirdekten katmanlı alt küme: her şablondan 2, her zincir yapısından 3 soru (200 soru, 95 katman); şema + ≤120 satırlık tablolar satır satır, büyük tablolarda ≤120 değerli TEXT sütun envanteri; 3 deneme; tolerans göreli 1e-3 / mutlak 0,011",
+    "sonuc": {
+     "deprem": {
+      "n": 34,
+      "24B": 0.745,
+      "Flash": 0.961
+     },
+     "eurostat": {
+      "n": 83,
+      "24B": 0.506,
+      "Flash": 0.751
+     },
+     "dunyabankasi": {
+      "n": 39,
+      "24B": 0.778,
+      "Flash": 0.915
+     },
+     "wikidata": {
+      "n": 30,
+      "24B": 0.811,
+      "Flash": 0.944
+     },
+     "capraz": {
+      "n": 14,
+      "24B": 0.452,
+      "Flash": 0.595
+     },
+     "etiket_orta": {
+      "n": 49,
+      "24B": 0.946,
+      "Flash": 0.946
+     },
+     "etiket_zor": {
+      "n": 151,
+      "24B": 0.543,
+      "Flash": 0.801
+     }
+    },
+    "empirik_merdiven": {
+     "kolay": 128,
+     "orta": 47,
+     "zor": 25
+    },
+    "duzeltilen_hatalar": [
+     "şema envanterinde kod/ad ayrı sıralı listeleniyordu (küçük tablolar artık satır satır)",
+     "karşılaştırıcıda NULL değer hiç eşleşmiyordu (next(..., None))",
+     "2024 dogurganlik_top boş sütun istiyordu"
+    ],
+    "ilk_olcum_gecersiz": "15 soru/set, şema envanteri ve NULL hatalarından etkilendi",
+    "buyuk_orneklem_2026_10_21": {
+     "kod": "sql_arastirma/uretim/batch_diger_v2.py",
+     "yontem": "kaynak başına 100 rastgele soru (seed 31), 3 deneme, temperature 0,3, max_tokens 1500; şema DB'den üretilir (sema_v2)",
+     "sonuc_siki": {
+      "eurostat": {
+       "n": 100,
+       "24B": 0.427,
+       "Flash": 0.737
+      },
+      "dunyabankasi": {
+       "n": 100,
+       "24B": 0.65,
+       "Flash": 0.927
+      },
+      "capraz": {
+       "n": 100,
+       "24B": 0.673,
+       "Flash": 0.737
+      }
+     },
+     "sonuc_gevsek": {
+      "eurostat": {
+       "24B": 0.49,
+       "Flash": 0.737
+      },
+      "dunyabankasi": {
+       "24B": 0.65,
+       "Flash": 0.927
+      },
+      "capraz": {
+       "24B": 0.687,
+       "Flash": 0.737
+      }
+     },
+     "maliyet_usd": 0.9032
+    },
+    "gecersiz_batch_2026_10_20": "batch_diger_kaynaklar.py, 20 soru/kaynak; elle yazılmış şemada virgülsüz adlar, kaymış suç kodları, eksik birim, max_tokens 700"
+   },
+   "maliyet_usd": {
+    "uretim": 0.0,
+    "benchmark": "~1.95"
+   },
+   "bilinen_sinirlar": [
+    "son sette zincir 3.659 (%40); ayıklama öncesi 64.328 zincir sorusu büyük ölçüde kozmetik tekrardı",
+    "zorluk etiketi yapısal; 4 tablo JOIN'li basit sıralamalar 'zor' etiketli",
+    "Wikidata sayıları 'kayıtlı' sayılar; mahalle kapsamı eksik; büyükşehirlerde kalıntı köy kayıtları",
+    "capraz soruları ek DB dosyalarının aynı klasörde olmasını gerektirir"
+   ],
+   "kodlar": "yontem/kodlar/sql_belediye_disi/ (analiz/ alt klasörü: benzerlik.py, kumele.py, bench_altkume.py)",
+   "tekrar_analizi": {
+    "seviye1_kume": 24940,
+    "seviye2_kume": 6513,
+    "cekirdek": 8516,
+    "tanim": "seviye1: SQL'den LIMIT ve RANK çıkarılınca aynı; seviye2: aynı şablon/odak, yıl, ilk sütunun ilk 3 değeri; çekirdek: zincirde seviye2, şablonda seviye1",
+    "temsilciler": "sql_arastirma/uretim/analiz/temsilci_<dosya>.json"
+   },
+   "dosya_dagilimi_ayiklama_oncesi": {
+    "deprem_sorular": {
+     "toplam": 406,
+     "orta": 290,
+     "zor": 116
+    },
+    "eurostat_sorular": {
+     "toplam": 995,
+     "orta": 125,
+     "zor": 870
+    },
+    "eurostat_zincir_sorular": {
+     "toplam": 16831,
+     "orta": 504,
+     "zor": 16327
+    },
+    "eurostat_bolge_zincir_sorular": {
+     "toplam": 10832,
+     "orta": 346,
+     "zor": 10486
+    },
+    "dunyabankasi_sorular": {
+     "toplam": 4038,
+     "orta": 0,
+     "zor": 4038
+    },
+    "dunyabankasi_zincir_sorular": {
+     "toplam": 36665,
+     "orta": 980,
+     "zor": 35685
+    },
+    "wikidata_sorular": {
+     "toplam": 1102,
+     "orta": 864,
+     "zor": 238
+    },
+    "capraz_sorular": {
+     "toplam": 120,
+     "orta": 0,
+     "zor": 120
+    }
+   }
+  },
+  {
+   "ad": "excel_veritabani_pilot",
+   "durum": "pilot (toplama girmez)",
+   "soru_sayisi": 200,
+   "dosyalar": [
+    "hesaplama/pilot/excel_veritabani_pilot.jsonl",
+    "hesaplama/pilot/excel_veritabani_zor_pilot.jsonl",
+    "hesaplama/pilot/excel_veritabani_zor2_pilot.jsonl"
+   ],
+   "alanlar": {
+    "soru": "soru",
+    "cevap": "cevap (gold formül, İngilizce Excel)",
+    "beklenen": "beklenen_sonuc",
+    "kategori": "kategori",
+    "alt_tip": "alt_tip",
+    "zorluk": "zorluk",
+    "varyant": "varyant (birlesik|ayrik)",
+    "cift": "cift_id",
+    "kitaplar": "calisma_kitaplari (orijinal + 2 pertürbe)",
+    "dogrulama": "dogrulama_yontemi",
+    "cevap_tr": "cevap_tr (aynı formül, Türkçe Excel yazımı)"
+   },
+   "uretim": {
+    "yontem": "program (gerçek DB örneklemi + 7 şablon, iki düzen: birleşik tek sayfa / ayrık çok sayfa)",
+    "llm": null,
+    "cevap_kaynagi": "doğrudan Python + excel_motor (Decimal, Excel ROUND) iki düzen + LibreOffice 7.3.7.2 CSE; 2 pertürbe kitap",
+    "dogrulama": "dört yol eşit olmalı; puanlama modelin formülünü 3 kitapta çalıştırarak",
+    "kaynak": "sql_arastirma/uretim/{deprem,kayseri,konya}_acik_veri.sqlite (USGS kamu malı + HDX CC BY-IGO; Kayseri/Konya BB CC BY 4.0)"
+   },
+   "kategoriler": {
+    "temel_pilot": {
+     "birlesik": 15,
+     "ayrik": 15
+    },
+    "zor_pilot": {
+     "birlesik": 20,
+     "ayrik": 20
+    },
+    "zor2_pilot": {
+     "birlesik": 30
+    }
+   },
+   "alt_tipler_cift": {
+    "iki_adim_arama": 4,
+    "grup_toplam": 2,
+    "grup_ortalama_yuvarlama": 2,
+    "coklu_kosul_sayma": 2,
+    "grupta_en_buyuk_kayit": 2,
+    "grup_pay_yuzde": 2,
+    "iki_boyut_sayma": 1
+   },
+   "suzgec_hunisi": {
+    "denenen_cift": 15,
+    "belirsiz_orneklem": 0,
+    "libreoffice_uyusmazligi": 0,
+    "kalan_cift": 15,
+    "kayit": 30
+   },
+   "zorluk_olcumu": {
+    "orneklem": 30,
+    "mistralai/Mistral-Small-3.2-24B-Instruct-2506": {
+     "birlesik": "12/15",
+     "ayrik": "2/15",
+     "toplam": "14/30"
+    },
+    "deepseek-ai/DeepSeek-V4-Flash-0731": {
+     "birlesik": "13/15",
+     "ayrik": "13/15",
+     "toplam": "26/30"
+    },
+    "not": "20 yanlışın hepsi elle incelendi, hepsi gerçek model hatası",
+    "guncel_yeniden_puanlama_2026-10-22": {
+     "mistralai/Mistral-Small-3.2-24B-Instruct-2506": {
+      "birlesik": "12/15",
+      "ayrik": "5/15"
+     },
+     "deepseek-ai/DeepSeek-V4-Flash-0731": {
+      "birlesik": "15/15",
+      "ayrik": "11/15"
+     }
+    }
+   },
+   "maliyet_usd": {
+    "uretim": 0,
+    "olcum": 0.0171
+   },
+   "kodlar": "yontem/kodlar/excel_veritabani/",
+   "zor2_pilot": {
+    "tarih": "2026-10-22",
+    "dosya": "hesaplama/pilot/excel_veritabani_zor2_pilot.jsonl",
+    "soru_sayisi": 30,
+    "varyant": "yalniz birlesik",
+    "uretim": "gen_excel_db.py --takim zor2 --n-cift 30 --seed 41; 6 grup x 3-6 satir (25-34 satir/soru)",
+    "alt_tipler": {
+     "ayni_ad_iki_anahtar": 10,
+     "grup_sec": 10,
+     "turetilmis_kosul": 10
+    },
+    "kaynaklar": {
+     "kayseri": 12,
+     "konya": 11,
+     "deprem": 7
+    },
+    "dogrulama": "dogrudan Python + iki gold formul excel_motor + ikinci formul LibreOffice 7.3 CSE; 4 pertürbe kitap",
+    "suzgec_hunisi": {
+     "deneme": 34,
+     "belirsiz": 4,
+     "libreoffice_uyusmazligi": 0,
+     "kalan": 30
+    },
+    "zorluk_olcumu": {
+     "mistralai/Mistral-Small-3.2-24B-Instruct-2506": {
+      "ayni_ad_iki_anahtar": "9/10",
+      "grup_sec_1": "2/5",
+      "grup_sec_2": "0/5",
+      "turetilmis_kosul": "8/10",
+      "toplam": "19/30"
+     },
+     "deepseek-ai/DeepSeek-V4-Flash-0731": {
+      "ayni_ad_iki_anahtar": "10/10",
+      "grup_sec_1": "5/5",
+      "grup_sec_2": "3/5",
+      "turetilmis_kosul": "10/10",
+      "toplam": "28/30"
+     },
+     "not": "tum yanlislar elle incelendi, hepsi gercek model hatasi"
+    },
+    "maliyet_usd": {
+     "uretim": 0,
+     "olcum": 0.02
+    }
+   },
+   "turkce_istem_olcumu": {
+    "tarih": "2026-10-22",
+    "betik": "hesaplama/score_excel_tr.py",
+    "cikti": "hesaplama/pilot/excel_tr/",
+    "sorular": {
+     "excel_formulu": 70,
+     "excel_veritabani_birlesik": 65
+    },
+    "mistralai/Mistral-Small-3.2-24B-Instruct-2506": {
+     "serbest": {
+      "dogru": "113/135",
+      "tr_uyum": "0/135"
+     },
+     "turkce": {
+      "dogru": "30/135",
+      "tr_uyum": "31/135",
+      "ikisi": "28/135"
+     }
+    },
+    "deepseek-ai/DeepSeek-V4-Flash-0731": {
+     "serbest": {
+      "dogru": "131/135",
+      "tr_uyum": "25/135"
+     },
+     "turkce": {
+      "dogru": "105/135",
+      "tr_uyum": "110/135",
+      "ikisi": "103/135"
+     }
+    },
+    "maliyet_usd": 0.078,
+    "not": "Türkçe istemdeki düşüş çoğunlukla uydurma fonksiyon adı; uyumlu-yanlış 12 cevap elle incelendi, hepsi gerçek hata"
+   },
+   "duzeltmeler": [
+    "2026-10-22: soru metnine İngilizce Excel yazımı cümlesi eklendi (100/100 kayıt, yalnız metin)",
+    "2026-10-26: excel_motor'a MMULT, TRANSPOSE, ROW ve dizi yayinlamasi eklendi (24B'nin dogru MMULT cevabi yanlis sayiliyordu); 400 eski cevapta degisen 0",
+    "2026-10-26: excel_motor *IF/*IFS dizi kriterinde ayni deger onbellegi (B2:B100000 cevabi 3 saat -> 14 sn), HSTACK/VSTACK eklendi; score_excel_db_batch.py cevap basina 60 sn surec siniri + kaldigi yerden devam"
+   ],
+   "zor3_pilot": {
+    "tarih": "2026-10-26",
+    "dosya": "hesaplama/pilot/excel_veritabani_zor3_pilot.jsonl",
+    "soru_sayisi": 100,
+    "varyant": "yalniz birlesik",
+    "uretim": "gen_excel_db.py --takim zor3 --n-cift 100 --seed 31; 6-8 grup x 4-7 satir (24-53 satir/soru)",
+    "alt_tipler": {
+     "filtreli_grup_sec": 20,
+     "iki_adim_grup": 20,
+     "grup_sayma": 20,
+     "filtreli_grupta_k": 20,
+     "grup_max_birlesim": 20
+    },
+    "kaynaklar": {
+     "kayseri": 35,
+     "konya": 35,
+     "deprem": 30
+    },
+    "dogrulama": "dogrudan Python + iki gold formul excel_motor + ikinci formul LibreOffice 7.3 CSE; 4 pertürbe kitap; tuzak kitaplari",
+    "suzgec_hunisi": {
+     "deneme": 137,
+     "belirsiz": 37,
+     "libreoffice_uyusmazligi": 0,
+     "kalan": 100
+    },
+    "zorluk_olcumu": {
+     "mistralai/Mistral-Small-3.2-24B-Instruct-2506": {
+      "filtreli_grup_sec": "2/20",
+      "iki_adim_grup": "6/20",
+      "grup_sayma": "5/20",
+      "filtreli_grupta_k": "3/20",
+      "grup_max_birlesim": "4/20",
+      "toplam": "20/100"
+     },
+     "deepseek-ai/DeepSeek-V4-Flash-0731": {
+      "filtreli_grup_sec": "16/20",
+      "iki_adim_grup": "16/20",
+      "grup_sayma": "19/20",
+      "filtreli_grupta_k": "20/20",
+      "grup_max_birlesim": "13/20",
+      "toplam": "84/100"
+     },
+     "not": "Flash'in 16 yanlisi elle incelendi, hepsi gercek; 24B 0013 motor eki (MMULT) sonrasi dogru sayildi (19->20)"
+    },
+    "maliyet_usd": {
+     "uretim": 0,
+     "olcum": 0.0771
+    }
+   },
+   "notlar_zor3": "zor-3 son sete tasindi: setler[].ad == excel_veritabani_zor3 (2026-10-27)"
+  },
+  {
+   "ad": "excel_veritabani_zor3",
+   "soru_sayisi": 1000,
+   "dosyalar": [
+    "hesaplama/cikti_veritabani/excel_veritabani_zor3.jsonl"
+   ],
+   "alanlar": [
+    "alt_tip",
+    "beklenen_sonuc",
+    "calisma_kitaplari",
+    "cevap",
+    "cevap_tr",
+    "cift_id",
+    "dogrulama_yontemi",
+    "id",
+    "kategori",
+    "kaynak_db",
+    "lisans",
+    "soru",
+    "varyant",
+    "zorluk"
+   ],
+   "uretim": {
+    "komut": "gen_excel_db.py --takim zor3 --n-cift 1000 --seed 41; grup_max_birlesim yeniden: --sablon grup_max_birlesim --n-cift 200 --seed 42 (kimlikler korunarak yerine kondu)",
+    "kaynaklar": {
+     "kayseri": 335,
+     "konya": 335,
+     "deprem": 330
+    },
+    "alt_tipler": {
+     "filtreli_grup_sec": 200,
+     "iki_adim_grup": 200,
+     "grup_sayma": 200,
+     "filtreli_grupta_k": 200,
+     "grup_max_birlesim": 200
+    },
+    "tablo_satir": {
+     "min": 24,
+     "ort": 38.5,
+     "max": 53
+    },
+    "dogrulama": "formulsuz Python + iki gold formul excel_motor + ikinci formul LibreOffice 7.3 CSE; 4 perturbe kitap; tuzak kitaplari (kesin)",
+    "llm_rolu": "yok"
+   },
+   "suzgec_hunisi": {
+    "ilk_uretim": {
+     "deneme": 1357,
+     "belirsiz": 357,
+     "libreoffice_uyusmazligi": 0,
+     "kalan": 1000,
+     "tekil_soru": 1000,
+     "pilotla_ortak": 0
+    },
+    "grup_max_birlesim_yeniden": {
+     "deneme": 202,
+     "kalan": 200,
+     "libreoffice_uyusmazligi": 0
+    },
+    "son": {
+     "kayit": 1000,
+     "tekil_soru": 1000,
+     "pilotla_ortak": 0
+    }
+   },
+   "zorluk_olcumu": {
+    "yontem": "DeepInfra Batch API, temperature 0, reasoning low, 4000 token, tek deneme; calistirarak puanlama (asil + 4 perturbe kitap), cevap basina 60 sn sinir",
+    "skor_dosyasi": "hesaplama/pilot/excel_veritabani_zor3_skor.jsonl",
+    "modeller": {
+     "mistralai/Mistral-Small-3.2-24B-Instruct-2506": {
+      "toplam": 272,
+      "filtreli_grup_sec": 22,
+      "iki_adim_grup": 59,
+      "grup_sayma": 65,
+      "filtreli_grupta_k": 55,
+      "grup_max_birlesim": 71
+     },
+     "deepseek-ai/DeepSeek-V4-Flash-0731": {
+      "toplam": 842,
+      "filtreli_grup_sec": 131,
+      "iki_adim_grup": 176,
+      "grup_sayma": 171,
+      "filtreli_grupta_k": 193,
+      "grup_max_birlesim": 171
+     }
+    },
+    "n_model_basina": 1000,
+    "denetim": "Flash yanlislarindan 39 elle (31 ilk 4 sablon + 8 yeni grup_max_birlesim): 1 puanlayici hatasi (HSTACK, duzeltildi), 38 gercek. 24B 0270 cevabi 300 sn icinde puanlanamadi, elle yanlis."
+   },
+   "maliyet_usd": {
+    "olcum_toplam": 0.9691,
+    "ilk_kosu": 0.7839,
+    "grup_max_birlesim_yeniden_olcum": 0.1852,
+    "uretim": 0
+   },
+   "kodlar": "yontem/kodlar/excel_veritabani/",
+   "duzeltmeler": [
+    "2026-10-26: grup_max_birlesim \"ortalama ROUND 2\" birlesimi cikarildi (Flash yanlislarinin 49/72si ROUND unutma), karsi uc (MIN(MAXIFS)/MAX(MINIFS)) eklendi, 200 soru yeniden uretildi",
+    "2026-10-26: excel_motor HSTACK/VSTACK, *IF dizi-kriter onbellegi; score_excel_db_batch.py surec basina sure siniri"
+   ]
+  },
+  {
+   "ad": "sql_cikti_tahmini",
+   "soru_sayisi": 3424,
+   "dosyalar": [
+    "sql_arastirma/uretim/cikti_tahmini/sorular_dengeli.jsonl",
+    "sql_arastirma/uretim/cikti_tahmini/agregasyon_sorular.jsonl",
+    "sql_arastirma/uretim/cikti_tahmini/agregasyon_sorular_coklu.jsonl",
+    "sql_arastirma/uretim/cikti_tahmini/hesapsiz_kesik_sorular.jsonl",
+    "sql_arastirma/uretim/cikti_tahmini/roundlu_kesik_sorular.jsonl"
+   ],
+   "alanlar": {
+    "soru": "yok (SQL + ham veri verilir, NL soru değil)",
+    "sql": "model'e verilen hazır SQL sorgusu",
+    "gold": "gercek_sonuc (satır listesi)",
+    "dilim_id": "sorular.jsonl -> dilimler.json'daki tablo dökümüne referans (basit kategori)",
+    "tablo_metni": "doğrudan gömülü tablo dökümü (agregasyon kategorisi)"
+   },
+   "uretim": {
+    "yontem": "program; LLM yok. Basit: §6/§7 havuzundan yeniden paketleme. Agregasyon: Manisa'dan küçük ilçe dilimleri",
+    "cevap_kaynagi": "gerçek SQLite (yeniden çalıştırılıp doğrulandı)",
+    "dogrulama": "her SQL kayıttan sonra gerçek DB'ye karşı tekrar çalıştırılıp gercek_sonuc ile birebir karşılaştırıldı (3.678/3.678, 0 uyuşmazlık)",
+    "kaynak": "§6 (il/ilçe, 20.262) + §7 (belediye dışı, 9.234) havuzu + Manisa açık veri (agregasyon için yeni kombinasyonlar) + 10 ek kaynak (Sakarya/Kayseri/Trabzon/İzmir/Ankara/Konya/Deprem/Wikidata/Kadıköy/Tuzla)"
+   },
+   "dagilim": {
+    "basit_hesapsiz": 66,
+    "basit_roundlu": 3512,
+    "agregasyon_manisa": 100,
+    "agregasyon_10_ek_kaynak": 817,
+    "basit_hesapsiz_kesik": 495
+   },
+   "zorluk_olcumu": {
+    "pilot_sonuclari": "bkz. YONTEM.md §8 (3x3 kafes: basit-hesapsiz %93-95, basit-ROUND'lu %61-87, agregasyon %0-78 satır sayısına göre)",
+    "ilk_spot_kontrol": {
+     "agregasyon_manisa_n20_3deneme": 0.967,
+     "agregasyon_10kaynak_n25_3deneme": 0.973
+    },
+    "uretim_yuzde10_testi": {
+     "yontem": "sabit seed (2026), orantılı %10 örneklem (olc_uretim_yuzde10.py), Flash reasoning_effort=high, 3 deneme/soru",
+     "basit_ilk_tur_max_tokens_8000": {
+      "basari": 774,
+      "toplam": 1074,
+      "oran": 0.721,
+      "not": "finish_reason=length ile kesilen cevaplar JSON uretemedi; model max_tokens dolana kadar dusunuyor"
+     },
+     "basit_duzeltilmis_max_tokens_16000": {
+      "basari": 942,
+      "toplam": 1074,
+      "oran": 0.877,
+      "hata": 59,
+      "finish_reason_length": 11,
+      "script": "olc_basit_16k.py"
+     },
+     "agregasyon_manisa": {
+      "basari": 27,
+      "toplam": 30,
+      "oran": 0.9
+     },
+     "agregasyon_10kaynak": {
+      "basari": 228,
+      "toplam": 246,
+      "oran": 0.927
+     },
+     "genel": {
+      "basari": 1197,
+      "toplam": 1350,
+      "oran": 0.887
+     }
+    },
+    "ayni_orneklem_iki_model_2026_10_27": {
+     "orneklem": "grup basina 15 soru (tohum 7), 3 deneme",
+     "mistralai/Mistral-Small-3.2-24B-Instruct-2506": {
+      "hesapsiz": "3/45",
+      "roundlu": "0/45",
+      "sayma_gruplama": "4/90",
+      "toplam": "7/180"
+     },
+     "deepseek-ai/DeepSeek-V4-Flash-0731": {
+      "hesapsiz": "45/45",
+      "roundlu": "43/45 (yeniden olcum; ilk koşuda 29 zaman asimi)",
+      "sayma_gruplama": "89/90",
+      "toplam": "177/180"
+     },
+     "dosyalar": [
+      "sql_arastirma/uretim/cikti_tahmini/kalite_kucuk_buyuk_altkume.json",
+      "sql_arastirma/uretim/cikti_tahmini/kalite_kucuk_roundlu_flash_tekrar.json"
+     ],
+     "not": "ilk 24B istemi yalniz JSON istiyordu; adim adim istemle 7/180 -> 32/180",
+     "mistralai/Mistral-Small-3.2-24B-Instruct-2506_adim_adim": {
+      "hesapsiz": "5/45",
+      "roundlu": "2/45",
+      "sayma_gruplama": "25/90",
+      "toplam": "32/180",
+      "maliyet_usd": 0.3245,
+      "dosya": "sql_arastirma/uretim/cikti_tahmini/kalite_24b_adim_adim.json"
+     }
+    },
+    "hesapsiz_yuzde10_2026_10_28": {
+     "orneklem": "561 hesapsizdan 56 (eski 7 + yeni 49, tohum 7), 3 deneme",
+     "deepseek-ai/DeepSeek-V4-Flash-0731": {
+      "eski": "21/21",
+      "yeni": "131/147",
+      "toplam": "152/168"
+     },
+     "mistralai/Mistral-Small-3.2-24B-Instruct-2506_adim_adim": {
+      "eski": "2/21",
+      "yeni": "11/147",
+      "toplam": "13/168"
+     },
+     "maliyet_usd": 0.7343,
+     "dosya": "sql_arastirma/uretim/cikti_tahmini/kalite_hesapsiz_yuzde10.json",
+     "not": "Flash 3 cevapta [[[..]]] / kacisli tirnak bicimi; toleransli ayristirici ile okundu (144 -> 152)"
+    }
+   },
+   "bilinen_sinirlar": [
+    "3.000 satır üstü basit sorular (tahminen ~2.400, ör. Dünya Bankası degerler tablosu) kapsanmadı, test edilmedi",
+    "agregasyon şu an sadece Manisa'dan (4 metrik tablo); diğer kaynaklara genişletilebilir",
+    "basit kategoride 'hesapsız' alt tip az (66) - çoğu mevcut soru bir oran/yüzde hesaplıyor",
+    "Konya'nin ilce_* tablolarinin cogu onceden-toplanmis (talep_sayisi gibi), ham kayit olmadigi icin agregasyon uretiminde kullanilmadi",
+    "Izmir askida_fatura_kapanislari dengesiz dagilmis, hedeflenen 25 sorudan sadece 7'si uretilebildi",
+    "basit kategorinin en zor (cok-tablolu/alt-sorgulu) ucunda 16.000 token'da bile 11/1074 deneme (%1) finish_reason=length ile kesiliyor"
+   ],
+   "maliyet_usd": {
+    "uretim": 0,
+    "kalite_kontrolu": 3.66
+   },
+   "kodlar": "yontem/kodlar/sql_exec_tahmin/ (uret_cikti_tahmini.py, uret_agregasyon_dilim.py, uret_agregasyon_coklu.py, olc_agregasyon_spot.py, olc_agregasyon_coklu_spot.py, olc_uretim_yuzde10.py, olc_basit_16k.py); yontem/kodlar/sql_exec_tahmin/ (denge_istanbul.py, uret_roundlu_kesik.py, uret_hesapsiz_kesik.py)",
+   "duzeltmeler": [
+    "2026-10-28: hesapsiz grup 66 -> 561; 3000 satiri asan 603 hesapsiz SQL buyuk tablolarin rastgele 300/600 satirlik kesiginde yeniden calistirildi, 495 kaldi (uret_hesapsiz_kesik.py)"
+   ],
+   "notlar": [
+    "2026-10-30: Istanbul ROUND'lu dilim basina 32 (3.292 -> 990, fazlasi sorular_fazla_istanbul.jsonl), ROUND'lu kesik 736 eklendi (Dunya Bankasi 598, Eurostat 120, Izmir 18); 4.990 -> 3.424; YONTEM.md S11"
+   ]
+  },
+  {
+   "ad": "sql_turspider",
+   "soru_sayisi": 7904,
+   "dosyalar": [
+    "sql_arastirma/hazir/turspider.jsonl"
+   ],
+   "koken": "turspider_filtreli",
+   "lisans": "CC BY-SA 4.0",
+   "alanlar": {
+    "soru": "Turkce soru/istek",
+    "cevap": "gold SQL",
+    "orijinal.gercek_sonuc": "yeniden hesaplanan altin sonuc"
+   },
+   "uretim": "Dis set (github.com/alibugra/TURSpider, Spider'in insan cevirisi); sql_arastirma/hazir_setler.py ile altin sonuc yeniden hesaplanip suzuldu",
+   "suzgec_hunisi": {
+    "girdi": 9599,
+    "bos_sonuc": 1619,
+    "kalan": 7980,
+    "birlesik_tekrar": 76,
+    "son": 7904
+   },
+   "zorluk_olcumu": null,
+   "maliyet_usd": 0,
+   "kodlar": "yontem/kodlar/sql_hazir/ (hazir_setler.py, fix_cognipeer.py)"
+  },
+  {
+   "ad": "sql_cognipeer",
+   "soru_sayisi": 69034,
+   "dosyalar": [
+    "sql_arastirma/hazir/cognipeer.jsonl"
+   ],
+   "koken": "cognipeer_filtreli",
+   "lisans": "Apache 2.0",
+   "alanlar": {
+    "soru": "Turkce soru/istek",
+    "cevap": "gold SQL",
+    "orijinal.gercek_sonuc": "yeniden hesaplanan altin sonuc"
+   },
+   "uretim": "Dis set (Cognipeer/synthetic-text-to-sql-tr, LLM uretimi); sql_arastirma/hazir_setler.py ile altin sonuc yeniden hesaplanip suzuldu",
+   "suzgec_hunisi": {
+    "girdi": 85793,
+    "bos_istem": 13,
+    "tekrar": 31,
+    "zamana_bagli": 3695,
+    "hata": 27,
+    "bos_sonuc": 10539,
+    "durum_degismiyor": 2454,
+    "son": 69034
+   },
+   "zorluk_olcumu": null,
+   "maliyet_usd": 0,
+   "kodlar": "yontem/kodlar/sql_hazir/ (hazir_setler.py, fix_cognipeer.py)"
+  }
+ ],
+ "toplam": {
+  "soru": 137997,
+  "ozgun": 61059,
+  "dis": 76938,
+  "kesin_ozgun": 54152,
+  "llm_dogrulanmis": 6907
+ }
+}

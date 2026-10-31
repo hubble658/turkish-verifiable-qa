@@ -1,0 +1,82 @@
+{
+ "toplam": 137997,
+ "setler": {
+  "bulmaca": 3000,
+  "excel_veritabani": 1000,
+  "hesaplama": 14613,
+  "meb_capraz": 3993,
+  "meb_tek_ders": 2914,
+  "solver": 4986,
+  "sql_belediye_disi": 9234,
+  "sql_cikti_tahmini": 3424,
+  "sql_cognipeer": 69034,
+  "sql_il_ilce": 17895,
+  "sql_turspider": 7904
+ },
+ "kategori_koken": {
+  "bulmaca": {
+   "akrabalik|ozgun": 450,
+   "dogrucu_yalanci|ozgun": 400,
+   "nesne_takip|ozgun": 200,
+   "sahiplik_zinciri|ozgun": 200,
+   "sayac_takip|ozgun": 300,
+   "siralama|ozgun": 400,
+   "yon|ozgun": 400,
+   "zaman_aritmetigi|ozgun": 200,
+   "zebra|ozgun": 450
+  },
+  "excel_veritabani": {
+   "excel_veritabani|ozgun": 1000
+  },
+  "hesaplama": {
+   "birim_donusumu|ozgun": 2397,
+   "excel_formulu|ozgun": 2100,
+   "fizik_hesabi|ozgun": 2400,
+   "json_uretimi|ozgun": 1200,
+   "kimya_hesabi|ozgun": 1116,
+   "matris_islemleri|ozgun": 2100,
+   "tarih_hesaplama|ozgun": 2100,
+   "xml_uretimi|ozgun": 1200
+  },
+  "meb_capraz": {
+   "korpus_capraz_eslestirmeli|ozgun": 3993
+  },
+  "meb_tek_ders": {
+   "korpus_tek_ders|ozgun": 2914
+  },
+  "solver": {
+   "solver|ozgun": 4986
+  },
+  "sql_belediye_disi": {
+   "sql_belediye_disi|ozgun": 9234
+  },
+  "sql_cikti_tahmini": {
+   "sql_cikti_tahmini|ozgun": 3424
+  },
+  "sql_cognipeer": {
+   "sql_cognipeer|cognipeer_filtreli": 69034
+  },
+  "sql_il_ilce": {
+   "sql_il_ilce|ozgun": 17895
+  },
+  "sql_turspider": {
+   "sql_turspider|turspider_filtreli": 7904
+  }
+ },
+ "veritabanlari": [
+  "ankara_acik_veri.sqlite",
+  "deprem_acik_veri.sqlite",
+  "dunyabankasi_acik_veri.sqlite",
+  "eurostat_acik_veri.sqlite",
+  "istanbul_acik_veri.sqlite",
+  "izmir_acik_veri.sqlite",
+  "kadikoy_acik_veri.sqlite",
+  "kayseri_acik_veri.sqlite",
+  "konya_acik_veri.sqlite",
+  "manisa_acik_veri.sqlite",
+  "sakarya_acik_veri.sqlite",
+  "trabzon_acik_veri.sqlite",
+  "tuzla_acik_veri.sqlite",
+  "wikidata_acik_veri.sqlite"
+ ]
+}

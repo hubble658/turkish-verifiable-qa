@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+# TURSpider veritabanlari depoya girmez (futbol_1 317 MB); araclar/turspider_indir.sh
+veritabanlari/turspider/
+altin_sinama_hatali.jsonl
