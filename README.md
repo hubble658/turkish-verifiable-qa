@@ -30,8 +30,8 @@ configs:
   data_files: veri/meb_tek_ders.jsonl.gz
 - config_name: solver
   data_files: veri/solver.jsonl.gz
-- config_name: sql_belediye_disi
-  data_files: veri/sql_belediye_disi.jsonl.gz
+- config_name: sql_istatistik
+  data_files: veri/sql_istatistik.jsonl.gz
 - config_name: sql_cikti_tahmini
   data_files: veri/sql_cikti_tahmini.jsonl.gz
 - config_name: sql_cognipeer
@@ -59,7 +59,7 @@ Sürüm: 30 Ekim 2026.
 | `excel_veritabani.jsonl.gz` | 1.000 | özgün | Program (Python + iki formül motoru + LibreOffice) | Tek Excel formülü |
 | `solver.jsonl.gz` | 4.986 | özgün | Program (OR-Tools CP-SAT, kanıtlı en iyi değer) | En iyi değer (`orta`) ya da Python programı (`kod`) |
 | `sql_il_ilce.jsonl.gz` | 17.895 | özgün | Gerçek SQLite'ta çalıştırma | SQL sorgusu |
-| `sql_belediye_disi.jsonl.gz` | 9.234 | özgün | Gerçek SQLite'ta çalıştırma | SQL sorgusu |
+| `sql_istatistik.jsonl.gz` | 9.234 | özgün | Gerçek SQLite'ta çalıştırma | SQL sorgusu (ulusal/uluslararası istatistik: deprem, Eurostat, Dünya Bankası, Wikidata) |
 | `sql_cikti_tahmini.jsonl.gz` | 3.424 | özgün | Gerçek SQLite'ta çalıştırma | Verilen SQL'in çıktısı (JSON tablo) |
 | `meb_tek_ders.jsonl.gz` | 2.914 | özgün | LLM + kitap pasajı, LLM tutarlılık kontrolü | Kısa cevap |
 | `meb_capraz.jsonl.gz` | 3.993 | özgün | LLM + iki ders pasajı, LLM hakem | Kısa cevap |
