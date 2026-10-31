@@ -27,7 +27,7 @@ import bulmaca_scoring  # noqa: E402
 from grade import grade  # noqa: E402
 
 EXCEL_SURE_SN = 60
-SQL_METIN_KATEGORI = {"sql_il_ilce", "sql_istatistik", "sql_turspider"}
+SQL_METIN_KATEGORI = {"sql_belediye", "sql_istatistik", "sql_turspider"}
 
 
 def vt_klasoru():

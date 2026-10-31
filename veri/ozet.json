@@ -7,9 +7,9 @@
   "meb_capraz": 3993,
   "meb_tek_ders": 2914,
   "solver": 4986,
+  "sql_belediye": 17895,
   "sql_cikti_tahmini": 3424,
   "sql_cognipeer": 69034,
-  "sql_il_ilce": 17895,
   "sql_istatistik": 9234,
   "sql_turspider": 7904
  },
@@ -47,14 +47,14 @@
   "solver": {
    "solver|ozgun": 4986
   },
+  "sql_belediye": {
+   "sql_belediye|ozgun": 17895
+  },
   "sql_cikti_tahmini": {
    "sql_cikti_tahmini|ozgun": 3424
   },
   "sql_cognipeer": {
    "sql_cognipeer|cognipeer_filtreli": 69034
-  },
-  "sql_il_ilce": {
-   "sql_il_ilce|ozgun": 17895
   },
   "sql_istatistik": {
    "sql_istatistik|ozgun": 9234

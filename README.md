@@ -36,8 +36,8 @@ configs:
   data_files: veri/sql_cikti_tahmini.jsonl.gz
 - config_name: sql_cognipeer
   data_files: veri/sql_cognipeer.jsonl.gz
-- config_name: sql_il_ilce
-  data_files: veri/sql_il_ilce.jsonl.gz
+- config_name: sql_belediye
+  data_files: veri/sql_belediye.jsonl.gz
 - config_name: sql_turspider
   data_files: veri/sql_turspider.jsonl.gz
 ---
@@ -58,7 +58,7 @@ Sürüm: 30 Ekim 2026.
 | `hesaplama.jsonl.gz` | 14.613 | özgün | Program (formül, sympy, datetime, şema) | Sayı+birim / tarih / matris / JSON / XML / Excel formülü |
 | `excel_veritabani.jsonl.gz` | 1.000 | özgün | Program (Python + iki formül motoru + LibreOffice) | Tek Excel formülü |
 | `solver.jsonl.gz` | 4.986 | özgün | Program (OR-Tools CP-SAT, kanıtlı en iyi değer) | En iyi değer (`orta`) ya da Python programı (`kod`) |
-| `sql_il_ilce.jsonl.gz` | 17.895 | özgün | Gerçek SQLite'ta çalıştırma | SQL sorgusu |
+| `sql_belediye.jsonl.gz` | 17.895 | özgün | Gerçek SQLite'ta çalıştırma | SQL sorgusu (belediye açık verisi: 10 il/ilçe veritabanı) |
 | `sql_istatistik.jsonl.gz` | 9.234 | özgün | Gerçek SQLite'ta çalıştırma | SQL sorgusu (ulusal/uluslararası istatistik: deprem, Eurostat, Dünya Bankası, Wikidata) |
 | `sql_cikti_tahmini.jsonl.gz` | 3.424 | özgün | Gerçek SQLite'ta çalıştırma | Verilen SQL'in çıktısı (JSON tablo) |
 | `meb_tek_ders.jsonl.gz` | 2.914 | özgün | LLM + kitap pasajı, LLM tutarlılık kontrolü | Kısa cevap |
@@ -85,7 +85,7 @@ Her dosya satır başına bir JSON nesnesi içerir:
 |---|---|
 | `id` | Benzersiz kimlik |
 | `kaynak` | `bulmaca`, `hesaplama`, `korpus` (MEB), `solver`, `sql` |
-| `kategori` | Alt set (ör. `birim_donusumu`, `sql_il_ilce`, `korpus_capraz_eslestirmeli`) |
+| `kategori` | Alt set (ör. `birim_donusumu`, `sql_belediye`, `korpus_capraz_eslestirmeli`) |
 | `alt_tip` | Şablon ya da soru tipi |
 | `koken` | `ozgun` / `turspider_filtreli` / `cognipeer_filtreli` |
 | `zorluk` | **Şimdilik `null`.** Tüm setlere aynı ayarla koşulacak son benchmark'tan doldurulacak |
