@@ -1,5 +1,5 @@
 {
- "toplam": 137997,
+ "toplam": 137784,
  "setler": {
   "bulmaca": 3000,
   "excel_veritabani": 1000,
@@ -7,8 +7,8 @@
   "meb_capraz": 3993,
   "meb_tek_ders": 2914,
   "solver": 4986,
-  "sql_belediye": 17895,
-  "sql_cikti_tahmini": 3424,
+  "sql_belediye": 17785,
+  "sql_cikti_tahmini": 3321,
   "sql_cognipeer": 69034,
   "sql_istatistik": 9234,
   "sql_turspider": 7904
@@ -48,10 +48,10 @@
    "solver|ozgun": 4986
   },
   "sql_belediye": {
-   "sql_belediye|ozgun": 17895
+   "sql_belediye|ozgun": 17785
   },
   "sql_cikti_tahmini": {
-   "sql_cikti_tahmini|ozgun": 3424
+   "sql_cikti_tahmini|ozgun": 3321
   },
   "sql_cognipeer": {
    "sql_cognipeer|cognipeer_filtreli": 69034
@@ -73,7 +73,6 @@
   "kadikoy_acik_veri.sqlite",
   "kayseri_acik_veri.sqlite",
   "konya_acik_veri.sqlite",
-  "manisa_acik_veri.sqlite",
   "sakarya_acik_veri.sqlite",
   "trabzon_acik_veri.sqlite",
   "tuzla_acik_veri.sqlite",
