@@ -7,6 +7,7 @@
 Her kategori, olcumlerde kullanilan istemi ve puanlayiciyi kullanir (ayrinti: KULLANIM.md).
 Veritabani klasoru varsayilan olarak paketin `veritabanlari/`'i; VD_VERITABANLARI ile degistirilir.
 """
+import ast
 import json
 import multiprocessing as mp
 import os
@@ -219,8 +220,11 @@ def puanla(satir, metin, hakem=None):
     satir = _uyarla(satir)
     k, o = satir["kategori"], orijinal(satir)
     if satir["kaynak"] == "bulmaca":
-        kesin, _gevsek = bulmaca_scoring.score_record(o, bulmaca_scoring.extract_answer(metin or ""))
-        return kesin
+        # 2026-10-31: gevsek eslesme (sira/ek/bicim farki tolere) doner. Kesin eslesme, hakemin dogru saydigi
+        # 720 cevabin 114'unu reddediyordu ("Aslı ve Pelin" / "Aslı, Pelin", "13.45" / "13:45", "Mutfakta");
+        # gevsek eslesme hakemle 714/720 uyumlu, yanlis pozitifi yok.
+        _kesin, gevsek = bulmaca_scoring.score_record(o, bulmaca_scoring.extract_answer(metin or ""))
+        return gevsek
     if satir["kaynak"] == "korpus":
         return meb.puanla(satir["soru"], satir["cevap"], metin, hakem=hakem)
     if k == "solver":
@@ -234,7 +238,14 @@ def puanla(satir, metin, hakem=None):
             rows = sql.calistir(str(vt_klasoru() / o["db"]), sql.sql_al(metin), _ekler(o))
         except Exception:
             return False
-        return sql.sonuc_eslesiyor(o["gercek_sonuc"], rows, sql.bool_al(o.get("sira_onemli", False)))
+        sira = sql.bool_al(o.get("sira_onemli", False))
+        if sql.sonuc_eslesiyor(o["gercek_sonuc"], rows, sira):
+            return True
+        try:  # altin esit degerlerde taramaya bagli mi (bkz. sql.belirsizlik_toleransli)
+            ters = sql.calistir(str(vt_klasoru() / o["db"]), satir["cevap"], _ekler(o), ters=True)
+        except Exception:
+            return False
+        return sql.belirsizlik_toleransli(o["gercek_sonuc"], rows, sira, ters)
     if k == "sql_cognipeer":
         return sql.puanla_cognipeer(o, satir["cevap"], metin)
     if k == "sql_cikti_tahmini":
@@ -242,5 +253,9 @@ def puanla(satir, metin, hakem=None):
             tahmin = sql.tablo_ayristir(metin)
         except Exception:
             return False
-        return sql.sonuc_eslesiyor(o["gold"], tahmin, sql.dis_order_by(o["sql"]))
+        gold = o["gold"] if isinstance(o["gold"], list) else ast.literal_eval(o["gold"])
+        sira = sql.dis_order_by(o["sql"])
+        if sql.sonuc_eslesiyor(gold, tahmin, sira):
+            return True
+        return sql.belirsizlik_toleransli(gold, tahmin, sira, sql.tablodan_ters_sonuc(tablo_metni(o), o["sql"]))
     raise KeyError(f"bilinmeyen kategori: {k}")

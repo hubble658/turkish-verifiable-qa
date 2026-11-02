@@ -55,26 +55,66 @@ def _icinde(kisa, uzun):
     return False
 
 
+# harfe bitisik rakam (CO2, H2O, I1, F2) sayi degil formul/etiket parcasidir
+_BAGIMSIZ_SAYI_RE = re.compile(r"(?<![\w.,])-?\d+(?:[.,]\d+)?(?![\wçğıöşü])")
+_OLUMSUZ_RE = re.compile(r"\b(değil\w*|hayır|yok|ya da|veya|yahut)\b")
+_BIRIM_UZUNLUGU = 5  # "K", "g", "mol", "mmHg", "kat": yalin sayi cevabinda yazilmasa da olur
+
+
+def _sayilar(s):
+    """Metindeki sirasiyla (sira onemli: "3:4" ile "4 > 3", "1/2" ile "2:1" ayni degil)."""
+    return [float(x.replace(",", ".")) for x in _BAGIMSIZ_SAYI_RE.findall(s)]
+
+
+def _isaretler(s):
+    """Rakamdan once gelen eksi isaretleri: normalize() isareti sildigi icin "-3E" ~ "3E" oluyordu."""
+    return len(re.findall(r"[-−]\s*\d", s))
+
+
 def answers_match(tahmin: str, altin: str) -> bool:
-    """Model cevabinin hizli yolla (hakeme gitmeden) dogru sayilip sayilmayacagi. Ikisi de sayi iceriyorsa
-    TAM sayisal esitlik ("8" ~ "98" yanlis-pozitifi, 2026-09-02). Metinde (2026-10-30): parantezler
-    atilinca normalize esitlik ("Karbon dioksit" ~ "karbondioksit (CO₂)") ya da altin cevabin SOZCUKLERI
-    model cevabinda ardisik geciyor. Eski hali iki yonde harf dizgesi ariyordu: altin "C" iken "c" harfi
-    gecen her cevap, "Apolardır" altinina "polar" cevabi dogru sayiliyordu (altin cevaplarin 483'u 3
-    karakter ya da daha kisa); kisa model cevabi uzun altinin icinde de aranmaz ("ışık" ≠ "Işık şiddeti").
-    Eslesmezse False: hakeme dusulur."""
+    """Model cevabinin hizli yolla (hakeme gitmeden) dogru sayilip sayilmayacagi. Bu yol YALNIZ emin oldugunda
+    True der; suphede False doner ve karar hakeme kalir (hakemsiz skor alt sinirdir).
+
+    2026-10-31 (onceki surum yalniz ILK sayilari kiyasliyordu; gercek olcumlerde "3/4" ~ "3/1", "1/8" ~ "1/4",
+    "atom numarasi 84" ~ "88", "18-30" ~ "18-25", "SO2" ~ "CO2", "H2SO4" ~ "H2O", "polar değildir" ~ "polar"
+    dogru sayilmisti):
+    - bagimsiz sayilarin TAMAMI (coklu kume) esit olmali; harfe bitisik rakam sayi sayilmaz;
+    - sayilar esitse metin de tutmali: altinin sozcukleri cevapta gecmeli ya da cevap yalin sayiysa altinin
+      metni kisa bir birim olmali ("298 K" ~ "298");
+    - altinda olmayan olumsuzluk / secenek sozcugu (değil, hayır, yok, ya da, veya) cevapta varsa hakeme.
+    Metinde: parantezler atilinca normalize esitlik ("Karbon dioksit" ~ "karbondioksit (CO₂)") ya da altin
+    cevabin SOZCUKLERI model cevabinda ardisik geciyor (3+ harfli sozcukte Turkce ek tolere)."""
     if not normalize(tahmin) or not normalize(altin):
         return False
-    num_a, num_b = _NUM_RE.search(tahmin), _NUM_RE.search(altin)
-    if num_a and num_b:
-        try:
-            return abs(float(num_a.group().replace(",", ".")) - float(num_b.group().replace(",", "."))) < 1e-6
-        except ValueError:
-            pass
+    kt, ka = _tr_lower(tahmin), _tr_lower(altin)
+    if any(m.group(0) not in ka for m in _OLUMSUZ_RE.finditer(kt)):
+        return False
+    if _isaretler(tahmin) != _isaretler(altin):
+        return False
+    if _tr_lower(tahmin).strip() == _tr_lower(altin).strip():
+        return True
+    psiz = lambda x: re.sub(r"\([^)]*\)", " ", x)
+    st, sa = _sozcukler(tahmin), _sozcukler(psiz(altin))
+
+    def sayilar_esit(a, b):
+        return len(a) == len(b) and all(abs(x - y) <= 1e-6 for x, y in zip(a, b))
+
+    nt, na = _sayilar(tahmin), _sayilar(psiz(altin))
+    if nt or na:
+        # cevabin sayilari altinin parantezsiz ya da tam hâliyle tutmali ("karekök(2) katına" kendisiyle eslesir;
+        # cevabin parantezi atilmaz: "Vs = (3/2) * Vp" ~ "Vs = Vp * (2N/3N) * (3N/N)" yanlis eslesirdi)
+        if not (sayilar_esit(nt, na) or sayilar_esit(nt, _sayilar(altin))):
+            return False
+        sa_metin = [w for w in sa if not _BAGIMSIZ_SAYI_RE.fullmatch(w)]
+        st_metin = [w for w in st if not _BAGIMSIZ_SAYI_RE.fullmatch(w)]
+        if not sa_metin:
+            return True
+        if not st_metin:  # yalin sayi cevabi: altinda yalniz birim ("298 K") ya da tek sozcuk ("259 saniye")
+            return len(sa_metin) == 1 or all(len(w) <= _BIRIM_UZUNLUGU for w in sa_metin)
+        return _icinde(sa_metin, st_metin) or all(len(w) <= _BIRIM_UZUNLUGU for w in sa_metin) and not set(st_metin) - set(sa_metin)
     parantezsiz = lambda x: normalize(_tr_lower(re.sub(r"\([^)]*\)", " ", x)))
     if parantezsiz(tahmin) and parantezsiz(tahmin) == parantezsiz(altin):
         return True
-    st, sa = _sozcukler(tahmin), _sozcukler(re.sub(r"\([^)]*\)", " ", altin))
     return bool(st and sa) and _icinde(sa, st)
 
 

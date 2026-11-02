@@ -56,6 +56,38 @@ AKRABALIK_CANON = {
 }
 
 
+_AKRABALIK_KOKLER = ("baba", "anne", "oğl", "oğul", "kız", "kardeş", "dede", "torun", "amca", "dayı", "hala",
+                     "teyze", "yeğen", "kuzen")
+
+
+def _akrabalik_terimi(raw):
+    """2026-11-02: cumle halindeki cevaptan tek akrabalik terimi. Dusunen V4-Flash cevabi sikca cumleyle
+    yaziyor ("Erkek torunu", "Mehmet, Selin'in erkek yeğenidir.", "Yeğenidir.") ve eski kural yalniz
+    cevabin tamamini esliyordu: 100 akrabalik sorusunun 51'i boyle reddedildi. Ek-fiil (-dir) ve cinsiyet
+    niteleyicisi (erkek/kız + terim) atilir; "erkek/kız kardeşi" tek terimdir. Cevapta tam olarak BIR terim
+    geciyorsa ve "değil" yoksa o terim doner, yoksa None (eski davranis)."""
+    w = [re.sub(r"(?<=[aeıioöuü])[dt][ıiuü]r$", "", x) for x in re.findall(r"[a-zçğıöşü]+", tr_lower(str(raw)))]
+    if "değil" in w:
+        return None
+    # zincir ifade ("annesinin babası" = dedesi): ek almis akrabalik koku varsa karar verilmez
+    if any(x.startswith(_AKRABALIK_KOKLER) and x not in AKRABALIK_CANON and x not in ("erkek", "kız", "kardeş", "kardeşi")
+           for x in w):
+        return None
+    bulunan, i = set(), 0
+    while i < len(w):
+        if w[i] in ("erkek", "kız") and i + 1 < len(w) and w[i + 1] in ("kardeş", "kardeşi"):
+            bulunan.add(AKRABALIK_CANON[f"{w[i]} {w[i + 1]}"])
+            i += 2
+            continue
+        if w[i] in ("erkek", "kız") and i + 1 < len(w) and w[i + 1] in AKRABALIK_CANON:
+            i += 1  # cinsiyet niteleyicisi: "erkek torunu", "kız yeğeni"
+            continue
+        if w[i] in AKRABALIK_CANON and " " not in w[i]:
+            bulunan.add(AKRABALIK_CANON[w[i]])
+        i += 1
+    return bulunan.pop() if len(bulunan) == 1 else None
+
+
 # nesne_takip.py'nin ROOMS sözlüğündeki oda adları (kapalı, küçük sözcük
 # dağarcığı - bkz. bulmaca_pkg/tr_utils.py). final_obj/final_container/
 # counterfactual cevaplari yalin (nominatif) oda adidir, ama model sikca
@@ -84,7 +116,18 @@ def norm_answer_set(rec, raw):
     gold = rec.get("answer", rec.get("gold_answer", ""))
 
     if t == "akrabalik":
-        return AKRABALIK_CANON.get(norm_token(raw), norm_token(raw))
+        return AKRABALIK_CANON.get(norm_token(raw)) or _akrabalik_terimi(raw) or norm_token(raw)
+
+    # 2026-11-02 (dusunen V4-Flash benchmark'i): tipografik kesme isareti ("Aslı’dan") asagidaki kesme
+    # isareti kuralina girmiyordu; sayacta "2 top" / "Sadece sarı" reddediliyordu.
+    if isinstance(raw, str):
+        raw = raw.replace("’", "'").replace("‘", "'")
+    if t == "sayac_takip":
+        raw = re.sub(r"^\s*(sadece|yalnızca|yalnız)\s+", "", tr_lower(str(raw)))
+        if re.fullmatch(r"\d+", str(gold)):
+            sayilar = re.findall(r"\d+", raw)
+            if len(sayilar) == 1:  # "2 top", "1 kırmızı kalem"; birden cok sayi varsa karar verilmez
+                return sayilar[0]
 
     is_list_answer = (t == "dogrucu_yalanci") or (t == "siralama" and " ve " in str(gold)) \
         or (t == "sayac_takip" and "," in str(gold))

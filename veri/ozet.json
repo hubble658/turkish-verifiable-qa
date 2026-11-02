@@ -1,17 +1,17 @@
 {
- "toplam": 137784,
+ "toplam": 136941,
  "setler": {
   "bulmaca": 3000,
   "excel_veritabani": 1000,
   "hesaplama": 14613,
-  "meb_capraz": 3993,
-  "meb_tek_ders": 2914,
+  "meb_capraz": 3991,
+  "meb_tek_ders": 2809,
   "solver": 4986,
   "sql_belediye": 17785,
   "sql_cikti_tahmini": 3321,
-  "sql_cognipeer": 69034,
+  "sql_cognipeer": 68300,
   "sql_istatistik": 9234,
-  "sql_turspider": 7904
+  "sql_turspider": 7902
  },
  "kategori_koken": {
   "bulmaca": {
@@ -39,10 +39,10 @@
    "xml_uretimi|ozgun": 1200
   },
   "meb_capraz": {
-   "korpus_capraz_eslestirmeli|ozgun": 3993
+   "korpus_capraz_eslestirmeli|ozgun": 3991
   },
   "meb_tek_ders": {
-   "korpus_tek_ders|ozgun": 2914
+   "korpus_tek_ders|ozgun": 2809
   },
   "solver": {
    "solver|ozgun": 4986
@@ -54,13 +54,13 @@
    "sql_cikti_tahmini|ozgun": 3321
   },
   "sql_cognipeer": {
-   "sql_cognipeer|cognipeer_filtreli": 69034
+   "sql_cognipeer|cognipeer_filtreli": 68300
   },
   "sql_istatistik": {
    "sql_istatistik|ozgun": 9234
   },
   "sql_turspider": {
-   "sql_turspider|turspider_filtreli": 7904
+   "sql_turspider|turspider_filtreli": 7902
   }
  },
  "veritabanlari": [

@@ -63,7 +63,8 @@ def _to_float(tok: str):
         else:
             tok = tok.replace(",", "")
     elif has_comma:
-        tok = tok.replace(",", ".")
+        # "11,280,000,000" (birden cok virgul) binlik ayiracidir
+        tok = tok.replace(",", "") if tok.count(",") > 1 else tok.replace(",", ".")
     elif tok.count(".") > 1:
         tok = tok.replace(".", "")  # "274.726.912" -> binlik ayiracidir, ondalik yok
     try:
@@ -107,11 +108,65 @@ def extract_last_number(text: str):
     return candidates[-1][2]
 
 
-def numeric_close(model_text: str, gold_cevap: str, tolerans_yuzde: float = 0.5):
-    gold_val = extract_last_number(gold_cevap)
-    model_val = extract_last_number(model_text)
+CEVAP_SATIRI_RE = re.compile(r"^[\s*_#>]*CEVAP\s*:[\s*_]*(.*)$", re.IGNORECASE | re.MULTILINE)
+
+
+def cevap_bolumu(model_text: str) -> str:
+    """2026-10-31: sayi/sonuc artik SON "CEVAP:" satirindan okunur (satir bossa sonraki dolu satir); yoksa
+    tum metin. Eskiden tum metnin son sayisi aliniyordu: CEVAP'tan sonraki bir not ya da akil yurutmedeki
+    "x = ..." ara adimi cevap saniliyordu (dogrusal_sistem'de kayitli 20 dogru cevabin 20'si yanlis)."""
+    ms = list(CEVAP_SATIRI_RE.finditer(model_text or ""))
+    if not ms:
+        ms = list(re.finditer(r"CEVAP\s*:[\s*_]*(.*)$", model_text or "", re.MULTILINE))  # satir ortasinda
+    if not ms:
+        return model_text or ""
+    m = ms[-1]
+    if m.group(1).strip(" *_`"):
+        return m.group(1)
+    kalan = [s for s in model_text[m.end():].splitlines() if s.strip(" *_`$")]
+    return kalan[0] if kalan else ""
+
+
+# birim ussu / kimyasal formul rakami sayi degildir: "m/s^2", "cm^{3}", "m2", "CO2", "H2O"
+# (e/E haric: "7.35e-05" bilimsel gosterim). 10^-5 gibi rakamdan sonra gelen us dokunulmaz.
+_BIRIM_USSU_RE = re.compile(r"(?<=[A-DF-Za-df-zçğıöşüÇĞİÖŞÜ)])\s*\^\s*\{?-?\d+\}?|(?<=[A-DF-Za-df-zçğıöşüÇĞİÖŞÜ])\d+")
+# yalin on'un kuvveti: "10^-5", "10^{-5}", "10⁻⁵" (pH sorulari); onunde "×" yoksa
+_ON_KUVVET_RE = re.compile(r"(?<![\d.,×xX*·]\s)(?<![\d.,×xX*·])10\s*(?:\^\s*\{?\s*(-?\d+)\s*\}?|([⁻⁰¹²³⁴⁵⁶⁷⁸⁹]+))")
+
+
+def _on_kuvvet(text: str):
+    """Metinde yalin '10^n' varsa (once ONUNDE baska sayi olmadan) degeri; yoksa None."""
+    ms = list(_ON_KUVVET_RE.finditer(text))
+    if not ms:
+        return None
+    m = ms[-1]
+    us = m.group(1) if m.group(1) is not None else m.group(2).translate(SUPERSCRIPT_MAP)
+    try:
+        return 10.0 ** int(us)
+    except ValueError:
+        return None
+
+
+def sayi_oku(text: str):
+    """Cevap parcasindan tek sayi: birim usleri ve parantez ici atilir, yalin 10^n desteklenir."""
+    t = _BIRIM_USSU_RE.sub("", text)
+    ana = re.sub(r"\([^)]*\)", " ", t)
+    if NUM_RE.search(ana):
+        t = ana
+    on = _on_kuvvet(t)
+    if on is not None and not SCI_RE.search(t):
+        return on
+    return extract_last_number(t)
+
+
+def numeric_close(model_text: str, gold_cevap: str, tolerans_yuzde: float = 0.5, ek_altinlar=()):
+    gold_val = sayi_oku(gold_cevap)
+    model_val = sayi_oku(cevap_bolumu(model_text))
     if gold_val is None or model_val is None:
         return False
+    for alt in ek_altinlar:  # birim_donusumu: sorudan yeniden hesaplanan kesin / alternatif tanimli degerler
+        if alt and abs(model_val - alt) / abs(alt) * 100 <= max(tolerans_yuzde, 1.0):
+            return True
     if gold_val == 0:
         return abs(model_val) < 1e-6
     return abs(model_val - gold_val) / abs(gold_val) * 100 <= max(tolerans_yuzde, 1.0)
@@ -124,37 +179,75 @@ def normalize_text(s: str) -> str:
     return s
 
 
+_KESIR_YA_DA_SAYI = r"-?\d+(?:[.,]\d+)?(?:\s*/\s*-?\d+)?"
+
+
+def _deger(tok: str):
+    tok = tok.replace(" ", "").replace(",", ".")
+    if "/" in tok:
+        n, d = tok.split("/")
+        return float(n) / float(d) if float(d) else None
+    return float(tok)
+
+
 def grade_matris(rec, model_text):
+    """2026-10-31: (1) cevap yalniz son CEVAP satirindan okunur (eskiden tum metindeki ILK "x =" aliniyordu:
+    akil yurutmedeki ara adim cevap saniliyordu); (2) tam sayi altin BIREBIR (eskiden %1: 345 icin 344/347
+    dogru); (3) kesir altinda kesir yalniz CEVAP parcasindan (eskiden metnin herhangi bir yerinden)."""
     gold = rec["cevap"]
+    bolum = delatex_frac(cevap_bolumu(model_text))
     if gold.startswith("x="):
-        m = re.search(r"x\s*=\s*(-?[\d.]+).*?y\s*=\s*(-?[\d.]+)", model_text, re.IGNORECASE | re.DOTALL)
+        m = re.search(rf"x\s*=\s*({_KESIR_YA_DA_SAYI}).*?y\s*=\s*({_KESIR_YA_DA_SAYI})", bolum, re.IGNORECASE | re.DOTALL)
         if not m:
             return False
         gx, gy = re.search(r"x=(-?[\d.]+)", gold).group(1), re.search(r"y=(-?[\d.]+)", gold).group(1)
-        return abs(float(m.group(1)) - float(gx)) < 0.01 and abs(float(m.group(2)) - float(gy)) < 0.01
+        try:
+            return abs(_deger(m.group(1)) - float(gx)) < 1e-6 and abs(_deger(m.group(2)) - float(gy)) < 1e-6
+        except (ValueError, TypeError, ZeroDivisionError):
+            return False
     if "/" in gold and re.match(r"^-?\d+/\d+$", gold):
         num, den = gold.split("/")
         gold_val = float(num) / float(den)
-        # modelin cevabinda da "a/b" bicimli bir kesir olabilir -- extract_last_number
-        # "1/5" icindeki "1" ve "5"i AYRI sayi olarak gorup yanlis (son) sayiyi alirdi.
-        frac_matches = re.findall(r"-?\d+\s*/\s*\d+", delatex_frac(model_text))
+        frac_matches = re.findall(r"-?\d+\s*/\s*\d+", bolum)
         if frac_matches:
             mn, md = frac_matches[-1].replace(" ", "").split("/")
-            model_val = float(mn) / float(md)
+            model_val = float(mn) / float(md) if float(md) else None
         else:
-            model_val = extract_last_number(model_text)
-        return model_val is not None and abs(model_val - gold_val) < 0.01
+            model_val = sayi_oku(bolum)
+        # ondalik yaziminda 2 basamaga yuvarlama payi (-1/3 ~ -0.33)
+        return model_val is not None and abs(model_val - gold_val) <= 0.005 + 1e-9
+    gold_val, model_val = sayi_oku(gold), sayi_oku(bolum)
+    if gold_val is None or model_val is None:
+        return False
+    if float(gold_val).is_integer():
+        return abs(model_val - gold_val) < 1e-9
     return numeric_close(model_text, gold, tolerans_yuzde=1.0)
 
 
 def grade_numeric_unit(rec, model_text):
-    return numeric_close(model_text, rec["cevap"], rec.get("tolerans_yuzde", 1.0))
+    from birim_yeniden import ek_altinlar
+    return numeric_close(model_text, rec["cevap"], rec.get("tolerans_yuzde", 1.0), ek_altinlar(rec))
 
 
 # bunlar SADECE birim/etiket kelimesi -- sayi/gun-adi/tarih dogruysa ama model
 # CEVAP satirinda bu YALIN birim kelimesini yazmadiysa (ör. "CEVAP: 8" yerine
 # "CEVAP: 8 yaş") YANLIS sayilmamali; asil bilgi (8) zaten dogru.
 _TARIH_ATLANABILIR_BIRIM = {"yaş", "gün", "hafta", "kat"}
+_AYLAR = ["ocak", "şubat", "mart", "nisan", "mayıs", "haziran", "temmuz", "ağustos", "eylül", "ekim", "kasım", "aralık"]
+
+
+def _tr_kucuk(s):
+    return s.replace("I", "ı").replace("İ", "i").lower()
+
+
+def _sayisal_tarihler(metin):
+    """'21.03.2019', '21/03/2019', '2019-03-21' -> {(2019, 3, 21)}"""
+    out = set()
+    for g, a, y in re.findall(r"(?<!\d)(\d{1,2})[./](\d{1,2})[./](\d{4})(?!\d)", metin):
+        out.add((int(y), int(a), int(g)))
+    for y, a, g in re.findall(r"(?<!\d)(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)", metin):
+        out.add((int(y), int(a), int(g)))
+    return out
 
 
 def grade_tarih(rec, model_text):
@@ -164,10 +257,16 @@ def grade_tarih(rec, model_text):
     # gecen herhangi bir tarih eslesmeye sayiliyordu; (2) alt dizge degil SOZCUK eslesmesi -- "8 yas" altini
     # "98765.4321" cevabinda "8" alt dizge oldugu icin dogru sayiliyordu (ters sinamada 2.100'un 170'i).
     # Sayi sozcugu birebir esit olmali; sozcukte Turkce ek tolere edilir ("mart" ~ "mart'ta").
+    # 2026-10-31: (3) "bir önceki gün"de "bir" istege bagli (soru bu bicimi tarif etmiyor); (4) sayisal tarih
+    # yazimi (21.03.2019, 2019-03-21) kabul; (5) "iki tarih dahil değil" ifadeli gun farki sorularinda iki
+    # okuma da kabul (altin duz fark, ifade kesin okumada bir eksigini istiyor); (6) "ya da/veya" ile birden
+    # fazla secenek yazan cevap yanlis.
     gold_ana = re.sub(r"\([^)]*\)", "", rec["cevap"])
-    tokens = [t for t in normalize_text(gold_ana).split(" ") if t]
     satirlar = re.findall(r"^[\s*_#]*CEVAP\s*:\s*(.+?)[\s*_]*$", model_text, flags=re.IGNORECASE | re.MULTILINE)
-    body = re.sub(r"\([^)]*\)", " ", satirlar[-1] if satirlar else model_text)
+    ham = satirlar[-1] if satirlar else model_text
+    body = re.sub(r"\([^)]*\)", " ", ham)
+    if re.search(r"\b(ya da|veya|yahut)\b", _tr_kucuk(body)):
+        return False
     body_tokens = [t for t in re.split(r"[\s/;]+", normalize_text(body).replace("*", " ")) if t]
 
     def var(t):
@@ -175,8 +274,22 @@ def grade_tarih(rec, model_text):
             return any(re.fullmatch(rf"0*{int(t)}(?:['’][a-zçğıöşü]+)?\.?", b) for b in body_tokens)
         return any(b == t or b.startswith(t) for b in body_tokens)
 
-    eksik = [t for t in tokens if not var(t)]
-    return all(t in _TARIH_ATLANABILIR_BIRIM for t in eksik)
+    def uyar(altin):
+        tokens = [t for t in normalize_text(altin).split(" ") if t]
+        atlanir = _TARIH_ATLANABILIR_BIRIM | ({"bir"} if "önceki" in tokens else set())
+        return all(t in atlanir for t in tokens if not var(t))
+
+    if uyar(gold_ana):
+        return True
+    m = re.fullmatch(r"\s*(\d{1,2}) (\S+) (\d{4})\s*", gold_ana)
+    if m and _tr_kucuk(m.group(2)) in _AYLAR:
+        if (int(m.group(3)), _AYLAR.index(_tr_kucuk(m.group(2))) + 1, int(m.group(1))) in _sayisal_tarihler(ham):
+            return True
+    if rec.get("alt_tip") == "gun_farki_iki_tarih" and "dahil değil" in rec.get("soru", ""):
+        n = re.match(r"\s*(\d+)", gold_ana)
+        if n and uyar(gold_ana.replace(n.group(1), str(int(n.group(1)) - 1), 1)):
+            return True
+    return False
 
 
 # Turkce Excel arayuzu fonksiyonlari kendi yerel adiyla yazar (EGER, ORTALAMA,
@@ -643,7 +756,8 @@ def _extract_json_obj(text: str):
         return None
 
 
-def _deep_close(a, b, tol=0.01):
+def _deep_close(a, b, tol=1e-9):
+    # 2026-10-31: metinden kopyalama gorevi; eskiden tol=0.01 (%1) idi, 2574.66 yerine 2597.83 dogru sayiliyordu
     if isinstance(a, dict) and isinstance(b, dict):
         return set(a) == set(b) and all(_deep_close(a[k], b[k], tol) for k in a)
     if isinstance(a, list) and isinstance(b, list):
@@ -651,11 +765,11 @@ def _deep_close(a, b, tol=0.01):
     if isinstance(a, bool) or isinstance(b, bool):
         return a is b
     if isinstance(a, (int, float)) and isinstance(b, (int, float)):
-        return abs(a - b) <= max(abs(b) * tol, 0.01)
+        return abs(a - b) <= abs(b) * tol + 1e-9
     sa, sb = str(a).strip().lower(), str(b).strip().lower()
     fa, fb = _to_float(sa), _to_float(sb)
     if fa is not None and fb is not None:
-        return abs(fa - fb) <= max(abs(fb) * tol, 0.01)
+        return abs(fa - fb) <= abs(fb) * tol + 1e-9
     return sa == sb
 
 

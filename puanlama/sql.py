@@ -7,6 +7,7 @@ import json
 import re
 import sqlite3
 import time
+from decimal import Decimal, InvalidOperation
 
 from .cognipeer_shim import needs_fetchall, register_shims
 
@@ -15,11 +16,30 @@ SURE_SN = 30  # model SQL'i icin ust sinir; kartezyen birlesimler dakikalarca su
 
 # ---------- karsilastirma (bench_belediye_disi.py) ----------
 
+def _ondalik_basamak(x):
+    """Altin sayinin yazildigi ondalik basamak (70.7 -> 1, 1213.0 -> 0, 1200.0 -> 0)."""
+    if isinstance(x, int):
+        return 0
+    try:
+        return max(0, -Decimal(repr(float(x))).normalize().as_tuple().exponent)
+    except (InvalidOperation, ValueError, OverflowError):
+        return None
+
+
 def deger_esit(a, c):
+    """a altin, c aday. 2026-10-31: (1) iki tam sayi BIREBIR (eskiden goreli 1e-3: 999 = 1000, tarih-int
+    19680831 = 19690101; acgozlu eslesme de bozuluyordu, 19 TURSpider altini kendini reddediyordu);
+    (2) ondalikta tolerans altinin yazildigi basamagin yarim biriminden buyuk olamaz (taban 0,011): eskiden
+    485418671.76 icin +-485 bin kabul ediliyordu. Yuvarlamamis dogru cevap (70.7123 ~ 70.7) gecer."""
     if a is None or c is None:
         return a is None and c is None
     if isinstance(a, (int, float)) and isinstance(c, (int, float)):
-        return abs(a - c) <= max(max(abs(a), abs(c)) * 1e-3, 0.011)
+        if isinstance(a, int) and isinstance(c, int):
+            return a == c
+        d = _ondalik_basamak(a)
+        birim = 0.5 * 10 ** -d if d is not None else float("inf")
+        buyuk = max(abs(a), abs(c))
+        return abs(a - c) <= max(0.011, min(buyuk * 1e-3, birim)) + buyuk * 1e-9
     return str(a) == str(c)
 
 
@@ -32,6 +52,19 @@ def satir_esit(g, a):
             return False
         kalan.pop(i)
     return True
+
+
+def belirsizlik_toleransli(gold, aday, sira_onemli, ters_altin):
+    """Altin, esit degerler yuzunden tarama sirasina bagliysa (ters_altin: ayni altin sorgunun ters taramadaki
+    sonucu; ondan farkliysa) iki gecerli sonuc da kabul edilir ve satir sirasi aranmaz. ters_altin
+    olusturulamadiysa (None) yalniz siki karsilastirma."""
+    if sonuc_eslesiyor(gold, aday, sira_onemli):
+        return True
+    if ters_altin is None or sonuc_eslesiyor(gold, ters_altin, sira_onemli):
+        return False  # altin belirsiz degil
+    if len(ters_altin) != len(gold):
+        return False  # esit deger belirsizligi satir sayisini degistirmez; degisiyorsa altin bozuk (ör. GROUP BY'siz HAVING)
+    return sonuc_eslesiyor(gold, aday, False) or sonuc_eslesiyor(ters_altin, aday, False)
 
 
 def sonuc_eslesiyor(gold, aday, sira_onemli):
@@ -86,12 +119,15 @@ def _sinirli(con, sure):
     con.set_progress_handler(lambda: 1 if time.monotonic() > bitis else 0, 10_000)
 
 
-def calistir(db_yolu, sql, ekler=None, sure=SURE_SN):
-    """Salt okunur baglantida calistirir; ekler {ad: yol} ATTACH edilir. Hata/sure asiminda istisna."""
+def calistir(db_yolu, sql, ekler=None, sure=SURE_SN, ters=False):
+    """Salt okunur baglantida calistirir; ekler {ad: yol} ATTACH edilir. Hata/sure asiminda istisna.
+    ters=True: PRAGMA reverse_unordered_selects (esit degerlerde sonuc taramaya bagli mi sinamasi)."""
     con = sqlite3.connect(f"file:{db_yolu}?mode=ro", uri=True)
     try:
         for ad, yol in (ekler or {}).items():
             con.execute(f"ATTACH DATABASE 'file:{yol}?mode=ro' AS {ad}")
+        if ters:
+            con.execute("PRAGMA reverse_unordered_selects=ON")
         _sinirli(con, sure)
         return [list(r) for r in con.execute(sql).fetchall()]
     finally:
@@ -140,11 +176,13 @@ def _durum(con):
     return out
 
 
-def _baglamda(baglam, sql, sure):
+def _baglamda(baglam, sql, sure, ters=False):
     con = sqlite3.connect(":memory:")
     register_shims(con)
     try:
         con.executescript(baglam)
+        if ters:
+            con.execute("PRAGMA reverse_unordered_selects=ON")
         _sinirli(con, sure)
         cur = con.execute(sql)
         sonuc = [list(r) for r in cur.fetchall()] if needs_fetchall(sql) else None
@@ -162,7 +200,16 @@ def puanla_cognipeer(o, gold_sql, metin, sure=SURE_SN):
     except Exception:
         return False
     if o["gorev"] == "secme":
-        return sonuc is not None and sonuc_eslesiyor(o["gercek_sonuc"], sonuc, bool_al(o["sira_onemli"]))
+        if sonuc is None:
+            return False
+        sira = bool_al(o["sira_onemli"])
+        if sonuc_eslesiyor(o["gercek_sonuc"], sonuc, sira):
+            return True
+        try:
+            ters_altin, _ = _baglamda(o["baglam"], gold_sql, sure, ters=True)
+        except Exception:
+            return False
+        return belirsizlik_toleransli(o["gercek_sonuc"], sonuc, sira, ters_altin)
     _, gold_durum = _baglamda(o["baglam"], gold_sql, sure)
     return durum == gold_durum
 
@@ -219,3 +266,35 @@ def tablo_ayristir(metin):
         except json.JSONDecodeError:
             pass
     return _parse_json_cikti(t)
+
+
+# ---------- cikti tahmini: gosterilen tablolardan altin sorgunun ters taramadaki sonucu ----------
+
+def _hucre(x):
+    x = x.strip()
+    if x in ("NULL", "None", ""):
+        return None
+    if re.fullmatch(r"-?\d+", x):
+        return int(x)
+    if re.fullmatch(r"-?\d+\.\d+(?:e[-+]?\d+)?", x):
+        return float(x)
+    return x
+
+
+def tablodan_ters_sonuc(tablo_metni, sql, sure=SURE_SN):
+    """Markdown tablo dokumunu bellekte SQLite'a yukler, altin sorguyu ters taramayla calistirir. Dokumde
+    sorgunun her tablosu yoksa (ör. onceden suzulmus tesisler) None."""
+    try:
+        con = sqlite3.connect(":memory:")
+        for blok in re.split(r"^### Tablo: ", tablo_metni, flags=re.M)[1:]:
+            satirlar = blok.strip().split("\n")
+            ad = satirlar[0].split("(")[0].strip()
+            kolonlar = [k.strip() for k in satirlar[1].strip().strip("|").split("|")]
+            con.execute(f'CREATE TABLE "{ad}" ({", ".join(chr(34) + k + chr(34) for k in kolonlar)})')
+            veri = [[_hucre(v) for v in s.strip()[1:-1].split("|")] for s in satirlar[3:] if s.startswith("|")]
+            con.executemany(f'INSERT INTO "{ad}" VALUES ({", ".join("?" * len(kolonlar))})', veri)
+        con.execute("PRAGMA reverse_unordered_selects=ON")
+        _sinirli(con, sure)
+        return [list(r) for r in con.execute(sql).fetchall()]
+    except Exception:
+        return None
