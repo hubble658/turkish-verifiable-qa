@@ -4,7 +4,7 @@
   "soru": 2700,
   "tur": {
    "akrabalik": 59.0,
-   "birim_donusumu": 79.0,
+   "birim_donusumu": 82.0,
    "dogrucu_yalanci": 51.0,
    "excel_formulu": 97.0,
    "excel_veritabani": 26.0,
@@ -34,7 +34,7 @@
   "set": {
    "bulmaca": 61.9,
    "excel_veritabani": 26.0,
-   "hesaplama": 87.4,
+   "hesaplama": 87.8,
    "meb_capraz": 69.0,
    "meb_tek_ders": 71.0,
    "solver": 0.5,
@@ -44,9 +44,9 @@
    "sql_istatistik": 76.0,
    "sql_turspider": 80.0
   },
-  "makro_tur": 63.4,
+  "makro_tur": 63.5,
   "makro_set": 54.9,
-  "mikro": 63.4,
+  "mikro": 63.5,
   "bos": 0,
   "kesilen": 107,
   "puanlayici_hatasi": 0,
@@ -58,7 +58,7 @@
   "soru": 2700,
   "tur": {
    "akrabalik": 88.0,
-   "birim_donusumu": 98.0,
+   "birim_donusumu": 100.0,
    "dogrucu_yalanci": 92.0,
    "excel_formulu": 98.0,
    "excel_veritabani": 70.0,
@@ -88,7 +88,7 @@
   "set": {
    "bulmaca": 91.0,
    "excel_veritabani": 70.0,
-   "hesaplama": 97.5,
+   "hesaplama": 97.8,
    "meb_capraz": 86.0,
    "meb_tek_ders": 86.0,
    "solver": 4.5,
@@ -98,9 +98,9 @@
    "sql_istatistik": 89.0,
    "sql_turspider": 82.0
   },
-  "makro_tur": 80.6,
+  "makro_tur": 80.7,
   "makro_set": 69.3,
-  "mikro": 80.6,
+  "mikro": 80.7,
   "bos": 0,
   "kesilen": 56,
   "puanlayici_hatasi": 0,
@@ -112,7 +112,7 @@
   "soru": 2700,
   "tur": {
    "akrabalik": 95.0,
-   "birim_donusumu": 98.0,
+   "birim_donusumu": 99.0,
    "dogrucu_yalanci": 98.0,
    "excel_formulu": 98.0,
    "excel_veritabani": 93.0,
@@ -142,7 +142,7 @@
   "set": {
    "bulmaca": 96.9,
    "excel_veritabani": 93.0,
-   "hesaplama": 97.0,
+   "hesaplama": 97.1,
    "meb_capraz": 93.0,
    "meb_tek_ders": 84.0,
    "solver": 55.5,
@@ -152,9 +152,9 @@
    "sql_istatistik": 92.0,
    "sql_turspider": 82.0
   },
-  "makro_tur": 90.8,
+  "makro_tur": 90.9,
   "makro_set": 85.7,
-  "mikro": 90.8,
+  "mikro": 90.9,
   "bos": 3,
   "kesilen": 40,
   "puanlayici_hatasi": 0,

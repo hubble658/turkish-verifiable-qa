@@ -66,7 +66,9 @@ def _to_float(tok: str):
         # "11,280,000,000" (birden cok virgul) binlik ayiracidir
         tok = tok.replace(",", "") if tok.count(",") > 1 else tok.replace(",", ".")
     elif tok.count(".") > 1:
-        tok = tok.replace(".", "")  # "274.726.912" -> binlik ayiracidir, ondalik yok
+        bas, _, son = tok.rpartition(".")
+        # "274.726.912" -> hepsi binlik; "5.180.011.43" (2026-11-02) -> son nokta ondalik
+        tok = tok.replace(".", "") if len(son) == 3 else bas.replace(".", "") + "." + son
     try:
         return float(tok)
     except ValueError:
@@ -159,17 +161,37 @@ def sayi_oku(text: str):
     return extract_last_number(t)
 
 
+_TEK_NOKTA_BINLIK_RE = re.compile(r"(?<![\d.,])-?\d{1,3}\.\d{3}(?![\d.,])")
+
+
+def _binlik_okuma(bolum: str):
+    """2026-11-02: "374.000 L" Turkce binlik yazimi (374000) da olabilir, 3 ondalikli 374 de; son sayi bu
+    bicimdeyse binlik okumasi doner (numeric_close iki okumayi da dener). Benchmark'ta "374.000 L" /
+    "140.400 dönüm" gibi dogru cevaplar 374,0 okunup reddediliyordu."""
+    t = _BIRIM_USSU_RE.sub("", bolum)
+    nums = list(NUM_RE.finditer(t))
+    if nums and _TEK_NOKTA_BINLIK_RE.fullmatch(nums[-1].group(0)) and not SCI_RE.search(t) and not FRAC_RE.search(t):
+        return float(nums[-1].group(0).replace(".", ""))
+    return None
+
+
 def numeric_close(model_text: str, gold_cevap: str, tolerans_yuzde: float = 0.5, ek_altinlar=()):
     gold_val = sayi_oku(gold_cevap)
-    model_val = sayi_oku(cevap_bolumu(model_text))
-    if gold_val is None or model_val is None:
+    bolum = cevap_bolumu(model_text)
+    model_vals = [v for v in (sayi_oku(bolum), _binlik_okuma(bolum)) if v is not None]
+    if gold_val is None or not model_vals:
         return False
-    for alt in ek_altinlar:  # birim_donusumu: sorudan yeniden hesaplanan kesin / alternatif tanimli degerler
-        if alt and abs(model_val - alt) / abs(alt) * 100 <= max(tolerans_yuzde, 1.0):
+    tol = max(tolerans_yuzde, 1.0)
+    for model_val in model_vals:
+        for alt in ek_altinlar:  # birim_donusumu: sorudan yeniden hesaplanan kesin / alternatif tanimli degerler
+            if alt and abs(model_val - alt) / abs(alt) * 100 <= tol:
+                return True
+        if gold_val == 0:
+            if abs(model_val) < 1e-6:
+                return True
+        elif abs(model_val - gold_val) / abs(gold_val) * 100 <= tol:
             return True
-    if gold_val == 0:
-        return abs(model_val) < 1e-6
-    return abs(model_val - gold_val) / abs(gold_val) * 100 <= max(tolerans_yuzde, 1.0)
+    return False
 
 
 def normalize_text(s: str) -> str:

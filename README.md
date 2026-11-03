@@ -67,15 +67,7 @@ Sürüm: 30 Ekim 2026.
 | `sql_cognipeer.jsonl.gz` | 68.300 | `cognipeer_filtreli` | Gömülü şemada çalıştırma | SQL ifadesi (sorgu ya da değiştirme) |
 | **Toplam** | **136.941** | | | |
 
-**Doğrulama gücü** üç gruba ayrılır, raporlarda ayrı verin:
-
-- **Kesin, özgün (53.939 soru):** Bulmaca, hesaplama, Excel, solver ve bizim SQL setlerimiz. Cevap kodla hesaplanır ya da gerçek veritabanında çalıştırılır.
-- **LLM ile doğrulanmış (6.800 soru):** MEB setleri. Altın cevap kitap pasajına dayanır, ama doğruluğu LLM kontrolüne bağlı. Örneklem denetimlerinde düşük oranlı etiket hataları görüldü.
-- **Dış setlerden filtrelenmiş (76.202 soru):** TURSpider ve Cognipeer.
-  - Altın sonuç bu paket için yeniden çalıştırılarak hesaplandı; bu açıdan kesin.
-  - Soru metni ile gold SQL'in uyumu ise kaynak setin kalitesine bağlı. TURSpider insan çevirisi, Cognipeer LLM üretimi.
-
-`koken` alanı her satırda bu ayrımı taşır: `ozgun`, `turspider_filtreli` ya da `cognipeer_filtreli`.
+**Köken:** `koken` alanı sorunun kaynağını verir: `ozgun` (bu çalışmada üretildi, 60.739 soru) ya da `turspider_filtreli` / `cognipeer_filtreli` (dış setlerden filtrelendi, 76.202 soru). Altın cevabın nasıl belirlendiği tablonun "Cevabı kim belirler" sütununda; altını LLM'e dayanan tek setler MEB setleridir (Bilinen sınırlar). Dış setlerde altın sonuç bu paket için yeniden çalıştırılarak hesaplandı; soru metniyle SQL'in uyumu kaynak setin kalitesine bağlı (TURSpider insan çevirisi, Cognipeer LLM üretimi).
 
 ## Satır şeması
 
@@ -207,7 +199,7 @@ Denetimde bulunan sorunlu sorular düzeltildi ya da çıkarıldı (137.784 → 1
 | Tür | Mistral-Small-3.2-24B | V4-Flash (düşünmesiz) | V4-Flash (düşünen, high) |
 |---|---:|---:|---:|
 | akrabalik | 59 | 88 | 95 |
-| birim_donusumu | 79 | 98 | 98 |
+| birim_donusumu | 82 | 100 | 99 |
 | dogrucu_yalanci | 51 | 92 | 98 |
 | excel_formulu | 97 | 98 | 98 |
 | excel_veritabani | 26 | 70 | 93 |
@@ -233,13 +225,14 @@ Denetimde bulunan sorunlu sorular düzeltildi ya da çıkarıldı (137.784 → 1
 | yon | 48 | 91 | 98 |
 | zaman_aritmetigi | 91 | 100 | 99 |
 | zebra | 30 | 74 | 100 |
-| **Makro (27 tür)** | **63,4** | **80,6** | **90,8** |
+| **Makro (27 tür)** | **63,5** | **80,7** | **90,9** |
 | **Makro (11 set)** | **54,9** | **69,3** | **85,7** |
 
-Düşünme SQL çıktı tahmininde, solver'da, Excel veritabanında ve zebrada belirleyici; hesaplama setleri doymuş. Solver en zor set. Benchmark sırasında bulmaca puanlayıcısında üç hata bulunup düzeltildi (cümleyle yazılmış akrabalık cevabı, tipografik kesme işareti, "2 top" / "Sadece sarı"); değişen 63 kararın hepsi elle doğrulandı.
+Düşünme SQL çıktı tahmininde, solver'da, Excel veritabanında ve zebrada belirleyici; hesaplama setleri doymuş. Solver en zor set. Benchmark sırasında bulmaca puanlayıcısında üç hata bulunup düzeltildi (cümleyle yazılmış akrabalık cevabı, tipografik kesme işareti, "2 top" / "Sadece sarı") ve hesaplamada bir hata (Türkçe binlik ayırıcı: "374.000 L" 374,0 okunuyordu); değişen 69 kararın hepsi elle doğrulandı.
 
 ## Bilinen sınırlar
 
+- **Birim dönüştürme:** Hesaplama sorularında altın cevap, sorunun istediği birimdedir ("kaç Joule'dür?" → J). Paketteki puanlayıcı (`puanla`) birim dönüştürmez: başka birimle yazılmış doğru cevap (ör. 11971 J yerine "11.97 kJ") yanlış sayılır. Benchmark'taki 2.700 cevapta bu durum görülmedi. Kendi puanlayıcınızı kullanıyorsanız birim dönüştürme ekleyebilirsiniz.
 - **MEB'de kalıntı sorunlu sorular (~%10, tahmin):** Denetim ve düzeltmeden sonra da kalan sorunlar var. Benchmark'ta düşünen V4-Flash'ın yanlış yaptığı 23 MEB sorusunun ~20'si elle okumada soru kaynaklı çıktı: birden çok doğru cevap ("sumasyon" / "fizyolojik tetanus"), şekle dayalı soru, döngüsel soru ya da yanlış altın (CCU/CCC/CCA/CCG'nin hepsi yalnız prolini şifrelerken altın "AUG kodonu"). Bu sorularda en iyi model de yanlış sayılır; MEB skorlarının tavanı bu yüzden ~%90.
 - **Önceki ölçümler** farklı istem, deneme sayısı ve `reasoning_effort` ile alındı; karşılaştırma için aşağıdaki benchmark'ı kullanın.
 - **Cognipeer:** Bazı sorular sıralama yönünü ya da silinecek ID'yi belirtmiyor (kaynak setin belirsizliği); benchmark'ta üç model birbirine yakın (%64–67). Çeviride tırnak içi değerlerin çevrilmesi sorunu 2 Kasım'da düzeltildi (aşağıda).
