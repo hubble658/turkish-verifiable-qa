@@ -12,14 +12,14 @@ degistirildi (tohum 20261103) ve Cognipeer `--set sql_cognipeer` ile yeniden olc
 
 Ayar: paketteki istem(), temperature 0, tek deneme. 24B ve düşünmesiz Flash 8.000 token; düşünen Flash
 (`flash_dusunen`) onceki olcumlerdeki "guclu model" ayariyla: reasoning_effort=high, 32.000 token. V4-Flash'ta
-düşünme varsayilan olarak KAPALI (`flash` = düşünmesiz). MEB setlerinde kural eslesmezse
-LLM hakem (JUDGE_PROMPT, deepseek-ai/DeepSeek-V4-Flash-0731) ikinci bir batch ile sorulur.
+düşünme varsayilan olarak KAPALI (`flash` = düşünmesiz). 2 Kasim olcumunde MEB'de kural eslesmezse LLM hakem
+(deepseek-ai/DeepSeek-V4-Flash-0731) soruluyordu; 2026-11-07'de hakem kaldirildi (puanlama tamamen kurala dayali),
+bu arac artik o skorlari birebir uretmez. Guncel olcum araclar/tam_test.py.
 
 Kullanim (API anahtari DEEPINFRA_API_KEY ortam degiskeninde):
     python3 araclar/benchmark.py sec
     python3 araclar/benchmark.py gonder --model 24b --dir <calisma klasoru>
-    python3 araclar/benchmark.py al     --model 24b --dir <calisma klasoru>   # cevaplari puanlar, hakem batch'ini gonderir
-    python3 araclar/benchmark.py hakem  --model 24b --dir <calisma klasoru>   # hakem sonucunu alir, son puanlar
+    python3 araclar/benchmark.py al     --model 24b --dir <calisma klasoru>   # cevaplari puanlar
     python3 araclar/benchmark.py rapor  --dir <calisma klasoru>
     # tek seti yeniden olcmek (sonuc dosyasindaki o setin satirlari degistirilir; MEB setleri icin degil):
     python3 araclar/benchmark.py gonder --model 24b --dir <klasor> --set sql_cognipeer   # sonra al --set ...
@@ -39,13 +39,11 @@ import requests
 PAKET = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PAKET))
 from puanlama import istem, orijinal, puanla  # noqa: E402
-from puanlama.meb import JUDGE_PROMPT, answers_match, cevap_al  # noqa: E402
 
 API = "https://api.deepinfra.com/v1/openai"
 MODELLER = {"24b": "mistralai/Mistral-Small-3.2-24B-Instruct-2506", "flash": "deepseek-ai/DeepSeek-V4-Flash-0731",
             "flash_dusunen": "deepseek-ai/DeepSeek-V4-Flash-0731"}
 EK_AYAR = {"flash_dusunen": {"reasoning_effort": "high", "max_tokens": 32000}}
-HAKEM = MODELLER["flash"]
 TOHUM = 20261102
 ALT_KUME = PAKET / "benchmark" / "alt_kume.jsonl"
 MEB_SETLER = {"meb_tek_ders", "meb_capraz"}
@@ -155,7 +153,7 @@ def istek(cid, model, metin, max_tokens=8000, ek=None):
 
 def gonder(a, D):
     if a.set in MEB_SETLER:
-        sys.exit("--set MEB setleri icin desteklenmiyor (hakem adimi tum alt kumeyle calisir)")
+        sys.exit("--set MEB setleri icin desteklenmiyor")
     _batch_gonder(D, _ad(a), [istek(f"{s}#{r['id']}", MODELLER[a.model], istem(r), ek=EK_AYAR.get(a.model))
                               for _, s, r in alt_kume(a.set)])
 
@@ -176,50 +174,20 @@ def al(a, D):
     isler = [(s, r, (cev.get(f"{s}#{r['id']}") or (None,))[0]) for _, s, r in ak]
     with ProcessPoolExecutor(a.isci) as ex:
         sonuc = list(ex.map(_puanla_is, isler, chunksize=4))
-    out, hakem_istek = [], []
+    out = []
     for (t, s, r), (_, _, metin), dogru in zip(ak, isler, sonuc):
         icerik, usage, bitis = cev.get(f"{s}#{r['id']}") or (None, {}, None)
         x = {"tur": t, "set": s, "id": r["id"], "dogru": dogru is True, "puanlayici_hatasi": isinstance(dogru, str),
              "zaman_asimi": dogru is None, "bos": not (metin or "").strip(), "bitis": bitis,
              "maliyet": usage.get("estimated_cost") or 0, "cikti_token": usage.get("completion_tokens"),
              "cevap": metin}
-        if s in MEB_SETLER and dogru is False and cevap_al(metin):
-            x["hakem_bekliyor"] = True
-            hakem_istek.append(istek(f"{s}#{r['id']}", HAKEM, JUDGE_PROMPT.format(
-                soru=r["soru"], cevap1=r["cevap"], cevap2=cevap_al(metin)), max_tokens=1500))
         out.append(x)
     if a.set:  # yalniz bu setin satirlari degisir
         eski = [json.loads(l) for l in open(D / f"sonuc_{a.model}.jsonl", encoding="utf-8")]
         out = [x for x in eski if x["set"] != a.set] + out
     (D / f"sonuc_{a.model}.jsonl").write_text("".join(json.dumps(x, ensure_ascii=False) + "\n" for x in out),
                                               encoding="utf-8")
-    print(a.model, "dogru", sum(x["dogru"] for x in out), "/", len(out), "hakem bekleyen", len(hakem_istek))
-    if hakem_istek:
-        _batch_gonder(D, f"hakem_{a.model}", hakem_istek)
-
-
-def hakem(a, D):
-    cev = _batch_al(D, f"hakem_{a.model}")
-    if cev is None:
-        return print("henüz bitmedi")
-    p = D / f"sonuc_{a.model}.jsonl"
-    out = [json.loads(l) for l in open(p, encoding="utf-8")]
-    import re
-    kabul = 0
-    for x in out:
-        if not x.pop("hakem_bekliyor", False):
-            continue
-        icerik, usage, _ = cev.get(f"{x['set']}#{x['id']}") or (None, {}, None)
-        x["hakem_maliyet"] = usage.get("estimated_cost") or 0
-        m = re.search(r"\{.*\}", icerik or "", re.S)
-        try:
-            x["hakem"] = bool(json.loads(m.group(0)).get("ayni_mi")) if m else False
-        except json.JSONDecodeError:
-            x["hakem"] = False
-        x["dogru"] = x["hakem"]
-        kabul += x["hakem"]
-    p.write_text("".join(json.dumps(x, ensure_ascii=False) + "\n" for x in out), encoding="utf-8")
-    print(a.model, "hakem kabul", kabul, "| son dogru", sum(x["dogru"] for x in out), "/", len(out))
+    print(a.model, "dogru", sum(x["dogru"] for x in out), "/", len(out))
 
 
 def rapor(a, D):
@@ -243,7 +211,7 @@ def rapor(a, D):
                     "bos": sum(x["bos"] for x in xs), "kesilen": sum(x["bitis"] == "length" for x in xs),
                     "puanlayici_hatasi": sum(x["puanlayici_hatasi"] for x in xs),
                     "zaman_asimi": sum(x["zaman_asimi"] for x in xs),
-                    "maliyet_usd": round(sum(x["maliyet"] + x.get("hakem_maliyet", 0) for x in xs), 4)}
+                    "maliyet_usd": round(sum(x["maliyet"] for x in xs), 4)}
     (PAKET / "benchmark" / "sonuclar.json").write_text(json.dumps(tablo, ensure_ascii=False, indent=1) + "\n",
                                                        encoding="utf-8")
     ms = list(tablo)
@@ -256,7 +224,7 @@ def rapor(a, D):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("komut", choices=["sec", "gonder", "al", "hakem", "rapor"])
+    ap.add_argument("komut", choices=["sec", "gonder", "al", "rapor"])
     ap.add_argument("--model", choices=list(MODELLER))
     ap.add_argument("--dir")
     ap.add_argument("--n", type=int, default=100)
@@ -267,7 +235,7 @@ def main():
         return sec(a)
     D = Path(a.dir).resolve()
     D.mkdir(parents=True, exist_ok=True)
-    {"gonder": gonder, "al": al, "hakem": hakem, "rapor": rapor}[a.komut](a, D)
+    {"gonder": gonder, "al": al, "rapor": rapor}[a.komut](a, D)
 
 
 if __name__ == "__main__":

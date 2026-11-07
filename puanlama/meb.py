@@ -1,7 +1,7 @@
-"""MEB (korpus) setleri: kisa sozel cevap. Once kural eslesmesi (korpus/generate_questions.answers_match), altinla
+"""MEB (korpus) setleri: kisa sozel cevap. Yalniz kural eslesmesi (korpus/generate_questions.answers_match), altinla
 ve `orijinal.kabul_edilen` listesindeki esdeger yazimlarla (2026-11-07; korpus/meb_alternatif_batch.py, V4-Flash uretim
-+ V4-Pro kati hakem); tutmazsa istege bagli LLM hakem (JUDGE_PROMPT, olcumde deepseek-ai/DeepSeek-V3-0324). Bu setlerin altin
-cevabi da LLM ile dogrulandi, kesin degildir; raporlarda kesin setlerden ayri verin."""
++ V4-Pro kati hakem). Tutmazsa yanlis: puanlamada LLM hakem yok (2026-11-07 kullanici karari; puanlayici GRPO odulu
+olarak da kullanilir). Bu setlerin altin cevabi LLM ile dogrulandi, kesin degildir; raporlarda kesin setlerden ayri verin."""
 import json
 import re
 
@@ -12,24 +12,6 @@ SORU: {soru}
 
 Sadece şu JSON formatında cevap ver: {{"cevap": "..."}}
 """
-
-JUDGE_PROMPT = """İki cevap aynı anlama mı geliyor, karşılaştır. Türkçe çekim/morfoloji
-farkları (ör. "sıkışma" ~ "sıkıştırılma"), eş anlamlılık, kavramın ADI ile TANIMININ
-birbirini karşılaması (ör. "Avogadro yasası" ~ "eşit hacimlerde eşit tanecik sayısı"),
-ya da aynı kavramın farklı teknik terimlerle ifade edilmesi (ör. "referans noktası" ~
-"referans çerçevesi", "kayma sürtünmesi" ~ "kinetik sürtünme") -- bunların HEPSİ AYNI
-kabul edilir. Biri diğerinden gerçekten farklı bir kavram/değer/mekanizma belirtiyorsa
-(ör. "kohezyon" ~ "hidrojen bağı" -- ilki gözlemlenen olgu, ikincisi onun nedeni olan
-farklı bir mekanizma) ya da biri "BİLİNMİYOR" ise FARKLI kabul edilir.
-
-SORU: {soru}
-CEVAP 1: {cevap1}
-CEVAP 2: {cevap2}
-
-Sadece şu JSON formatında cevap ver, "neden" alanını EN FAZLA 10 KELİME tut:
-{{"ayni_mi": true/false, "neden": "..."}}
-"""
-
 
 def normalize(s: str) -> str:
     return re.sub(r"[^\wçğıöşü]+", "", s.lower())
@@ -73,8 +55,8 @@ def _isaretler(s):
 
 
 def answers_match(tahmin: str, altin: str) -> bool:
-    """Model cevabinin hizli yolla (hakeme gitmeden) dogru sayilip sayilmayacagi. Bu yol YALNIZ emin oldugunda
-    True der; suphede False doner ve karar hakeme kalir (hakemsiz skor alt sinirdir).
+    """Model cevabinin dogru sayilip sayilmayacagi. YALNIZ emin oldugunda True der; suphede False doner
+    (skor bu yuzden bir alt sinirdir).
 
     2026-10-31 (onceki surum yalniz ILK sayilari kiyasliyordu; gercek olcumlerde "3/4" ~ "3/1", "1/8" ~ "1/4",
     "atom numarasi 84" ~ "88", "18-30" ~ "18-25", "SO2" ~ "CO2", "H2SO4" ~ "H2O", "polar değildir" ~ "polar"
@@ -82,7 +64,7 @@ def answers_match(tahmin: str, altin: str) -> bool:
     - bagimsiz sayilarin TAMAMI (coklu kume) esit olmali; harfe bitisik rakam sayi sayilmaz;
     - sayilar esitse metin de tutmali: altinin sozcukleri cevapta gecmeli ya da cevap yalin sayiysa altinin
       metni kisa bir birim olmali ("298 K" ~ "298");
-    - altinda olmayan olumsuzluk / secenek sozcugu (değil, hayır, yok, ya da, veya) cevapta varsa hakeme.
+    - altinda olmayan olumsuzluk / secenek sozcugu (değil, hayır, yok, ya da, veya) cevapta varsa eslesme yok.
     Metinde: parantezler atilinca normalize esitlik ("Karbon dioksit" ~ "karbondioksit (CO₂)") ya da altin
     cevabin SOZCUKLERI model cevabinda ardisik geciyor (3+ harfli sozcukte Turkce ek tolere)."""
     if not normalize(tahmin) or not normalize(altin):
@@ -135,18 +117,7 @@ def cevap_al(metin):
     return s[-1].strip() if s else ""
 
 
-def puanla(soru, altin, metin, hakem=None, kabul=None):
-    """hakem: istege bagli f(istem_metni) -> model cevabi metni. Verilmezse yalniz kural eslesmesi
-    (hakemsiz skor alt sinirdir). kabul: altinla esdeger ek yazimlar; kural eslesmesi bunlarla da denenir,
-    hakem yine yalniz altini gorur."""
+def puanla(soru, altin, metin, kabul=None):
+    """Kural eslesmesi altinla ve `kabul` listesindeki esdeger yazimlarla; tutmazsa False. `soru` imza uyumu icin."""
     tahmin = cevap_al(metin)
-    if any(answers_match(tahmin, a) for a in [altin, *(kabul or [])]):
-        return True
-    if hakem is None or not tahmin:
-        return False
-    yanit = hakem(JUDGE_PROMPT.format(soru=soru, cevap1=altin, cevap2=tahmin))
-    m = re.search(r"\{.*\}", yanit or "", re.S)
-    try:
-        return bool(json.loads(m.group(0)).get("ayni_mi")) if m else False
-    except json.JSONDecodeError:
-        return False
+    return any(answers_match(tahmin, a) for a in [altin, *(kabul or [])])

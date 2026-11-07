@@ -137,7 +137,7 @@ for satir in map(json.loads, gzip.open("veri/hesaplama.jsonl.gz", "rt", encoding
 
 - `istem(satir)`: Ölçümlerde kullanılan istemi kurar. SQL setlerinde şemayı veritabanından üretir; çıktı tahmininde tablo dökümünü ekler.
 - `puanla(satir, metin)`: Kategoriye göre doğru puanlayıcıyı çağırır.
-- **MEB setleri:** Kural eşleşmesi altınla ve `orijinal.kabul_edilen` listesiyle yapılır; tutmazsa yanlış. Puanlama tamamen kurala dayalıdır, LLM hakem kullanılmaz (aynı puanlayıcı GRPO ödülü olarak da kullanılabilsin diye). `puanla(..., hakem=...)` parametresi geriye dönük uyumluluk için duruyor; değerlendirme protokolünde kullanılmaz.
+- **MEB setleri:** Kural eşleşmesi altınla ve `orijinal.kabul_edilen` listesiyle yapılır; tutmazsa yanlış. Puanlama tamamen kurala dayalıdır, LLM hakem kullanılmaz (aynı puanlayıcı GRPO ödülü olarak da kullanılabilsin diye). Hakem parametresi 7 Kasım'da kaldırıldı.
 - **Doğrulama:** `python3 araclar/altin_sinama.py veri/*.jsonl.gz` her satırın altın cevabını kendi puanlayıcısından geçirir. `--ters` bayrağı bariz yanlış cevapların, `--yakin` bayrağı az bozulmuş cevapların (tam sayı +1, ondalık %5, birimde %15) reddedildiğini sınar. Bu sürümde (7 Kasım) altın sınama 76.506/76.506 geçiyor, ters sınama 76.499/76.506 (ajan terminal görevleri `ajan_eval/` ile sınanır, bu sayılara girmez). Ters sınamadaki 7 kabul birim dönüşümü (2) ve fizik (5) sorularında; bunların altın cevabı sınamada kullanılan yanlış değere (98.765,4321) gerçekten %0,5'ten yakın.
 
 **Gerekenler:**

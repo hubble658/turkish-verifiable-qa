@@ -221,9 +221,9 @@ def grade_sinirli(r, text, sure=EXCEL_SURE_SN):
         p.join()
 
 
-def puanla(satir, metin, hakem=None):
-    """True/False; Excel kategorilerinde sure asiminda None. hakem yalniz MEB setlerinde kullanilir
-    (bkz. meb.puanla). Paket satiri da Hugging Face satiri da verilebilir."""
+def puanla(satir, metin):
+    """True/False; Excel kategorilerinde sure asiminda None. Tamamen kurala dayali, LLM hakem yok (2026-11-07).
+    Paket satiri da Hugging Face satiri da verilebilir."""
     satir = _uyarla(satir)
     k, o = satir["kategori"], orijinal(satir)
     if k.startswith("ajan_terminal"):
@@ -237,7 +237,7 @@ def puanla(satir, metin, hakem=None):
         _kesin, gevsek = bulmaca_scoring.score_record(o, bulmaca_scoring.extract_answer(metin or ""))
         return gevsek
     if satir["kaynak"] == "korpus":
-        return meb.puanla(satir["soru"], satir["cevap"], metin, hakem=hakem, kabul=o.get("kabul_edilen"))
+        return meb.puanla(satir["soru"], satir["cevap"], metin, kabul=o.get("kabul_edilen"))
     if k == "solver":
         return solver.puanla(o, metin)
     if k in ("excel_formulu", "excel_veritabani"):
