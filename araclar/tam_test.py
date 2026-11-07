@@ -1,24 +1,25 @@
 # -*- coding: utf-8 -*-
-"""Test bolumunun tamami icin model olcumu (2026-11-04). 2 Kasim alt kumesine ve sonuclarina dokunmaz.
+"""Degerlendirme protokolu (2026-11-07; KULLANIM.md "Degerlendirme protokolu"). 2 Kasim alt kumesine dokunmaz.
 
-Kapsam: test bolumu; ajan_terminal ayri (ajan_tam_test.sh, cok turlu).
-`neden: attach` 109 satir kosulur ama skora girmez.
-Ayar: paketteki istem(), temperature 0, tek deneme (benchmark.py ile ayni).
+Kapsam: olcum kumesi (benchmark/test_kumesi.jsonl icinde `olcum: true`; 3.999 metin sorusu). --tam ile test bolumunun
+tamami (`neden: attach` satirlari kosulur ama skora girmez; olcum kumesinde yoklar). ajan_terminal ayri (ajan_eval/, cok turlu).
+Ayar: paketteki istem(), tek deneme. Dusunen modellerde 32.000 cikti tokeni, temperature 0 (Qwen: model kartinin onerdigi
+0,6 / top_p 0,95). Puanlama tamamen kurala dayali: LLM hakem yok (MEB: kural eslesmesi + `orijinal.kabul_edilen`).
+Ana skor set ortalamasi (her set esit agirlikta); baslik ortalamasi ve mikro ek bilgi.
 
-Akis (hazirla agsizdir; para harcayan komutlar --onay ister. API anahtari DEEPINFRA_API_KEY ortam degiskeninde):
-    python3 araclar/tam_test.py hazirla --dir <klasor>             # istek dosyalari + maliyet tahmini
+Akis (hazirla agsizdir; para harcayan komutlar --onay ister. API anahtari DEEPINFRA_API_KEY ortam degiskeninde.
+Puanlama icin chess, greenery==4.2.3, regex, openpyxl, formulas gerekir; LibreOffice olcumlerde kuruluydu):
+    python3 araclar/tam_test.py hazirla --dir <klasor> [--model gemma]   # istek dosyalari + maliyet tahmini
     python3 araclar/tam_test.py pilot   --model qwen --dir <klasor> --onay    # set basina 2 soru, anlik; ayar kontrolu
-    python3 araclar/tam_test.py gonder  --model 24b --dir <klasor> --onay     # DeepInfra Batch
+    python3 araclar/tam_test.py gonder  --model gemma --dir <klasor> --onay   # DeepInfra Batch
     python3 araclar/tam_test.py kos     --model cosmos --dir <klasor> --base-url http://localhost:8000/v1 --onay   # vLLM
-    python3 araclar/tam_test.py al      --model 24b --dir <klasor>   # cevaplari puanlar, hakem isteklerini yazar
-    python3 araclar/tam_test.py hakem-gonder --model 24b --dir <klasor> --onay   # sonra hakem-al
-    python3 araclar/tam_test.py rapor   --dir <klasor>
+    python3 araclar/tam_test.py al      --model gemma --dir <klasor>   # cevaplari puanlar -> sonuc_<model>.jsonl
+    python3 araclar/tam_test.py rapor   --dir <klasor>                 # -> <klasor>/sonuclar.json (pakete yazmaz)
 """
 import argparse
 import gzip
 import json
 import os
-import re
 import sys
 import threading
 from collections import Counter, defaultdict
@@ -30,21 +31,23 @@ import requests
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import benchmark as bm  # noqa: E402
 from puanlama import istem, orijinal  # noqa: E402
-from puanlama.meb import JUDGE_PROMPT, cevap_al  # noqa: E402
 
 PAKET = bm.PAKET
 TEST_KUMESI = PAKET / "benchmark" / "test_kumesi.jsonl"
-SONUC = PAKET / "benchmark" / "sonuclar_tam_test.json"
 DISARIDA = {"ajan_terminal"}
-MODELLER = {"qwen": "Qwen/Qwen3.5-9B", "cosmos": "ytu-ce-cosmos/Turkish-Gemma-9b-v0.1", "24b": bm.MODELLER["24b"],
-            "oss": "openai/gpt-oss-120b"}  # V4-Flash uretim ve suzgecte kullanildigi icin buyuk model ekseninden cikti (5 Kasim, kullanici karari)
-MAX_TOKEN_VARSAYILAN = 16000  # 2 Kasim: 8.000'de 24B %4, Flash %2 kesildi
-MAX_TOKEN = {"oss": 64000}  # 2 Kasim: dusunen Flash 32.000'de solver'in %20'si kesildi, hepsi yanlis sayildi
-EK_AYAR = {"qwen": {"reasoning_effort": "none"}, "oss": {"reasoning_effort": "high"}}
-FIYAT = {"qwen": (0.10, 0.15), "24b": (0.075, 0.20), "oss": (0.037, 0.17)}  # USD / M token
-CIKTI_TAHMIN = {"qwen": 650, "24b": 650, "oss": 4000}  # 2 Kasim ham kayitlari, soru basina (oss: dusunen Flash vekil)
+# Model listesi 7 Kasim kullanici karari: V4-Flash uretim ve suzgecte kullanildigi icin listede yok; 24B cikti.
+MODELLER = {"qwen": "Qwen/Qwen3.5-9B", "qwen_dusunmesiz": "Qwen/Qwen3.5-9B", "gemma": "google/gemma-4-31B-it",
+            "oss": "openai/gpt-oss-120b", "cosmos": "ytu-ce-cosmos/Turkish-Gemma-9b-v0.1"}
+MAX_TOKEN_VARSAYILAN = 32000  # dusunen modellerin hepsinde ayni; 7 Kasim pilotu: Gemma 0/70, Qwen (temperature 0) 21/70 kesildi
+MAX_TOKEN = {"qwen_dusunmesiz": 16000}  # 6 Kasim tam testi: 631/7.985 kesildi, 571'i dongu
+EK_AYAR = {"qwen": {"temperature": 0.6, "top_p": 0.95},  # dusunme varsayilanda acik; model karti acgozlu cozumlemeyi onermiyor
+           "qwen_dusunmesiz": {"reasoning_effort": "none"},  # taban: ayni model, dusunme kapali
+           "gemma": {"reasoning_effort": "high"},  # Gemma varsayilanda dusunmuyor
+           "oss": {"reasoning_effort": "high"}}
+FIYAT = {"qwen": (0.10, 0.15), "qwen_dusunmesiz": (0.10, 0.15), "gemma": (0.20, 0.40), "oss": (0.037, 0.17)}  # USD / M token, liste
+# soru basina cikti tokeni: qwen/gemma 7 Kasim 70 soruluk pilot, qwen_dusunmesiz 6 Kasim tam testi, oss olculmedi (Gemma vekil)
+CIKTI_TAHMIN = {"qwen": 13400, "qwen_dusunmesiz": 1950, "gemma": 3250, "oss": 3250}
 KARAKTER_TOKEN = 2.045  # 2 Kasim ham kayitlarindan olculen karakter/token
-HAKEM = bm.HAKEM
 COSMOS_BAGLAM = 8192
 COSMOS_PAY = 1.15  # karakterden token tahmini kesin degil, baglami asmamak icin pay
 COSMOS_EN_AZ_CIKTI = 512
@@ -60,8 +63,9 @@ def baslik(s, r):
     return s
 
 
-def test_satirlari():
-    secim = {(t["set"], t["id"]): t for t in map(json.loads, open(TEST_KUMESI, encoding="utf-8"))}
+def test_satirlari(tam=False):
+    """(set, satir, skorda). Varsayilan olcum kumesi; tam=True test bolumunun tamami."""
+    secim = {(t["set"], t["id"]): t for t in map(json.loads, open(TEST_KUMESI, encoding="utf-8")) if tam or t.get("olcum")}
     for p in sorted((PAKET / "veri").glob("*.jsonl.gz")):
         s = p.name[: -len(".jsonl.gz")]
         if s in DISARIDA:
@@ -86,12 +90,12 @@ def istek_olustur(m, s, r):
 
 
 def hazirla(a, D):
-    satirlar = list(test_satirlari())
+    satirlar = list(test_satirlari(a.tam))
     girdi_token = sum(len(istem(r)) / KARAKTER_TOKEN for _, r, _ in satirlar)
     print(f"{len(satirlar)} satir; skorlanan {sum(x[2] for x in satirlar)}; yaklasik {girdi_token / 1e6:.2f} M girdi token")
     print(Counter(s for s, _, _ in satirlar))
     toplam = 0
-    for m in MODELLER:
+    for m in ([a.model] if a.model else MODELLER):
         yaz, atla = [], []
         for s, r, _ in satirlar:
             ist, atlandi = istek_olustur(m, s, r)
@@ -106,7 +110,7 @@ def hazirla(a, D):
             print(f"{m:15} {len(yaz)} istek  ~${usd:.2f} (liste fiyati, ~{CIKTI_TAHMIN[m]} cikti token/soru)")
         else:
             print(f"{m:15} {len(yaz)} istek, sigmayan {len(atla)} (kiralik GPU, API maliyeti yok)")
-    print(f"API toplami ~${toplam:.2f}; MEB hakemi, ajan ve GPU haric")
+    print(f"API toplami ~${toplam:.2f}; ajan ve GPU haric")
 
 
 def _onay(a):
@@ -204,7 +208,7 @@ def al(a, D):
     cev = batch_al(D, a.model)
     if cev is None:
         return print("henüz bitmedi")
-    satirlar = list(test_satirlari())
+    satirlar = list(test_satirlari(a.tam))
     sigmadi = set(json.loads((D / f"sigmadi_{a.model}.json").read_text())) if (D / f"sigmadi_{a.model}.json").exists() else set()
     bos = (None, {}, None, None)
     isler = [(s, r, cev.get(f"{s}#{r['id']}", bos)[0]) for s, r, _ in satirlar]
@@ -212,7 +216,7 @@ def al(a, D):
         sonuc = dict(zip(((s, r["id"]) for s, r, _ in isler), ex.map(bm._puanla_is, isler, chunksize=4)))
         rg = [(r, m) for s, r, m in isler if s == "regex" and r["kategori"] == "regex_yazma"]
         via = dict(zip((r["id"] for r, _ in rg), ex.map(_regex_via, rg, chunksize=4)))
-    out, hakem_istek = [], []
+    out = []
     for s, r, skorda in satirlar:
         cid = f"{s}#{r['id']}"
         metin, usage, bitis, hata = cev.get(cid, bos)
@@ -223,63 +227,35 @@ def al(a, D):
              **({"via": via.get(r["id"])} if r["id"] in via else {}),
              "maliyet": usage.get("estimated_cost") or 0, "girdi_token": usage.get("prompt_tokens"),
              "cikti_token": usage.get("completion_tokens"), "cevap": metin}
-        if s in bm.MEB_SETLER and dogru is False and cevap_al(metin):
-            x["hakem_bekliyor"] = True
-            hakem_istek.append(bm.istek(cid, HAKEM, JUDGE_PROMPT.format(soru=r["soru"], cevap1=r["cevap"], cevap2=cevap_al(metin)),
-                                        max_tokens=1500))
         out.append(x)
     (D / f"sonuc_{a.model}.jsonl").write_text("".join(json.dumps(x, ensure_ascii=False) + "\n" for x in out), encoding="utf-8")
-    (D / f"girdi_hakem_{a.model}.jsonl").write_text("".join(json.dumps(x, ensure_ascii=False) + "\n" for x in hakem_istek), encoding="utf-8")
-    print(a.model, "dogru", sum(x["dogru"] for x in out), "/", len(out), "| hakem istegi", len(hakem_istek),
+    print(a.model, "dogru", sum(x["dogru"] for x in out), "/", len(out), "| puanlayici hatasi", sum(x["puanlayici_hatasi"] for x in out),
           "| istek hatasi", sum(bool(x["istek_hatasi"]) for x in out), "| sigmadi", sum(x["sigmadi"] for x in out))
-
-
-def adim_gonder(a, D, ad):
-    _onay(a)
-    bm._batch_gonder(D, f"{ad}_{a.model}", _satir_oku(D / f"girdi_{ad}_{a.model}.jsonl"))
-
-
-def hakem_al(a, D):
-    cev = batch_al(D, f"hakem_{a.model}")
-    if cev is None:
-        return print("henüz bitmedi")
-    p = D / f"sonuc_{a.model}.jsonl"
-    out = _satir_oku(p)
-    for x in out:
-        if not x.pop("hakem_bekliyor", False):
-            continue
-        icerik, usage, _, _ = cev.get(f"{x['set']}#{x['id']}", (None, {}, None, None))
-        x["hakem_maliyet"] = usage.get("estimated_cost") or 0
-        m = re.search(r"\{.*\}", icerik or "", re.S)
-        try:
-            x["dogru"] = bool(json.loads(m.group(0)).get("ayni_mi")) if m else False
-        except json.JSONDecodeError:
-            x["dogru"] = False
-    p.write_text("".join(json.dumps(x, ensure_ascii=False) + "\n" for x in out), encoding="utf-8")
-    print(a.model, "son dogru", sum(x["dogru"] for x in out), "/", len(out))
-
 
 
 def rapor(a, D):
     tablo = {}
     sigmayan = {x for p in D.glob("sigmadi_*.json") for x in json.loads(p.read_text())}
+    kapsam = {(s, r["id"]) for s, r, _ in test_satirlari(a.tam)}  # olcum kumesi ya da --tam; sonuc dosyasi tam testten de gelebilir
     for m in MODELLER:
         p = D / f"sonuc_{m}.jsonl"
         if not p.exists():
             continue
-        xs = [x for x in _satir_oku(p) if x["skorda"]]
-        b = defaultdict(list)
-        for x in xs:  # sigmayan soru yanlis sayilmaz, baslik kapsami ayrica yazilir; bkz. kapsam
-            if x["sigmadi"]:
-                continue
-            b[x["baslik"]].append(100 * x["dogru"])
-        oran = {k: round(sum(v) / len(v), 1) for k, v in sorted(b.items())}
-        ortak = defaultdict(list)  # butun modellere sigan sorular: modeller arasi karsilastirma bununla
-        for x in xs:
+        xs = [x for x in _satir_oku(p) if x["skorda"] and (x["set"], x["id"]) in kapsam]
+        b, st, ortak_set = defaultdict(list), defaultdict(list), defaultdict(list)
+        for x in xs:  # sigmayan soru yanlis sayilmaz, kapsam ayrica yazilir; modeller arasi karsilastirma ortak sorularla
+            if not x["sigmadi"]:
+                b[x["baslik"]].append(100 * x["dogru"])
+                st[x["set"]].append(100 * x["dogru"])
             if f"{x['set']}#{x['id']}" not in sigmayan:
-                ortak[x["baslik"]].append(100 * x["dogru"])
-        tablo[m] = {"model": MODELLER[m], "soru": len(xs), "baslik": oran, "makro_baslik": round(sum(oran.values()) / len(oran), 1),
-                    "makro_ortak_sorular": round(sum(sum(v) / len(v) for v in ortak.values()) / len(ortak), 1),
+                ortak_set[x["set"]].append(100 * x["dogru"])
+        oran = {k: round(sum(v) / len(v), 1) for k, v in sorted(b.items())}
+        set_oran = {k: round(sum(v) / len(v), 1) for k, v in sorted(st.items())}
+        tablo[m] = {"model": MODELLER[m], "ayar": {"max_tokens": MAX_TOKEN.get(m, MAX_TOKEN_VARSAYILAN), **EK_AYAR.get(m, {})},
+                    "soru": len(xs), "set": set_oran,
+                    "makro_set": round(sum(set_oran.values()) / len(set_oran), 1),  # ana skor
+                    "makro_set_ortak_sorular": round(sum(sum(v) / len(v) for v in ortak_set.values()) / len(ortak_set), 1),
+                    "baslik": oran, "makro_baslik": round(sum(oran.values()) / len(oran), 1),
                     "mikro": round(100 * sum(x["dogru"] for x in xs) / len(xs), 1),
                     "kapsam": {k: len(v) for k, v in sorted(b.items())}, "sigmadi": sum(x["sigmadi"] for x in xs),
                     "bos": sum(x["bos"] and not x["sigmadi"] for x in xs), "kesilen": sum(x["bitis"] == "length" for x in xs),
@@ -288,35 +264,35 @@ def rapor(a, D):
                     # dfa kanitlidir; tests yolunda dogru sayilan cevap yalniz gizli metinleri gecmistir, ayri okunur
                     "regex_yol": {yol: {"soru": sum(x.get("via") == yol for x in xs), "dogru": sum(x.get("via") == yol and x["dogru"] for x in xs)}
                                   for yol in ("dfa", "tests")},
-                    "maliyet_usd": round(sum(x["maliyet"] + x.get("hakem_maliyet", 0) for x in xs), 4)}
-    (Path(a.sonuc) if a.sonuc else SONUC).write_text(json.dumps(tablo, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+                    "maliyet_usd": round(sum(x["maliyet"] for x in xs), 4)}
+    (Path(a.sonuc) if a.sonuc else D / "sonuclar.json").write_text(json.dumps(tablo, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     ms = list(tablo)
-    print(f"{'baslik':30}" + "".join(f"{m:>14}" for m in ms))
-    for t in sorted({k for m in ms for k in tablo[m]["baslik"]}):
-        print(f"{t:30}" + "".join(f"{tablo[m]['baslik'].get(t, float('nan')):14.1f}" for m in ms))
-    for k in ("makro_baslik", "makro_ortak_sorular", "mikro", "sigmadi", "bos", "kesilen", "istek_hatasi", "puanlayici_hatasi", "zaman_asimi", "maliyet_usd"):
-        print(f"{k:30}" + "".join(f"{tablo[m][k]:>14}" for m in ms))
+    print(f"{'set':30}" + "".join(f"{m:>16}" for m in ms))
+    for t in sorted({k for m in ms for k in tablo[m]["set"]}):
+        print(f"{t:30}" + "".join(f"{tablo[m]['set'].get(t, float('nan')):16.1f}" for m in ms))
+    for k in ("makro_set", "makro_set_ortak_sorular", "makro_baslik", "mikro", "sigmadi", "bos", "kesilen", "istek_hatasi", "puanlayici_hatasi", "zaman_asimi", "maliyet_usd"):
+        print(f"{k:30}" + "".join(f"{tablo[m][k]:>16}" for m in ms))
     for yol in ("dfa", "tests"):
-        print(f"{'regex ' + yol + ' dogru/soru':30}" + "".join(f"{tablo[m]['regex_yol'][yol]['dogru']}/{tablo[m]['regex_yol'][yol]['soru']:<8}".rjust(14) for m in ms))
+        print(f"{'regex ' + yol + ' dogru/soru':30}" + "".join(f"{tablo[m]['regex_yol'][yol]['dogru']}/{tablo[m]['regex_yol'][yol]['soru']:<8}".rjust(16) for m in ms))
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("komut", choices=["hazirla", "pilot", "gonder", "kos", "al", "hakem-gonder", "hakem-al", "rapor"])
+    ap.add_argument("komut", choices=["hazirla", "pilot", "gonder", "kos", "al", "rapor"])
     ap.add_argument("--dir", required=True)
-    ap.add_argument("--model", choices=list(MODELLER))
+    ap.add_argument("--model", choices=list(MODELLER), help="hazirla: yalniz bu model (verilmezse hepsi)")
+    ap.add_argument("--tam", action="store_true", help="olcum kumesi yerine test bolumunun tamami")
     ap.add_argument("--onay", action="store_true", help="para harcayan komutlar icin zorunlu")
     ap.add_argument("--base-url")
     ap.add_argument("--ornek", type=int, default=2, help="pilot: set basina soru")
     ap.add_argument("--paralel", type=int, default=8)
     ap.add_argument("--sure", type=int, default=900)
     ap.add_argument("--isci", type=int, default=8)
-    ap.add_argument("--sonuc", help="rapor dosyasi (varsayilan benchmark/sonuclar_tam_test.json)")
+    ap.add_argument("--sonuc", help="rapor dosyasi (varsayilan <dir>/sonuclar.json)")
     a = ap.parse_args()
     D = Path(a.dir).resolve()
     D.mkdir(parents=True, exist_ok=True)
-    {"hazirla": hazirla, "pilot": pilot, "gonder": gonder, "kos": kos, "al": al, "rapor": rapor, "hakem-al": hakem_al,
-     "hakem-gonder": lambda a, D: adim_gonder(a, D, "hakem")}[a.komut](a, D)
+    {"hazirla": hazirla, "pilot": pilot, "gonder": gonder, "kos": kos, "al": al, "rapor": rapor}[a.komut](a, D)
 
 
 if __name__ == "__main__":

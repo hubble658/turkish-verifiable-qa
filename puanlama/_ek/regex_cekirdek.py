@@ -27,6 +27,7 @@ import threading
 from collections import deque
 from contextlib import contextmanager
 
+import greenery  # noqa: F401  zorunlu (greenery==4.2.3): yoksa her oge sessizce gizli testlere duserdi (2026-11-06)
 import regex
 
 TURKISH = "çğıöşüÇĞİÖŞÜ"

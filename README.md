@@ -122,7 +122,7 @@ Puanlama kodu ve veritabanları bu depoda (HF'de yalnız veri var); puanlamak i�
 ```bash
 git clone https://github.com/hubble658/turkish-verifiable-qa
 cd turkish-verifiable-qa
-pip install openpyxl          # yalnız LibreOffice yedeği için; çekirdek puanlama standart kütüphaneyle çalışır
+pip install -r requirements.txt   # chess, greenery, regex, openpyxl, formulas, requests (sürümler sabit)
 bash araclar/turspider_indir.sh   # sql_turspider için 166 veritabanı (~470 MB)
 ```
 
@@ -137,16 +137,15 @@ for satir in map(json.loads, gzip.open("veri/hesaplama.jsonl.gz", "rt", encoding
 
 - `istem(satir)`: Ölçümlerde kullanılan istemi kurar. SQL setlerinde şemayı veritabanından üretir; çıktı tahmininde tablo dökümünü ekler.
 - `puanla(satir, metin)`: Kategoriye göre doğru puanlayıcıyı çağırır.
-- **MEB setleri:** Hızlı eşleşme tutmazsa, isteğe bağlı bir hakem modele danışılır: `puanla(satir, metin, hakem=lambda istem_metni: ...)`. Hakem verilmezse skor bir alt sınırdır.
+- **MEB setleri:** Kural eşleşmesi altınla ve `orijinal.kabul_edilen` listesiyle yapılır; tutmazsa yanlış. Puanlama tamamen kurala dayalıdır, LLM hakem kullanılmaz (aynı puanlayıcı GRPO ödülü olarak da kullanılabilsin diye). `puanla(..., hakem=...)` parametresi geriye dönük uyumluluk için duruyor; değerlendirme protokolünde kullanılmaz.
 - **Doğrulama:** `python3 araclar/altin_sinama.py veri/*.jsonl.gz` her satırın altın cevabını kendi puanlayıcısından geçirir. `--ters` bayrağı bariz yanlış cevapların, `--yakin` bayrağı az bozulmuş cevapların (tam sayı +1, ondalık %5, birimde %15) reddedildiğini sınar. Bu sürümde (7 Kasım) altın sınama 76.506/76.506 geçiyor, ters sınama 76.499/76.506 (ajan terminal görevleri `ajan_eval/` ile sınanır, bu sayılara girmez). Ters sınamadaki 7 kabul birim dönüşümü (2) ve fizik (5) sorularında; bunların altın cevabı sınamada kullanılan yanlış değere (98.765,4321) gerçekten %0,5'ten yakın.
 
 **Gerekenler:**
 - Python ≥ 3.10.
 - SQL setleri için `veritabanlari/` (13 SQLite dosyası, ~110 MB, depoda).
 - `sql_turspider` için ayrıca indirme betiği.
-- `satranc` için `pip install chess` (python-chess).
-- `regex` için `pip install regex greenery==4.2.3`. Puanlama iş parçacığında yapılmamalı (SIGALRM).
-- LibreOffice isteğe bağlı. Excel motorunun tanımadığı nadir fonksiyonlarda kullanılır; yoksa bu cevaplar yanlış sayılır.
+- `requirements.txt`: `satranc` için python-chess, `regex` için `regex` ve `greenery==4.2.3` (zorunlu; yoksa regex puanlayıcısı açıkça hata verir), Excel için `openpyxl` ve `formulas`. Regex puanlaması iş parçacığında yapılmamalı (SIGALRM), süreç havuzu kullanın.
+- LibreOffice isteğe bağlı. Excel motorunun tanımadığı nadir fonksiyonlarda kullanılır; yoksa bu cevaplar yanlış sayılır. Protokol ölçümlerinde kuruluydu (7.3).
 - Solver `kod` seti modelin Python programını yerel olarak çalıştırır: 60 sn işlemci, 2 GB bellek, yasaklı modül listesi. Bu bir kum havuzu değildir, güvenmediğiniz ortamda konteyner içinde çalıştırın.
 
 ## Puanlama kuralları (özet)
@@ -163,13 +162,13 @@ for satir in map(json.loads, gzip.open("veri/hesaplama.jsonl.gz", "rt", encoding
 - **`LIMIT` eşitliği.** Altın `ORDER BY ... LIMIT` ise ve sınırda eşit değer varsa, eşit satırlardan herhangi biri ya da eşit grubun tamamı kabul edilir (`belgeler` / YONTEM §25).
 - **SQL çıktı tahmini.** Model JSON tabloyu yazar, karşılaştırma SQL yazmayla aynıdır. SQL'de en dışta `ORDER BY` varsa satır sırası önemlidir; sıralama anahtarında eşitlik varsa (gösterilen tablolarda ters taramayla sınanır) sıra aranmaz. Biçim toleransı var: kaçışlı tırnak, fazladan dış liste, tırnaksız metin. `CEVAP:` satırı varsa yalnız o satır okunur.
 - **Bulmaca.** Gevşek eşleşme: sıra (liste cevaplarında), ek ("Mutfakta" ~ "mutfak", "kitabı" ~ "kitap"), saat yazımı (13.45 ~ 13:45) ve birim ("30 dakika" ~ "30") farkı tolere edilir.
-- **MEB.** Hızlı eşleşme yalnız emin olduğunda doğru der, şüphede hakeme bırakır:
+- **MEB.** Kural eşleşmesi yalnız emin olduğunda doğru der; emin olmadığı cevap yanlış sayılır (LLM hakem yok):
   - cevaptaki bağımsız sayıların tamamı metindeki sırasıyla ve işaretleriyle altınla aynı olmalı (harfe bitişik rakam, ör. CO2, sayı sayılmaz); sayılar aynıysa metin de tutmalı ("298" ~ "298 K" geçer, "2 mol" ~ "2 L" geçmez),
-  - altında olmayan olumsuzluk ya da seçenek sözcüğü (değil, hayır, yok, ya da, veya) varsa hakeme gider,
+  - altında olmayan olumsuzluk ya da seçenek sözcüğü (değil, hayır, yok, ya da, veya) varsa eşleşme kabul edilmez,
   - metinde: parantezler atıldıktan sonra normalize eşitlik ya da altın cevabın sözcüklerinin model cevabında sırasıyla geçmesi,
-  - bu kurallar altının yanında `orijinal.kabul_edilen` listesindeki eşdeğer yazımlarla da denenir (7 Kasım; 5.564 soruda 16.711 yazım, ör. "Karbondioksit" için "CO2", "yarıya iner" için "yarısına iner"). Hakem yalnız altını görür.
+  - bu kurallar altının yanında `orijinal.kabul_edilen` listesindeki eşdeğer yazımlarla da denenir (7 Kasım; 5.564 soruda 16.711 yazım, ör. "Karbondioksit" için "CO2", "yarıya iner" için "yarısına iner").
 
-  Bunun dışındaki her şey hakeme gider. Hakem istemi: `puanlama/meb.py` → `JUDGE_PROMPT`; ölçümde `deepseek-ai/DeepSeek-V3-0324` kullanıldı.
+  Bu yüzden MEB skoru, eşdeğer ama listede olmayan yazımları kaçırabilir; skor bu anlamda bir alt sınırdır. Altın cevaplar LLM ile doğrulandığı için MEB skorlarını kesin setlerden ayrı raporlayın.
 
 ## Bu sürümde yapılan düzeltmeler (30 Ekim 2026)
 
@@ -230,52 +229,39 @@ Denetimde bulunan sorunlu sorular düzeltildi ya da çıkarıldı (137.784 → 1
 - altın yanlış ("toplam misyon sayısı" → `SUM(mission_id)`; "toplam yatak" → hastane sayısı),
 - altında istenmeyen sütun ya da sıralama (`RANK()` sütunu, belirtilmemiş `DESC`).
 
-SQL yazma için `sql_belediye`, `sql_istatistik` ve `sql_turspider` kalıyor. Benchmark sonuçları Cognipeer'siz yeniden hesaplandı (ölçüm yenilenmedi; ham sonuçlarda Cognipeer satırları duruyor: 24B %67, Flash %65, düşünen Flash %64).
+SQL yazma için `sql_belediye`, `sql_istatistik` ve `sql_turspider` kalıyor.
 
-## Benchmark (2 Kasım 2026)
+## Değerlendirme protokolü (7 Kasım 2026)
 
-26 türün her birinden 100 soru, 2.600 soru (3 Kasım'da Cognipeer'in 100 sorusu çıkarıldı): kimlikler `benchmark/alt_kume.jsonl`, betik `araclar/benchmark.py` (seç → batch gönder → puanla → MEB hakemi → rapor), sonuçlar `benchmark/sonuclar.json`. Ayar: paketteki istem, temperature 0, tek deneme; 24B ve düşünmesiz Flash 8.000 token, düşünen Flash `reasoning_effort=high` 32.000 token. MEB'de kural tutmazsa DeepSeek-V4-Flash hakem. 100 soruda 95% güven aralığı en kötü ±10 puan.
+Skorların başkalarınca aynı şekilde alınabilmesi için ölçümler bu kurallarla yapılır. Model sonuçları ölçümler tamamlanınca eklenecek; bu sürümde skor yok.
 
-Sonradan eklenen 5 set (satranç, ızgara bulmacaları, regex, karakter işlemleri, ajan terminal) bu benchmark'ta yok; satranç ve ızgara için yalnız küçük pilot sonuçları var (yöntem belgesi §15; düşünen V4-Flash: satranç %48, ızgara %90). Test bölümünün tamamıyla yeni ölçüm `araclar/tam_test.py` ile sürüyor; sonuçlar eklenecek.
+**Küme.** Ölçüm kümesi: `benchmark/test_kumesi.jsonl` içinde `olcum: true` olan 4.199 satır, hepsi `test` bölümünden. 3.999 metin sorusu (14 set) ve 200 ajan terminal görevi. Her alt başlıktan ~100 soru alınır; bulmaca, hesaplama, ızgara, satranç, solver, karakter işlemleri, Excel veritabanı ve ajan terminalde test bölümünün tamamı kümededir. SQL setleri, iki MEB seti ve regex 100'er soru (MEB tek ders 99). Birden çok veritabanını bağlayan ATTACH soruları (`neden: attach`) ölçüm kümesinde yok. İsteyen test bölümünün tamamını (8.171) da kullanabilir; ölçüm kümesi testin başlık ortalamasını ve set ortalamasını ±0,5 puan içinde verdi (6 Kasım, Qwen3.5-9B düşünmesiz, 7 Kasım MEB güncellemesinden önceki puanlayıcıyla).
 
-| Tür | Mistral-Small-3.2-24B | V4-Flash (düşünmesiz) | V4-Flash (düşünen, high) |
-|---|---:|---:|---:|
-| akrabalik | 59 | 88 | 95 |
-| birim_donusumu | 82 | 100 | 99 |
-| dogrucu_yalanci | 51 | 92 | 98 |
-| excel_formulu | 97 | 98 | 98 |
-| excel_veritabani | 26 | 70 | 93 |
-| fizik_hesabi | 94 | 99 | 98 |
-| json_uretimi | 94 | 97 | 99 |
-| kimya_hesabi | 96 | 99 | 98 |
-| korpus_capraz_eslestirmeli | 69 | 86 | 93 |
-| korpus_tek_ders | 71 | 86 | 84 |
-| matris_islemleri | 85 | 100 | 100 |
-| nesne_takip | 78 | 100 | 100 |
-| sahiplik_zinciri | 84 | 100 | 100 |
-| sayac_takip | 76 | 93 | 96 |
-| siralama | 40 | 81 | 86 |
-| solver_kod | 0 | 7 | 41 |
-| solver_orta | 1 | 2 | 70 |
-| sql_belediye | 61 | 73 | 88 |
-| sql_cikti_tahmini | 4 | 18 | 97 |
-| sql_istatistik | 76 | 89 | 92 |
-| sql_turspider | 80 | 82 | 82 |
-| tarih_hesaplama | 60 | 91 | 98 |
-| xml_uretimi | 94 | 98 | 87 |
-| yon | 48 | 91 | 98 |
-| zaman_aritmetigi | 91 | 100 | 99 |
-| zebra | 30 | 74 | 100 |
-| **Makro (26 tür)** | **63,3** | **81,3** | **91,9** |
-| **Makro (10 set)** | **53,7** | **69,7** | **87,8** |
+**İstem ve cevap.** İstem `puanlama.istem(satir)`: tek kullanıcı mesajı, sistem mesajı yok, soru başına tek deneme. Puanlanan yalnız modelin cevap metnidir (`message.content`); düşünme metni (`reasoning_content`) puanlanmaz.
 
-Düşünme SQL çıktı tahmininde, solver'da, Excel veritabanında ve zebrada belirleyici; hesaplama setleri doymuş. Solver en zor set. Benchmark sırasında bulmaca puanlayıcısında üç hata bulunup düzeltildi (cümleyle yazılmış akrabalık cevabı, tipografik kesme işareti, "2 top" / "Sadece sarı") ve hesaplamada bir hata (Türkçe binlik ayırıcı: "374.000 L" 374,0 okunuyordu); değişen 69 kararın hepsi elle doğrulandı.
+**Modeller ve ayarlar.** DeepInfra (OpenAI uyumlu API, Batch); Cosmos kiralık GPU'da vLLM ile.
+
+| Model | Düşünme | Ayar | Çıktı sınırı |
+|---|---|---|---:|
+| `Qwen/Qwen3.5-9B` | açık (varsayılan) | temperature 0,6, top_p 0,95 (model kartının düşünme modu önerisi) | 32.000 |
+| `Qwen/Qwen3.5-9B` (taban) | kapalı | `reasoning_effort: none`, temperature 0 | 16.000 |
+| `google/gemma-4-31B-it` | açık | `reasoning_effort: high`, temperature 0 | 32.000 |
+| `openai/gpt-oss-120b` | açık | `reasoning_effort: high`, temperature 0 | 32.000 |
+| `ytu-ce-cosmos/Turkish-Gemma-9b-v0.1` | yok | temperature 0 | bağlam 8.192 içinde kalan |
+
+Sınıra takılan, boş dönen ya da istek hatası alan cevap yanlış sayılır ve oranı ayrıca raporlanır. Cosmos'un bağlamına sığmayan 63 soru (`sigmadi_cosmos.json`) ona gönderilmez ve onun skoruna girmez. Modeller arası karşılaştırma bu soruların çıkarıldığı ortak kümeyle de verilir.
+
+**Puanlama.** `puanla(satir, metin)`, tamamen kurala dayalı; LLM hakem yok. Puanlayıcı hatası ve zaman aşımı yanlış sayılır, ayrıca raporlanır. Regex'te kararın DFA eşdeğerliğiyle mi gizli testlerle mi verildiği (`via`) ayrı yazılır.
+
+**Skor.** Ana skor **set ortalaması**: 14 metin setinin her biri eşit ağırlıkta. Başlık ortalaması (40 başlık) ve mikro doğruluk ek bilgi olarak verilir. Başlık ortalamasında bulmaca ve hesaplama 40 başlığın 17'sini tuttuğu için skor kolay setlere kayar; bu yüzden ana skor olarak kullanılmaz. Ajan terminal çok turlu olduğu için (`ajan_eval/`) ayrı raporlanır. MEB skorları, altınları LLM ile doğrulandığından kesin setlerden ayrıca da gösterilir. 100 soruluk bir sette tek modelin 95% güven aralığı en kötü ±10 puandır. Qwen'in düşünen ayarı örneklemeli olduğu için tekrar koşulduğunda set skorları birkaç puan oynayabilir.
+
+**Araç.** `araclar/tam_test.py`: `hazirla` (istek dosyaları ve maliyet tahmini), `gonder` (DeepInfra Batch), `kos` (vLLM), `al` (cevapları indirip puanlar), `rapor` (set ortalaması, başlık ortalaması, kesilme, puanlayıcı hatası; çıktı klasörüne `sonuclar.json` yazar). Varsayılan küme ölçüm kümesidir, `--tam` testin tamamını kullanır. Ortam: Python 3.10, `requirements.txt`; regex puanlaması süreç havuzunda yapılır.
 
 ## Bilinen sınırlar
 
 - **Birim dönüştürme:** Hesaplama sorularında altın cevap, sorunun istediği birimdedir ("kaç Joule'dür?" → J). Paketteki puanlayıcı (`puanla`) birim dönüştürmez: başka birimle yazılmış doğru cevap (ör. 11971 J yerine "11.97 kJ") yanlış sayılır. Benchmark'taki 2.600 cevapta bu durum görülmedi. Kendi puanlayıcınızı kullanıyorsanız birim dönüştürme ekleyebilirsiniz.
 - **MEB'de kalıntı sorunlu sorular (~%10, tahmin):** Denetim ve düzeltmeden sonra da kalan sorunlar var. Benchmark'ta düşünen V4-Flash'ın yanlış yaptığı 23 MEB sorusunun ~20'si elle okumada soru kaynaklı çıktı: birden çok doğru cevap ("sumasyon" / "fizyolojik tetanus"), şekle dayalı soru, döngüsel soru ya da yanlış altın (CCU/CCC/CCA/CCG'nin hepsi yalnız prolini şifrelerken altın "AUG kodonu"). Bu sorularda en iyi model de yanlış sayılır; MEB skorlarının tavanı bu yüzden ~%90.
-- **Önceki ölçümler** farklı istem, deneme sayısı ve `reasoning_effort` ile alındı; karşılaştırma için aşağıdaki benchmark'ı kullanın.
+- **Önceki ölçümler** (yöntem belgesindeki pilotlar ve 2 Kasım benchmark'ı) farklı istem, deneme sayısı, `reasoning_effort` ve MEB hakemiyle alındı; değerlendirme protokolüyle karşılaştırılamaz.
 - **`sayac_takip` (bulmaca):** Tuzak sorular var: hiç aktarılmamış bir rengin "kaç tane aktarıldı" diye sorulması gibi; cevabı "0" ya da "hiçbiri". 1 Kasım 2026'da bunların oranı %43'ten %15'e indirildi (300 sorunun 46'sı); 82 soru aynı üreticiyle üretilmiş yeni sorularla değiştirildi.
 - **SQL çıktı tahmininde şablon tekrarı:**
   - Dünya Bankası'nın 598 sorusu 4 SQL iskeletinden geliyor ("gösterge/yıl için ilk N ülke").
