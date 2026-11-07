@@ -6683,7 +6683,6 @@
 {"rol": "egitim", "set": "meb_capraz", "id": "korpus-001455", "baslik": "meb_capraz", "skorda": true, "istem_karakter": 338}
 {"rol": "egitim", "set": "meb_capraz", "id": "korpus-001258", "baslik": "meb_capraz", "skorda": true, "istem_karakter": 472}
 {"rol": "egitim", "set": "meb_capraz", "id": "korpus-000400", "baslik": "meb_capraz", "skorda": true, "istem_karakter": 406}
-{"rol": "egitim", "set": "meb_capraz", "id": "korpus-002115", "baslik": "meb_capraz", "skorda": true, "istem_karakter": 440}
 {"rol": "egitim", "set": "meb_capraz", "id": "korpus-003051", "baslik": "meb_capraz", "skorda": true, "istem_karakter": 471}
 {"rol": "egitim", "set": "meb_capraz", "id": "korpus-001738", "baslik": "meb_capraz", "skorda": true, "istem_karakter": 563}
 {"rol": "egitim", "set": "meb_capraz", "id": "korpus-000957", "baslik": "meb_capraz", "skorda": true, "istem_karakter": 289}
@@ -6965,7 +6964,6 @@
 {"rol": "test", "set": "meb_tek_ders", "id": "biyoloji11-0261", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 296}
 {"rol": "test", "set": "meb_tek_ders", "id": "biyoloji11-0262", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 306}
 {"rol": "test", "set": "meb_tek_ders", "id": "biyoloji11-0263", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 345}
-{"rol": "test", "set": "meb_tek_ders", "id": "biyoloji11-0264", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 311}
 {"rol": "test", "set": "meb_tek_ders", "id": "biyoloji11-0265", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 317}
 {"rol": "test", "set": "meb_tek_ders", "id": "biyoloji11-0266", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 299}
 {"rol": "test", "set": "meb_tek_ders", "id": "biyoloji11-0267", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 313}
@@ -7042,7 +7040,6 @@
 {"rol": "test", "set": "meb_tek_ders", "id": "biyoloji11-0443", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 300}
 {"rol": "test", "set": "meb_tek_ders", "id": "biyoloji11-0447", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 306}
 {"rol": "test", "set": "meb_tek_ders", "id": "biyoloji11-0450", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 332}
-{"rol": "test", "set": "meb_tek_ders", "id": "biyoloji11-0452", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 347}
 {"rol": "test", "set": "meb_tek_ders", "id": "biyoloji11-0453", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 297}
 {"rol": "test", "set": "meb_tek_ders", "id": "biyoloji11-0454", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 309}
 {"rol": "test", "set": "meb_tek_ders", "id": "biyoloji11-0456", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 332}
@@ -7214,7 +7211,6 @@
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik10-1168", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 321}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik10-1169", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 319}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik10-1171", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 359}
-{"rol": "test", "set": "meb_tek_ders", "id": "fizik10-1173", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 347}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik10-1174", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 328}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik10-1179", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 351}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik10-1252", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 299}
@@ -7254,8 +7250,6 @@
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik11-1513", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 454}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik11-1514", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 318}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik11-1515", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 330}
-{"rol": "test", "set": "meb_tek_ders", "id": "fizik11-1518", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 436}
-{"rol": "test", "set": "meb_tek_ders", "id": "fizik11-1520", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 375}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik11-1525", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 637}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik11-1546", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 298}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik11-1547", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 302}
@@ -7337,7 +7331,6 @@
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik12-1876", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 371}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik12-1878", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 316}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik12-1882", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 334}
-{"rol": "test", "set": "meb_tek_ders", "id": "fizik12-1884", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 352}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik12-1944", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 282}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik12-1950", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 329}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik12-1951", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 330}
@@ -7350,7 +7343,6 @@
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik12-1960", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 358}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik12-1961", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 340}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik12-1962", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 294}
-{"rol": "test", "set": "meb_tek_ders", "id": "fizik12-1965", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 349}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik12-1966", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 293}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik12-1968", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 378}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik12-1969", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 320}
@@ -7398,7 +7390,6 @@
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik9-2191", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 309}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik9-2193", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 328}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik9-2194", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 304}
-{"rol": "test", "set": "meb_tek_ders", "id": "fizik9-2195", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 350}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik9-2197", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 349}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik9-2198", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 291}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik9-2200", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 314}
@@ -7427,9 +7418,7 @@
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik9-2388", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 290}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik9-2406", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 383}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik9-2407", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 342}
-{"rol": "test", "set": "meb_tek_ders", "id": "fizik9-2408", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 292}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik9-2409", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 330}
-{"rol": "test", "set": "meb_tek_ders", "id": "fizik9-2410", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 326}
 {"rol": "test", "set": "meb_tek_ders", "id": "fizik9-2417", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 297}
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya10-2419", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 278}
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya10-2427", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 278}
@@ -7468,7 +7457,6 @@
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya10-2589", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 284}
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya10-2594", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 347}
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya10-2596", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 388}
-{"rol": "test", "set": "meb_tek_ders", "id": "kimya10-2597", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 319}
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya10-2614", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 315}
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya10-2621", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 298}
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya10-2631", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 281}
@@ -7494,7 +7482,6 @@
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya11-2771", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 313}
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya11-2772", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 319}
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya11-2773", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 365}
-{"rol": "test", "set": "meb_tek_ders", "id": "kimya11-2777", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 320}
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya11-2778", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 328}
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya11-2791", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 330}
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya11-2792", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 295}
@@ -7583,7 +7570,6 @@
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya12-3209", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 344}
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya12-3210", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 328}
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya12-3212", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 288}
-{"rol": "test", "set": "meb_tek_ders", "id": "kimya12-3214", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 341}
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya12-3215", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 324}
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya12-3216", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 324}
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya12-3218", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 325}
@@ -7641,7 +7627,6 @@
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya9-3402", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 258}
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya9-3405", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 289}
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya9-3406", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 286}
-{"rol": "test", "set": "meb_tek_ders", "id": "kimya9-3408", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 276}
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya9-3409", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 303}
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya9-3410", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 299}
 {"rol": "test", "set": "meb_tek_ders", "id": "kimya9-3411", "baslik": "meb_tek_ders", "skorda": true, "istem_karakter": 323}

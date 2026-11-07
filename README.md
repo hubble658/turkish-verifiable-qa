@@ -52,7 +52,7 @@ configs:
 
 # Doğrulanabilir Türkçe Soru Veri Seti
 
-Cevabı programla kontrol edilebilen **78.159** Türkçe soru ve görev, 15 set: mantık bulmacaları, hesaplama, Excel formülü, optimizasyon, SQL yazma, SQL çıktısı tahmini, MEB ders kitaplarından kısa cevaplı sorular; ayrıca satranç, ızgara bulmacaları, regex, karakter işlemleri ve çok turlu terminal (ajan) görevleri. Her sorunun yanında altın cevap ve onu puanlayan kod var: Excel ve SQL cevapları çalıştırılarak, sayılar toleransla, bulmacalar normalize eşleşmeyle puanlanır.
+Cevabı programla kontrol edilebilen **78.096** Türkçe soru ve görev, 15 set: mantık bulmacaları, hesaplama, Excel formülü, optimizasyon, SQL yazma, SQL çıktısı tahmini, MEB ders kitaplarından kısa cevaplı sorular; ayrıca satranç, ızgara bulmacaları, regex, karakter işlemleri ve çok turlu terminal (ajan) görevleri. Her sorunun yanında altın cevap ve onu puanlayan kod var: Excel ve SQL cevapları çalıştırılarak, sayılar toleransla, bulmacalar normalize eşleşmeyle puanlanır.
 
 Sürüm: 7 Kasım 2026.
 
@@ -69,23 +69,23 @@ Sürüm: 7 Kasım 2026.
 | `sql_belediye.jsonl.gz` | 17.785 | özgün | Gerçek SQLite'ta çalıştırma | SQL sorgusu (belediye açık verisi: 9 il/ilçe veritabanı) |
 | `sql_istatistik.jsonl.gz` | 9.234 | özgün | Gerçek SQLite'ta çalıştırma | SQL sorgusu (ulusal/uluslararası istatistik: deprem, Eurostat, Dünya Bankası, Wikidata) |
 | `sql_cikti_tahmini.jsonl.gz` | 3.321 | özgün | Gerçek SQLite'ta çalıştırma | Verilen SQL'in çıktısı (JSON tablo) |
-| `meb_tek_ders.jsonl.gz` | 2.809 | özgün | LLM + kitap pasajı, LLM tutarlılık kontrolü | Kısa cevap |
-| `meb_capraz.jsonl.gz` | 3.991 | özgün | LLM + iki ders pasajı, LLM hakem | Kısa cevap |
+| `meb_tek_ders.jsonl.gz` | 2.758 | özgün | LLM + kitap pasajı, LLM tutarlılık kontrolü | Kısa cevap |
+| `meb_capraz.jsonl.gz` | 3.979 | özgün | LLM + iki ders pasajı, LLM hakem | Kısa cevap |
 | `sql_turspider.jsonl.gz` | 7.902 | `turspider_filtreli` | Gerçek SQLite'ta çalıştırma | SQL sorgusu |
 | `satranc.jsonl.gz` | 3.000 | `hizli_uyarlama` (Lichess, CC0) | Lichess çözümü + zorlayıcı-mat çözücü | İlk hamle (SAN/UCI) |
 | `izgara_bulmaca.jsonl.gz` | 2.000 | `hizli_uretim` | Program (çözücü, BFS, Dijkstra/Kruskal) | Izgara ya da sayı |
 | `ajan_terminal.jsonl.gz` | 1.590 (kabuk 884, kod 706) | özgün | Kum havuzunda çalıştırılıp `checks` kurallarıyla denetlenir; kurallar örnek çözümden türetilmiştir | Çok turlu komut çalıştırma; dosya ya da kod üretimi |
 | `regex.jsonl.gz` | 1.728 (yazma 1.695, çıkarma 33) | `hizli_uretim` 1.483 / `hizli_uyarlama` 245 (StructuredRegex MIT, müşteri mesajları CC BY 4.0) | Program (DFA eşdeğerliği ya da gizli testler) | Python regex'i |
 | `karakter_islemleri.jsonl.gz` | 1.200 (Sezar, işlem zinciri, ters yazma; 400'er) | `hizli_uretim` (cümleler GECTurk, Apache-2.0) | Program (Türkçe alfabe ve harf kuralları) | Metin |
-| **Toplam** | **78.159** | | | |
+| **Toplam** | **78.096** | | | |
 
-**Köken:** `koken` alanı sorunun kaynağını verir: `ozgun` (bu çalışmada üretildi, 62.329 soru), `turspider_filtreli` (dış setten filtrelendi, 7.902 soru), `hizli_uyarlama` (dış kaynaktan hızlı uyarlama, 3.245) ya da `hizli_uretim` (programla hızlı üretim, 4.683). Altın cevabın nasıl belirlendiği tablonun "Cevabı kim belirler" sütununda; altını LLM'e dayanan tek setler MEB setleridir (Bilinen sınırlar). Ajan görevlerinde görevi ve örnek çözümü LLM yazdı, kontroller örnek çözümün çalıştırılmasından türetildi. Dış setlerde altın sonuç bu paket için yeniden çalıştırılarak hesaplandı; soru metniyle SQL'in uyumu kaynak setin kalitesine bağlı (TURSpider insan çevirisi). Cognipeer seti 3 Kasım'da çıkarıldı (aşağıda).
+**Köken:** `koken` alanı sorunun kaynağını verir: `ozgun` (bu çalışmada üretildi, 62.266 soru), `turspider_filtreli` (dış setten filtrelendi, 7.902 soru), `hizli_uyarlama` (dış kaynaktan hızlı uyarlama, 3.245) ya da `hizli_uretim` (programla hızlı üretim, 4.683). Altın cevabın nasıl belirlendiği tablonun "Cevabı kim belirler" sütununda; altını LLM'e dayanan tek setler MEB setleridir (Bilinen sınırlar). Ajan görevlerinde görevi ve örnek çözümü LLM yazdı, kontroller örnek çözümün çalıştırılmasından türetildi. Dış setlerde altın sonuç bu paket için yeniden çalıştırılarak hesaplandı; soru metniyle SQL'in uyumu kaynak setin kalitesine bağlı (TURSpider insan çevirisi). Cognipeer seti 3 Kasım'da çıkarıldı (aşağıda).
 
 **Karakter işlemleri (4 Kasım):** Türkçe metin üzerinde karakter düzeyinde işlem ölçer, Türkçe dil bilgisini değil. Düşük skorda tokenizasyonun payı olabilir (`belgeler` / YONTEM §23).
 
 ## Satır şeması
 
-**Train / test:** Her satırda `bolum` alanı vardır: train 69.974, test 8.185. Modeli `train` ile eğitin, `test` ile ölçün. SQL testi train'de olmayan veritabanlarından oluşur: `sql_belediye` Sakarya + Ankara, `sql_istatistik` Deprem + Wikidata (bunları `ATTACH` eden Eurostat soruları dahil), `sql_turspider` özgün `dev` bölümü (20 veritabanı). Bu veritabanlarından türeyen `sql_cikti_tahmini` satırları ve MEB'de ölçüm sorularıyla aynı konudan ya da pasaj çiftinden olan sorular da testtedir. Karşılaştırılabilir ve ucuz ölçüm için `benchmark/test_kumesi.jsonl` içinde `olcum: true` olan 4.200 satırı kullanın: 42 üretim başlığının her birinden 100 soru ya da görev. Şablondan üretilen setlerde (ör. `hesaplama`, `bulmaca`) aynı şablon iki bölümde de bulunur; bu bilinçlidir, yani test bu setlerde yeni parametreyi ölçer, yeni soru türünü değil. 2 Kasım skorları dört SQL setine aktarılamaz, diğer 22 türde geçerlidir.
+**Train / test:** Her satırda `bolum` alanı vardır: train 69.925, test 8.171. Modeli `train` ile eğitin, `test` ile ölçün. SQL testi train'de olmayan veritabanlarından oluşur: `sql_belediye` Sakarya + Ankara, `sql_istatistik` Deprem + Wikidata (bunları `ATTACH` eden Eurostat soruları dahil), `sql_turspider` özgün `dev` bölümü (20 veritabanı). Bu veritabanlarından türeyen `sql_cikti_tahmini` satırları ve MEB'de ölçüm sorularıyla aynı konudan ya da pasaj çiftinden olan sorular da testtedir. Karşılaştırılabilir ve ucuz ölçüm için `benchmark/test_kumesi.jsonl` içinde `olcum: true` olan 4.199 satırı kullanın: 42 üretim başlığının her birinden 100 soru ya da görev (MEB tek derste 99; 7 Kasım'da bir şekil bağımlı soru çıkarıldı). Şablondan üretilen setlerde (ör. `hesaplama`, `bulmaca`) aynı şablon iki bölümde de bulunur; bu bilinçlidir, yani test bu setlerde yeni parametreyi ölçer, yeni soru türünü değil. 2 Kasım skorları dört SQL setine aktarılamaz, diğer 22 türde geçerlidir.
 
 **Regex (5 Kasım):** T1'de karar çoğunlukla DFA eşdeğerliğiyle verilir; 20 öğe ve otomata çevrilemeyen cevaplar gizli testlere düşer. Yolu `puanla_ayrinti` içindeki `via` söyler, ayrı raporlayın. Açık sınırlar (T3 gevşek regex, cevap ayıklama, train/test ortak 7 altın): `belgeler` / YONTEM §19.1.
 
@@ -138,7 +138,7 @@ for satir in map(json.loads, gzip.open("veri/hesaplama.jsonl.gz", "rt", encoding
 - `istem(satir)`: Ölçümlerde kullanılan istemi kurar. SQL setlerinde şemayı veritabanından üretir; çıktı tahmininde tablo dökümünü ekler.
 - `puanla(satir, metin)`: Kategoriye göre doğru puanlayıcıyı çağırır.
 - **MEB setleri:** Hızlı eşleşme tutmazsa, isteğe bağlı bir hakem modele danışılır: `puanla(satir, metin, hakem=lambda istem_metni: ...)`. Hakem verilmezse skor bir alt sınırdır.
-- **Doğrulama:** `python3 araclar/altin_sinama.py veri/*.jsonl.gz` her satırın altın cevabını kendi puanlayıcısından geçirir. `--ters` bayrağı bariz yanlış cevapların, `--yakin` bayrağı az bozulmuş cevapların (tam sayı +1, ondalık %5, birimde %15) reddedildiğini sınar. Bu sürümde (7 Kasım) altın sınama 76.569/76.569 geçiyor, ters sınama 76.562/76.569 (ajan terminal görevleri `ajan_eval/` ile sınanır, bu sayılara girmez). Ters sınamadaki 7 kabul birim dönüşümü (2) ve fizik (5) sorularında; bunların altın cevabı sınamada kullanılan yanlış değere (98.765,4321) gerçekten %0,5'ten yakın.
+- **Doğrulama:** `python3 araclar/altin_sinama.py veri/*.jsonl.gz` her satırın altın cevabını kendi puanlayıcısından geçirir. `--ters` bayrağı bariz yanlış cevapların, `--yakin` bayrağı az bozulmuş cevapların (tam sayı +1, ondalık %5, birimde %15) reddedildiğini sınar. Bu sürümde (7 Kasım) altın sınama 76.506/76.506 geçiyor, ters sınama 76.499/76.506 (ajan terminal görevleri `ajan_eval/` ile sınanır, bu sayılara girmez). Ters sınamadaki 7 kabul birim dönüşümü (2) ve fizik (5) sorularında; bunların altın cevabı sınamada kullanılan yanlış değere (98.765,4321) gerçekten %0,5'ten yakın.
 
 **Gerekenler:**
 - Python ≥ 3.10.
@@ -166,7 +166,8 @@ for satir in map(json.loads, gzip.open("veri/hesaplama.jsonl.gz", "rt", encoding
 - **MEB.** Hızlı eşleşme yalnız emin olduğunda doğru der, şüphede hakeme bırakır:
   - cevaptaki bağımsız sayıların tamamı metindeki sırasıyla ve işaretleriyle altınla aynı olmalı (harfe bitişik rakam, ör. CO2, sayı sayılmaz); sayılar aynıysa metin de tutmalı ("298" ~ "298 K" geçer, "2 mol" ~ "2 L" geçmez),
   - altında olmayan olumsuzluk ya da seçenek sözcüğü (değil, hayır, yok, ya da, veya) varsa hakeme gider,
-  - metinde: parantezler atıldıktan sonra normalize eşitlik ya da altın cevabın sözcüklerinin model cevabında sırasıyla geçmesi.
+  - metinde: parantezler atıldıktan sonra normalize eşitlik ya da altın cevabın sözcüklerinin model cevabında sırasıyla geçmesi,
+  - bu kurallar altının yanında `orijinal.kabul_edilen` listesindeki eşdeğer yazımlarla da denenir (7 Kasım; 5.564 soruda 16.711 yazım, ör. "Karbondioksit" için "CO2", "yarıya iner" için "yarısına iner"). Hakem yalnız altını görür.
 
   Bunun dışındaki her şey hakeme gider. Hakem istemi: `puanlama/meb.py` → `JUDGE_PROMPT`; ölçümde `deepseek-ai/DeepSeek-V3-0324` kullanıldı.
 
@@ -215,6 +216,11 @@ Denetimde bulunan sorunlu sorular düzeltildi ya da çıkarıldı (137.784 → 1
 - **SQL (20 soru silindi):** Altın SQL'i bozuk satırlar: Cognipeer'de GROUP BY'sız HAVING 18, TURSpider'da 2.
 - **Cognipeer çevirisi (5.098 soru):** Türkçe çeviri tırnak içindeki SQL değerlerini de çevirmişti ("'Kırmızı Hat' olarak güncelle", altın `'Red Line'`; soruda olup ne altın SQL'de ne veride geçen değer). Bu satırlarda INSERT/UPDATE/DELETE soruları çözülemiyordu (24B %23,7, Flash %21,5; sorunsuz satırlar %71–72). DeepSeek-V4-Flash, İngilizce kaynak soru ve altın SQL'le değerleri birebir geri yazdı; kod denetimi (her tırnak içi değer SQL'de ya da veride geçmeli, geri kalan metin aynı kalmalı) tutmayan ya da modelin "düzeltilemez" dediği 716 satırı sildi, 4.382 satır güncellendi (Cognipeer 69.016 → 68.300). Sonrasında değişiklik soruları %74,0 / %70,8, SELECT %81,7 / %82,2 (kontrol %71,9 / %72,9). Eski çeviri `orijinal.soru_ceviri_eski` alanında. Maliyet $0,20 (+ ölçüm $0,48).
 - **MEB (243 soru):** Altın denetiminde (DeepSeek-V4-Flash, önce pasajsız, sonra kaynak pasajla) sorunlu çıkan 243 soru, kaynak pasajla birlikte DeepSeek-V4-Pro'ya düzelttirildi. Düzeltilen soru V4-Flash'a çözdürüldü; cevap yeni altınla kural ya da LLM hakemle eşleşirse kabul edildi, eşleşmezse bir tur daha düzeltildi. 136 soru güncellendi (tek ders 119, çapraz 17); düzeltilemeyen ya da pasajla ilgisiz 107 soru silindi (tek ders 105, çapraz 2). Eski soru ve cevap `orijinal.duzeltme` alanında duruyor.
+
+## MEB temizliği ve kabul edilen yazımlar (7 Kasım 2026)
+
+- **63 soru çıkarıldı** (tek ders 51, çapraz 12): 33'ü şekil, tablo, düzenek ya da seçenekler olmadan çözülemiyordu ("Tabloya göre…", seçeneksiz "aşağıdakilerden hangisi", cevap "1 yönü"); 13'ü görülmeyen metne atıf yapıyordu ("metinde hangi madde belirtilmiştir?"); 4'ü bozuktu; 13'ü örneklem okumasında muğlak (birden çok savunulabilir cevap), öncülü hatalı ya da birbiriyle çelişen sorulardı. Test kümesinden 14, ölçüm alt kümesinden 1 soru düştü; yerlerine soru konmadı (çıkarılanlar `benchmark/*_meb_cikarilan_2026-11-07.jsonl`).
+- **Kabul edilen yazımlar:** DeepSeek-V4-Flash her soru için eşdeğer kısa yazımlar önerdi; kod süzgeci (sayısı farklı, karşıt yönlü, "ya da" içeren, kuralca zaten eşleşen adaylar atılır) ve katı istemli DeepSeek-V4-Pro hakemi ("alkol" ~ "etil alkol", "mezür" ~ "pipet" reddedilir) geçenler `orijinal.kabul_edilen`'e yazıldı. 2 Kasım cevaplarında hakemsiz kural 24B'de 67 → 89, Flash'ta 96 → 126, düşünen Flash'ta 101 → 129 doğru buldu (199 cevap); yeni kabullerin hiçbiri hakemin yanlış dediği bir cevap değil. Hakemli skor değişmez; hakemsiz skor (ör. GRPO ödülü) gerçeğe yaklaşır ama yine alt sınırdır.
 
 ## Cognipeer çıkarıldı (3 Kasım 2026)
 

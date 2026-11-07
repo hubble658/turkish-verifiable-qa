@@ -1,5 +1,5 @@
 {
- "toplam": 78159,
+ "toplam": 78096,
  "setler": {
   "ajan_terminal": 1590,
   "bulmaca": 3000,
@@ -7,8 +7,8 @@
   "hesaplama": 14613,
   "izgara_bulmaca": 2000,
   "karakter_islemleri": 1200,
-  "meb_capraz": 3991,
-  "meb_tek_ders": 2809,
+  "meb_capraz": 3979,
+  "meb_tek_ders": 2758,
   "regex": 1728,
   "satranc": 3000,
   "solver": 4986,
@@ -18,8 +18,8 @@
   "sql_turspider": 7902
  },
  "bolum": {
-  "train": 69974,
-  "test": 8185
+  "train": 69925,
+  "test": 8171
  },
  "set_bolum": {
   "ajan_terminal": {
@@ -47,12 +47,12 @@
    "test": 300
   },
   "meb_capraz": {
-   "train": 3793,
+   "train": 3781,
    "test": 198
   },
   "meb_tek_ders": {
-   "train": 1985,
-   "test": 824
+   "train": 1948,
+   "test": 810
   },
   "regex": {
    "train": 1427,
@@ -119,10 +119,10 @@
    "karakter_islemleri|hizli_uretim": 1200
   },
   "meb_capraz": {
-   "korpus_capraz_eslestirmeli|ozgun": 3991
+   "korpus_capraz_eslestirmeli|ozgun": 3979
   },
   "meb_tek_ders": {
-   "korpus_tek_ders|ozgun": 2809
+   "korpus_tek_ders|ozgun": 2758
   },
   "regex": {
    "regex_cikarma|hizli_uyarlama": 33,

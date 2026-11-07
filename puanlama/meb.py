@@ -1,5 +1,6 @@
-"""MEB (korpus) setleri: kisa sozel cevap. Once kural eslesmesi (korpus/generate_questions.answers_match);
-tutmazsa istege bagli LLM hakem (JUDGE_PROMPT, olcumde deepseek-ai/DeepSeek-V3-0324). Bu setlerin altin
+"""MEB (korpus) setleri: kisa sozel cevap. Once kural eslesmesi (korpus/generate_questions.answers_match), altinla
+ve `orijinal.kabul_edilen` listesindeki esdeger yazimlarla (2026-11-07; korpus/meb_alternatif_batch.py, V4-Flash uretim
++ V4-Pro kati hakem); tutmazsa istege bagli LLM hakem (JUDGE_PROMPT, olcumde deepseek-ai/DeepSeek-V3-0324). Bu setlerin altin
 cevabi da LLM ile dogrulandi, kesin degildir; raporlarda kesin setlerden ayri verin."""
 import json
 import re
@@ -134,11 +135,12 @@ def cevap_al(metin):
     return s[-1].strip() if s else ""
 
 
-def puanla(soru, altin, metin, hakem=None):
+def puanla(soru, altin, metin, hakem=None, kabul=None):
     """hakem: istege bagli f(istem_metni) -> model cevabi metni. Verilmezse yalniz kural eslesmesi
-    (hakemsiz skor alt sinirdir)."""
+    (hakemsiz skor alt sinirdir). kabul: altinla esdeger ek yazimlar; kural eslesmesi bunlarla da denenir,
+    hakem yine yalniz altini gorur."""
     tahmin = cevap_al(metin)
-    if answers_match(tahmin, altin):
+    if any(answers_match(tahmin, a) for a in [altin, *(kabul or [])]):
         return True
     if hakem is None or not tahmin:
         return False

@@ -237,7 +237,7 @@ def puanla(satir, metin, hakem=None):
         _kesin, gevsek = bulmaca_scoring.score_record(o, bulmaca_scoring.extract_answer(metin or ""))
         return gevsek
     if satir["kaynak"] == "korpus":
-        return meb.puanla(satir["soru"], satir["cevap"], metin, hakem=hakem)
+        return meb.puanla(satir["soru"], satir["cevap"], metin, hakem=hakem, kabul=o.get("kabul_edilen"))
     if k == "solver":
         return solver.puanla(o, metin)
     if k in ("excel_formulu", "excel_veritabani"):

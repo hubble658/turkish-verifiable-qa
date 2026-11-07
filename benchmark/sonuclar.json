@@ -1,7 +1,7 @@
 {
  "24b": {
   "model": "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
-  "soru": 2600,
+  "soru": 2599,
   "tur": {
    "akrabalik": 59.0,
    "birim_donusumu": 82.0,
@@ -12,7 +12,7 @@
    "json_uretimi": 94.0,
    "kimya_hesabi": 96.0,
    "korpus_capraz_eslestirmeli": 69.0,
-   "korpus_tek_ders": 71.0,
+   "korpus_tek_ders": 71.7,
    "matris_islemleri": 85.0,
    "nesne_takip": 78.0,
    "sahiplik_zinciri": 84.0,
@@ -35,16 +35,16 @@
    "excel_veritabani": 26.0,
    "hesaplama": 87.8,
    "meb_capraz": 69.0,
-   "meb_tek_ders": 71.0,
+   "meb_tek_ders": 71.7,
    "solver": 0.5,
    "sql_belediye": 61.0,
    "sql_cikti_tahmini": 4.0,
    "sql_istatistik": 76.0,
    "sql_turspider": 80.0
   },
-  "makro_tur": 63.3,
-  "makro_set": 53.7,
-  "mikro": 63.3,
+  "makro_tur": 63.4,
+  "makro_set": 53.8,
+  "mikro": 63.4,
   "bos": 0,
   "kesilen": 107,
   "puanlayici_hatasi": 0,
@@ -53,7 +53,7 @@
  },
  "flash": {
   "model": "deepseek-ai/DeepSeek-V4-Flash-0731",
-  "soru": 2600,
+  "soru": 2599,
   "tur": {
    "akrabalik": 88.0,
    "birim_donusumu": 100.0,
@@ -64,7 +64,7 @@
    "json_uretimi": 97.0,
    "kimya_hesabi": 99.0,
    "korpus_capraz_eslestirmeli": 86.0,
-   "korpus_tek_ders": 86.0,
+   "korpus_tek_ders": 86.9,
    "matris_islemleri": 100.0,
    "nesne_takip": 100.0,
    "sahiplik_zinciri": 100.0,
@@ -87,7 +87,7 @@
    "excel_veritabani": 70.0,
    "hesaplama": 97.8,
    "meb_capraz": 86.0,
-   "meb_tek_ders": 86.0,
+   "meb_tek_ders": 86.9,
    "solver": 4.5,
    "sql_belediye": 73.0,
    "sql_cikti_tahmini": 18.0,
@@ -95,7 +95,7 @@
    "sql_turspider": 82.0
   },
   "makro_tur": 81.3,
-  "makro_set": 69.7,
+  "makro_set": 69.8,
   "mikro": 81.3,
   "bos": 0,
   "kesilen": 56,
@@ -105,7 +105,7 @@
  },
  "flash_dusunen": {
   "model": "deepseek-ai/DeepSeek-V4-Flash-0731",
-  "soru": 2600,
+  "soru": 2599,
   "tur": {
    "akrabalik": 95.0,
    "birim_donusumu": 99.0,
@@ -116,7 +116,7 @@
    "json_uretimi": 99.0,
    "kimya_hesabi": 98.0,
    "korpus_capraz_eslestirmeli": 93.0,
-   "korpus_tek_ders": 84.0,
+   "korpus_tek_ders": 84.8,
    "matris_islemleri": 100.0,
    "nesne_takip": 100.0,
    "sahiplik_zinciri": 100.0,
@@ -139,7 +139,7 @@
    "excel_veritabani": 93.0,
    "hesaplama": 97.1,
    "meb_capraz": 93.0,
-   "meb_tek_ders": 84.0,
+   "meb_tek_ders": 84.8,
    "solver": 55.5,
    "sql_belediye": 88.0,
    "sql_cikti_tahmini": 97.0,
@@ -147,12 +147,12 @@
    "sql_turspider": 82.0
   },
   "makro_tur": 91.9,
-  "makro_set": 87.8,
+  "makro_set": 87.9,
   "mikro": 91.9,
   "bos": 3,
   "kesilen": 40,
   "puanlayici_hatasi": 0,
   "zaman_asimi": 0,
-  "maliyet_usd": 2.027
+  "maliyet_usd": 2.0236
  }
 }

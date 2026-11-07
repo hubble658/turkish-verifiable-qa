@@ -3124,7 +3124,6 @@
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "biyoloji11-0261", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "biyoloji11-0262", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "biyoloji11-0263", "neden": "meb_ayni_grup", "olcum": false}
-{"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "biyoloji11-0264", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "biyoloji11-0265", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "biyoloji11-0266", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "biyoloji11-0267", "neden": "meb_ayni_grup", "olcum": false}
@@ -3201,7 +3200,6 @@
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "biyoloji11-0443", "neden": "benchmark", "olcum": true}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "biyoloji11-0447", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "biyoloji11-0450", "neden": "meb_ayni_grup", "olcum": false}
-{"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "biyoloji11-0452", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "biyoloji11-0453", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "biyoloji11-0454", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "biyoloji11-0456", "neden": "meb_ayni_grup", "olcum": false}
@@ -3373,7 +3371,6 @@
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik10-1168", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik10-1169", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik10-1171", "neden": "meb_ayni_grup", "olcum": false}
-{"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik10-1173", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik10-1174", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik10-1179", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik10-1252", "neden": "benchmark", "olcum": true}
@@ -3413,8 +3410,6 @@
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik11-1513", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik11-1514", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik11-1515", "neden": "meb_ayni_grup", "olcum": false}
-{"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik11-1518", "neden": "benchmark", "olcum": true}
-{"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik11-1520", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik11-1525", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik11-1546", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik11-1547", "neden": "meb_ayni_grup", "olcum": false}
@@ -3496,7 +3491,6 @@
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik12-1876", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik12-1878", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik12-1882", "neden": "meb_ayni_grup", "olcum": false}
-{"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik12-1884", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik12-1944", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik12-1950", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik12-1951", "neden": "meb_ayni_grup", "olcum": false}
@@ -3509,7 +3503,6 @@
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik12-1960", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik12-1961", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik12-1962", "neden": "meb_ayni_grup", "olcum": false}
-{"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik12-1965", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik12-1966", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik12-1968", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik12-1969", "neden": "meb_ayni_grup", "olcum": false}
@@ -3557,7 +3550,6 @@
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik9-2191", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik9-2193", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik9-2194", "neden": "meb_ayni_grup", "olcum": false}
-{"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik9-2195", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik9-2197", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik9-2198", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik9-2200", "neden": "meb_ayni_grup", "olcum": false}
@@ -3586,9 +3578,7 @@
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik9-2388", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik9-2406", "neden": "benchmark", "olcum": true}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik9-2407", "neden": "meb_ayni_grup", "olcum": false}
-{"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik9-2408", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik9-2409", "neden": "meb_ayni_grup", "olcum": false}
-{"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik9-2410", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "fizik9-2417", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya10-2419", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya10-2427", "neden": "meb_ayni_grup", "olcum": false}
@@ -3627,7 +3617,6 @@
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya10-2589", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya10-2594", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya10-2596", "neden": "meb_ayni_grup", "olcum": false}
-{"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya10-2597", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya10-2614", "neden": "benchmark", "olcum": true}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya10-2621", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya10-2631", "neden": "meb_ayni_grup", "olcum": false}
@@ -3653,7 +3642,6 @@
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya11-2771", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya11-2772", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya11-2773", "neden": "meb_ayni_grup", "olcum": false}
-{"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya11-2777", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya11-2778", "neden": "benchmark", "olcum": true}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya11-2791", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya11-2792", "neden": "meb_ayni_grup", "olcum": false}
@@ -3742,7 +3730,6 @@
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya12-3209", "neden": "benchmark", "olcum": true}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya12-3210", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya12-3212", "neden": "meb_ayni_grup", "olcum": false}
-{"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya12-3214", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya12-3215", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya12-3216", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya12-3218", "neden": "meb_ayni_grup", "olcum": false}
@@ -3800,7 +3787,6 @@
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya9-3402", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya9-3405", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya9-3406", "neden": "meb_ayni_grup", "olcum": false}
-{"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya9-3408", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya9-3409", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya9-3410", "neden": "meb_ayni_grup", "olcum": false}
 {"tur": "korpus_tek_ders", "set": "meb_tek_ders", "id": "kimya9-3411", "neden": "benchmark", "olcum": true}
