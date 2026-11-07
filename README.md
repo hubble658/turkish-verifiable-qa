@@ -257,6 +257,27 @@ Sınıra takılan, boş dönen ya da istek hatası alan cevap yanlış sayılır
 
 **Araç.** `araclar/tam_test.py`: `hazirla` (istek dosyaları ve maliyet tahmini), `gonder` (DeepInfra Batch), `kos` (vLLM), `al` (cevapları indirip puanlar), `rapor` (set ortalaması, başlık ortalaması, kesilme, puanlayıcı hatası; çıktı klasörüne `sonuclar.json` yazar). Varsayılan küme ölçüm kümesidir, `--tam` testin tamamını kullanır. Ortam: Python 3.10, `requirements.txt`; regex puanlaması süreç havuzunda yapılır.
 
+**Adım adım (depo kökünden).** Metin soruları DeepInfra Batch'iyle; anahtar `DEEPINFRA_API_KEY` ortam değişkeninde. Para harcayan komutlar `--onay` ister.
+
+```bash
+pip install -r requirements.txt
+bash araclar/turspider_indir.sh                                   # sql_turspider veritabanları
+export DEEPINFRA_API_KEY=...
+python3 araclar/tam_test.py hazirla --dir sonuc --model gemma --tam  # istek dosyası + maliyet tahmini (ağsız)
+python3 araclar/tam_test.py gonder  --dir sonuc --model gemma --onay # Batch gönderimi
+python3 araclar/tam_test.py al      --dir sonuc --model gemma --tam  # bitince indirir ve puanlar
+python3 araclar/tam_test.py rapor   --dir sonuc --tam                # sonuc/sonuclar.json; ölçüm kümesi için --tam'sız
+```
+
+Modeller: `qwen`, `qwen_dusunmesiz`, `gemma`, `oss`, `cosmos` (Cosmos: vLLM sunucusu ve `kos --base-url ...`). Başka bir OpenAI uyumlu sunucu için `kos --base-url <url>` kullanılabilir. `--tam` testin tamamı (7.971 metin isteği; ATTACH'li 109 soru koşulur, skora girmez), `--tam`'sız ölçüm kümesi (3.999).
+
+Ajan terminal görevleri çok turlu olduğu için ayrı koşulur (Linux, `bwrap`, `pip install -r ajan_eval/requirements.txt`):
+
+```bash
+ONAY=1 DEEPINFRA_API_KEY=... ORNEK=10 bash araclar/ajan_test.sh gemma sonuc   # 10 görevlik pilot
+ONAY=1 DEEPINFRA_API_KEY=... bash araclar/ajan_test.sh gemma sonuc            # test 200 görev -> sonuc/ajan_gemma.jsonl
+```
+
 ## Bilinen sınırlar
 
 - **Birim dönüştürme:** Hesaplama sorularında altın cevap, sorunun istediği birimdedir ("kaç Joule'dür?" → J). Paketteki puanlayıcı (`puanla`) birim dönüştürmez: başka birimle yazılmış doğru cevap (ör. 11971 J yerine "11.97 kJ") yanlış sayılır. Benchmark'taki 2.600 cevapta bu durum görülmedi. Kendi puanlayıcınızı kullanıyorsanız birim dönüştürme ekleyebilirsiniz.
