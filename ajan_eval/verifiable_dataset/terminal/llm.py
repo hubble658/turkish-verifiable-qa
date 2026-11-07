@@ -199,7 +199,7 @@ def preflight(base_url: str = "", api_key: str = "", model: str = "") -> tuple[b
 
 
 def make_client(base_url: str = "", api_key: str = "", istek_araligi: float = 0.0,
-                verbose: bool = True, reasoning_effort: str = ""):
+                verbose: bool = True, reasoning_effort: str = "", top_p: float | None = None):
     """OpenAI uyumlu istemciyi kur ve nereye baglandigini soyle.
 
     ``istek_araligi`` iki istek arasindaki en kisa sureyi saniye cinsinden
@@ -207,7 +207,8 @@ def make_client(base_url: str = "", api_key: str = "", istek_araligi: float = 0.
     basina degil istek basina olmasi gerekiyor.
 
     ``reasoning_effort`` verilirse her istege eklenir; "none" reasoning
-    modellerinde dusunmeyi kapatir. Ucun tanimadigi bir alan sessizce
+    modellerinde dusunmeyi kapatir. ``top_p`` verilirse o da her istege eklenir
+    (2026-11-07; Qwen dusunme modu temperature 0,6 / top_p 0,95). Ucun tanimadigi bir alan sessizce
     dusurulur.
     """
     from openai import OpenAI
@@ -221,6 +222,8 @@ def make_client(base_url: str = "", api_key: str = "", istek_araligi: float = 0.
             print("uyari: anahtar bulunamadi; kendi sunucun degilse --api-key ver")
     client = OpenAI(base_url=url, api_key=key)
     ek = {"reasoning_effort": reasoning_effort} if reasoning_effort else {}
+    if top_p is not None:
+        ek["top_p"] = top_p
     if istek_araligi > 0 or ek:
         return ThrottledClient(client, istek_araligi, ek)
     return client

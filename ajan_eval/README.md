@@ -22,6 +22,8 @@ python3 -m verifiable_dataset.terminal.sweep --split test --model <model> --base
 
 Metin protokolü gerekiyorsa (araç çağrısı olmayan modeller) `--protocol text`. Harcama sınırı için `--butce <USD>`.
 
+**Değerlendirme protokolü (7 Kasım 2026; ana README → "Değerlendirme protokolü"):** test bölümündeki 200 görev, model başına tek deneme. Düşünen modellerde tur başına `--max-tokens 32000`; `Qwen/Qwen3.5-9B` düşünen `--sicaklik 0.6 --top-p 0.95`, düşünmesiz taban `--reasoning-effort none --sicaklik 0 --max-tokens 16000`; `google/gemma-4-31B-it` ve `openai/gpt-oss-120b` `--reasoning-effort high --sicaklik 0`; Cosmos `--protocol text --sicaklik 0`. Puan bitişteki `checks` (ikili), LLM hakem yok; başarı oranı metin setlerinin ortalamasından ayrı raporlanır. Referans çözümler bu makinede 200/200 geçti (7 Kasım, `bwrap`).
+
 ## Bilinen durum
 
 - Bölme `data/split.json`'da: train 1.390 (kabuk 784, kod 606), test 200 (kabuk 100, kod 100). Kaynak bölme kabuk 110 / kod 90 idi; hangi görevlerin yer değiştirdiği dosyadaki `dengeleme` alanında.

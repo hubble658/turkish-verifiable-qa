@@ -115,6 +115,7 @@ def main() -> int:
                         help="her istege eklenir; bos: modelin varsayilani")
     parser.add_argument("--sicaklik", type=float, default=None, help="VDS_TEMPERATURE yerine")
     parser.add_argument("--max-tokens", type=int, default=None, help="VDS_MAX_TOKENS yerine")
+    parser.add_argument("--top-p", type=float, default=None, help="her istege eklenir; bos: modelin varsayilani")
     parser.add_argument("--ayrintili", action="store_true",
                         help="her turu, modelin yorumunu ve komut ciktisini bas")
     args = parser.parse_args()
@@ -176,7 +177,7 @@ def main() -> int:
             return 2
         print(f"uc dogrulandi: {bilgi_uc}")
         client = make_client(args.base_url, args.api_key, args.istek_araligi,
-                             reasoning_effort=args.reasoning_effort)
+                             reasoning_effort=args.reasoning_effort, top_p=args.top_p)
 
     mode = "referans" if args.reference else f"{args.model} x{args.rollouts}"
     print(f"{len(task_dirs)} task | mod: {mode} | {args.sandbox} {info}\n")
