@@ -1,0 +1,149 @@
+id: gen-k-5101-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  arena/engine/scoreboard.py içindeki Scoreboard.add metodu şu anda aynı oyuncuya tekrar puan geldiğinde önceki değerlerin üzerine yazıyor; bunun yerine aynı oyuncuya birden fazla turda gelen puan ve bonusların öncekilerin üzerine birikmesini sağla. Bu düzeltme sayesinde arena/tournament.py üzerinden alınan standings çıktısı, oyuncuların gerçek toplam puanlarına göre azalan sırada doğru sonucu versin. Sadece arena/engine/scoreboard.py dosyasında çalış, diğer dosyaların içeriğini değiştirme.
+
+setup: |
+  mkdir -p arena/engine
+  cat > arena/engine/scoreboard.py <<'SCOREBOARD'
+  from dataclasses import dataclass, field
+
+
+  @dataclass
+  class Entry:
+      player: str
+      points: int = 0
+      bonus: int = 0
+
+      def total(self):
+          return self.points + self.bonus
+
+
+  @dataclass
+  class Scoreboard:
+      entries: dict = field(default_factory=dict)
+
+      def add(self, player, points, bonus=0):
+          if player in self.entries:
+              old = self.entries[player]
+              old.points = points
+              old.bonus = bonus
+          else:
+              self.entries[player] = Entry(player, points, bonus)
+          return self.entries[player]
+
+      def total_of(self, player):
+          return self.entries[player].total()
+
+      def leaderboard(self):
+          rows = list(self.entries.values())
+          rows.sort(key=lambda e: (-e.total(), e.player))
+          return [(e.player, e.total()) for e in rows]
+  SCOREBOARD
+  cat > arena/engine/rounds.py <<'ROUNDS'
+  from arena.engine.scoreboard import Scoreboard
+
+
+  def run_rounds(events):
+      board = Scoreboard()
+      for player, points, bonus in events:
+          board.add(player, points, bonus)
+      return board
+  ROUNDS
+  cat > arena/tournament.py <<'TOURNAMENT'
+  from arena.engine.rounds import run_rounds
+
+
+  def standings(events):
+      board = run_rounds(events)
+      return board.leaderboard()
+  TOURNAMENT
+
+goal_tr: >
+  arena/engine/scoreboard.py icindeki Scoreboard.add metodunu, ayni oyuncuya
+  birden fazla turda gelen puan ve bonuslarin oncekilerin uzerine
+  birikmesini saglayacak bicimde duzelt; boylece arena/tournament.py
+  uzerinden alinan standings ciktisi oyuncularin gercek toplam puanlarina
+  gore azalan sirada dogru sonucu versin.
+
+reference_solution: |
+  cat > arena/engine/scoreboard.py <<'SCOREBOARD'
+  from dataclasses import dataclass, field
+
+
+  @dataclass
+  class Entry:
+      player: str
+      points: int = 0
+      bonus: int = 0
+
+      def total(self):
+          return self.points + self.bonus
+
+
+  @dataclass
+  class Scoreboard:
+      entries: dict = field(default_factory=dict)
+
+      def add(self, player, points, bonus=0):
+          if player in self.entries:
+              old = self.entries[player]
+              old.points = old.points + points
+              old.bonus = old.bonus + bonus
+          else:
+              self.entries[player] = Entry(player, points, bonus)
+          return self.entries[player]
+
+      def total_of(self, player):
+          return self.entries[player].total()
+
+      def leaderboard(self):
+          rows = list(self.entries.values())
+          rows.sort(key=lambda e: (-e.total(), e.player))
+          return [(e.player, e.total()) for e in rows]
+  SCOREBOARD
+
+outputs:
+  - {path: arena/engine/scoreboard.py, kind: program, run: 'python3 -c ''from arena.tournament import standings; ev=[("ada",5,0),("bo",3,0),("ada",4,1),("bo",10,0),("cy",2,2)]; r=standings(ev); assert r==[("bo",13),("ada",10),("cy",4)], r; ev2=[("x",1,1),("x",2,2),("x",3,3)]; r2=standings(ev2); assert r2==[("x",12)], r2; ev3=[("p",7,0),("q",7,0),("p",0,5)]; r3=standings(ev3); assert r3==[("p",12),("q",7)], r3; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from arena.tournament import standings; ev=[("ada",5,0),("bo",3,0),("ada",4,1),("bo",10,0),("cy",2,2)]; r=standings(ev); assert r==[("bo",13),("ada",10),("cy",4)], r; ev2=[("x",1,1),("x",2,2),("x",3,3)]; r2=standings(ev2); assert r2==[("x",12)], r2; ev3=[("p",7,0),("q",7,0),("p",0,5)]; r3=standings(ev3); assert r3==[("p",12),("q",7)], r3; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5101
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: oyun-skor-tablosu
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-toplama-sirasi
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: bellek-ici
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

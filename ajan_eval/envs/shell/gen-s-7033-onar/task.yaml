@@ -1,0 +1,100 @@
+id: gen-s-7033-onar
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  depo/envanter.txt ile depo/sayim.txt dosyalarını ID sütunundan eşleştir ve adetleri farklı olan her ID için "ID ADET_ENVANTER ADET_SAYIM" biçiminde bir satır üret. Bu satırları artan ID sırasına göre depo/onarim.txt dosyasına yaz. depo/notlar.txt dosyasını ve başlık satırlarını dikkate alma.
+
+  Şu şartlar sağlanmalı:
+  - depo/onarim.txt dosyası oluşturulmalı.
+  - Yalnızca envanterdeki adet ile sayımdaki adet birbirinden farklı olan ID'ler için satır yazılmalı.
+  - Her satır "ID ADET_ENVANTER ADET_SAYIM" biçiminde olmalı.
+  - Satırlar artan ID sırasına göre dizilmeli.
+  - depo/notlar.txt içeriği ve başlık satırları sonuca dahil edilmemeli.
+
+setup: |
+  mkdir -p depo
+  cat > depo/envanter.txt <<'EOF'
+  ID   AD            ADET
+  A001 vida          120
+  A002 somun          80
+  A003 pul            45
+  A004 civi          200
+  A005 kablo          30
+  EOF
+  cat > depo/sayim.txt <<'EOF'
+  A001 120
+  A002 75
+  A003 45
+  A004 200
+  A005 30
+  EOF
+  cat > depo/notlar.txt <<'EOF'
+  bu dosya envanter degil
+  A999 yok 0
+  EOF
+
+goal_tr: >
+  depo/envanter.txt ile depo/sayim.txt dosyalarini ID sutunundan eslestirip
+  adetleri farkli olan her ID icin "ID ADET_ENVANTER ADET_SAYIM" biciminde
+  bir satir uretip artan ID sirasina gore depo/onarim.txt dosyasina yaz;
+  baslik satirlari ve depo/notlar.txt dikkate alinmaz.
+
+reference_solution: |
+  python3 - <<'PY'
+  import re
+
+  def oku(yol, bas_var):
+      d = {}
+      with open(yol) as f:
+          satirlar = f.read().splitlines()
+      if bas_var:
+          satirlar = satirlar[1:]
+      for s in satirlar:
+          p = s.split()
+          if len(p) >= 2:
+              d[p[0]] = p[-1]
+      return d
+
+  env = oku('depo/envanter.txt', True)
+  say = oku('depo/sayim.txt', False)
+
+  with open('depo/onarim.txt', 'w') as out:
+      for k in sorted(env):
+          if k in say and env[k] != say[k]:
+              out.write(k + ' ' + env[k] + ' ' + say[k] + '\n')
+  PY
+
+outputs:
+  - {path: depo/onarim.txt, kind: lines, run: cat depo/onarim.txt}
+
+checks:
+  - {op: file_content_eq, path: depo/onarim.txt, value: A002 80 75}
+
+metadata:
+  domain: onar
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7033
+    bundle: python-veri
+    tools:
+    - python3
+    konu: envanter
+    hedef: onar
+    girdi: sabit-genislik
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: veriye-bak
+    uslup: kabul-kriteri
+    direnc: baslik-yok
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

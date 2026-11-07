@@ -1,0 +1,103 @@
+id: gen-s-3019-sirala-sec
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  defter dizinindeki .ini dosyalarından hesap adlarını toplayıp her hesabı işlem tutarlarının toplamıyla birlikte "ad<TAB>toplam" biçiminde büyükten küçüğe sırala ve ilk 3 satırı sonuc.txt dosyasına yaz.
+
+setup: |
+  mkdir -p defter
+  cat > defter/hesaplar.ini <<'INI'
+  [hesap]
+  ad=kasa
+  tur=aktif
+  bakiye=1500
+  [hesap]
+  ad=bankalar
+  tur=aktif
+  bakiye=4200
+  [hesap]
+  ad=satislar
+  tur=gelir
+  bakiye=9800
+  [hesap]
+  ad=alislar
+  tur=gider
+  bakiye=6400
+  [hesap]
+  ad=borclar
+  tur=pasif
+  bakiye=3100
+  [hesap]
+  ad=krediler
+  tur=pasif
+  bakiye=7700
+  INI
+  cat > defter/islemler.ini <<'INI'
+  [kayit]
+  hesap=kasa
+  tutar=300
+  [kayit]
+  hesap=satislar
+  tutar=1200
+  [kayit]
+  hesap=alislar
+  tutar=450
+  [kayit]
+  hesap=kasa
+  tutar=150
+  [kayit]
+  hesap=borclar
+  tutar=900
+  [kayit]
+  hesap=krediler
+  tutar=250
+  [kayit]
+  hesap=satislar
+  tutar=600
+  INI
+
+goal_tr: >
+  defter dizinindeki .ini dosyalarindan hesap adlarini toplayip her hesabi
+  islem tutarlarinin toplamiyla birlikte "ad<TAB>toplam" biciminde buyukten
+  kucuge sirala ve ilk 3 satiri sonuc.txt dosyasina yaz.
+
+reference_solution: |
+  find defter -name '*.ini' -type f | sort > /tmp/ini_dosyalari.txt
+  awk -F= '/^ad=/{print $2}' $(grep 'hesaplar.ini' /tmp/ini_dosyalari.txt) | sort | uniq > /tmp/hesaplar.txt
+  awk -F= '/^hesap=/{h=$2} /^tutar=/{t[h]+=$2} END{for(k in t) print k"\t"t[k]}' $(grep 'islemler.ini' /tmp/ini_dosyalari.txt) | sort -k2,2nr | head -n 3 > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: sonuc.txt, value: ["satislar\t1800", "borclar\t900", "alislar\t450"]}
+
+metadata:
+  domain: sirala-sec
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3019
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: muhasebe-kalemleri
+    hedef: sirala-sec
+    girdi: ini
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: dosyayi-bul
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

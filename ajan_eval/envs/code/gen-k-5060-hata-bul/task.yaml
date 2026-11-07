@@ -1,0 +1,123 @@
+id: gen-k-5060-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  maintenance/summary.py dosyasındaki iki fonksiyonda hata var; bunları düzelt. total_hours fonksiyonu, maintenance/logs/reader.py üzerinden okunan kayıtlar arasından yalnızca onarım (repair) türündeki kayıtların saatlerini toplayıp sonucu döndürmeli. hours_by_machine fonksiyonu ise her makine için o makineye ait onarım kayıtlarının saatlerini biriktirip makine adından toplam saate bir sözlük döndürmeli; şu an her makine için değeri sıfırlayıp tek kaydın saatini bırakıyor, bunu düzelt. reader.py ve maintenance/service_log.txt olduğu gibi kalabilir, yalnızca summary.py içindeki fonksiyonları düzelt.
+
+setup: |
+  mkdir -p maintenance/logs
+  cat > maintenance/logs/reader.py <<'READER'
+  def read_records(path):
+      rows = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              machine, hours, kind = line.split(';')
+              rows.append((machine, float(hours), kind))
+      return rows
+  READER
+  cat > maintenance/summary.py <<'SUMMARY'
+  from maintenance.logs.reader import read_records
+
+
+  def total_hours(path):
+      total = 0.0
+      for machine, hours, kind in read_records(path):
+          if kind == "inspect":
+              total = total + hours
+      return total
+
+
+  def hours_by_machine(path):
+      result = {}
+      for machine, hours, kind in read_records(path):
+          if kind != "repair":
+              continue
+          result[machine] = 0.0
+          result[machine] = result[machine] + hours
+      return result
+  SUMMARY
+  cat > maintenance/service_log.txt <<'LOG'
+  press;2.5;repair
+  lathe;1.0;inspect
+  press;0.5;repair
+  mill;3.0;repair
+  lathe;4.0;repair
+  press;1.5;repair
+  LOG
+
+goal_tr: >
+  maintenance/summary.py icindeki total_hours fonksiyonu yalnizca onarim
+  (repair) kayitlarinin saatlerini toplasin ve hours_by_machine fonksiyonu
+  her makinenin onarim saatlerini biriktirsin; iki fonksiyondaki mevcut
+  hatalari duzelt.
+
+reference_solution: |
+  cat > maintenance/summary.py <<'SUMMARY'
+  from maintenance.logs.reader import read_records
+
+
+  def total_hours(path):
+      total = 0.0
+      for machine, hours, kind in read_records(path):
+          if kind == "repair":
+              total = total + hours
+      return total
+
+
+  def hours_by_machine(path):
+      result = {}
+      for machine, hours, kind in read_records(path):
+          if kind != "repair":
+              continue
+          if machine not in result:
+              result[machine] = 0.0
+          result[machine] = result[machine] + hours
+      return result
+  SUMMARY
+
+outputs:
+  - {path: maintenance/summary.py, kind: program, run: 'python3 -c ''from maintenance.summary import total_hours as t, hours_by_machine as h; v=t("maintenance/service_log.txt"); assert abs(v-11.5)<1e-9, v; d=h("maintenance/service_log.txt"); assert d=={"press":4.5,"mill":3.0,"lathe":4.0}, d; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from maintenance.summary import total_hours as t, hours_by_machine as h; v=t("maintenance/service_log.txt"); assert abs(v-11.5)<1e-9, v; d=h("maintenance/service_log.txt"); assert d=={"press":4.5,"mill":3.0,"lathe":4.0}, d; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5060
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: makine-bakim-kayitlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-toplama-sirasi
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: dosya-okuma
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

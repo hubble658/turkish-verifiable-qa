@@ -1,0 +1,153 @@
+id: gen-k-8004-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) weblog/report/summary.py dosyasını aç ve mevcut Summary soyut sınıfını temel alan StatusCounter sınıfını ekle.
+
+  2) StatusCounter sınıfında entry alan bir add metodu tanımla; bu metot her çağrıldığında ilgili durum kodunu saysın.
+
+  3) StatusCounter sınıfında result metodu tanımla; bu metot her durum kodunun kaç kez geçtiğini sözlük olarak döndürsün.
+
+  4) StatusCounter sınıfını, stdin'den okunan log satırlarını weblog.parse.reader.iter_entries ile ayrıştıracak şekilde kullanılabilir hale getir.
+
+setup: |
+  mkdir -p weblog/parse weblog/report
+  cat > weblog/parse/__init__.py <<'PY'
+  PY
+  cat > weblog/parse/fields.py <<'PY'
+  def split_line(line):
+      return line.rstrip("\n").split(" ")
+  PY
+  cat > weblog/parse/reader.py <<'PY'
+  from weblog.parse.fields import split_line
+
+
+  def iter_entries(stream):
+      for line in stream:
+          if not line.strip():
+              continue
+          parts = split_line(line)
+          yield {
+              "ip": parts[0],
+              "method": parts[1],
+              "path": parts[2],
+              "status": parts[3],
+              "bytes": parts[4],
+          }
+  PY
+  cat > weblog/report/__init__.py <<'PY'
+  PY
+  cat > weblog/report/summary.py <<'PY'
+  from abc import ABC, abstractmethod
+
+
+  class Summary(ABC):
+      @abstractmethod
+      def add(self, entry):
+          raise NotImplementedError
+
+      @abstractmethod
+      def result(self):
+          raise NotImplementedError
+  PY
+  cat > sample.log <<'LOG'
+  10.0.0.1 GET /index 200 512
+  10.0.0.2 POST /login 302 0
+  10.0.0.1 GET /style 200 128
+  10.0.0.3 GET /index 404 64
+  LOG
+
+goal_tr: >
+  weblog/report/summary.py icindeki Summary soyut sinifini temel alan
+  StatusCounter sinifini yaz; stdin'den okunan log satirlarini
+  weblog.parse.reader.iter_entries ile ayristirip her durum kodunun kac kez
+  gectigini result() ile sozluk olarak dondursun.
+
+reference_solution: |
+  cat > weblog/report/summary.py <<'PY'
+  from abc import ABC, abstractmethod
+
+  from weblog.parse.reader import iter_entries
+
+
+  class Summary(ABC):
+      @abstractmethod
+      def add(self, entry):
+          raise NotImplementedError
+
+      @abstractmethod
+      def result(self):
+          raise NotImplementedError
+
+
+  class StatusCounter(Summary):
+      def __init__(self):
+          self._counts = {}
+
+      def add(self, entry):
+          status = entry["status"]
+          self._counts[status] = self._counts.get(status, 0) + 1
+
+      def result(self):
+          return dict(self._counts)
+
+
+  def summarize(stream):
+      counter = StatusCounter()
+      for entry in iter_entries(stream):
+          counter.add(entry)
+      return counter.result()
+  PY
+  cat > run_report.py <<'PY'
+  import sys
+
+  from weblog.report.summary import summarize
+
+  counts = summarize(sys.stdin)
+  for status in sorted(counts):
+      print(status, counts[status])
+  PY
+
+outputs:
+  - {path: weblog/report/summary.py, kind: program, run: 'python3 -c ''import io; from weblog.report.summary import StatusCounter, Summary, summarize; assert issubclass(StatusCounter, Summary); text=open("sample.log").read(); c=StatusCounter(); [c.add(e) for e in __import__("weblog.parse.reader", fromlist=["iter_entries"]).iter_entries(io.StringIO(text))]; assert c.result()=={"200":2,"302":1,"404":1}, c.result(); r=summarize(io.StringIO(text)); assert r=={"200":2,"302":1,"404":1}, r; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import io; from weblog.report.summary import StatusCounter, Summary, summarize; assert issubclass(StatusCounter, Summary); text=open("sample.log").read(); c=StatusCounter(); [c.add(e) for e in __import__("weblog.parse.reader", fromlist=["iter_entries"]).iter_entries(io.StringIO(text))]; assert c.result()=={"200":2,"302":1,"404":1}, c.result(); r=summarize(io.StringIO(text)); assert r=={"200":2,"302":1,"404":1}, r; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8004
+    bundle: yarisma
+    tools:
+    - python3
+    konu: web-erisim-loglari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: metin-ayristirma
+      karmasiklik: duz
+      kalip: abc-protokol
+      akis: stdin-boru
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

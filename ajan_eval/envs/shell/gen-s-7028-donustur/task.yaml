@@ -1,0 +1,86 @@
+id: gen-s-7028-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kalemler.ini dosyasındaki her [KalemN] bölümünden hesap, borç ve alacak değerlerini çıkarıp bölüm sırasına göre, her satırda bu üç değer birer sekme ile ayrılmış olacak biçimde kalemler.tsv dosyasına yaz. Ardından kalemler.tsv dosyasını kalemler.tsv.gz olarak sıkıştır ve kalemler.tsv.gz dosyasını kalemler.tar arşivine kalemler.tsv.gz adıyla ekle.
+
+setup: |
+  cat > kalemler.ini <<'INI'
+  [genel]
+  donem=2024-03
+  para_birimi=TRY
+  [Kalem1]
+  hesap=100
+  borc=1500.00
+  alacak=0.00
+  [Kalem2]
+  hesap=600
+  borc=0.00
+  alacak=1500.00
+  [Kalem3]
+  hesap=100
+  borc=250.75
+  alacak=0.00
+  [Kalem4]
+  hesap=600
+  borc=0.00
+  alacak=250.75
+  INI
+
+goal_tr: >
+  kalemler.ini dosyasindaki her [KalemN] bolumunden hesap, borc ve alacak
+  degerlerini cekip "hesap<TAB>borc<TAB>alacak" biciminde, bolum sirasina
+  gore kalemler.tsv dosyasina yaz; ardindan bu dosyayi gzip ile
+  kalemler.tsv.gz olarak sikistir ve kalemler.tar arsivine kalemler.tsv.gz
+  adiyla koy.
+
+reference_solution: |
+  awk -F= '
+    /^\[Kalem/ { if (h != "") print h "\t" b "\t" a; h=""; b=""; a=""; next }
+    $1 == "hesap"  { h = $2 }
+    $1 == "borc"   { b = $2 }
+    $1 == "alacak" { a = $2 }
+    END { if (h != "") print h "\t" b "\t" a }
+  ' kalemler.ini > kalemler.tsv
+  gzip -c kalemler.tsv > kalemler.tsv.gz
+  tar -cf kalemler.tar kalemler.tsv.gz
+
+outputs:
+  - {path: kalemler.tsv, kind: lines}
+  - {path: kalemler.tsv.gz, kind: file}
+  - {path: kalemler.tar, kind: file}
+
+checks:
+  - {op: run_stdout_eq, cmd: tar -tf kalemler.tar | sort, value: kalemler.tsv.gz}
+  - {op: file_lines_eq, path: kalemler.tsv, value: ["100\t1500.00\t0.00", "600\t0.00\t1500.00", "100\t250.75\t0.00", "600\t0.00\t250.75"]}
+  - {op: run_stdout_eq, cmd: gzip -dc kalemler.tsv.gz, value: "100\t1500.00\t0.00\n600\t0.00\t1500.00\n100\t250.75\t0.00\n600\t0.00\t250.75"}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7028
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: muhasebe-kalemleri
+    hedef: donustur
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

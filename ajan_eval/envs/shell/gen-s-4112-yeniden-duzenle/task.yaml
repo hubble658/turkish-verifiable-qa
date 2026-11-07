@@ -1,0 +1,74 @@
+id: gen-s-4112-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  loglar dizin ağacındaki bütün .log dosyalarını satır satır okuyup her satırı tarih, seviye ve mesaj alanlarına ayır; tüm satırları tek bir JSON dizisine dönüştür ve bu diziyi rapor.json dosyasına yaz. Dizideki her nesne tarih, seviye, mesaj ve dosya alanlarını içermeli; dosya alanı ilgili log dosyasının loglar/ altındaki göreli yolu olmalı. Ayrıca işlenen dosyaların listesini dosyalar.txt dosyasına yaz.
+
+setup: |
+  mkdir -p loglar/bolge-a loglar/bolge-b
+  printf '2024-01-01 BILGI basladi\n2024-01-01 HATA disk dolu\n' > loglar/bolge-a/sunucu1.log
+  printf '2024-01-02 UYARI bellek az\n2024-01-02 HATA zaman asimi\n' > loglar/bolge-a/sunucu2.log
+  printf '2024-01-03 BILGI giris yapti\n2024-01-03 HATA baglanti koptu\n' > loglar/bolge-b/sunuc3.log
+  printf '2024-01-04 BILGI tamam\n2024-01-04 UYARI yavas\n' > loglar/bolge-b/sunuc4.log
+
+goal_tr: >
+  loglar dizin agacindaki her .log dosyasini satir satir okuyup her satiri
+  tarih, seviye ve mesaj alanlarina ayirarak tum satirlari tek bir JSON
+  dizisine donustur ve bu diziyi rapor.json dosyasina yaz; her nesne tarih,
+  seviye, mesaj ve dosya alanlarini icermeli, dosya alani ilgili log
+  dosyasinin loglar/ altindaki goreli yolu olmali.
+
+reference_solution: |
+  find loglar -type f -name '*.log' | sort > dosyalar.txt
+  printf '[\n' > rapor.json
+  ilk=1
+  while read -r dosya; do
+    while read -r tarih seviye mesaj; do
+      if [ "$ilk" -eq 0 ]; then
+        printf ',\n' >> rapor.json
+      fi
+      ilk=0
+      printf '  {"tarih": "%s", "seviye": "%s", "mesaj": "%s", "dosya": "%s"}' \
+        "$tarih" "$seviye" "$mesaj" "$dosya" >> rapor.json
+    done < "$dosya"
+  done < dosyalar.txt
+  printf '\n]\n' >> rapor.json
+  seq 1 1 > /dev/null
+
+outputs:
+  - {path: rapor.json, kind: json}
+  - {path: dosyalar.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: dosyalar.txt, value: [loglar/bolge-a/sunucu1.log, loglar/bolge-a/sunucu2.log, loglar/bolge-b/sunuc3.log, loglar/bolge-b/sunuc4.log]}
+  - {op: json_eq, path: rapor.json, value: [{tarih: '2024-01-01', seviye: BILGI, mesaj: basladi, dosya: loglar/bolge-a/sunucu1.log}, {tarih: '2024-01-01', seviye: HATA, mesaj: disk dolu, dosya: loglar/bolge-a/sunucu1.log}, {tarih: '2024-01-02', seviye: UYARI, mesaj: bellek az, dosya: loglar/bolge-a/sunucu2.log}, {tarih: '2024-01-02', seviye: HATA, mesaj: zaman asimi, dosya: loglar/bolge-a/sunucu2.log}, {tarih: '2024-01-03', seviye: BILGI, mesaj: giris yapti, dosya: loglar/bolge-b/sunuc3.log}, {tarih: '2024-01-03', seviye: HATA, mesaj: baglanti koptu, dosya: loglar/bolge-b/sunuc3.log}, {tarih: '2024-01-04', seviye: BILGI, mesaj: tamam, dosya: loglar/bolge-b/sunuc4.log}, {tarih: '2024-01-04', seviye: UYARI, mesaj: yavas, dosya: loglar/bolge-b/sunuc4.log}]}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4112
+    bundle: uret
+    tools:
+    - printf
+    - seq
+    konu: sunucu-loglari
+    hedef: yeniden-duzenle
+    girdi: json
+    kaynak: dizin-agaci
+    cikti: json
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

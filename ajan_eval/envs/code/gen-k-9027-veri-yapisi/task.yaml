@@ -1,0 +1,277 @@
+id: gen-k-9027-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 20
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kitchen/tree.py içindeki OrderTree sınıfını tam olarak gerçekleştir: insert, __contains__, __iter__ (adlara göre alfabetik), __len__ (düğüm sayısı), __add__ (iki ağacın birleşimi; aynı adlı anahtarda ikinci ağacın değeri kazanır) ve __getitem__ (anahtarın qty*price değeri).
+
+setup: |
+  mkdir -p kitchen
+  cat > kitchen/__init__.py <<'PY'
+  PY
+  cat > kitchen/tree.py <<'PY'
+  class OrderTree:
+      def __init__(self):
+          self.root = None
+
+      def insert(self, key, value):
+          raise NotImplementedError
+
+      def __contains__(self, key):
+          raise NotImplementedError
+
+      def __iter__(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+
+      def __add__(self, other):
+          raise NotImplementedError
+
+      def __getitem__(self, key):
+          raise NotImplementedError
+  PY
+  cat > kitchen/parse.py <<'PY'
+  from kitchen.tree import OrderTree
+
+
+  def load_orders(path):
+      tree = OrderTree()
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              name, qty, price = line.split(",")
+              tree.insert(name, (int(qty), float(price)))
+      return tree
+  PY
+  cat > kitchen/report.py <<'PY'
+  from kitchen.parse import load_orders
+
+
+  def merge_revenue(path_a, path_b):
+      a = load_orders(path_a)
+      b = load_orders(path_b)
+      return len(a + b)
+
+
+  def menu(path):
+      tree = load_orders(path)
+      return [name for name in tree]
+
+
+  def price_of(path, name):
+      tree = load_orders(path)
+      return tree[name]
+  PY
+  cat > orders.txt <<'TXT'
+  pizza,2,9.5
+  salad,1,4.0
+  pasta,3,7.25
+  TXT
+  cat > extra.txt <<'TXT'
+  pizza,1,9.5
+  soup,2,3.0
+  TXT
+
+goal_tr: >
+  kitchen/tree.py icindeki OrderTree sinifini tam olarak gerceklestir:
+  insert, __contains__, __iter__ (adlara gore alfabetik sirada), __len__
+  (dugum sayisi), __add__ (iki agacin birlesimi, ayni adli anahtarda ikinci
+  agacin degeri kazanir) ve __getitem__ (anahtarin qty*price degeri).
+
+reference_solution: |
+  cat > kitchen/tree.py <<'PY'
+  class _Node:
+      def __init__(self, key, value):
+          self.key = key
+          self.value = value
+          self.left = None
+          self.right = None
+
+
+  class OrderTree:
+      def __init__(self):
+          self.root = None
+
+      def insert(self, key, value):
+          if self.root is None:
+              self.root = _Node(key, value)
+              return
+          node = self.root
+          while True:
+              if key < node.key:
+                  if node.left is None:
+                      node.left = _Node(key, value)
+                      return
+                  node = node.left
+              elif key > node.key:
+                  if node.right is None:
+                      node.right = _Node(key, value)
+                      return
+                  node = node.right
+              else:
+                  node.value = value
+                  return
+
+      def __contains__(self, key):
+          node = self.root
+          while node is not None:
+              if key == node.key:
+                  return True
+              node = node.left if key < node.key else node.right
+          return False
+
+      def __iter__(self):
+          stack = []
+          node = self.root
+          while stack or node is not None:
+              while node is not None:
+                  stack.append(node)
+                  node = node.left
+              node = stack.pop()
+              yield node.key
+              node = node.right
+
+      def __len__(self):
+          count = 0
+          for _ in self:
+              count += 1
+          return count
+
+      def __add__(self, other):
+          result = OrderTree()
+          for name in self:
+              result.insert(name, self[name])
+          for name in other:
+              result.insert(name, other[name])
+          return result
+
+      def __getitem__(self, key):
+          node = self.root
+          while node is not None:
+              if key == node.key:
+                  return node.value[0] * node.value[1]
+              node = node.left if key < node.key else node.right
+          raise KeyError(key)
+  PY
+
+ara_adim: |
+  cat > kitchen/tree.py <<'PY'
+  class _Node:
+      def __init__(self, key, value):
+          self.key = key
+          self.value = value
+          self.left = None
+          self.right = None
+
+
+  class OrderTree:
+      def __init__(self):
+          self.root = None
+
+      def insert(self, key, value):
+          if self.root is None:
+              self.root = _Node(key, value)
+              return
+          node = self.root
+          while True:
+              if key < node.key:
+                  if node.left is None:
+                      node.left = _Node(key, value)
+                      return
+                  node = node.left
+              elif key > node.key:
+                  if node.right is None:
+                      node.right = _Node(key, value)
+                      return
+                  node = node.right
+              else:
+                  node.value = value
+                  return
+
+      def __contains__(self, key):
+          node = self.root
+          while node is not None:
+              if key == node.key:
+                  return True
+              node = node.left if key < node.key else node.right
+          return False
+
+      def __iter__(self):
+          stack = []
+          node = self.root
+          while stack or node is not None:
+              while node is not None:
+                  stack.append(node)
+                  node = node.left
+              node = stack.pop()
+              yield node.key
+              node = node.right
+
+      def __len__(self):
+          count = 0
+          for _ in self:
+              count += 1
+          return count
+
+      def __add__(self, other):
+          result = OrderTree()
+          for name in self:
+              result.insert(name, self[name])
+          for name in other:
+              result.insert(name, other[name])
+          return result
+
+      def __getitem__(self, key):
+          raise NotImplementedError
+  PY
+
+outputs:
+  - {path: kitchen/tree.py, kind: program, run: 'python3 -c ''from kitchen.report import merge_revenue, menu, price_of; assert menu("orders.txt")==["pasta","pizza","salad"], menu("orders.txt"); assert merge_revenue("orders.txt","extra.txt")==4, merge_revenue("orders.txt","extra.txt"); assert abs(price_of("orders.txt","pasta")-21.75)<1e-9, price_of("orders.txt","pasta"); print("TAMAM")'''}
+  - {path: kitchen/tree.py, kind: program, run: 'python3 -c ''from kitchen.tree import OrderTree; t=OrderTree(); t.insert("b",(2,3.0)); t.insert("a",(1,5.0)); t.insert("c",(1,1.0)); assert "a" in t and "z" not in t; assert list(t)==["a","b","c"], list(t); assert len(t)==3, len(t); print("ILERLEME-TAMAM")'''}
+  - {path: kitchen/tree.py, kind: program, run: 'python3 -c ''from kitchen.parse import load_orders; t=load_orders("orders.txt"); assert "pizza" in t; assert list(t)==["pasta","pizza","salad"], list(t); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from kitchen.report import merge_revenue, menu, price_of; assert menu("orders.txt")==["pasta","pizza","salad"], menu("orders.txt"); assert merge_revenue("orders.txt","extra.txt")==4, merge_revenue("orders.txt","extra.txt"); assert abs(price_of("orders.txt","pasta")-21.75)<1e-9, price_of("orders.txt","pasta"); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from kitchen.tree import OrderTree; t=OrderTree(); t.insert("b",(2,3.0)); t.insert("a",(1,5.0)); t.insert("c",(1,1.0)); assert "a" in t and "z" not in t; assert list(t)==["a","b","c"], list(t); assert len(t)==3, len(t); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from kitchen.parse import load_orders; t=load_orders("orders.txt"); assert "pizza" in t; assert list(t)==["pasta","pizza","salad"], list(t); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9027
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: restoran-siparisleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 7
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: ikili-arama-agaci
+      karmasiklik: orta
+      kalip: operator-asiri-yukleme
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

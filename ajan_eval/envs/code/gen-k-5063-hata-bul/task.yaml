@@ -1,0 +1,108 @@
+id: gen-k-5063-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  exam/report.py içindeki build_report fonksiyonunu düzelt. Her öğrencinin not listesini students sözlüğündeki "scores" alanından okuması ve geçen sayısını doğru hesaplaması gerekiyor.
+
+setup: |
+  mkdir -p exam
+  cat > exam/roster.py <<'ROSTER'
+  def make_students(records):
+      students = {}
+      for name, scores in records:
+          students[name] = {"scores": list(scores)}
+      return students
+  ROSTER
+  cat > exam/grading.py <<'GRADING'
+  def make_grader(pass_mark):
+      def grade_one(score):
+          if score >= pass_mark:
+              return "PASS"
+          return "FAIL"
+
+      def grade_all(scores):
+          return [grade_one(s) for s in scores]
+
+      return grade_all
+  GRADING
+  cat > exam/report.py <<'REPORT'
+  from exam.grading import make_grader
+
+
+  def build_report(students, pass_mark):
+      grade_all = make_grader(pass_mark)
+      report = {}
+      for name in students:
+          grades = grade_all(students[name])
+          report[name] = {
+              "grades": grades,
+              "passed": grades.count("PASS"),
+          }
+      return report
+  REPORT
+
+goal_tr: >
+  exam/report.py icindeki build_report fonksiyonunu, her ogrencinin not
+  listesini students sozlugundeki "scores" alanindan okuyup gecen sayisini
+  dogru hesaplayacak bicimde duzelt.
+
+reference_solution: |
+  cat > exam/report.py <<'REPORT'
+  from exam.grading import make_grader
+
+
+  def build_report(students, pass_mark):
+      grade_all = make_grader(pass_mark)
+      report = {}
+      for name in students:
+          grades = grade_all(students[name]["scores"])
+          report[name] = {
+              "grades": grades,
+              "passed": grades.count("PASS"),
+          }
+      return report
+  REPORT
+
+outputs:
+  - {path: exam/report.py, kind: program, run: 'python3 -c ''from exam.roster import make_students; from exam.report import build_report as f; s=make_students([("ada",[90,40,70]),("bob",[50,50]),("cy",[10])]); r=f(s,60); assert r["ada"]=={"grades":["PASS","FAIL","PASS"],"passed":2}, r["ada"]; assert r["bob"]=={"grades":["FAIL","FAIL"],"passed":0}, r["bob"]; assert r["cy"]=={"grades":["FAIL"],"passed":0}, r["cy"]; assert sorted(r.keys())==["ada","bob","cy"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from exam.roster import make_students; from exam.report import build_report as f; s=make_students([("ada",[90,40,70]),("bob",[50,50]),("cy",[10])]); r=f(s,60); assert r["ada"]=={"grades":["PASS","FAIL","PASS"],"passed":2}, r["ada"]; assert r["bob"]=={"grades":["FAIL","FAIL"],"passed":0}, r["bob"]; assert r["cy"]=={"grades":["FAIL"],"passed":0}, r["cy"]; assert sorted(r.keys())==["ada","bob","cy"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5063
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: sinav-sonuclari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sozluk-anahtar-hatasi
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: bellek-ici
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

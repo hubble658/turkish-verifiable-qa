@@ -1,0 +1,66 @@
+id: gen-s-7058-karsilastir
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Bazen ürün değerlendirmelerini aylık dosyalara ayırıp sonra da "acaba hangi ürünün puanı tutarsız" diye merak ediyorum; bugün de tam olarak böyle bir gündü, iki ayrı ayın yorumlarına bakıp arada kalan farkları ayıklamaya çalışıyorum. Elimde yorumlar dizini var, içinde ocak.txt ve subat.txt duruyor; ikisinde de aynı ürünler için verilmiş yıldız değerleri yer alıyor. İki dosyada aynı ürün için verilen yıldız değerleri birbirinden farklı olan ürünlerin sayısını bulup bu sayıyı sonuc.txt dosyasına yazmamı istiyorum. sonuc.txt içinde başka hiçbir şey olmasın, sadece sayı olsun.
+
+setup: |
+  mkdir -p yorumlar
+  cat > yorumlar/ocak.txt <<'EOF'
+  urunA     5 yildiz
+  urunB     3 yildiz
+  urunC     4 yildiz
+  urunD     2 yildiz
+  EOF
+  cat > yorumlar/subat.txt <<'EOF'
+  urunA     4 yildiz
+  urunB     3 yildiz
+  urunC     5 yildiz
+  urunD     1 yildiz
+  EOF
+
+goal_tr: >
+  yorumlar dizinindeki iki dosyada ayni urun icin verilen yildiz degerleri
+  farkli olan urun sayisini sonuc.txt'ye sadece sayi olarak yaz
+
+reference_solution: |
+  sort yorumlar/ocak.txt > /tmp/ocak.srt
+  sort yorumlar/subat.txt > /tmp/subat.srt
+  comm -3 /tmp/ocak.srt /tmp/subat.srt | wc -l > sonuc.txt
+  diff /tmp/ocak.srt /tmp/subat.srt > /dev/null || true
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '6'}
+
+metadata:
+  domain: karsilastir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7058
+    bundle: karsilastir
+    tools:
+    - diff
+    - comm
+    konu: urun-yorumlari
+    hedef: karsilastir
+    girdi: sabit-genislik
+    kaynak: cok-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: baslik-yok
+    bukulme: yok
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

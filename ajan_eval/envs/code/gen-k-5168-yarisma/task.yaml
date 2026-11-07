@@ -1,0 +1,125 @@
+id: gen-k-5168-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Atölyedeki faturalama panosu yine karıştı; herkes elindeki okumalara farklı farklı bakıyor, kimse aynı sayıyı iki kez göremiyor. Bir yandan da geçen hafta sayaç kayıtlarını elle toplamaya çalışırken yarısını atlamışız, o yüzden bu sefer baştan düzgün bir şey yapalım istiyorum.
+
+  meters klasörüne meters/summary.py dosyasını yazmanı istiyorum. Bu dosyada Summary diye bir sınıf olsun ve bu sınıf bir context manager gibi davransın; yani __enter__ ve __exit__ metotları tanımlı olsun. __enter__ çağrıldığında readings.txt dosyasını açıp içindeki her satırı ayrıştırsın, __exit__ çağrıldığında ise açtığı dosyayı kapatsın. Ayrıştırma işini meters/readings.py içindeki mevcut fonksiyonla yap, oradaki kodu yeniden yazma; aynı şekilde oranları da meters/rates.py içindeki mevcut fonksiyondan al.
+
+  Sınıfın iki metodu olsun. total(meter_id) metodu, verilen sayacın okumalarının toplamını o sayacın oranıyla çarpıp döndürsün. meters() metodu ise readings.txt içinde geçen sayaç kimliklerini, ilk görülme sırasını koruyan bir liste olarak döndürsün; aynı sayaç birden fazla satırda geçse bile listede yalnızca bir kez yer alsın.
+
+setup: |
+  mkdir -p meters
+  cat > meters/readings.py <<'READINGS'
+  def parse_line(line):
+      meter_id, raw = line.split(":")
+      values = []
+      for token in raw.split("|"):
+          values.append(int(token))
+      return meter_id.strip(), values
+  READINGS
+  cat > meters/rates.py <<'RATES'
+  def rate_for(meter_id):
+      if meter_id.startswith("R"):
+          return 3
+      if meter_id.startswith("C"):
+          return 5
+      return 1
+  RATES
+  cat > readings.txt <<'TXT'
+  R-01: 10|20|30
+  C-07: 4|8
+  X-99: 1|2|3|4
+  TXT
+
+goal_tr: >
+  meters/readings.py ve meters/rates.py dosyalarini kullanan
+  meters/summary.py dosyasini yaz; Summary sinifi context manager olsun
+  (__enter__/__exit__ tanimlasin), __enter__ icinde readings.txt dosyasini
+  acip her satiri ayristirsin ve __exit__ icinde dosyayi kapatsin,
+  total(meter_id) metodu o sayacin okumalar toplaminin rate_for(meter_id)
+  ile carpimini dondursun, meters() metodu ise dosyada gecen sayac
+  kimliklerini ilk gorulme sirasinda tutan bir liste dondursun.
+
+reference_solution: |
+  cat > meters/summary.py <<'SUMMARY'
+  from meters.readings import parse_line
+  from meters.rates import rate_for
+
+
+  class Summary:
+      def __init__(self, path):
+          self.path = path
+          self._handle = None
+          self._order = []
+          self._totals = {}
+
+      def __enter__(self):
+          self._handle = open(self.path)
+          for line in self._handle:
+              line = line.strip()
+              if not line:
+                  continue
+              meter_id, values = parse_line(line)
+              if meter_id not in self._totals:
+                  self._order.append(meter_id)
+                  self._totals[meter_id] = 0
+              self._totals[meter_id] += sum(values)
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          if self._handle is not None:
+              self._handle.close()
+              self._handle = None
+          return False
+
+      def meters(self):
+          return list(self._order)
+
+      def total(self, meter_id):
+          return self._totals[meter_id] * rate_for(meter_id)
+  SUMMARY
+
+outputs:
+  - {path: meters/summary.py, kind: program, run: 'python3 -c ''from meters.summary import Summary as S; ctx=S("readings.txt"); assert not hasattr(ctx,"_handle") or ctx._handle is None; s=ctx.__enter__(); assert s is ctx; assert s.meters()==["R-01","C-07","X-99"], s.meters(); assert s.total("R-01")==180, s.total("R-01"); assert s.total("C-07")==60, s.total("C-07"); assert s.total("X-99")==10, s.total("X-99"); ctx.__exit__(None,None,None); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from meters.summary import Summary as S; ctx=S("readings.txt"); assert not hasattr(ctx,"_handle") or ctx._handle is None; s=ctx.__enter__(); assert s is ctx; assert s.meters()==["R-01","C-07","X-99"], s.meters(); assert s.total("R-01")==180, s.total("R-01"); assert s.total("C-07")==60, s.total("C-07"); assert s.total("X-99")==10, s.total("X-99"); ctx.__exit__(None,None,None); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5168
+    bundle: yarisma
+    tools:
+    - python3
+    konu: elektrik-sayaclari
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: metin-ayristirma
+      karmasiklik: duz
+      kalip: context-manager
+      akis: cok-dosya-birlestirme
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

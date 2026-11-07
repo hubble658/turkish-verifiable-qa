@@ -1,0 +1,124 @@
+id: gen-k-5043-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  clinic/queue/ring.py içindeki Ring sınıfını en fazla 3 öge tutan bir LRU önbelleğe çevir; aynı öge tekrar gelince eski konumu silinip sona taşınsın. __iter__ ögeleri en eski önce olacak sırada döndürsün.
+
+setup: |
+  mkdir -p clinic/queue
+  cat > clinic/queue/ring.py <<'RING'
+  class Ring:
+      def __init__(self, capacity=3):
+          self._capacity = capacity
+          self._items = []
+
+      def push(self, item):
+          self._items.append(item)
+          if len(self._items) > self._capacity:
+              self._items.pop(0)
+
+      def __iter__(self):
+          return iter(self._items)
+
+      def __len__(self):
+          return len(self._items)
+  RING
+  cat > clinic/queue/stream.py <<'STREAM'
+  from clinic.queue.ring import Ring
+
+
+  class AppointmentStream:
+      def __init__(self, lines):
+          self._lines = lines
+          self._cache = Ring()
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          for raw in self._lines:
+              name, slot = raw.strip().split(",")
+              self._cache.push((name, slot))
+              return name, slot
+          raise StopIteration
+
+      def recent(self):
+          return list(self._cache)
+  STREAM
+  cat > clinic/queue/__init__.py <<'INIT'
+  from clinic.queue.stream import AppointmentStream
+
+  __all__ = ["AppointmentStream"]
+  INIT
+  cat > clinic/__init__.py <<'INIT'
+  INIT
+
+goal_tr: >
+  clinic/queue/ring.py icindeki Ring sinifini, ayni oge tekrar geldiginde
+  eski konumunu silip sona tasiyan (LRU) ve en fazla 3 oge tutan bir
+  onbellege cevir; __iter__ ogeleri en eski once olacak sirada dondursun.
+
+reference_solution: |
+  cat > clinic/queue/ring.py <<'RING'
+  class Ring:
+      def __init__(self, capacity=3):
+          self._capacity = capacity
+          self._items = []
+
+      def push(self, item):
+          if item in self._items:
+              self._items.remove(item)
+          self._items.append(item)
+          if len(self._items) > self._capacity:
+              self._items.pop(0)
+
+      def __iter__(self):
+          return iter(self._items)
+
+      def __len__(self):
+          return len(self._items)
+  RING
+
+outputs:
+  - {path: clinic/queue/ring.py, kind: program, run: 'python3 -c ''from clinic.queue.ring import Ring as R; r=R(); r.push(1); r.push(2); r.push(3); r.push(1); assert list(r)==[2,3,1], list(r); r.push(4); assert list(r)==[3,1,4], list(r); r.push(4); assert list(r)==[3,1,4], list(r); r.push(5); assert list(r)==[1,4,5], list(r); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from clinic.queue.ring import Ring as R; r=R(); r.push(1); r.push(2); r.push(3); r.push(1); assert list(r)==[2,3,1], list(r); r.push(4); assert list(r)==[3,1,4], list(r); r.push(4); assert list(r)==[3,1,4], list(r); r.push(5); assert list(r)==[1,4,5], list(r); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5043
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: hastane-randevulari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: lru-onbellek
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: stdin-boru
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

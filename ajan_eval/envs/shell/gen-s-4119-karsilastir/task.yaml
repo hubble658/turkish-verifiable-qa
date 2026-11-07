@@ -1,0 +1,85 @@
+id: gen-s-4119-karsilastir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) arsiv klasöründeki .txt dosyalarının ilk sütununu kalem kodu olarak al; tuzak.bak dosyasını hesaba katma.
+
+  2) ocak.txt ve subat.txt dosyalarındaki kalem kodlarını karşılaştır.
+
+  3) Her iki ayda da geçen kalem kodlarını iki-dosya.txt dosyasına her satırda bir kod olacak şekilde yaz.
+
+  4) Yalnızca ocak.txt dosyasında geçen kalem kodlarını sadece-ocak.txt dosyasına her satırda bir kod olacak şekilde yaz.
+
+  5) Yalnızca subat.txt dosyasında geçen kalem kodlarını sadece-subat.txt dosyasına her satırda bir kod olacak şekilde yaz.
+
+setup: |
+  mkdir -p arsiv
+  cat > arsiv/ocak.txt <<'EOF'
+  1001  ALA 100.00
+  1002  ALA  50.00
+  1003  BOR  75.00
+  1004  ALA  20.00
+  EOF
+  cat > arsiv/subat.txt <<'EOF'
+  1001  ALA 100.00
+  1003  BOR  75.00
+  1005  ALA  40.00
+  1006  BOR  10.00
+  EOF
+  cat > arsiv/tuzak.bak <<'EOF'
+  9999  XXX 999.99
+  EOF
+
+goal_tr: >
+  arsiv klasorundeki .txt dosyalarindaki ilk sutunu kalem kodu olarak alip,
+  ocak.txt ve subat.txt kalem kodlarini karsilastir; her iki ayda da gecen
+  kodlari iki-dosya.txt, yalnizca ocak.txt'de gecen kodlari sadece-ocak.txt,
+  yalnizca subat.txt'de gecen kodlari sadece-subat.txt dosyasina birer kod
+  olarak yaz (tuzak.bak dosyasi hesaba katilmasin).
+
+reference_solution: |
+  cut -d' ' -f1 arsiv/ocak.txt | sort > /tmp/ocak.kod
+  cut -d' ' -f1 arsiv/subat.txt | sort > /tmp/subat.kod
+  comm -12 /tmp/ocak.kod /tmp/subat.kod > iki-dosya.txt
+  comm -23 /tmp/ocak.kod /tmp/subat.kod > sadece-ocak.txt
+  comm -13 /tmp/ocak.kod /tmp/subat.kod > sadece-subat.txt
+
+outputs:
+  - {path: iki-dosya.txt, kind: file}
+  - {path: sadece-ocak.txt, kind: file}
+  - {path: sadece-subat.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: iki-dosya.txt, value: ['1001', '1003']}
+  - {op: file_lines_eq, path: sadece-ocak.txt, value: ['1002', '1004']}
+  - {op: file_lines_eq, path: sadece-subat.txt, value: ['1005', '1006']}
+
+metadata:
+  domain: karsilastir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4119
+    bundle: kume-farki
+    tools:
+    - comm
+    - sort
+    konu: muhasebe-kalemleri
+    hedef: karsilastir
+    girdi: sabit-genislik
+    kaynak: cok-dosya
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

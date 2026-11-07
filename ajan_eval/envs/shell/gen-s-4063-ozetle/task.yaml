@@ -1,0 +1,68 @@
+id: gen-s-4063-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri klasöründeki gonderiler.tsv ve durumlar.tsv dosyalarını gonderi numarasına göre birleştirip yalnızca durumu TESLIM olan gönderilerin adet sütununun toplamını sonuc.txt dosyasına sadece sayı olarak yaz.
+
+setup: |
+  mkdir -p veri
+  cat > veri/gonderiler.tsv <<'EOF'
+  G101	ANKARA	3
+  G102	IZMIR	1
+  G103	ANKARA	2
+  G104	BURSA	5
+  G105	IZMIR	4
+  EOF
+  cat > veri/durumlar.tsv <<'EOF'
+  G101	TESLIM
+  G102	TESLIM
+  G103	YOLDA
+  G104	TESLIM
+  G105	YOLDA
+  G106	TESLIM
+  EOF
+
+goal_tr: >
+  veri klasorundeki gonderiler.tsv (gonderi no, sehir, adet) ve durumlar.tsv
+  (gonderi no, durum) dosyalarini gonderi numarasina gore birlestirip
+  yalnizca durumu TESLIM olan gonderilerin adet sutununun toplamini
+  sonuc.txt dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  join -t $'\t' -1 1 -2 1 <(sort -t $'\t' -k1,1 veri/gonderiler.tsv) <(sort -t $'\t' -k1,1 veri/durumlar.tsv) | awk -F '\t' '$4=="TESLIM"{s+=$3} END{print s}' > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '9'}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4063
+    bundle: birlestir
+    tools:
+    - join
+    - sort
+    konu: kargo-takibi
+    hedef: ozetle
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

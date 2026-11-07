@@ -1,0 +1,60 @@
+id: gen-s-7114-dogrula
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) envanter.txt dosyasındaki her satırı sırayla oku.
+  2) Her satırda anahtar ile adet değerini iki nokta etrafındaki fazla boşluklardan temizle.
+  3) Her satırı "anahtar=adet" biçiminde, satır sırasını koruyarak temiz.txt dosyasına yaz.
+
+setup: |
+  cat > envanter.txt <<'EOF'
+    sunucu-01   : 12 adet
+    sunucu-02   : 7 adet
+    sunucu-03   : 0 adet
+    sunucu-04   : 25 adet
+    sunucu-05   : 3 adet
+  EOF
+
+goal_tr: >
+  envanter.txt dosyasindaki her satirdan anahtar ile adet degerini iki nokta
+  etrafindaki fazla bosluklardan temizleyip "anahtar=adet" biciminde, satir
+  sirasini koruyarak temiz.txt dosyasina yaz.
+
+reference_solution: |
+  sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' envanter.txt | tr -s ' ' | sed -e 's/ *: */=/' > temiz.txt
+
+outputs:
+  - {path: temiz.txt, kind: lines, run: cat temiz.txt}
+
+checks:
+  - {op: file_lines_eq, path: temiz.txt, value: [sunucu-01=12 adet, sunucu-02=7 adet, sunucu-03=0 adet, sunucu-04=25 adet, sunucu-05=3 adet]}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7114
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: envanter
+    hedef: dogrula
+    girdi: duz-metin
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

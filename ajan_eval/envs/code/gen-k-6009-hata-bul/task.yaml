@@ -1,0 +1,180 @@
+id: gen-k-6009-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) stock/moves/reader.py dosyasındaki read_moves fonksiyonunda miktar ayrıştırmasını düzelt: miktar boş olduğunda MissingQuantityError, sayıya çevrilemeyen bir değer olduğunda BadQuantityError yükselsin.
+
+  2) stock/moves/total.py dosyasındaki total_in fonksiyonunun geçerli miktarları doğru şekilde toplamasını sağla.
+
+  3) Gerekli durumda stock/errors.py dosyasındaki hata sınıflarını kullan.
+
+setup: |
+  mkdir -p stock/moves
+  cat > stock/__init__.py <<'EOF'
+  EOF
+  cat > stock/moves/__init__.py <<'EOF'
+  EOF
+  cat > stock/errors.py <<'EOF'
+  class StockError(Exception):
+      pass
+
+
+  class MissingQuantityError(StockError):
+      pass
+
+
+  class BadQuantityError(StockError):
+      pass
+  EOF
+  cat > stock/moves/reader.py <<'EOF'
+  from stock.errors import MissingQuantityError, BadQuantityError
+
+
+  def read_moves(path):
+      moves = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              parts = line.split(";")
+              name = parts[0]
+              qty_raw = parts[1] if len(parts) > 1 else ""
+              if qty_raw == "":
+                  raise MissingQuantityError(name)
+              if qty_raw <= 0:
+                  raise BadQuantityError(name)
+              moves.append((name, int(qty_raw)))
+      return moves
+  EOF
+  cat > stock/moves/total.py <<'EOF'
+  from stock.moves.reader import read_moves
+
+
+  def total_in(path):
+      total = 0
+      for _, qty in read_moves(path):
+          total = total + qty
+      return total - 1
+  EOF
+  cat > moves.txt <<'EOF'
+  bolt;3
+  nut;5
+  screw;2
+  EOF
+
+goal_tr: >
+  stock/moves/reader.py icindeki read_moves fonksiyonunda miktar
+  ayristirmasini duzelt (bos miktar MissingQuantityError, sayiya
+  cevrilemeyen miktar BadQuantityError yukseltsin) ve stock/moves/total.py
+  icindeki total_in fonksiyonunun gecerli miktarlari dogru toplamasini
+  sagla.
+
+reference_solution: |
+  cat > stock/moves/reader.py <<'EOF'
+  from stock.errors import MissingQuantityError, BadQuantityError
+
+
+  def read_moves(path):
+      moves = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              parts = line.split(";")
+              name = parts[0]
+              qty_raw = parts[1] if len(parts) > 1 else ""
+              if qty_raw == "":
+                  raise MissingQuantityError(name)
+              try:
+                  qty = int(qty_raw)
+              except ValueError:
+                  raise BadQuantityError(name)
+              if qty <= 0:
+                  raise BadQuantityError(name)
+              moves.append((name, qty))
+      return moves
+  EOF
+  cat > stock/moves/total.py <<'EOF'
+  from stock.moves.reader import read_moves
+
+
+  def total_in(path):
+      return sum(qty for _, qty in read_moves(path))
+  EOF
+
+ara_adim: |
+  cat > stock/moves/reader.py <<'EOF'
+  from stock.errors import MissingQuantityError, BadQuantityError
+
+
+  def read_moves(path):
+      moves = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              parts = line.split(";")
+              name = parts[0]
+              qty_raw = parts[1] if len(parts) > 1 else ""
+              if qty_raw == "":
+                  raise MissingQuantityError(name)
+              try:
+                  qty = int(qty_raw)
+              except ValueError:
+                  raise BadQuantityError(name)
+              if qty <= 0:
+                  raise BadQuantityError(name)
+              moves.append((name, qty))
+      return moves
+  EOF
+
+outputs:
+  - {path: stock/moves/total.py, kind: program, run: 'python3 -c ''from stock.moves.total import total_in as f; assert f("moves.txt")==10, f("moves.txt"); print("TAMAM")'''}
+  - {path: stock/moves/reader.py, kind: program, run: 'python3 -c ''from stock.moves.reader import read_moves as f; from stock.errors import BadQuantityError, MissingQuantityError; assert f("moves.txt")==[("bolt",3),("nut",5),("screw",2)], f("moves.txt"); print("ILERLEME-TAMAM")'''}
+  - {path: stock/errors.py, kind: program, run: 'python3 -c ''from stock.errors import StockError, MissingQuantityError, BadQuantityError; assert issubclass(MissingQuantityError, StockError); assert issubclass(BadQuantityError, StockError); assert not issubclass(MissingQuantityError, BadQuantityError); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from stock.moves.reader import read_moves as f; from stock.errors import BadQuantityError, MissingQuantityError; assert f("moves.txt")==[("bolt",3),("nut",5),("screw",2)], f("moves.txt"); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from stock.moves.total import total_in as f; assert f("moves.txt")==10, f("moves.txt"); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from stock.errors import StockError, MissingQuantityError, BadQuantityError; assert issubclass(MissingQuantityError, StockError); assert issubclass(BadQuantityError, StockError); assert not issubclass(MissingQuantityError, BadQuantityError); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-6009
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: stok-hareketleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-karsilastirma
+      karmasiklik: orta
+      kalip: istisna-hiyerarsisi
+      akis: dosya-okuma
+      topoloji: paket-alt-paket
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

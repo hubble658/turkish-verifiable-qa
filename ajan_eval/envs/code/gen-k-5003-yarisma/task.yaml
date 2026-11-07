@@ -1,0 +1,88 @@
+id: gen-k-5003-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  library/loans/alt.py dosyasını yaz. İç içe loan kayıtlarından her üye için toplam cezayı dinamik programlama ile hesaplayan bir total_fines(records) fonksiyonu içersin; fonksiyon özyineleme kullanmadan çalışsın ve hesaplamada library.loans.records ile library.loans.policy modüllerinden yararlansın.
+
+setup: |
+  mkdir -p library/loans
+  cat > library/loans/records.py <<'REC'
+  def parse_loans(records):
+      rows = []
+      for entry in records:
+          rows.append((entry["member"], int(entry["days"])))
+      return rows
+  REC
+  cat > library/loans/policy.py <<'POLICY'
+  FINE_PER_DAY = 3
+
+
+  def fine_for(days):
+      return days * FINE_PER_DAY
+  POLICY
+  cat > library/loans/__init__.py <<'INIT'
+  INIT
+
+goal_tr: >
+  library/loans/alt.py dosyasini yaz: ic ice loan kayitlarindan her uye icin
+  toplam cezayi dinamik programlama ile hesaplayan total_fines(records)
+  fonksiyonunu (ozyineleme kullanmadan) library.loans.records ve
+  library.loans.policy modullerini kullanarak gerceklestir.
+
+reference_solution: |
+  cat > library/loans/alt.py <<'ALT'
+  from library.loans.records import parse_loans
+  from library.loans.policy import fine_for
+
+
+  def total_fines(records):
+      rows = parse_loans(records)
+      totals = {}
+      for member, days in rows:
+          totals[member] = totals.get(member, 0) + fine_for(days)
+      return totals
+  ALT
+
+outputs:
+  - {path: library/loans/alt.py, kind: program, run: 'python3 -c ''from library.loans.alt import total_fines as f; r=[{"member":"a","days":2},{"member":"b","days":1},{"member":"a","days":3}]; assert f(r)=={"a":15,"b":3}, f(r); assert f([])=={}; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from library.loans.alt import total_fines as f; r=[{"member":"a","days":2},{"member":"b","days":1},{"member":"a","days":3}]; assert f(r)=={"a":15,"b":3}, f(r); assert f([])=={}; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5003
+    bundle: yarisma
+    tools:
+    - python3
+    konu: kutuphane-oduncleri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: dinamik-programlama
+      karmasiklik: duz
+      kalip: ozyineleme
+      akis: ic-ice-yapi
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

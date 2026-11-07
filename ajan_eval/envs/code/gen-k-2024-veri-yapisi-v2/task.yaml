@@ -1,0 +1,208 @@
+id: gen-k-2024-veri-yapisi-v2
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sessions/queue.py, sessions/tracker.py ve sessions/report.py dosyalarındaki tüm NotImplementedError gövdelerini gerçek gerçekleştirmelerle doldur. PriorityQueue küçük öncelik değerini önce veren bir öncelik kuyruğu olsun; eşit önceliklerde ekleme sırası korunsun. with_audit_log dekoratörü, sardığı close_next çağrısını çalıştırıp dönen kullanıcı adını self.log() listesine kaydetsin. SessionTracker kuyruğu yönetsin, close_next en küçük öncelikli kullanıcıyı döndürsün, log() kapanan kullanıcıların sıralı listesini versin. audit ise tracker üzerinden tüm oturumları kapatıp kapanış sırasını döndürsün.
+
+setup: |
+  mkdir -p sessions
+  cat > sessions/queue.py <<'QUEUE'
+  class PriorityQueue:
+      def __init__(self):
+          raise NotImplementedError
+
+      def push(self, priority, item):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+  QUEUE
+  cat > sessions/tracker.py <<'TRACKER'
+  from sessions.queue import PriorityQueue
+
+
+  def with_audit_log(method):
+      raise NotImplementedError
+
+
+  class SessionTracker:
+      def __init__(self):
+          raise NotImplementedError
+
+      def open(self, user, priority):
+          raise NotImplementedError
+
+      @with_audit_log
+      def close_next(self):
+          raise NotImplementedError
+
+      def active_count(self):
+          raise NotImplementedError
+
+      def log(self):
+          raise NotImplementedError
+  TRACKER
+  cat > sessions/report.py <<'REPORT'
+  from sessions.tracker import SessionTracker
+
+
+  def audit(tracker):
+      raise NotImplementedError
+  REPORT
+
+goal_tr: >
+  sessions/queue.py, sessions/tracker.py ve sessions/report.py icindeki tum
+  NotImplementedError govdelerini gercek gerceklestirmelerle doldur:
+  PriorityQueue kucuk oncelik degerini once veren bir oncelik kuyrugu olsun
+  (esitlikte ekleme sirasi korunsun); with_audit_log dekoratoru, sardigi
+  close_next cagrisini calistirip donen kullanici adini self.log() listesine
+  kaydetsin; SessionTracker kuyrugu yonetsin, close_next en kucuk oncelikli
+  kullaniciyi dondursun, log() kapanan kullanicilarin sirali listesini
+  versin; audit ise tracker uzerinden tum oturumlari kapatip kapanis
+  sirasini dondursun.
+
+reference_solution: |
+  cat > sessions/queue.py <<'QUEUE'
+  class PriorityQueue:
+      def __init__(self):
+          self._items = []
+          self._counter = 0
+
+      def push(self, priority, item):
+          self._items.append((priority, self._counter, item))
+          self._counter += 1
+          self._items.sort(key=lambda entry: (entry[0], entry[1]))
+
+      def pop(self):
+          if not self._items:
+              raise IndexError("pop from empty queue")
+          return self._items.pop(0)[2]
+
+      def peek(self):
+          if not self._items:
+              raise IndexError("peek from empty queue")
+          return self._items[0][2]
+
+      def __len__(self):
+          return len(self._items)
+  QUEUE
+  cat > sessions/tracker.py <<'TRACKER'
+  from sessions.queue import PriorityQueue
+
+
+  def with_audit_log(method):
+      def wrapper(self, *args, **kwargs):
+          user = method(self, *args, **kwargs)
+          self._log.append(user)
+          return user
+      return wrapper
+
+
+  class SessionTracker:
+      def __init__(self):
+          self._queue = PriorityQueue()
+          self._log = []
+
+      def open(self, user, priority):
+          self._queue.push(priority, user)
+
+      @with_audit_log
+      def close_next(self):
+          return self._queue.pop()
+
+      def active_count(self):
+          return len(self._queue)
+
+      def log(self):
+          return list(self._log)
+  TRACKER
+  cat > sessions/report.py <<'REPORT'
+  from sessions.tracker import SessionTracker
+
+
+  def audit(tracker):
+      closed = []
+      while tracker.active_count() > 0:
+          closed.append(tracker.close_next())
+      return closed
+  REPORT
+
+ara_adim: |
+  cat > sessions/queue.py <<'QUEUE'
+  class PriorityQueue:
+      def __init__(self):
+          self._items = []
+          self._counter = 0
+
+      def push(self, priority, item):
+          self._items.append((priority, self._counter, item))
+          self._counter += 1
+          self._items.sort(key=lambda entry: (entry[0], entry[1]))
+
+      def pop(self):
+          if not self._items:
+              raise IndexError("pop from empty queue")
+          return self._items.pop(0)[2]
+
+      def peek(self):
+          if not self._items:
+              raise IndexError("peek from empty queue")
+          return self._items[0][2]
+
+      def __len__(self):
+          return len(self._items)
+  QUEUE
+
+outputs:
+  - {path: sessions/queue.py, kind: program, run: 'python3 -c ''from sessions.queue import PriorityQueue as Q; q=Q(); q.push(5,"a"); q.push(1,"b"); q.push(1,"c"); assert q.peek()=="b"; assert q.pop()=="b"; assert q.pop()=="c"; assert q.pop()=="a"; assert len(q)==0; print("ILERLEME-TAMAM")'''}
+  - {path: sessions/tracker.py, kind: program, run: 'python3 -c ''from sessions.tracker import SessionTracker as T; t=T(); t.open("u1",3); t.open("u2",1); t.open("u3",1); assert t.active_count()==3; assert t.close_next()=="u2"; assert t.close_next()=="u3"; assert t.close_next()=="u1"; assert t.active_count()==0; assert t.log()==["u2","u3","u1"], t.log(); print("REGRESYON-TAMAM")'''}
+  - {path: sessions/report.py, kind: program, run: 'python3 -c ''from sessions.tracker import SessionTracker as T; from sessions.report import audit as f; t=T(); t.open("alice",4); t.open("bob",2); t.open("carol",2); assert f(t)==["bob","carol","alice"], f(t); assert t.active_count()==0; assert t.log()==["bob","carol","alice"], t.log(); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sessions.queue import PriorityQueue as Q; q=Q(); q.push(5,"a"); q.push(1,"b"); q.push(1,"c"); assert q.peek()=="b"; assert q.pop()=="b"; assert q.pop()=="c"; assert q.pop()=="a"; assert len(q)==0; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sessions.tracker import SessionTracker as T; from sessions.report import audit as f; t=T(); t.open("alice",4); t.open("bob",2); t.open("carol",2); assert f(t)==["bob","carol","alice"], f(t); assert t.active_count()==0; assert t.log()==["bob","carol","alice"], t.log(); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sessions.tracker import SessionTracker as T; t=T(); t.open("u1",3); t.open("u2",1); t.open("u3",1); assert t.active_count()==3; assert t.close_next()=="u2"; assert t.close_next()=="u3"; assert t.close_next()=="u1"; assert t.active_count()==0; assert t.log()==["u2","u3","u1"], t.log(); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-2024
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: kullanici-oturumlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: oncelik-kuyrugu
+      karmasiklik: orta
+      kalip: dekorator
+      akis: bellek-ici
+      topoloji: yildiz
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

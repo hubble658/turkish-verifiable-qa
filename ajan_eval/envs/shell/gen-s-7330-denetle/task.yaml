@@ -1,0 +1,71 @@
+id: gen-s-7330-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  notlar/notlar.tsv ve notlar/yeni.tsv dosyalarındaki öğrenci satırlarını karşılaştır. Her iki dosyada da aynı olan satırları notlar/ayni.txt dosyasına yaz; yalnızca notlar/notlar.tsv dosyasında bulunan satırları notlar/sadece-eski.txt dosyasına yaz; yalnızca notlar/yeni.tsv dosyasında bulunan satırları notlar/sadece-yeni.txt dosyasına yaz.
+
+  Şu şartlar sağlanmalı:
+  - notlar/ayni.txt dosyası yalnızca her iki dosyada da aynı olan satırları içermeli.
+  - notlar/sadece-eski.txt dosyası yalnızca notlar/notlar.tsv dosyasında olup notlar/yeni.tsv dosyasında olmayan satırları içermeli.
+  - notlar/sadece-yeni.txt dosyası yalnızca notlar/yeni.tsv dosyasında olup notlar/notlar.tsv dosyasında olmayan satırları içermeli.
+  - Karşılaştırma satır bazında yapılmalı; her satır olduğu gibi korunmalı.
+  - Her üç dosya da notlar dizini altında oluşturulmalı.
+
+setup: |
+  mkdir -p notlar
+  printf '101\tAli\t85\n102\tVeli\t90\n103\tAyse\t78' > notlar/notlar.tsv
+  printf '101\tAli\t85\n102\tVeli\t70\n104\tCan\t88\n' > notlar/yeni.tsv
+
+goal_tr: >
+  notlar/notlar.tsv ile notlar/yeni.tsv dosyalarindaki ogrenci satirlarini
+  karsilastirip her iki dosyada da ayni olan satirlari notlar/ayni.txt,
+  yalnizca ilk dosyada olan satirlari notlar/sadece-eski.txt ve yalnizca
+  ikinci dosyada olan satirlari notlar/sadece-yeni.txt dosyasina yaz.
+
+reference_solution: |
+  sort notlar/notlar.tsv > /tmp/eski.srt
+  sort notlar/yeni.tsv > /tmp/yeni.srt
+  comm -12 /tmp/eski.srt /tmp/yeni.srt > notlar/ayni.txt
+  comm -23 /tmp/eski.srt /tmp/yeni.srt > notlar/sadece-eski.txt
+  comm -13 /tmp/eski.srt /tmp/yeni.srt > notlar/sadece-yeni.txt
+  diff notlar/notlar.tsv notlar/yeni.tsv > /tmp/fark.txt || true
+
+outputs:
+  - {path: notlar/ayni.txt, kind: file}
+  - {path: notlar/sadece-eski.txt, kind: file}
+  - {path: notlar/sadece-yeni.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: notlar/ayni.txt, value: "101\tAli\t85"}
+  - {op: file_lines_eq, path: notlar/sadece-eski.txt, value: ["102\tVeli\t90", "103\tAyse\t78"]}
+  - {op: file_lines_eq, path: notlar/sadece-yeni.txt, value: ["102\tVeli\t70", "104\tCan\t88"]}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7330
+    bundle: karsilastir
+    tools:
+    - diff
+    - comm
+    konu: ogrenci-notlari
+    hedef: denetle
+    girdi: tsv
+    kaynak: iki-dosya-capraz
+    cikti: birden-cok-dosya
+    kesif: veriye-bak
+    uslup: kabul-kriteri
+    direnc: son-newline-yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,95 @@
+id: gen-k-8422-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  meters/reading.py dosyasındaki EnergyReading sınıfının delta metodu, ardışık iki okuma arasındaki farkı doğru hesaplamıyor; bu metodu, sayaç değerleri arasındaki farkı doğru verecek şekilde düzelt. delta, son okumadan sonraki indeks için de doğru davranmalı; bu indekste hata vermemeli. meters/billing.py dosyası olduğu gibi kalmalı, ona dokunma.
+
+setup: |
+  mkdir -p meters
+  cat > meters/reading.py <<'READING'
+  class EnergyReading:
+      def __init__(self, values):
+          self.values = list(values)
+
+      def delta(self, index):
+          return self.values[index + 1] - self.values[index]
+
+      def total(self):
+          return self.values[-1] - self.values[0]
+  READING
+  cat > meters/billing.py <<'BILLING'
+  from meters.reading import EnergyReading
+
+
+  class MeterBill:
+      def __init__(self, readings):
+          self.reading = EnergyReading(readings)
+
+      def segment_cost(self, index, rate):
+          return self.reading.delta(index) * rate
+
+      def bill(self, rate):
+          return self.reading.total() * rate
+  BILLING
+
+goal_tr: >
+  meters/reading.py icindeki EnergyReading.delta metodunu, sayac degerleri
+  ardisik iki okuma arasindaki farki dogru hesaplayacak bicimde duzelt;
+  delta son okumadan sonraki indeks icin de dogru davranmali.
+
+reference_solution: |
+  cat > meters/reading.py <<'READING'
+  class EnergyReading:
+      def __init__(self, values):
+          self.values = list(values)
+
+      def delta(self, index):
+          return self.values[index] - self.values[index - 1]
+
+      def total(self):
+          return self.values[-1] - self.values[0]
+  READING
+
+outputs:
+  - {path: meters/reading.py, kind: program, run: 'python3 -c ''from meters.reading import EnergyReading as R; from meters.billing import MeterBill as B; r=R([10,25,25,60]); assert r.delta(3)==35, r.delta(3); assert r.delta(1)==15; assert r.total()==50; b=B([100,140,140,200]); assert b.segment_cost(3,2.0)==120.0, b.segment_cost(3,2.0); assert b.segment_cost(1,1.5)==60.0; assert b.bill(0.5)==50.0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from meters.reading import EnergyReading as R; from meters.billing import MeterBill as B; r=R([10,25,25,60]); assert r.delta(3)==35, r.delta(3); assert r.delta(1)==15; assert r.total()==50; b=B([100,140,140,200]); assert b.segment_cost(3,2.0)==120.0, b.segment_cost(3,2.0); assert b.segment_cost(1,1.5)==60.0; assert b.bill(0.5)==50.0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8422
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: elektrik-sayaclari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kenar-durum
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: bellek-ici
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

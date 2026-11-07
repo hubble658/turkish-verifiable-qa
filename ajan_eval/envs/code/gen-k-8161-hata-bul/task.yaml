@@ -1,0 +1,125 @@
+id: gen-k-8161-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Bugün hasat kayıtlarıyla uğraşıyorduk; tarlalardan gelen verileri işleyip raporlamak için küçük bir araç yazdık ve gün boyu farklı tarla dosyalarıyla denedik. Rapor tarafı doğru çalışıyor gibi görünse de bir süre sonra toplamların beklediğimizden farklı çıktığını fark ettik; aynı tarlayı tekrar tekrar işlediğimizde sonuçların sürekli büyüdüğünü gördük. Sanırım toplamı tutan yerde bir sorun var.
+
+  farm/yield_calc.py dosyasındaki total_yield fonksiyonunu düzeltmeni istiyorum. Bu fonksiyon her çağrıldığında yalnızca o çağrıda verilen satırların toplam verimini döndürmeli; önceki çağrılardan birikmiş toplamları taşımamalı. Yani aynı satırlarla iki kez çağrıldığında da aynı sonucu vermeli, çağrılar arasında hiçbir birikim olmamalı. Diğer dosyalara (farm/loader.py, farm/report.py, plots.csv) dokunmana gerek yok, sadece farm/yield_calc.py içindeki bu davranışı düzelt.
+
+setup: |
+  mkdir -p farm
+  cat > farm/loader.py <<'LOADER'
+  def read_plot(path):
+      with open(path) as fh:
+          lines = [ln.strip() for ln in fh if ln.strip()]
+      header = lines[0].split(',')
+      rows = []
+      for ln in lines[1:]:
+          parts = ln.split(',')
+          rows.append(dict(zip(header, parts)))
+      return rows
+  LOADER
+  cat > farm/yield_calc.py <<'YIELD'
+  _TOTAL = 0.0
+
+
+  def plot_yield(row):
+      area = float(row['area_ha'])
+      kg = float(row['harvest_kg'])
+      return kg / area
+
+
+  def total_yield(rows):
+      global _TOTAL
+      for row in rows:
+          _TOTAL += plot_yield(row)
+      return _TOTAL
+  YIELD
+  cat > farm/report.py <<'REPORT'
+  from farm.loader import read_plot
+  from farm.yield_calc import total_yield
+
+
+  def summarize(path):
+      rows = read_plot(path)
+      groups = {}
+      for row in rows:
+          groups.setdefault(row['crop'], []).append(row)
+      return {crop: total_yield(g) for crop, g in groups.items()}
+
+
+  def best_crop(path):
+      summary = summarize(path)
+      return max(summary, key=summary.get)
+  REPORT
+  cat > plots.csv <<'CSV'
+  crop,area_ha,harvest_kg
+  wheat,2.0,8000
+  wheat,3.0,9000
+  barley,1.5,6000
+  barley,2.5,5000
+  CSV
+
+goal_tr: >
+  farm/yield_calc.py icindeki total_yield fonksiyonunu, her cagrida birikmis
+  onceki toplamlari tasimadan yalnizca verilen satirlarin toplam verimini
+  dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > farm/yield_calc.py <<'YIELD'
+  def plot_yield(row):
+      area = float(row['area_ha'])
+      kg = float(row['harvest_kg'])
+      return kg / area
+
+
+  def total_yield(rows):
+      total = 0.0
+      for row in rows:
+          total += plot_yield(row)
+      return total
+  YIELD
+
+outputs:
+  - {path: farm/yield_calc.py, kind: program, run: 'python3 -c ''from farm.report import summarize, best_crop; a=summarize("plots.csv"); assert a=={"wheat":7000.0,"barley":6000.0}, a; b=summarize("plots.csv"); assert b=={"wheat":7000.0,"barley":6000.0}, b; assert best_crop("plots.csv")=="wheat"; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from farm.report import summarize, best_crop; a=summarize("plots.csv"); assert a=={"wheat":7000.0,"barley":6000.0}, a; b=summarize("plots.csv"); assert b=={"wheat":7000.0,"barley":6000.0}, b; assert best_crop("plots.csv")=="wheat"; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8161
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: tarim-verim-olcumleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-durum-sifirlama
+      karmasiklik: duz
+      kalip: ozyineleme
+      akis: dosya-okuma
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

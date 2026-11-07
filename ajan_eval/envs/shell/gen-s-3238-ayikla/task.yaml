@@ -1,0 +1,68 @@
+id: gen-s-3238-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) hava.log dosyasını oku.
+  2) Her satırdaki üçüncü alanı, yani sıcaklık değerini ters çevir.
+  3) Ters çevrilen sıcaklık değerini her satırın en başına koyarak yeni satırlar oluştur.
+  4) Bu yeni satırları sicakliklar.txt dosyasına yaz.
+  5) hava.log.old dosyasını kullanma.
+
+setup: |
+  cat > hava.log <<'LOG'
+  2024-06-01 12:00:00 | IST | 25.3 | GUNESLI
+  2024-06-02 12:00:00 | IST | 22.1 | BULUTLU
+  2024-06-03 12:00:00 | IST | 19.8 | YAGMURLU
+  2024-06-04 12:00:00 | IST | 21.5 | BULUTLU
+  2024-06-05 12:00:00 | IST | 26.7 | GUNESLI
+  2024-06-06 12:00:00 | IST | 18.4 | YAGMURLU
+  LOG
+  printf 'bu bir tuzak dosyadir, kullanilmamali\n' > hava.log.old
+
+goal_tr: >
+  hava.log dosyasindaki her satirda sicaklik alanini (ucuncu alan) ters
+  cevirip satirin en basina koyarak yeni satir listesini sicakliklar.txt
+  dosyasina yaz; hava.log.old dosyasi kullanilmayacak.
+
+reference_solution: |
+  cut -d'|' -f3 hava.log > sicakliklar.txt
+  rev sicakliklar.txt > sicakliklar.rev
+  paste sicakliklar.rev sicakliklar.txt > sicakliklar.txt.tmp
+  cut -f2- sicakliklar.txt.tmp > sicakliklar.txt
+  rm -f sicakliklar.rev sicakliklar.txt.tmp
+
+outputs:
+  - {path: sicakliklar.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: sicakliklar.txt, value: ['25.3', '22.1', '19.8', '21.5', '26.7', '18.4']}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3238
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: hava-durumu-kayitlari
+    hedef: ayikla
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,70 @@
+id: gen-s-7068-sirala-sec
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kayitlar dizinindeki erisim.tsv dosyasında durum kodu 200 olan satırlardaki istemci adreslerinden, kayitlar dizinindeki engel.tsv dosyasında listelenmeyenlerin sayısını bul ve bu sayıyı sonuc.txt dosyasına yalnızca sayı olarak yaz.
+
+setup: |
+  mkdir -p kayitlar
+  cat > kayitlar/erisim.tsv <<'TSV'
+  10.0.0.1	GET /a	200
+  10.0.0.2	GET /b	404
+  10.0.0.3	GET /c	200
+  10.0.0.4	GET /d	500
+  10.0.0.5	GET /e	200
+  10.0.0.6	GET /f	403
+  10.0.0.7	GET /g	200
+  10.0.0.8	GET /h	404
+  TSV
+  cat > kayitlar/engel.tsv <<'TSV'
+  10.0.0.2
+  10.0.0.4
+  10.0.0.6
+  10.0.0.8
+  TSV
+
+goal_tr: >
+  kayitlar dizinindeki erisim.tsv dosyasinda durum kodu 200 olan satirlarin
+  istemci adreslerinden, engel.tsv dosyasinda listelenmeyenlerin sayisini
+  sonuc.txt'ye sadece sayi olarak yaz
+
+reference_solution: |
+  cut -f1,3 kayitlar/erisim.tsv | awk -F'\t' '$2==200 {print $1}' | sort > /tmp/izinli.txt
+  sort kayitlar/engel.tsv > /tmp/engel.txt
+  comm -23 /tmp/izinli.txt /tmp/engel.txt | uniq | wc -l > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '4'}
+
+metadata:
+  domain: sirala-sec
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7068
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: sunucu-loglari
+    hedef: sirala-sec
+    girdi: tsv
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

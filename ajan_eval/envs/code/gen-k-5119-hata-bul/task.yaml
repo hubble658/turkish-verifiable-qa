@@ -1,0 +1,127 @@
+id: gen-k-5119-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  inventory/walk.py içindeki StockWalker iteratorunu, adet değeri 0 olan ürünler de dahil olmak üzere her ürünü kendi adediyle döndürecek şekilde düzelt; böylece hiçbir ürün atlanmaz.
+
+setup: |
+  mkdir -p inventory
+  cat > inventory/items.py <<'ITEMS'
+  def load_items(data):
+      """data: {"bolum": {"urun": adet}} -> duz sozluk {bolum/urun: adet}"""
+      flat = {}
+      for section, products in data.items():
+          for name, qty in products.items():
+              flat[section + "/" + name] = qty
+      return flat
+
+
+  def total_units(data):
+      return sum(load_items(data).values())
+  ITEMS
+  cat > inventory/walk.py <<'WALK'
+  from inventory.items import load_items
+
+
+  class StockWalker:
+      """Envanteri dolasan bir iterator."""
+
+      def __init__(self, data):
+          self._flat = load_items(data)
+          self._paths = list(self._flat)
+          self._i = 0
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          while self._i < len(self._paths):
+              path = self._paths[self._i]
+              qty = self._flat[path]
+              self._i += 1
+              if qty > 0:
+                  return (path, qty)
+          raise StopIteration
+
+
+  def iter_stock(data):
+      return StockWalker(data)
+  WALK
+
+goal_tr: >
+  inventory/walk.py icindeki StockWalker iteratorunu, adet degeri 0 olan
+  urunleri de (0 degeriyle) dondurecek bicimde duzelt; boylece hicbir urun
+  atlanmaz.
+
+reference_solution: |
+  cat > inventory/walk.py <<'WALK'
+  from inventory.items import load_items
+
+
+  class StockWalker:
+      """Envanteri dolasan bir iterator."""
+
+      def __init__(self, data):
+          self._flat = load_items(data)
+          self._paths = list(self._flat)
+          self._i = 0
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          while self._i < len(self._paths):
+              path = self._paths[self._i]
+              qty = self._flat[path]
+              self._i += 1
+              return (path, qty)
+          raise StopIteration
+
+
+  def iter_stock(data):
+      return StockWalker(data)
+  WALK
+
+outputs:
+  - {path: inventory/walk.py, kind: program, run: 'python3 -c ''from inventory.walk import iter_stock as f; d={"a":{"x":3,"y":0},"b":{"z":5}}; assert list(f(d))==[("a/x",3),("a/y",0),("b/z",5)], list(f(d)); assert list(f({"a":{"x":0}}))==[("a/x",0)]; assert list(f({}))==[]; it=f(d); assert iter(it) is it; assert next(it)==("a/x",3); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from inventory.walk import iter_stock as f; d={"a":{"x":3,"y":0},"b":{"z":5}}; assert list(f(d))==[("a/x",3),("a/y",0),("b/z",5)], list(f(d)); assert list(f({"a":{"x":0}}))==[("a/x",0)]; assert list(f({}))==[]; it=f(d); assert iter(it) is it; assert next(it)==("a/x",3); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5119
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: depo-envanteri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kenar-durum
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: ic-ice-yapi
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

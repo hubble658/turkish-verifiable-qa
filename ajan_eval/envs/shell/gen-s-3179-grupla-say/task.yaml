@@ -1,0 +1,95 @@
+id: gen-s-3179-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kitaplik/uyeler.ini ve kitaplik/oduncler.ini dosyalarındaki üye numaralarını eşleştirip her üye için ad ve tür bilgisiyle birlikte ödünç sayısını kitaplik/ozet.csv dosyasına ad,sayisal biçiminde yaz; kitaplik/tuzak.ini dosyasını yok say.
+
+setup: |
+  mkdir -p kitaplik
+  cat > kitaplik/uyeler.ini <<'INI'
+  [U001]
+  ad=Ali
+  tur=ogrenci
+  [U002]
+  ad=Ayse
+  tur=ogretmen
+  [U003]
+  ad=Can
+  tur=ogrenci
+  [U004]
+  ad=Deniz
+  tur=ogretmen
+  INI
+  cat > kitaplik/oduncler.ini <<'INI'
+  [O001]
+  uye=U001
+  kitap=K01
+  [O002]
+  uye=U001
+  kitap=K02
+  [O003]
+  uye=U002
+  kitap=K01
+  [O004]
+  uye=U003
+  kitap=K03
+  [O005]
+  uye=U003
+  kitap=K01
+  INI
+  cat > kitaplik/tuzak.ini <<'INI'
+  [U999]
+  ad=Sahte
+  tur=ogrenci
+  [O999]
+  uye=U999
+  kitap=K99
+  INI
+
+goal_tr: >
+  kitaplik/uyeler.ini ve kitaplik/oduncler.ini dosyalarindaki uye
+  numaralarini eslestirip her uye icin ad ve tur bilgisiyle birlikte odunc
+  sayisini kitaplik/ozet.csv dosyasina ad,sayisal olarak yaz; tuzak.ini
+  dosyasini yok say.
+
+reference_solution: |
+  grep -h '^\[' kitaplik/uyeler.ini | tr -d '[]' | sort > /tmp/uyeler.txt
+  grep '^uye=' kitaplik/oduncler.ini | cut -d= -f2 | sort | uniq -c > /tmp/sayilar.txt
+  awk '{print $2, $1}' /tmp/sayilar.txt | sort > /tmp/sayilar2.txt
+  join /tmp/uyeler.txt /tmp/sayilar2.txt | awk '{print $2 "," $4}' | xargs -I{} echo {} > kitaplik/ozet.csv
+
+outputs:
+  - {path: kitaplik/ozet.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: kitaplik/ozet.csv, value: ['2,', '1,', '2,']}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3179
+    bundle: cok-dosya-ara
+    tools:
+    - xargs
+    - grep
+    konu: kutuphane-kayitlari
+    hedef: grupla-say
+    girdi: ini
+    kaynak: iki-dosya-capraz
+    cikti: csv
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

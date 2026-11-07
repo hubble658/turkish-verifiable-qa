@@ -1,0 +1,75 @@
+id: gen-s-4002-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kayitlar dizini altındaki her istasyonda bulunan veri.tsv dosyasındaki olay sütununu say ve her istasyon için istasyon adı ile olay sayısını yaz. Sonuçları kayitlar dizininin içindeki ozet.tsv dosyasına kaydet.
+
+setup: |
+  mkdir -p kayitlar/istasyon_a kayitlar/istasyon_b kayitlar/istasyon_c
+  cat > kayitlar/istasyon_a/veri.tsv <<'TSV'
+  tarih	sehir	olay
+  2024-01-01	Ankara	acik
+  2024-01-02	Ankara	yagmur
+  2024-01-03	Ankara	kar
+  TSV
+  cat > kayitlar/istasyon_b/veri.tsv <<'TSV'
+  tarih	sehir	olay
+  2024-01-01	Izmir	acik
+  2024-01-02	Izmir	acik
+  2024-01-03	Izmir	yagmur
+  2024-01-04	Izmir	acik
+  TSV
+  cat > kayitlar/istasyon_c/veri.tsv <<'TSV'
+  tarih	sehir	olay
+  2024-01-01	Bursa	kar
+  2024-01-02	Bursa	kar
+  TSV
+
+goal_tr: >
+  kayitlar dizini altindaki her istasyonun veri.tsv dosyasindaki olay
+  sutununu sayip her istasyon icin olay sayisini istasyon adi ve sayi olarak
+  yazan ozet.tsv dosyasini kayitlar dizininin icinde olustur
+
+reference_solution: |
+  find kayitlar -name veri.tsv | sort | while read f; do
+    ist=$(basename "$(dirname "$f")")
+    n=$(cut -f3 "$f" | tail -n +2 | wc -l)
+    printf '%s\t%s\n' "$ist" "$n"
+  done > kayitlar/ozet.tsv
+  paste kayitlar/ozet.tsv
+
+outputs:
+  - {path: kayitlar/ozet.tsv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: kayitlar/ozet.tsv, value: ["istasyon_a\t3", "istasyon_b\t4", "istasyon_c\t2"]}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4002
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: hava-durumu-kayitlari
+    hedef: ozetle
+    girdi: tsv
+    kaynak: dizin-agaci
+    cikti: dizin-yapisi
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

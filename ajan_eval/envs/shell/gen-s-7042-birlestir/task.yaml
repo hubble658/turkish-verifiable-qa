@@ -1,0 +1,61 @@
+id: gen-s-7042-birlestir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  puanlar.csv ve yorumlar.csv dosyalarını ürün kimliği üzerinden birleştirerek her ürün için "kimlik puan yorum" biçiminde satırlar içeren bir sonuc.txt dosyası oluştur. Satırlar puanlar.csv dosyasındaki kimlik sırasına göre dizilsin. yorumlar_eski.csv dosyasındaki satırlar sonuca dahil edilmesin ve CRLF satır sonları temizlenmiş olsun.
+
+setup: |
+  printf 'P101,5\nP102,3\nP103,4\nP104,2\nP105,5\n' > puanlar.csv
+  printf 'P101,iyi urun\r\nP102,kargo gec geldi\r\nP103,fiyat uygun\r\nP104,ambalaj hasarli\r\nP105,hizli teslimat\r\n' > yorumlar.csv
+  printf 'P999,sahte satir\nP000,sahte satir\n' > yorumlar_eski.csv
+
+goal_tr: >
+  puanlar.csv ile yorumlar.csv dosyalarini urun kimligi uzerinden
+  birlestirip, her urun icin "kimlik puan yorum" biciminde, puanlar.csv'deki
+  kimlik sirasina gore sirali satirlar halinde sonuc.txt dosyasina yaz; CRLF
+  satir sonlarini temizle ve yorumlar_eski.csv dosyasindaki satirlari dahil
+  etme.
+
+reference_solution: |
+  tr -d '\r' < yorumlar.csv | sort -t, -k1,1 > yorumlar.tmp
+  sort -t, -k1,1 puanlar.csv > puanlar.tmp
+  join -t, -1 1 -2 1 puanlar.tmp yorumlar.tmp | awk -F, '{print $1" "$2" "$3}' > sonuc.txt
+  rm -f yorumlar.tmp puanlar.tmp
+
+outputs:
+  - {path: sonuc.txt, kind: lines}
+  - {path: puanlar.csv, kind: file}
+  - {path: yorumlar.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: sonuc.txt, value: [P101 5 iyi urun, P102 3 kargo gec geldi, P103 4 fiyat uygun, P104 2 ambalaj hasarli, P105 5 hizli teslimat]}
+
+metadata:
+  domain: birlestir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7042
+    bundle: birlestir
+    tools:
+    - join
+    - sort
+    konu: urun-yorumlari
+    hedef: birlestir
+    girdi: log-satiri
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: crlf
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

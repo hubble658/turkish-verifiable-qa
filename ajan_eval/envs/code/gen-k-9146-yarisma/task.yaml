@@ -1,0 +1,199 @@
+id: gen-k-9146-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  config.txt dosyasındaki her satırda tanımlı sensörü pkg/sensors.py içindeki Sensor protokolüne uyan bir nesne olarak kuracak ve pkg/simulate.py ile benzetimini çalıştıracak pkg/run_sim.py dosyasını yaz. Bu betik her satır için hesaplanan ortalama değeri yazdırsın. Ayrıca pkg/simulate.py içindeki summarize fonksiyonu da doğru ortalamayı döndürecek şekilde düzeltilsin. pkg/sensors.py protokol tanımı yerinde kalsın; gerekirse bu dosyadaki sensör sınıfları da run_sim.py'nin kullanabileceği biçimde çalışsın.
+
+setup: |
+  mkdir -p pkg
+  cat > pkg/__init__.py <<'INIT'
+  INIT
+  cat > pkg/sensors.py <<'SENSORS'
+  from abc import ABC, abstractmethod
+
+
+  class Sensor(ABC):
+      @abstractmethod
+      def reading(self, t):
+          ...
+
+
+  class SineSensor(Sensor):
+      def __init__(self, amplitude, period):
+          self.amplitude = amplitude
+          self.period = period
+
+      def reading(self, t):
+          import math
+          return self.amplitude * math.sin(2 * math.pi * t / self.period)
+
+
+  class RampSensor(Sensor):
+      def __init__(self, slope, offset):
+          self.slope = slope
+          self.offset = offset
+
+      def reading(self, t):
+          return self.slope * t + self.offset
+  SENSORS
+  cat > pkg/simulate.py <<'SIM'
+  from pkg.sensors import Sensor
+
+
+  def simulate(sensor, steps, dt):
+      out = []
+      t = 0.0
+      for _ in range(steps):
+          out.append(sensor.reading(t))
+          t = t + dt
+      return out
+
+
+  def summarize(sensor, steps, dt):
+      vals = simulate(sensor, steps, dt)
+      total = 0.0
+      for v in vals:
+          total = total + v
+      return total / (len(vals) + 1)
+  SIM
+  cat > config.txt <<'CFG'
+  sine 3.0 4.0 8 0.5
+  ramp 1.5 2.0 5 1.0
+  CFG
+
+goal_tr: >
+  config.txt dosyasindaki her satirda tanimli sensoru pkg/sensors.py
+  icindeki Sensor protokolune uyan bir nesne olarak kurup pkg/simulate.py
+  ile benzetimini calistiran ve her satir icin ortalama degeri yazdiran
+  pkg/run_sim.py dosyasini yaz; pkg/simulate.py icindeki summarize
+  fonksiyonu da dogru ortalama dondurmeli.
+
+reference_solution: |
+  cat > pkg/simulate.py <<'SIM'
+  from pkg.sensors import Sensor
+
+
+  def simulate(sensor, steps, dt):
+      out = []
+      t = 0.0
+      for _ in range(steps):
+          out.append(sensor.reading(t))
+          t = t + dt
+      return out
+
+
+  def summarize(sensor, steps, dt):
+      vals = simulate(sensor, steps, dt)
+      total = 0.0
+      for v in vals:
+          total = total + v
+      return total / len(vals)
+  SIM
+  cat > pkg/run_sim.py <<'RUNSIM'
+  from pkg.sensors import SineSensor, RampSensor
+  from pkg.simulate import summarize
+
+
+  def build(kind, params):
+      if kind == "sine":
+          return SineSensor(float(params[0]), float(params[1]))
+      if kind == "ramp":
+          return RampSensor(float(params[0]), float(params[1]))
+      raise ValueError("unknown sensor: " + kind)
+
+
+  def run(path):
+      lines = []
+      with open(path) as fh:
+          for raw in fh:
+              raw = raw.strip()
+              if not raw:
+                  continue
+              parts = raw.split()
+              kind = parts[0]
+              nums = parts[1:]
+              steps = int(nums[-2])
+              dt = float(nums[-1])
+              sensor = build(kind, nums[:2])
+              lines.append("%s %.4f" % (kind, summarize(sensor, steps, dt)))
+      return lines
+
+
+  def main():
+      for line in run("config.txt"):
+          print(line)
+
+
+  if __name__ == "__main__":
+      main()
+  RUNSIM
+
+ara_adim: |
+  cat > pkg/simulate.py <<'SIM'
+  from pkg.sensors import Sensor
+
+
+  def simulate(sensor, steps, dt):
+      out = []
+      t = 0.0
+      for _ in range(steps):
+          out.append(sensor.reading(t))
+          t = t + dt
+      return out
+
+
+  def summarize(sensor, steps, dt):
+      vals = simulate(sensor, steps, dt)
+      total = 0.0
+      for v in vals:
+          total = total + v
+      return total / len(vals)
+  SIM
+
+outputs:
+  - {path: pkg/run_sim.py, kind: program, run: 'python3 -c ''import pkg.run_sim as m; r=m.run("config.txt"); assert len(r)==2, r; assert r[0].startswith("sine "); assert r[1]=="ramp 5.0000", r[1]; print("TAMAM")'''}
+  - {path: pkg/simulate.py, kind: program, run: 'python3 -c ''from pkg.simulate import summarize as f; from pkg.sensors import RampSensor as R; assert abs(f(R(1.0,0.0),4,1.0)-1.5)<1e-9, f(R(1.0,0.0),4,1.0); print("ILERLEME-TAMAM")'''}
+  - {path: pkg/sensors.py, kind: program, run: 'python3 -c ''from pkg.sensors import RampSensor as R; assert abs(R(2.0,1.0).reading(3.0)-7.0)<1e-9; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import pkg.run_sim as m; r=m.run("config.txt"); assert len(r)==2, r; assert r[0].startswith("sine "); assert r[1]=="ramp 5.0000", r[1]; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from pkg.simulate import summarize as f; from pkg.sensors import RampSensor as R; assert abs(f(R(1.0,0.0),4,1.0)-1.5)<1e-9, f(R(1.0,0.0),4,1.0); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from pkg.sensors import RampSensor as R; assert abs(R(2.0,1.0).reading(3.0)-7.0)<1e-9; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9146
+    bundle: yarisma
+    tools:
+    - python3
+    konu: sensor-serisi
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: benzetim
+      karmasiklik: orta
+      kalip: abc-protokol
+      akis: dosya-okuma
+      topoloji: yildiz
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

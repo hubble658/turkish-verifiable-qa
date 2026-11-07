@@ -1,0 +1,145 @@
+id: gen-k-5050-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) depo/cache.py içindeki LruCache sınıfını gerçekleştir; önbellek en fazla capacity kayıt tutmalı, kapasite aşıldığında en eski kullanılan kayıt atılmalı, her get çağrısı hit/miss sayaçlarını güncellemeli ve bir kayda erişim onu en yeni konuma taşımalı.
+
+  2) depo/inventory.py içindeki build_inventory fonksiyonunu gerçekleştir; depo/records.py içindeki make_ledger ile üretilen kayıtları LruCache kullanarak bir envantere dönüştürsün.
+
+  3) depo/inventory.py içindeki peek_inventory fonksiyonunu gerçekleştir; verilen envanterde bir isme bakıp kaydı döndürsün.
+
+setup: |
+  mkdir -p depo
+  cat > depo/records.py <<'REC'
+  def make_ledger(entries):
+      rows = []
+      for name, qty in entries:
+          rows.append({"name": name, "qty": int(qty)})
+      return rows
+  REC
+  cat > depo/cache.py <<'CACHE'
+  class LruCache:
+      def __init__(self, capacity):
+          raise NotImplementedError
+
+      def get(self, key):
+          raise NotImplementedError
+
+      def put(self, key, value):
+          raise NotImplementedError
+
+      def stats(self):
+          raise NotImplementedError
+  CACHE
+  cat > depo/inventory.py <<'INV'
+  from depo.cache import LruCache
+  from depo.records import make_ledger
+
+
+  def build_inventory(entries, capacity):
+      raise NotImplementedError
+
+
+  def peek_inventory(inventory, name):
+      raise NotImplementedError
+  INV
+
+goal_tr: >
+  depo/cache.py icindeki LruCache sinifini ve depo/inventory.py icindeki
+  build_inventory ile peek_inventory fonksiyonlarini gerceklestir: onbellek
+  en fazla capacity kayit tutmali, kapasite asilinca en eski kullanilan
+  kayit atilmali, her get cagrisi hit/miss sayaclarini guncellemeli ve bir
+  kayda erisim onu en yeni konuma tasimali.
+
+reference_solution: |
+  cat > depo/cache.py <<'CACHE'
+  class LruCache:
+      def __init__(self, capacity):
+          if capacity < 1:
+              raise ValueError("capacity must be >= 1")
+          self.capacity = capacity
+          self._data = {}
+          self._order = []
+          self.hits = 0
+          self.misses = 0
+
+      def get(self, key):
+          if key in self._data:
+              self.hits += 1
+              self._order.remove(key)
+              self._order.append(key)
+              return self._data[key]
+          self.misses += 1
+          return None
+
+      def put(self, key, value):
+          if key in self._data:
+              self._order.remove(key)
+          elif len(self._data) >= self.capacity:
+              oldest = self._order.pop(0)
+              del self._data[oldest]
+          self._data[key] = value
+          self._order.append(key)
+
+      def stats(self):
+          return {"hits": self.hits, "misses": self.misses, "size": len(self._data)}
+  CACHE
+  cat > depo/inventory.py <<'INV'
+  from depo.cache import LruCache
+  from depo.records import make_ledger
+
+
+  def build_inventory(entries, capacity):
+      cache = LruCache(capacity)
+      for row in make_ledger(entries):
+          cache.put(row["name"], row["qty"])
+      return cache
+
+
+  def peek_inventory(inventory, name):
+      return inventory.get(name)
+  INV
+
+outputs:
+  - {path: depo/cache.py, kind: program, run: 'python3 -c ''from depo.cache import LruCache; c=LruCache(2); c.put("a",1); c.put("b",2); assert c.get("a")==1; assert c.get("b")==2; assert c.get("zz") is None; assert c.stats()=={"hits":2,"misses":1,"size":2}, c.stats(); c.put("c",3); assert c.get("a") is None; assert c.get("b")==2; assert c.get("c")==3; assert c.stats()=={"hits":4,"misses":2,"size":2}, c.stats(); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.cache import LruCache; c=LruCache(2); c.put("a",1); c.put("b",2); assert c.get("a")==1; assert c.get("b")==2; assert c.get("zz") is None; assert c.stats()=={"hits":2,"misses":1,"size":2}, c.stats(); c.put("c",3); assert c.get("a") is None; assert c.get("b")==2; assert c.get("c")==3; assert c.stats()=={"hits":4,"misses":2,"size":2}, c.stats(); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5050
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: depo-envanteri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: lru-onbellek
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: bellek-ici
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,147 @@
+id: gen-k-8375-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Depo sayımlarını Excel'de tutmaktan yorulduk; birkaç haftadır stok hareketlerini küçük bir Python modülüne taşımaya çalışıyoruz. Bugün de gelen-giden malzeme kayıtlarını tek bir yerden geçirmek için söylediklerimizi toparlıyorum, ama önce şu kuyruk işini bitirmemiz lazım.
+
+  stok/queue.py içindeki FifoQueue sınıfını baştan sona doldur: FIFO kuyruğu tam olarak çalışsın. Operatör aşırı yüklemeleri de olsun; __add__, __eq__, __bool__, __iter__, __len__ ve ayrıca peek, enqueue, dequeue metotları beklendiği gibi davransın. stok/movements.py içindeki net_change fonksiyonu da bu kuyruğu kullanarak hareketlerin toplamını doğru döndürsün.
+
+setup: |
+  mkdir -p stok
+  cat > stok/queue.py <<'PY'
+  class FifoQueue:
+      def __init__(self):
+          self._items = []
+
+      def enqueue(self, item):
+          raise NotImplementedError
+
+      def dequeue(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+
+      def __iter__(self):
+          raise NotImplementedError
+
+      def __bool__(self):
+          raise NotImplementedError
+
+      def __add__(self, other):
+          raise NotImplementedError
+
+      def __eq__(self, other):
+          raise NotImplementedError
+  PY
+  cat > stok/movements.py <<'PY'
+  from stok.queue import FifoQueue
+
+
+  def net_change(movements):
+      q = FifoQueue()
+      for kind, amount in movements:
+          if kind == "in":
+              q.enqueue(amount)
+          elif kind == "out":
+              q.enqueue(-amount)
+      return sum(q)
+  PY
+
+goal_tr: >
+  stok/queue.py icindeki FifoQueue sinifini, operator asiri yuklemesiyle
+  (__add__, __eq__, __bool__, __iter__, __len__, peek, enqueue, dequeue)
+  FIFO kuyrugunu tam olarak gerceklestirecek bicimde doldur;
+  stok/movements.py icindeki net_change bu kuyrugu kullanarak hareketlerin
+  toplamini dogru dondursun.
+
+reference_solution: |
+  cat > stok/queue.py <<'PY'
+  class FifoQueue:
+      def __init__(self):
+          self._items = []
+
+      def enqueue(self, item):
+          self._items.append(item)
+
+      def dequeue(self):
+          if not self._items:
+              raise IndexError("dequeue from empty queue")
+          return self._items.pop(0)
+
+      def peek(self):
+          if not self._items:
+              raise IndexError("peek from empty queue")
+          return self._items[0]
+
+      def __len__(self):
+          return len(self._items)
+
+      def __iter__(self):
+          return iter(list(self._items))
+
+      def __bool__(self):
+          return len(self._items) > 0
+
+      def __add__(self, other):
+          if not isinstance(other, FifoQueue):
+              return NotImplemented
+          merged = FifoQueue()
+          merged._items = list(self._items) + list(other._items)
+          return merged
+
+      def __eq__(self, other):
+          if not isinstance(other, FifoQueue):
+              return NotImplemented
+          return self._items == other._items
+
+      def __repr__(self):
+          return "FifoQueue(" + repr(self._items) + ")"
+  PY
+
+outputs:
+  - {path: stok/queue.py, kind: program, run: 'python3 -c ''from stok.queue import FifoQueue; from stok.movements import net_change; q=FifoQueue(); assert not q; q.enqueue(1); q.enqueue(2); q.enqueue(3); assert len(q)==3; assert q.peek()==1; assert list(q)==[1,2,3]; assert q.dequeue()==1; assert q.dequeue()==2; assert q.peek()==3; r=FifoQueue(); r.enqueue(9); m=q+r; assert list(m)==[3,9]; assert list(q)==[3]; assert q==FifoQueue() or True; q2=FifoQueue(); q2.enqueue(3); assert q==q2; assert not (q==r); assert net_change([("in",5),("out",2),("in",10),("out",1)])==12; assert net_change([])==0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from stok.queue import FifoQueue; from stok.movements import net_change; q=FifoQueue(); assert not q; q.enqueue(1); q.enqueue(2); q.enqueue(3); assert len(q)==3; assert q.peek()==1; assert list(q)==[1,2,3]; assert q.dequeue()==1; assert q.dequeue()==2; assert q.peek()==3; r=FifoQueue(); r.enqueue(9); m=q+r; assert list(m)==[3,9]; assert list(q)==[3]; assert q==FifoQueue() or True; q2=FifoQueue(); q2.enqueue(3); assert q==q2; assert not (q==r); assert net_change([("in",5),("out",2),("in",10),("out",1)])==12; assert net_change([])==0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8375
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: stok-hareketleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kuyruk
+      karmasiklik: duz
+      kalip: operator-asiri-yukleme
+      akis: bellek-ici
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

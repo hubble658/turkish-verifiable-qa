@@ -1,0 +1,71 @@
+id: gen-s-7056-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kargolar.json dosyasındaki her kargo kaydını doğrula. Bir kaydın geçerli sayılması için takip alanı "TR" ile başlayıp ardından 4 rakamla devam ediyor olmalı ve kg alanı 0'dan büyük bir tam sayı olmalı. Geçerli kayıtların takip kodlarını artan sırada bir JSON dizisi olarak gecerli.json dosyasına yaz. Geçersiz kayıtların takip kodlarını artan sırada bir JSON dizisi olarak gecersiz.json dosyasına yaz. Çalışma dizini /workspace.
+
+  Şu şartlar sağlanmalı:
+  - gecerli.json dosyası oluşturulmalı ve içinde geçerli kayıtların takip kodları artan sırada bir JSON dizisi olarak yer almalı.
+  - gecersiz.json dosyası oluşturulmalı ve içinde geçersiz kayıtların takip kodları artan sırada bir JSON dizisi olarak yer almalı.
+  - Geçerlilik için takip alanının "TR" ile başlayıp ardından 4 rakamla devam etmesi şartı uygulanmalı.
+  - Geçerlilik için kg alanının 0'dan büyük bir tam sayı olması şartı uygulanmalı.
+  - Her iki dosyada da takip kodları artan sırada olmalı.
+
+setup: |
+  cat > kargolar.json <<'JSON'
+  [
+    {"takip": "TR1001", "durum": "yolda", "kg": 2},
+    {"takip": "TR1002", "durum": "teslim", "kg": 5},
+    {"takip": "TR1003", "durum": "yolda", "kg": 3},
+    {"takip": "TR1004", "durum": "beklemede", "kg": 1},
+    {"takip": "TR1005", "durum": "teslim", "kg": 4}
+  ]
+  JSON
+
+goal_tr: >
+  kargolar.json icindeki her kargo kaydini dogrula: takip alani TR ile
+  baslayip 4 rakamla devam ediyorsa ve kg alani 0'dan buyuk tam sayi ise
+  gecerli say; gecerli kayitlarin takip kodlarini artan sirada bir JSON
+  dizisi olarak gecerli.json dosyasina, gecersiz kayitlarin takip kodlarini
+  artan sirada bir JSON dizisi olarak gecersiz.json dosyasina yaz.
+
+reference_solution: |
+  awk 'BEGIN{print "["; n=0} /"takip"/{match($0,/"takip": *"[^"]*"/); t=substr($0,RSTART+10,RLENGTH-11); match($0,/"kg": *[0-9]+/); k=substr($0,RSTART+6,RLENGTH-6)+0; if (t ~ /^TR[0-9][0-9][0-9][0-9]$/ && k > 0) {g[n++]=t} else {b[n++]=t}} END{for(i=0;i<n;i++){for(j=i+1;j<n;j++){if(g[j]<g[i]){x=g[i];g[i]=g[j];g[j]=x}; if(b[j]<b[i]){x=b[i];b[i]=b[j];b[j]=x}}} printf ""; for(i=0;i<n;i++){if(g[i]!=""){printf "%s\"%s\"",(c++?",":""),g[i]}} print "\n]"}' kargolar.json > gecerli.json
+  awk 'BEGIN{print "["; n=0} /"takip"/{match($0,/"takip": *"[^"]*"/); t=substr($0,RSTART+10,RLENGTH-11); match($0,/"kg": *[0-9]+/); k=substr($0,RSTART+6,RLENGTH-6)+0; if (t ~ /^TR[0-9][0-9][0-9][0-9]$/ && k > 0) {g[n++]=t} else {b[n++]=t}} END{for(i=0;i<n;i++){for(j=i+1;j<n;j++){if(b[j]<b[i]){x=b[i];b[i]=b[j];b[j]=x}}} for(i=0;i<n;i++){if(b[i]!=""){printf "%s\"%s\"",(c++?",":""),b[i]}} print "\n]"}' kargolar.json > gecersiz.json
+
+outputs:
+  - {path: gecerli.json, kind: json}
+  - {path: gecersiz.json, kind: json}
+
+checks:
+  - {op: json_eq, path: gecerli.json, value: [TR1001, TR1002, TR1003, TR1004, TR1005]}
+  - {op: json_eq, path: gecersiz.json, value: []}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7056
+    bundle: awk
+    tools:
+    - awk
+    konu: kargo-takibi
+    hedef: dogrula
+    girdi: json
+    kaynak: tek-dosya
+    cikti: json
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

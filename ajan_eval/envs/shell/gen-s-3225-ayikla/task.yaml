@@ -1,0 +1,83 @@
+id: gen-s-3225-ayikla
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  vardiya/ham.txt dosyasındaki her satırı personel kimliğine göre ayrı ayrı dosyalara böl. Kimlik, satırdaki ilk alandan önce gelen kısımdır; her satırın tamamı kendi kimlik dosyasına yazılsın. Örneğin P101 ile başlayan tüm satırlar vardiya/P101.txt içine, P102 ile başlayanlar vardiya/P102.txt içine gitsin. Böylece vardiya dizininde ham.txt'den üretilen şu dosyalar oluşsun: vardiya/P101.txt, vardiya/P102.txt, vardiya/P103.txt, vardiya/P104.txt ve vardiya/P105.txt. Bu dosyaların dışında, vardiya dizininde ham.txt'den üretilmiş başka dosya bulunmasın; var olan vardiya/notlar.txt işlenmesin ve olduğu gibi kalsın.
+
+setup: |
+  mkdir -p vardiya
+  cat > vardiya/ham.txt <<'DATA'
+  P101|Ali|sabah|08:00|16:00
+  P102|Ayse|aksam|16:00|00:00
+  P103|Can|sabah|08:00|16:00
+  P104|Deniz|gece|00:00|08:00
+  P105|Ece|aksam|16:00|00:00
+  P101|Ali|gece|00:00|08:00
+  P102|Ayse|sabah|08:00|16:00
+  P103|Can|aksam|16:00|00:00
+  DATA
+  cat > vardiya/notlar.txt <<'DATA'
+  P999|Hayalet|sabah|08:00|16:00
+  bu dosya islenmeyecek
+  DATA
+
+goal_tr: >
+  vardiya/ham.txt icindeki her satiri personel kimligine gore
+  vardiya/kimlik.txt dosyasina yaz; yani her satiri ilk alandan once gelen
+  kimlik adiyla ayrilmis tek bir dosyaya koy ve vardiya dizininde sadece
+  ham.txt'den uretilen bu dosyalar bulunsun.
+
+reference_solution: |
+  mkdir -p vardiya
+  cut -d'|' -f1 vardiya/ham.txt > vardiya/kimlikler.txt
+  paste -d'|' vardiya/kimlikler.txt vardiya/ham.txt > vardiya/gecici.txt
+  while IFS='|' read -r kimlik satir; do
+    printf '%s\n' "$satir" > "vardiya/$kimlik.txt"
+  done < vardiya/gecici.txt
+  rm vardiya/kimlikler.txt vardiya/gecici.txt
+
+outputs:
+  - {path: vardiya, kind: dir}
+  - {path: vardiya/P101.txt, kind: file}
+  - {path: vardiya/P102.txt, kind: file}
+  - {path: vardiya/P103.txt, kind: file}
+  - {path: vardiya/P104.txt, kind: file}
+  - {path: vardiya/P105.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: vardiya, value: [P101.txt, P102.txt, P103.txt, P104.txt, P105.txt, ham.txt, notlar.txt]}
+  - {op: file_content_eq, path: vardiya/P101.txt, value: 'P101|Ali|gece|00:00|08:00'}
+  - {op: file_content_eq, path: vardiya/P102.txt, value: 'P102|Ayse|sabah|08:00|16:00'}
+  - {op: file_content_eq, path: vardiya/P103.txt, value: 'P103|Can|aksam|16:00|00:00'}
+  - {op: file_content_eq, path: vardiya/P104.txt, value: 'P104|Deniz|gece|00:00|08:00'}
+  - {op: file_content_eq, path: vardiya/P105.txt, value: 'P105|Ece|aksam|16:00|00:00'}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3225
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: personel-vardiyalari
+    hedef: ayikla
+    girdi: duz-metin
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

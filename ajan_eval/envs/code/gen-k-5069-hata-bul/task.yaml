@@ -1,0 +1,98 @@
+id: gen-k-5069-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  callcenter/summary.py içindeki longest_calls fonksiyonunu düzelt. Fonksiyon, CallLog üzerinden okunan çağrı kayıtlarından en uzun k süren çağrıların temsilci adını doğru şekilde döndürmeli; süre alanı duration anahtarından okunmalı.
+
+setup: |
+  mkdir -p callcenter
+  cat > callcenter/records.py <<'RECORDS'
+  class CallLog:
+      def __init__(self, path):
+          self.path = path
+
+      def __iter__(self):
+          with open(self.path) as f:
+              header = f.readline().strip().split(',')
+              for line in f:
+                  if not line.strip():
+                      continue
+                  fields = line.strip().split(',')
+                  yield dict(zip(header, fields))
+  RECORDS
+  cat > callcenter/summary.py <<'SUMMARY'
+  from callcenter.records import CallLog
+
+
+  def longest_calls(path, k):
+      rows = list(CallLog(path))
+      rows.sort(key=lambda r: int(r["seconds"]), reverse=True)
+      return [r["agent"] for r in rows[:k]]
+  SUMMARY
+  cat > calls.csv <<'CSV'
+  agent,duration,status
+  ada,120,ok
+  bora,300,ok
+  cem,45,drop
+  CSV
+
+goal_tr: >
+  callcenter/summary.py icindeki longest_calls fonksiyonunu, CallLog
+  uzerinden okunan cagri kayitlarindan en uzun k suren cagrilarin temsilci
+  adini dogru dondurecek bicimde duzelt; sure alani duration anahtarindan
+  okunmali.
+
+reference_solution: |
+  cat > callcenter/summary.py <<'SUMMARY'
+  from callcenter.records import CallLog
+
+
+  def longest_calls(path, k):
+      rows = list(CallLog(path))
+      rows.sort(key=lambda r: int(r["duration"]), reverse=True)
+      return [r["agent"] for r in rows[:k]]
+  SUMMARY
+
+outputs:
+  - {path: callcenter/summary.py, kind: program, run: 'python3 -c ''from callcenter.summary import longest_calls as f; assert f("calls.csv",2)==["bora","ada"], f("calls.csv",2); assert f("calls.csv",1)==["bora"]; assert f("calls.csv",3)==["bora","ada","cem"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from callcenter.summary import longest_calls as f; assert f("calls.csv",2)==["bora","ada"], f("calls.csv",2); assert f("calls.csv",1)==["bora"]; assert f("calls.csv",3)==["bora","ada","cem"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5069
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: cagri-merkezi-kayitlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sozluk-anahtar-hatasi
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: dosya-okuma
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

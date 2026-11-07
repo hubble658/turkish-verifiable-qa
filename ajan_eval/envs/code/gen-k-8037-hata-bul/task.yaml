@@ -1,0 +1,144 @@
+id: gen-k-8037-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) flights/booking.py dosyasını aç ve load_report fonksiyonunu incele.
+
+  2) load_report fonksiyonunun her uçuş için "KOD dolu/kapasite" biçiminde bir satır üretmesini sağla; satırdaki dolu değeri o uçuşta onaylanan koltuk sayısı, kapasite değeri ise uçuşun toplam koltuk sayısı olsun.
+
+  3) load_report fonksiyonunun doğru kapasite değerini kullanmasını sağla ve ürettiği satırları liste olarak döndürmesini koru.
+
+setup: |
+  mkdir -p flights
+  cat > flights/legs.py <<'LEGS'
+  def build_legs(routes):
+      legs = {}
+      for code, (src, dst, seats) in routes.items():
+          legs[code] = {"origin": src, "dest": dst, "seats": seats}
+      return legs
+  LEGS
+  cat > flights/inventory.py <<'INV'
+  def make_counter(seats):
+      remaining = [seats]
+
+      def take(n):
+          if n <= remaining[0]:
+              remaining[0] -= n
+              return True
+          return False
+
+      def left():
+          return remaining[0]
+
+      return take, left
+  INV
+  cat > flights/booking.py <<'BOOK'
+  from flights.legs import build_legs
+  from flights.inventory import make_counter
+
+
+  def reserve(routes, requests):
+      legs = build_legs(routes)
+      counters = {}
+      for code in routes:
+          counters[code] = make_counter(legs[code]["seats"])
+      confirmed = []
+      for code, n in requests:
+          take, _ = counters[code]
+          if take(n):
+              confirmed.append((code, n))
+      return confirmed
+
+
+  def load_report(routes, requests):
+      legs = build_legs(routes)
+      confirmed = reserve(routes, requests)
+      used = {}
+      for code, n in confirmed:
+          used[code] = used.get(code, 0) + n
+      lines = []
+      for code in routes:
+          cap = legs[code]["seat"]
+          lines.append("%s %d/%d" % (code, used.get(code, 0), cap))
+      return lines
+  BOOK
+
+goal_tr: >
+  flights/booking.py icindeki load_report fonksiyonunu, her ucus icin "KOD
+  dolu/kapasite" satirini dogru uretecek bicimde duzelt.
+
+reference_solution: |
+  cat > flights/booking.py <<'BOOK'
+  from flights.legs import build_legs
+  from flights.inventory import make_counter
+
+
+  def reserve(routes, requests):
+      legs = build_legs(routes)
+      counters = {}
+      for code in routes:
+          counters[code] = make_counter(legs[code]["seats"])
+      confirmed = []
+      for code, n in requests:
+          take, _ = counters[code]
+          if take(n):
+              confirmed.append((code, n))
+      return confirmed
+
+
+  def load_report(routes, requests):
+      legs = build_legs(routes)
+      confirmed = reserve(routes, requests)
+      used = {}
+      for code, n in confirmed:
+          used[code] = used.get(code, 0) + n
+      lines = []
+      for code in routes:
+          cap = legs[code]["seats"]
+          lines.append("%s %d/%d" % (code, used.get(code, 0), cap))
+      return lines
+  BOOK
+
+outputs:
+  - {path: flights/booking.py, kind: program, run: 'python3 -c ''from flights.booking import load_report as f, reserve as r; routes={"TK1":("IST","ANK",3),"TK2":("IST","IZM",2)}; reqs=[("TK1",2),("TK1",2),("TK2",1)]; assert r(routes,reqs)==[("TK1",2),("TK2",1)]; out=f(routes,reqs); assert out==["TK1 2/3","TK2 1/2"], out; assert f(routes,[] )==["TK1 0/3","TK2 0/2"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from flights.booking import load_report as f, reserve as r; routes={"TK1":("IST","ANK",3),"TK2":("IST","IZM",2)}; reqs=[("TK1",2),("TK1",2),("TK2",1)]; assert r(routes,reqs)==[("TK1",2),("TK2",1)]; out=f(routes,reqs); assert out==["TK1 2/3","TK2 1/2"], out; assert f(routes,[] )==["TK1 0/3","TK2 0/2"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8037
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: ucus-rezervasyonlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sozluk-anahtar-hatasi
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: bellek-ici
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

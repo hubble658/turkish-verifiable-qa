@@ -1,0 +1,165 @@
+id: gen-k-5136-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) plant/validate.py dosyasındaki is_healthy fonksiyonunu, sıcaklık değeri eşik değerine tam eşit olan kayıtları sağlıklı sayacak biçimde düzelt.
+
+  2) plant/validate.py dosyasındaki mark fonksiyonunu, bakım gerektiren kayıtlarda maintenance_due alanını True yapacak biçimde düzelt.
+
+  3) plant/report.py üzerinden üretilen raporda maintenance_due alanlarının doğru olduğunu doğrula.
+
+setup: |
+  mkdir -p plant
+  cat > plant/records.py <<'RECORDS'
+  from dataclasses import dataclass
+
+
+  @dataclass
+  class Reading:
+      machine: str
+      hours: float
+      temperature: float
+      vibration: float
+      maintenance_due: bool
+  RECORDS
+  cat > plant/parse.py <<'PARSE'
+  from plant.records import Reading
+
+
+  def parse_line(line):
+      parts = line.strip().split("|")
+      machine = parts[0]
+      hours = float(parts[1])
+      temperature = float(parts[2])
+      vibration = float(parts[3])
+      return Reading(machine, hours, temperature, vibration, False)
+  PARSE
+  cat > plant/validate.py <<'VALIDATE'
+  from plant.records import Reading
+
+
+  def is_healthy(reading):
+      if reading.temperature >= 80.0:
+          return False
+      if reading.vibration > 5.0:
+          return False
+      if reading.hours > 1000.0:
+          return False
+      return True
+
+
+  def mark(reading):
+      if is_healthy(reading):
+          return Reading(
+              reading.machine,
+              reading.hours,
+              reading.temperature,
+              reading.vibration,
+              False,
+          )
+      return reading
+  VALIDATE
+  cat > plant/report.py <<'REPORT'
+  from plant.parse import parse_line
+  from plant.validate import mark
+
+
+  def build_report(text):
+      out = []
+      for line in text.strip().splitlines():
+          reading = parse_line(line)
+          out.append(mark(reading))
+      return out
+  REPORT
+  cat > readings.txt <<'DATA'
+  press-1|900.0|75.0|4.0
+  press-2|1200.0|70.0|3.0
+  lathe-1|500.0|85.0|2.0
+  lathe-2|400.0|60.0|6.0
+  mill-1|300.0|55.0|1.0
+  drill-1|200.0|80.0|2.0
+  DATA
+
+goal_tr: >
+  plant/validate.py icindeki is_healthy fonksiyonunu, sicaklik esik degerine
+  tam esit olan kayitlari saglikli sayacak bicimde duzelt ve mark
+  fonksiyonunu, bakim gerektiren kayitlarda maintenance_due alanini True
+  yapacak bicimde duzelt; ardindan plant/report.py uzerinden uretilen
+  raporda maintenance_due alanlari dogru olsun.
+
+reference_solution: |
+  cat > plant/validate.py <<'VALIDATE'
+  from plant.records import Reading
+
+
+  def is_healthy(reading):
+      if reading.temperature > 80.0:
+          return False
+      if reading.vibration > 5.0:
+          return False
+      if reading.hours > 1000.0:
+          return False
+      return True
+
+
+  def mark(reading):
+      if is_healthy(reading):
+          return Reading(
+              reading.machine,
+              reading.hours,
+              reading.temperature,
+              reading.vibration,
+              False,
+          )
+      return Reading(
+          reading.machine,
+          reading.hours,
+          reading.temperature,
+          reading.vibration,
+          True,
+      )
+  VALIDATE
+
+outputs:
+  - {path: plant/validate.py, kind: program, run: 'python3 -c ''from plant.report import build_report as f; t=open("readings.txt").read(); r=f(t); flags=[(x.machine,x.maintenance_due) for x in r]; assert flags==[("press-1",False),("press-2",True),("lathe-1",True),("lathe-2",True),("mill-1",False),("drill-1",False)], flags; assert r[5].temperature==80.0 and r[5].maintenance_due is False; assert r[0].maintenance_due is False; assert r[1].maintenance_due is True; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from plant.report import build_report as f; t=open("readings.txt").read(); r=f(t); flags=[(x.machine,x.maintenance_due) for x in r]; assert flags==[("press-1",False),("press-2",True),("lathe-1",True),("lathe-2",True),("mill-1",False),("drill-1",False)], flags; assert r[5].temperature==80.0 and r[5].maintenance_due is False; assert r[0].maintenance_due is False; assert r[1].maintenance_due is True; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5136
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: makine-bakim-kayitlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-karsilastirma
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: dosya-okuma
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

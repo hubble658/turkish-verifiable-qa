@@ -1,0 +1,165 @@
+id: gen-k-8178-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Küçük bir rota planlama aracı üzerinde çalışıyoruz; ekip ağ topolojilerini düğüm ve kenar ağırlıkları olarak tutuyor ve bu yapıyı sorgulamak için ortak bir arayüz kullanmak istiyor. Bugün route/segments.py tarafındaki ayrıştırma ve komşuluk kurma işleri oturdu, sıra graf sarmalayıcısına geldi.
+
+  route/graph.py dosyasındaki RouteGraph sınıfında şu an boş duran iterator protokolünü tamamla: __iter__ düğümleri artan sırada döndürsün, __len__ düğüm sayısını versin, __contains__ ise bir düğümün grafta olup olmadığını söylesin. Aynı sınıftaki two_pointer_walk metodunu da, başlangıçtan hedefe iki-işaretçi (çift yönlü BFS) yöntemiyle en kısa düğüm listesini döndürecek şekilde gerçekleştir. Başlangıç veya hedef grafta yoksa boş liste, başlangıç hedefe eşitse tek elemanlı liste dönmesi gerekiyor.
+
+setup: |
+  mkdir -p route
+  cat > route/segments.py <<'SEG'
+  def load_segments(text):
+      """Parse 'a b w' lines into a list of (a, b, weight) tuples."""
+      out = []
+      for line in text.strip().splitlines():
+          line = line.strip()
+          if not line or line.startswith("#"):
+              continue
+          a, b, w = line.split()
+          out.append((a, b, int(w)))
+      return out
+
+
+  def build_adjacency(edges):
+      """Return {node: [(neighbor, weight), ...]} sorted by neighbor."""
+      adj = {}
+      for a, b, w in edges:
+          adj.setdefault(a, []).append((b, w))
+          adj.setdefault(b, []).append((a, w))
+      for node in adj:
+          adj[node].sort()
+      return adj
+  SEG
+
+  cat > route/graph.py <<'GRAPH'
+  class RouteGraph:
+      """Graph wrapper. Iterator protocol must be implemented."""
+
+      def __init__(self, adjacency):
+          self.adjacency = adjacency
+          self._nodes = sorted(adjacency)
+
+      def neighbors(self, node):
+          return list(self.adjacency.get(node, []))
+
+      def __iter__(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+
+      def __contains__(self, node):
+          raise NotImplementedError
+
+      def two_pointer_walk(self, start, goal):
+          raise NotImplementedError
+  GRAPH
+
+  cat > route/__init__.py <<'INIT'
+  INIT
+
+  cat > network.txt <<'NET'
+  a b 4
+  a c 1
+  b d 2
+  c d 5
+  d e 3
+  e f 7
+  NET
+
+goal_tr: >
+  route/graph.py icindeki RouteGraph sinifinda iterator protokolunu
+  (__iter__ dugumleri artan sirada, __len__ dugum sayisi, __contains__
+  uyelik testi) ve two_pointer_walk metodunu, baslangictan hedefe
+  iki-isaretci (cift yonlu BFS) yontemiyle en kisa dugum listesini
+  dondurecek sekilde gerceklestir; baslangic veya hedef grafda yoksa bos
+  liste, baslangic hedefe esitse tek elemanli liste don.
+
+reference_solution: |
+  cat > route/graph.py <<'GRAPH'
+  class RouteGraph:
+      """Graph wrapper with iterator protocol and a two-pointer path walk."""
+
+      def __init__(self, adjacency):
+          self.adjacency = adjacency
+          self._nodes = sorted(adjacency)
+
+      def neighbors(self, node):
+          return list(self.adjacency.get(node, []))
+
+      def __iter__(self):
+          return iter(self._nodes)
+
+      def __len__(self):
+          return len(self._nodes)
+
+      def __contains__(self, node):
+          return node in self.adjacency
+
+      def two_pointer_walk(self, start, goal):
+          if start not in self.adjacency or goal not in self.adjacency:
+              return []
+          if start == goal:
+              return [start]
+          front = {start: [start]}
+          back = {goal: [goal]}
+          while front and back:
+              if len(front) > len(back):
+                  front, back = back, front
+              nxt = {}
+              for node, path in front.items():
+                  for nb, _w in self.adjacency.get(node, []):
+                      if nb in back:
+                          if path[0] == start:
+                              return path + back[nb][::-1]
+                          return back[nb] + path[::-1]
+                      if nb not in nxt:
+                          nxt[nb] = path + [nb]
+              front = nxt
+          return []
+  GRAPH
+
+outputs:
+  - {path: route/graph.py, kind: program, run: 'python3 -c ''from route.segments import load_segments, build_adjacency; from route.graph import RouteGraph; adj=build_adjacency(load_segments(open("network.txt").read())); g=RouteGraph(adj); assert list(g)==["a","b","c","d","e","f"], list(g); assert len(g)==6; assert "a" in g and "z" not in g; assert g.two_pointer_walk("a","f")==["a","b","d","e","f"]; assert g.two_pointer_walk("c","e")==["c","d","e"]; assert g.two_pointer_walk("a","a")==["a"]; assert g.two_pointer_walk("a","zz")==[]; assert g.two_pointer_walk("zz","a")==[]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from route.segments import load_segments, build_adjacency; from route.graph import RouteGraph; adj=build_adjacency(load_segments(open("network.txt").read())); g=RouteGraph(adj); assert list(g)==["a","b","c","d","e","f"], list(g); assert len(g)==6; assert "a" in g and "z" not in g; assert g.two_pointer_walk("a","f")==["a","b","d","e","f"]; assert g.two_pointer_walk("c","e")==["c","d","e"]; assert g.two_pointer_walk("a","a")==["a"]; assert g.two_pointer_walk("a","zz")==[]; assert g.two_pointer_walk("zz","a")==[]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8178
+    bundle: yarisma
+    tools:
+    - python3
+    konu: yol-tarifi-agi
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: zor
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: iki-isaretci
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: cok-dosya-birlestirme
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

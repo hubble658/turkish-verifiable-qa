@@ -1,0 +1,80 @@
+id: gen-s-3100-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi klasöründeki ini dosyalarını urun değerine göre grupla; her urunun yorum değerlerini alfabetik sıralı ve tekrarsız olarak girdi/<urun>.yorumlar dosyasına yaz, yani girdi/klavye.yorumlar ve girdi/fare.yorumlar oluşsun. Klavye.yorumlar iki yorum satırı içersin, dosya adları urun değerleriyle aynı olsun.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/birinci.ini <<'INI'
+  [puan]
+  urun=klavye
+  yorum=sessiz tuslar
+  INI
+  cat > girdi/ikinci.ini <<'INI'
+  [puan]
+  urun=klavye
+  yorum=cok sessiz tuslar
+  INI
+  cat > girdi/ucuncu.ini <<'INI'
+  [puan]
+  urun=fare
+  yorum=hassas
+  INI
+  cat > girdi/dorduncu.ini <<'INI'
+  [puan]
+  urun=fare
+  yorum=hassas ve hafif
+  INI
+
+goal_tr: >
+  girdi klasorundeki ini dosyalarini urun degerine gore gruplayip, her urun
+  icin o urune ait yorum degerlerini alfabetik sirali olarak tekrarsiz
+  bicimde girdi/<urun>.yorumlar adli dosyaya yaz; ornegin klavye icin olusan
+  dosyanin icerigi iki yorum satirindan olussun ve dosya adlari urun
+  degerleriyle ayni olmali
+
+reference_solution: |
+  cd girdi
+  for f in *.ini; do awk -F= '/^urun=/{print $2}' "$f"; done | sort -u > /tmp/urunler.txt
+  for u in $(cat /tmp/urunler.txt); do for f in *.ini; do awk -F= -v u="$u" '/^urun=/{v=$2} /^yorum=/{y=$2} END{if(v==u) print y}' "$f"; done | sort -u > "$u.yorumlar"; done
+  comm -12 /tmp/urunler.txt /tmp/urunler.txt > /tmp/kontrol.txt
+  wc -l /tmp/kontrol.txt
+
+outputs:
+  - {path: girdi/klavye.yorumlar, kind: file}
+  - {path: girdi/fare.yorumlar, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: girdi/fare.yorumlar, value: [hassas, hassas ve hafif]}
+  - {op: file_lines_eq, path: girdi/klavye.yorumlar, value: [cok sessiz tuslar, sessiz tuslar]}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3100
+    bundle: kume-farki
+    tools:
+    - comm
+    - sort
+    konu: urun-yorumlari
+    hedef: denetle
+    girdi: ini
+    kaynak: iki-dosya-capraz
+    cikti: yeniden-adlandirilmis
+    kesif: dolayli-hedef
+    uslup: terse
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

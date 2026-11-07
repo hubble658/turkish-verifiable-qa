@@ -1,0 +1,91 @@
+id: gen-s-3092-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kayitlar.tsv dosyasındaki her durum değeri için cikti/ dizini altında o durumun adını taşıyan bir dosya oluştur; örneğin rafta, oduncte ve kayip durumları için cikti/rafta.txt, cikti/oduncte.txt ve cikti/kayip.txt dosyaları oluşsun. Her bir durum dosyasına o duruma ait kitap başlıklarını birer satır olarak yaz. Ayrıca cikti/ozet.txt dosyasına her durumu ve o durumdaki kitap sayısını "durum<TAB>sayi" biçiminde birer satır olarak yaz. Tüm bu dosyalar cikti/ dizini içinde yer almalı.
+
+  Şu şartlar sağlanmalı:
+  - cikti/ dizini altında kayitlar.tsv içinde geçen her durum değeri için durum adını taşıyan bir .txt dosyası bulunmalı: cikti/rafta.txt, cikti/oduncte.txt, cikti/kayip.txt.
+  - Her durum dosyasında yalnızca o duruma ait başlıklar yer almalı ve her başlık ayrı bir satırda olmalı.
+  - cikti/ozet.txt dosyasında her durum için bir satır bulunmalı; her satır "durum<TAB>sayi" biçiminde olmalı.
+  - cikti/ozet.txt içindeki sayı, ilgili durumdaki kitap sayısını doğru göstermeli.
+  - kayitlar.tsv.yedek dosyası özet veya durum dosyaları için kaynak olarak kullanılmamalı.
+
+setup: |
+  mkdir -p cikti
+  cat > kayitlar.tsv <<'TSV'
+  kitap_id	baslik	raf	durum
+  K001	Simyaci	A1	oduncte
+  K002	Kurk Mantolu Madonna	A1	rafta
+  K003	Icimizdeki Seytan	B2	rafta
+  K004	Tutunamayanlar	B2	kayip
+  K005	Yaban	C3	oduncte
+  K006	Huzur	C3	rafta
+  K007	Kuyucakli Yusuf	D1	rafta
+  K008	Calikusu	D1	oduncte
+  K009	Ince Memed	E2	rafta
+  K010	Beyaz Gemi	E2	kayip
+  TSV
+  printf 'bu bir tuzak dosyadir, ozet icin kullanilmaz\n' > kayitlar.tsv.yedek
+
+goal_tr: >
+  kayitlar.tsv dosyasindaki her durum degeri icin cikti/ altinda durum adini
+  tasiyan bir dosya olustur; her dosyaya o duruma ait basliklari birer satir
+  olarak yaz ve cikti/ozet.txt dosyasina her durumu ve o durumdaki kitap
+  sayisini "durum<TAB>sayi" biciminde birer satir olarak yaz
+
+reference_solution: |
+  mkdir -p cikti
+  tail -n +2 kayitlar.tsv | cut -f4 | sort | uniq > cikti/durumlar.txt
+  while read -r d; do
+    awk -F'\t' -v D="$d" 'NR>1 && $4==D {print $2}' kayitlar.tsv > "cikti/$d.txt"
+  done < cikti/durumlar.txt
+  while read -r d; do
+    printf '%s\t%s\n' "$d" "$(wc -l < "cikti/$d.txt")"
+  done < cikti/durumlar.txt > cikti/ozet.txt
+  rm -f cikti/durumlar.txt
+  head -n 3 cikti/ozet.txt
+
+outputs:
+  - {path: cikti/ozet.txt, kind: file}
+  - {path: cikti/rafta.txt, kind: file}
+  - {path: cikti/oduncte.txt, kind: file}
+  - {path: cikti/kayip.txt, kind: file}
+  - {path: cikti, kind: dir}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [kayip.txt, oduncte.txt, ozet.txt, rafta.txt]}
+  - {op: file_lines_eq, path: cikti/kayip.txt, value: [Tutunamayanlar, Beyaz Gemi]}
+  - {op: file_lines_eq, path: cikti/oduncte.txt, value: [Simyaci, Yaban, Calikusu]}
+  - {op: file_lines_eq, path: cikti/ozet.txt, value: ["kayip\t2", "oduncte\t3", "rafta\t5"]}
+  - {op: file_lines_eq, path: cikti/rafta.txt, value: [Kurk Mantolu Madonna, Icimizdeki Seytan, Huzur, Kuyucakli Yusuf, Ince Memed]}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3092
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: kutuphane-kayitlari
+    hedef: ozetle
+    girdi: tsv
+    kaynak: tek-dosya
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

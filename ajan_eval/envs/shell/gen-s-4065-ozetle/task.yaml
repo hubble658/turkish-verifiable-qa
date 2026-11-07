@@ -1,0 +1,80 @@
+id: gen-s-4065-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi/olcumler.csv dosyasını oku. Bu dosyadaki her sensör için cikti dizini altında sensör adıyla bir alt dizin oluştur (örneğin cikti/sensorA, cikti/sensorB, cikti/sensorC). Her sensörün ölçümlerini sensör adı ve ölçüm tipine göre grupla ve her grubun ortalama değerini o sensörün alt dizinindeki ozet.txt dosyasına yaz. girdi/olcumler.csv.bak dosyasını işleme katma.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/olcumler.csv <<'CSV'
+  sensorA;sicaklik;21
+  sensorB;sicaklik;19
+  sensorA;nem;55
+  sensorB;nem;60
+  sensorA;sicaklik;23
+  sensorC;basinc;1013
+  sensorB;nem;58
+  sensorC;basinc;1015
+  CSV
+  cat > girdi/olcumler.csv.bak <<'CSV'
+  sensorX;sicaklik;99
+  sensorY;nem;99
+  CSV
+
+goal_tr: >
+  girdi/olcumler.csv dosyasindaki her sensor icin, sensor adina gore bir alt
+  dizin olusturup, o sensorun olcumlerini sensor adi ve olcum tipine gore
+  gruplayip her grubun ortalama degerini o dizin icindeki ozet.txt dosyasina
+  yaz; .bak ile biten tuzak dosyayi isleme katma.
+
+reference_solution: |
+  mkdir -p cikti
+  cut -d';' -f1 girdi/olcumler.csv | sort -u | while read s; do mkdir -p "cikti/$s"; done
+  cut -d';' -f1,2 girdi/olcumler.csv | sort -u > /tmp/gruplar.txt
+  cut -d';' -f1,2,3 girdi/olcumler.csv | awk -F';' '{k=$1";"$2; sum[k]+=$3; cnt[k]++} END {for (k in sum) {split(k,p,";"); printf "%s;%s %.2f\n", p[1], p[2], sum[k]/cnt[k]}}' | sort > /tmp/ort.txt
+  while IFS=';' read -r s t; do
+    v=$(grep "^$s;$t " /tmp/ort.txt | cut -d' ' -f2)
+    paste -d' ' <(echo "$t") <(echo "$v") >> "cikti/$s/ozet.txt"
+  done < /tmp/gruplar.txt
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/sensorA/ozet.txt, kind: file}
+  - {path: cikti/sensorB/ozet.txt, kind: file}
+  - {path: cikti/sensorC/ozet.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [sensorA, sensorB, sensorC]}
+  - {op: file_lines_eq, path: cikti/sensorA/ozet.txt, value: [nem 55.00, sicaklik 22.00]}
+  - {op: file_lines_eq, path: cikti/sensorB/ozet.txt, value: [nem 59.00, sicaklik 19.00]}
+  - {op: file_content_eq, path: cikti/sensorC/ozet.txt, value: basinc 1014.00}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4065
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: sensor-olcumleri
+    hedef: ozetle
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,139 @@
+id: gen-k-8352-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  fleet/core/registry.py içindeki Registry.is_busy metodunu düzelt; dolu araçlar için True, boş araçlar için False döndürsün.
+
+setup: |
+  mkdir -p fleet/core
+  cat > fleet/core/errors.py <<'ERRORS'
+  class FleetError(Exception):
+      pass
+
+
+  class VehicleMissing(FleetError):
+      pass
+
+
+  class VehicleBusy(FleetError):
+      pass
+  ERRORS
+  cat > fleet/core/registry.py <<'REGISTRY'
+  from fleet.core.errors import VehicleMissing, VehicleBusy
+
+
+  class Registry:
+      def __init__(self):
+          self._busy = {}
+
+      def load(self, path):
+          with open(path) as fh:
+              for line in fh:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  name, state = line.split(',')
+                  self._busy[name] = (state == "busy")
+
+      def is_busy(self, name):
+          if name not in self._busy:
+              raise VehicleMissing(name)
+          return self._busy[name] is False
+
+      def claim(self, name):
+          if name not in self._busy:
+              raise VehicleMissing(name)
+          if self._busy[name]:
+              raise VehicleBusy(name)
+          self._busy[name] = True
+          return name
+  REGISTRY
+  cat > fleet/__init__.py <<'INIT'
+  INIT
+  cat > fleet/core/__init__.py <<'CORE'
+  CORE
+  cat > fleet.txt <<'DATA'
+  van-1,free
+  van-2,busy
+  truck-9,free
+  DATA
+
+goal_tr: >
+  fleet/core/registry.py icindeki Registry.is_busy metodunu, dolu araclar
+  icin True ve bos araclar icin False dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > fleet/core/registry.py <<'REGISTRY'
+  from fleet.core.errors import VehicleMissing, VehicleBusy
+
+
+  class Registry:
+      def __init__(self):
+          self._busy = {}
+
+      def load(self, path):
+          with open(path) as fh:
+              for line in fh:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  name, state = line.split(',')
+                  self._busy[name] = (state == "busy")
+
+      def is_busy(self, name):
+          if name not in self._busy:
+              raise VehicleMissing(name)
+          return self._busy[name] is True
+
+      def claim(self, name):
+          if name not in self._busy:
+              raise VehicleMissing(name)
+          if self._busy[name]:
+              raise VehicleBusy(name)
+          self._busy[name] = True
+          return name
+  REGISTRY
+
+outputs:
+  - {path: fleet/core/registry.py, kind: program, run: 'python3 -c ''from fleet.core.registry import Registry; from fleet.core.errors import VehicleMissing, VehicleBusy; r=Registry(); r.load("fleet.txt"); assert r.is_busy("van-2") is True; assert r.is_busy("van-1") is False; assert r.is_busy("truck-9") is False; r.claim("van-1"); assert r.is_busy("van-1") is True; a=[False]; b=[False]; exec("try:\n r.claim(\"van-2\")\nexcept VehicleBusy:\n a[0]=True"); exec("try:\n r.is_busy(\"ghost\")\nexcept VehicleMissing:\n b[0]=True"); assert a[0]; assert b[0]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.core.registry import Registry; from fleet.core.errors import VehicleMissing, VehicleBusy; r=Registry(); r.load("fleet.txt"); assert r.is_busy("van-2") is True; assert r.is_busy("van-1") is False; assert r.is_busy("truck-9") is False; r.claim("van-1"); assert r.is_busy("van-1") is True; a=[False]; b=[False]; exec("try:\n r.claim(\"van-2\")\nexcept VehicleBusy:\n a[0]=True"); exec("try:\n r.is_busy(\"ghost\")\nexcept VehicleMissing:\n b[0]=True"); assert a[0]; assert b[0]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8352
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: arac-filosu
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: terse
+    direnc: yok
+    bukulme: kolay
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-karsilastirma
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: dosya-okuma
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,71 @@
+id: gen-s-3052-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  siparisler.json dosyasındaki her siparişi müşteri, yemek, adet, fiyat ve toplam sütunlarıyla gösteren bir siparisler.csv dosyası oluştur. CSV dosyasının başlık satırı müşteri, yemek, adet, fiyat, toplam olsun; her sipariş için toplam değeri adet ile fiyatın çarpımı olarak hesaplansın.
+
+setup: |
+  cat > siparisler.json <<'JSON'
+  {"siparisler":[
+  {"id":1,"musteri":"ayse","yemek":"pizza","adet":2,"fiyat":45.50},
+  {"id":2,"musteri":"mehmet","yemek":"kebap","adet":1,"fiyat":80.00},
+  {"id":3,"musteri":"ayse","yemek":"salata","adet":3,"fiyat":25.00},
+  {"id":4,"musteri":"zeynep","yemek":"pizza","adet":1,"fiyat":45.50},
+  {"id":5,"musteri":"mehmet","yemek":"corba","adet":2,"fiyat":18.75}
+  ]}
+  JSON
+
+goal_tr: >
+  siparisler.json dosyasindaki her siparisi musteri,yemek,adet,fiyat,toplam
+  sutunlariyla (toplam = adet * fiyat) gosteren ve basligi
+  musteri,yemek,adet,fiyat,toplam olan bir CSV dosyasini siparisler.csv
+  olarak yaz
+
+reference_solution: |
+  tee siparisler.csv > /dev/null <<'CSV'
+  musteri,yemek,adet,fiyat,toplam
+  CSV
+  sed 's/[{}]//g; s/\[//g; s/\]//g' siparisler.json \
+    | tr ',' '\n' \
+    | grep -E '"(musteri|yemek|adet|fiyat)"' \
+    | cut -d: -f2 \
+    | tr -d '"' \
+    | paste -d, - - - - \
+    | awk -F, '{printf "%s,%s,%s,%s,%.2f\n", $1, $2, $3, $4, $3*$4}' \
+    | tee -a siparisler.csv > /dev/null
+
+outputs:
+  - {path: siparisler.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: siparisler.csv, value: ['musteri,yemek,adet,fiyat,toplam', 'ayse,pizza,2,45.50,91.00', 'mehmet,kebap,1,80.00,80.00', 'ayse,salata,3,25.00,75.00', 'zeynep,pizza,1,45.50,45.50', 'mehmet,corba,2,18.75,37.50']}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3052
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: restoran-siparisleri
+    hedef: bol
+    girdi: json
+    kaynak: tek-dosya
+    cikti: csv
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

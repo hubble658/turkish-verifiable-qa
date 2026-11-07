@@ -1,0 +1,176 @@
+id: gen-k-8062-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) grid/audit.py dosyasındaki audit fonksiyonunu, her sayacın durumunu doğru sınıflandıracak biçimde düzelt.
+
+  2) Bayat sayaçların durumunu "stale" olarak sınıflandır.
+
+  3) Geriye giden sayaçların durumunu "reading" olarak sınıflandır.
+
+  4) Diğer tüm sayaçların durumunu "ok" olarak sınıflandır.
+
+setup: |
+  mkdir -p grid
+  cat > grid/errors.py <<'PY'
+  class MeterError(Exception):
+      def __init__(self, meter_id, message):
+          super().__init__(message)
+          self.meter_id = meter_id
+          self.message = message
+
+
+  class ReadingError(MeterError):
+      pass
+
+
+  class StaleReadingError(ReadingError):
+      pass
+
+
+  class NegativeUsageError(ReadingError):
+      pass
+
+
+  class BillingError(MeterError):
+      pass
+  PY
+  cat > grid/meters.py <<'PY'
+  from grid.errors import NegativeUsageError, StaleReadingError
+
+
+  class Meter:
+      def __init__(self, meter_id, readings):
+          self.meter_id = meter_id
+          self.readings = list(readings)
+
+      def usage(self):
+          total = 0
+          for prev, cur in zip(self.readings, self.readings[1:]):
+              delta = cur - prev
+              if delta < 0:
+                  raise NegativeUsageError(self.meter_id, "reading went backwards")
+              total += delta
+          return total
+
+      def is_stale(self):
+          return len(self.readings) < 2
+  PY
+  cat > grid/billing.py <<'PY'
+  from grid.errors import StaleReadingError
+  from grid.meters import Meter
+
+
+  class Biller:
+      def __init__(self, rate):
+          self.rate = rate
+
+      def bill(self, meter):
+          if meter.is_stale():
+              raise StaleReadingError(meter.meter_id, "not enough readings")
+          return meter.usage() * self.rate
+  PY
+  cat > grid/audit.py <<'PY'
+  from grid.errors import BillingError, MeterError, ReadingError, StaleReadingError
+
+
+  def audit(meters, rate):
+      biller = None
+      from grid.billing import Biller
+      biller = Biller(rate)
+      report = []
+      for meter in meters:
+          try:
+              amount = biller.bill(meter)
+          except ReadingError as exc:
+              report.append((meter.meter_id, "reading", exc.message))
+              continue
+          except StaleReadingError as exc:
+              report.append((meter.meter_id, "stale", exc.message))
+              continue
+          except MeterError as exc:
+              report.append((meter.meter_id, "meter", exc.message))
+              continue
+          report.append((meter.meter_id, "ok", amount))
+      return report
+  PY
+
+goal_tr: >
+  grid/audit.py icindeki audit fonksiyonunu, her sayacin durumunu dogru
+  siniflandiracak bicimde duzelt: bayat sayaclar "stale", geriye giden
+  sayaclar "reading", digerleri "ok" olmali.
+
+reference_solution: |
+  cat > grid/audit.py <<'PY'
+  from grid.billing import Biller
+  from grid.errors import BillingError, MeterError, NegativeUsageError, ReadingError, StaleReadingError
+
+
+  def audit(meters, rate):
+      biller = Biller(rate)
+      report = []
+      for meter in meters:
+          try:
+              amount = biller.bill(meter)
+          except StaleReadingError as exc:
+              report.append((meter.meter_id, "stale", exc.message))
+              continue
+          except NegativeUsageError as exc:
+              report.append((meter.meter_id, "reading", exc.message))
+              continue
+          except ReadingError as exc:
+              report.append((meter.meter_id, "reading", exc.message))
+              continue
+          except BillingError as exc:
+              report.append((meter.meter_id, "billing", exc.message))
+              continue
+          except MeterError as exc:
+              report.append((meter.meter_id, "meter", exc.message))
+              continue
+          report.append((meter.meter_id, "ok", amount))
+      return report
+  PY
+
+outputs:
+  - {path: grid/audit.py, kind: program, run: 'python3 -c ''from grid.audit import audit; from grid.meters import Meter; ms=[Meter("A",[10,20,30]), Meter("B",[5]), Meter("C",[40,30])]; r=audit(ms,2.0); assert r[0]==("A","ok",40.0), r; assert r[1][0]=="B" and r[1][1]=="stale", r; assert r[2][0]=="C" and r[2][1]=="reading", r; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from grid.audit import audit; from grid.meters import Meter; ms=[Meter("A",[10,20,30]), Meter("B",[5]), Meter("C",[40,30])]; r=audit(ms,2.0); assert r[0]==("A","ok",40.0), r; assert r[1][0]=="B" and r[1][1]=="stale", r; assert r[2][0]=="C" and r[2][1]=="reading", r; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8062
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: elektrik-sayaclari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kapsam-hatasi
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: bellek-ici
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

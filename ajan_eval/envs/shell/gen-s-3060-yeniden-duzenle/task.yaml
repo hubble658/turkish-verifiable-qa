@@ -1,0 +1,76 @@
+id: gen-s-3060-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  depo klasöründeki .tsv dosyalarını arsiv altında aynı adla .tar.gz olarak arşivle; arsiv/rota_eski.tsv ve depo/notlar.txt işlenmesin. arsiv/rota_a.tar.gz, arsiv/rota_b.tar.gz ve arsiv/dizin.txt oluşsun.
+
+setup: |
+  mkdir -p depo arsiv
+  cat > depo/rota_a.tsv <<'TSV'
+  K001 Ankara Izmir 12
+  K002 Bursa Adana 7
+  K003 Konya Trabzon 3
+  TSV
+  cat > depo/rota_b.tsv <<'TSV'
+  K004 Samsun Mersin 9
+  K005 Kayseri Antalya 5
+  TSV
+  cat > arsiv/rota_eski.tsv <<'TSV'
+  K900 Eskisehir Rize 1
+  TSV
+  cat > depo/notlar.txt <<'TXT'
+  kargo takip notlari
+  TXT
+
+goal_tr: >
+  depo klasorundeki .tsv uzantili dosyalari bulup her birini arsiv altinda
+  ayni adla gzip ile sikistirilmis .tar dosyasi olarak yeniden duzenle;
+  arsiv/notlar.txt gibi tsv olmayan dosyalar islenmesin
+
+reference_solution: |
+  find depo -type f -name '*.tsv' > /tmp/liste.txt
+  while read -r f; do
+    b=$(basename "$f" .tsv)
+    tar -czf "arsiv/${b}.tar.gz" -C "$(dirname "$f")" "$(basename "$f")"
+  done < /tmp/liste.txt
+  find arsiv -maxdepth 1 -type f -name '*.tar.gz' > arsiv/dizin.txt
+
+outputs:
+  - {path: arsiv/rota_a.tar.gz, kind: file}
+  - {path: arsiv/rota_b.tar.gz, kind: file}
+  - {path: arsiv/dizin.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: arsiv/dizin.txt, value: [arsiv/rota_a.tar.gz, arsiv/rota_b.tar.gz]}
+  - {op: run_stdout_eq, cmd: tar -tzf arsiv/rota_a.tar.gz | sort, value: rota_a.tsv}
+  - {op: run_stdout_eq, cmd: tar -tzf arsiv/rota_b.tar.gz | sort, value: rota_b.tsv}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3060
+    bundle: secerek-arsivle
+    tools:
+    - tar
+    - find
+    konu: kargo-takibi
+    hedef: yeniden-duzenle
+    girdi: tsv
+    kaynak: cok-dosya
+    cikti: birden-cok-dosya
+    kesif: dosyayi-bul
+    uslup: terse
+    direnc: baslik-yok
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,80 @@
+id: gen-s-3226-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  muhasebe/hesap_plani.csv dosyasındaki kod sütununda karşılığı olmayan arşiv/fişler.csv satırlarını, aynı başlık ve sütun düzeniyle denetim_sonuc.csv dosyasına yaz.
+
+setup: |
+  mkdir -p muhasebe arsiv
+  cat > muhasebe/hesap_plani.csv <<'CSV'
+  kod,ad
+  100,Kasa
+  102,Banka
+  120,Alicilar
+  320,Saticilar
+  600,Yurt ici satislar
+  CSV
+  cat > arsiv/fisler.csv <<'CSV'
+  fis_no,hesap,borc,alacak
+  F001,100,1500,0
+  F002,600,0,1500
+  F003,102,800,0
+  F004,120,0,800
+  F005,999,250,0
+  F006,320,0,400
+  F007,100,300,0
+  F008,600,0,300
+  CSV
+
+goal_tr: >
+  muhasebe/hesap_plani.csv icindeki kod sutununu arsiv/fisler.csv icindeki
+  hesap sutunuyla karsilastirip yalnizca hesap planinda karsiligi olmayan
+  fis satirlarini, fisler.csv ile ayni baslik ve sutun duzeninde
+  denetim_sonuc.csv dosyasina yaz
+
+reference_solution: |
+  cat > /tmp/gecerli_kodlar.txt <<'EOF'
+  EOF
+  tail -n +2 muhasebe/hesap_plani.csv | cut -d, -f1 | sort > /tmp/gecerli_kodlar.txt
+  cat > /tmp/gecersiz_hesaplar.txt <<'EOF'
+  EOF
+  tail -n +2 arsiv/fisler.csv | cut -d, -f2 | sort | uniq > /tmp/tum_hesaplar.txt
+  comm -23 /tmp/tum_hesaplar.txt /tmp/gecerli_kodlar.txt > /tmp/gecersiz_hesaplar.txt
+  head -n 1 arsiv/fisler.csv > denetim_sonuc.csv
+  find arsiv -name 'fisler.csv' -print0 | xargs -0 cat | grep -F -f /tmp/gecersiz_hesaplar.txt >> denetim_sonuc.csv
+
+outputs:
+  - {path: denetim_sonuc.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: denetim_sonuc.csv, value: ['fis_no,hesap,borc,alacak', 'F005,999,250,0']}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3226
+    bundle: bul-tasi
+    tools:
+    - find
+    - xargs
+    konu: muhasebe-kalemleri
+    hedef: denetle
+    girdi: csv
+    kaynak: iki-dosya-capraz
+    cikti: csv
+    kesif: yok
+    uslup: terse
+    direnc: bom
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

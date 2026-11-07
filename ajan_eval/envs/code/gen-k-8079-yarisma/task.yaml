@@ -1,0 +1,106 @@
+id: gen-k-8079-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  meter/plan.py dosyasını yaz. meter/readings.load_readings ile okunan (zaman, watt) kayıtlarından, komşu zamanlar birlikte seçilemeyecek şekilde seçilen watt değerlerinin toplamını en büyük yapan değeri hesaplayan, tek soyut metodu best(rows) -> int olan PlanProtocol adlı bir abc.ABC protokolü ve bu protokolü gerçekleştiren MeterPlanner sınıfı olsun. MeterPlanner.best girdi olarak (zaman, watt) demetlerinden oluşan sıralı bir liste alıp en büyük toplamı döndürsün.
+
+setup: |
+  mkdir -p meter
+  cat > meter/readings.py <<'READINGS'
+  def load_readings(path):
+      rows = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              ts, watts = line.split(',')
+              rows.append((int(ts), int(watts)))
+      rows.sort(key=lambda r: r[0])
+      return rows
+  READINGS
+  cat > data.txt <<'DATA'
+  1,120
+  2,80
+  3,200
+  4,50
+  5,300
+  6,90
+  7,110
+  8,400
+  DATA
+
+goal_tr: >
+  meter/plan.py dosyasini yaz: meter/readings.load_readings ile okunan
+  (zaman, watt) kayitlarindan, komsu zamanlar birlikte secilemeyecek sekilde
+  secilen watt degerlerinin toplamini en buyuk yapan degeri hesaplayan,
+  PlanProtocol adli bir abc.ABC protokolunu (tek soyut metot: best(rows) ->
+  int) ve bu protokolu gerceklestiren MeterPlanner sinifini iceren cozumu
+  olustur; MeterPlanner.best girdi olarak (zaman, watt) demetlerinden olusan
+  sirali bir liste alip en buyuk toplami dondursun.
+
+reference_solution: |
+  cat > meter/plan.py <<'PLAN'
+  import abc
+
+
+  class PlanProtocol(abc.ABC):
+      @abc.abstractmethod
+      def best(self, rows):
+          ...
+
+
+  class MeterPlanner(PlanProtocol):
+      def best(self, rows):
+          if not rows:
+              return 0
+          take = rows[0][1]
+          skip = 0
+          for _, watts in rows[1:]:
+              take, skip = skip + watts, max(take, skip)
+          return max(take, skip)
+  PLAN
+
+outputs:
+  - {path: meter/plan.py, kind: program, run: 'python3 -c ''import abc; from meter.plan import PlanProtocol, MeterPlanner; from meter.readings import load_readings; assert PlanProtocol.__abstractmethods__ == frozenset({"best"}); assert issubclass(MeterPlanner, PlanProtocol); p=MeterPlanner(); assert p.best([])==0; assert p.best([(1,5)])==5; assert p.best([(1,5),(2,4)])==5; assert p.best([(1,3),(2,7),(3,2)])==7; assert p.best([(1,3),(2,7),(3,9),(4,2)])==12; assert p.best([(1,1),(2,1),(3,1),(4,1)])==2; r=load_readings("data.txt"); assert p.best(r)==1020, p.best(r); assert MeterPlanner().best(r)==1020; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import abc; from meter.plan import PlanProtocol, MeterPlanner; from meter.readings import load_readings; assert PlanProtocol.__abstractmethods__ == frozenset({"best"}); assert issubclass(MeterPlanner, PlanProtocol); p=MeterPlanner(); assert p.best([])==0; assert p.best([(1,5)])==5; assert p.best([(1,5),(2,4)])==5; assert p.best([(1,3),(2,7),(3,2)])==7; assert p.best([(1,3),(2,7),(3,9),(4,2)])==12; assert p.best([(1,1),(2,1),(3,1),(4,1)])==2; r=load_readings("data.txt"); assert p.best(r)==1020, p.best(r); assert MeterPlanner().best(r)==1020; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8079
+    bundle: yarisma
+    tools:
+    - python3
+    konu: elektrik-sayaclari
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: dinamik-programlama
+      karmasiklik: duz
+      kalip: abc-protokol
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

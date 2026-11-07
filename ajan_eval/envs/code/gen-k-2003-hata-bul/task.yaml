@@ -1,0 +1,198 @@
+id: gen-k-2003-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 18
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  store/catalog/loader.py içindeki PriceFeed.count tam satır sayısını, store/pricing/engine.py içindeki PriceEngine.cheapest ise en düşük fiyatlı tam k adisyonun adını artan fiyat sırasıyla döndürsün.
+
+setup: |
+  mkdir -p store/catalog store/pricing
+  cat > store/catalog/loader.py <<'LOADER'
+  from abc import ABC, abstractmethod
+
+
+  class Feed(ABC):
+      @abstractmethod
+      def rows(self):
+          ...
+
+      @abstractmethod
+      def count(self):
+          ...
+
+
+  class PriceFeed(Feed):
+      def __init__(self, lines):
+          self._lines = [ln for ln in lines if ln.strip()]
+
+      def rows(self):
+          for ln in self._lines:
+              name, cents = ln.split(";")
+              yield name.strip(), int(cents.strip())
+
+      def count(self):
+          return len(self._lines) + 1
+  LOADER
+  cat > store/catalog/__init__.py <<'INIT'
+  from store.catalog.loader import Feed, PriceFeed
+  INIT
+  cat > store/pricing/engine.py <<'ENGINE'
+  from store.catalog.loader import Feed
+
+
+  class PriceEngine:
+      def __init__(self, feed):
+          self._feed = feed
+
+      def cheapest(self, k):
+          items = []
+          for name, cents in self._feed.rows():
+              items.append((cents, name))
+          items.sort()
+          return [name for _, name in items[:k + 1]]
+
+      def total_cents(self):
+          acc = 0
+          for _, cents in self._feed.rows():
+              acc += cents
+          return acc
+  ENGINE
+  cat > store/pricing/__init__.py <<'INIT'
+  from store.pricing.engine import PriceEngine
+  INIT
+  cat > feed.txt <<'FEED'
+  bolt;250
+  nut;125
+  washer;75
+  screw;500
+  FEED
+
+goal_tr: >
+  store/catalog/loader.py icindeki PriceFeed.count metodunu ve
+  store/pricing/engine.py icindeki PriceEngine.cheapest metodunu, count tam
+  satir sayisini ve cheapest en dusuk fiyatli tam k adisyonun adini artan
+  fiyat sirasiyla dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > store/catalog/loader.py <<'LOADER'
+  from abc import ABC, abstractmethod
+
+
+  class Feed(ABC):
+      @abstractmethod
+      def rows(self):
+          ...
+
+      @abstractmethod
+      def count(self):
+          ...
+
+
+  class PriceFeed(Feed):
+      def __init__(self, lines):
+          self._lines = [ln for ln in lines if ln.strip()]
+
+      def rows(self):
+          for ln in self._lines:
+              name, cents = ln.split(";")
+              yield name.strip(), int(cents.strip())
+
+      def count(self):
+          return len(self._lines)
+  LOADER
+  cat > store/pricing/engine.py <<'ENGINE'
+  from store.catalog.loader import Feed
+
+
+  class PriceEngine:
+      def __init__(self, feed):
+          self._feed = feed
+
+      def cheapest(self, k):
+          items = []
+          for name, cents in self._feed.rows():
+              items.append((cents, name))
+          items.sort()
+          return [name for _, name in items[:k]]
+
+      def total_cents(self):
+          acc = 0
+          for _, cents in self._feed.rows():
+              acc += cents
+          return acc
+  ENGINE
+
+ara_adim: |
+  cat > store/catalog/loader.py <<'LOADER'
+  from abc import ABC, abstractmethod
+
+
+  class Feed(ABC):
+      @abstractmethod
+      def rows(self):
+          ...
+
+      @abstractmethod
+      def count(self):
+          ...
+
+
+  class PriceFeed(Feed):
+      def __init__(self, lines):
+          self._lines = [ln for ln in lines if ln.strip()]
+
+      def rows(self):
+          for ln in self._lines:
+              name, cents = ln.split(";")
+              yield name.strip(), int(cents.strip())
+
+      def count(self):
+          return len(self._lines)
+  LOADER
+
+outputs:
+  - {path: store/pricing/engine.py, kind: program, run: 'python3 -c ''from store.catalog.loader import PriceFeed; from store.pricing.engine import PriceEngine; f=PriceFeed(open("feed.txt").read().splitlines()); e=PriceEngine(f); assert e.cheapest(2)==["washer","nut"], e.cheapest(2); print("TAMAM")'''}
+  - {path: store/catalog/loader.py, kind: program, run: 'python3 -c ''from store.catalog.loader import PriceFeed; f=PriceFeed(open("feed.txt").read().splitlines()); assert f.count()==4, f.count(); print("ILERLEME-TAMAM")'''}
+  - {path: store/pricing/engine.py, kind: program, run: 'python3 -c ''from store.catalog.loader import PriceFeed; from store.pricing.engine import PriceEngine; f=PriceFeed(open("feed.txt").read().splitlines()); e=PriceEngine(f); assert e.total_cents()==950, e.total_cents(); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from store.catalog.loader import PriceFeed; f=PriceFeed(open("feed.txt").read().splitlines()); assert f.count()==4, f.count(); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from store.catalog.loader import PriceFeed; from store.pricing.engine import PriceEngine; f=PriceFeed(open("feed.txt").read().splitlines()); e=PriceEngine(f); assert e.cheapest(2)==["washer","nut"], e.cheapest(2); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from store.catalog.loader import PriceFeed; from store.pricing.engine import PriceEngine; f=PriceFeed(open("feed.txt").read().splitlines()); e=PriceEngine(f); assert e.total_cents()==950, e.total_cents(); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-2003
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: urun-fiyatlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 6
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: off-by-one
+      karmasiklik: orta
+      kalip: abc-protokol
+      akis: parcali-akis
+      topoloji: paket-alt-paket
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

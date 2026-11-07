@@ -1,0 +1,156 @@
+id: gen-k-9157-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 20
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  maintenance/rules.py ve maintenance/report.py dosyalarındaki hataları gider. maintenance/rules.py içindeki is_alert fonksiyonu 90.0 değerini alarm olarak saymasın; yalnızca 90.0'dan büyük değerler alarm olsun. maintenance/report.py içindeki alert_machines fonksiyonu ilk alarmda erken dönmek yerine tüm alarmları toplasın ve aynı makine birden fazla alarm üretse bile sonuçta o makineyi yalnızca bir kez döndürsün. maintenance/streams.py dosyası olayları okumaya devam etsin. Böylece events.txt için alarm listesi ["press","lathe"] olsun.
+
+  Su sartlar saglanmali:
+  - maintenance/rules.py içindeki is_alert, değeri tam 90.0 olan bir olayı alarm saymamalı; yalnızca 90.0'dan büyük değerleri alarm saymalı.
+  - maintenance/report.py içindeki alert_machines, ilk alarmda erken dönmemeli; tüm olayları tarayıp alarm üreten makineleri toplamalı.
+  - alert_machines aynı makineyi birden fazla alarm üretse bile sonuç listesinde yalnızca bir kez döndürmeli.
+  - events.txt için alert_machines sonucu tam olarak ["press","lathe"] olmalı.
+  - maintenance/streams.py dosyasındaki read_events davranışı korunmalı.
+
+setup: |
+  mkdir -p maintenance
+  cat > maintenance/streams.py <<'STREAMS'
+  def read_events(rows):
+      for row in rows:
+          if not row:
+              continue
+          parts = row.split("|")
+          if len(parts) < 3:
+              continue
+          machine, kind, value = parts[0], parts[1], parts[2]
+          yield {"machine": machine, "kind": kind, "value": value}
+  STREAMS
+  cat > maintenance/rules.py <<'RULES'
+  def tagged(fn):
+      def wrapper(event):
+          result = fn(event)
+          event["alert"] = result
+          return result
+      return wrapper
+
+
+  @tagged
+  def is_alert(event):
+      return event["kind"] == "temp" and float(event["value"]) >= 90.0
+  RULES
+  cat > maintenance/report.py <<'REPORT'
+  from maintenance.streams import read_events
+  from maintenance.rules import is_alert
+
+
+  def alert_machines(rows):
+      out = []
+      for ev in read_events(rows):
+          if is_alert(ev):
+              return [ev["machine"]]
+      return out
+  REPORT
+  cat > events.txt <<'EV'
+  press|temp|95.0
+  press|vibe|3.0
+  lathe|temp|88.0
+  lathe|temp|91.5
+  mill|temp|90.0
+  EV
+
+goal_tr: >
+  maintenance zincirindeki iki hatayi gider: rules.py icindeki is_alert tam
+  90.0 degeri alarm SAYMAMALI (90.0'dan buyuk olmali) ve report.py icindeki
+  alert_machines ilk alarmda erken donmek yerine tum alarmlari toplayip ayni
+  makineyi bir kez dondurmeli; boylece events.txt icin alarm listesi
+  ["press","lathe"] olsun.
+
+reference_solution: |
+  cat > maintenance/rules.py <<'RULES'
+  def tagged(fn):
+      def wrapper(event):
+          result = fn(event)
+          event["alert"] = result
+          return result
+      return wrapper
+
+
+  @tagged
+  def is_alert(event):
+      return event["kind"] == "temp" and float(event["value"]) > 90.0
+  RULES
+  cat > maintenance/report.py <<'REPORT'
+  from maintenance.streams import read_events
+  from maintenance.rules import is_alert
+
+
+  def alert_machines(rows):
+      out = []
+      for ev in read_events(rows):
+          if is_alert(ev):
+              if ev["machine"] not in out:
+                  out.append(ev["machine"])
+      return out
+  REPORT
+
+ara_adim: |
+  cat > maintenance/rules.py <<'RULES'
+  def tagged(fn):
+      def wrapper(event):
+          result = fn(event)
+          event["alert"] = result
+          return result
+      return wrapper
+
+
+  @tagged
+  def is_alert(event):
+      return event["kind"] == "temp" and float(event["value"]) > 90.0
+  RULES
+
+outputs:
+  - {path: maintenance/report.py, kind: program, run: 'python3 -c ''from maintenance.report import alert_machines as f; rows=open("events.txt").read().splitlines(); assert f(rows)==["press","lathe"], f(rows); print("TAMAM")'''}
+  - {path: maintenance/rules.py, kind: program, run: 'python3 -c ''from maintenance.rules import is_alert as f; assert f({"machine":"m","kind":"temp","value":"95.0"}) is True; assert f({"machine":"m","kind":"temp","value":"90.0"}) is False; assert f({"machine":"m","kind":"vibe","value":"99.0"}) is False; print("ILERLEME-TAMAM")'''}
+  - {path: maintenance/streams.py, kind: program, run: 'python3 -c ''from maintenance.streams import read_events as f; rows=["a|temp|95.0","","bad","b|vibe|3.0"]; evs=list(f(rows)); assert len(evs)==2, evs; assert evs[0]=={"machine":"a","kind":"temp","value":"95.0"}, evs[0]; assert evs[1]["machine"]=="b"; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from maintenance.report import alert_machines as f; rows=open("events.txt").read().splitlines(); assert f(rows)==["press","lathe"], f(rows); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from maintenance.rules import is_alert as f; assert f({"machine":"m","kind":"temp","value":"95.0"}) is True; assert f({"machine":"m","kind":"temp","value":"90.0"}) is False; assert f({"machine":"m","kind":"vibe","value":"99.0"}) is False; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from maintenance.streams import read_events as f; rows=["a|temp|95.0","","bad","b|vibe|3.0"]; evs=list(f(rows)); assert len(evs)==2, evs; assert evs[0]=={"machine":"a","kind":"temp","value":"95.0"}, evs[0]; assert evs[1]["machine"]=="b"; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9157
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: makine-bakim-kayitlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kolay
+    adim: 7
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kenar-durum
+      karmasiklik: orta
+      kalip: dekorator
+      akis: parcali-akis
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

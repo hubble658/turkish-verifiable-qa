@@ -1,0 +1,60 @@
+id: gen-s-7103-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) veri klasöründeki tüm .log dosyalarını dosya adına göre sıralı biçimde birleştir.
+  2) Birleştirilen her satırın başına, o satırın geldiği dosyanın adını ve iki nokta ekle.
+  3) Elde edilen satırları satir-listesi.txt dosyasına yaz; her satır ayrı bir satırda olsun.
+
+setup: |
+  mkdir -p veri
+  printf '01:00 12.5 acik\n02:00 11.8 bulutlu\n03:00 10.4 yagmur\n' > veri/istanbul.log
+  printf '01:00 15.2 acik\n02:00 14.9 bulutlu\n03:00 13.1 yagmur\n' > veri/ankara.log
+  printf '01:00 18.0 acik\n02:00 17.5 bulutlu\n03:00 16.2 yagmur\n' > veri/izmir.log
+
+goal_tr: >
+  veri klasorundeki tum .log dosyalarini dosya adina gore sirali birlestirip
+  her satirin basina dosya adini ve iki nokta koyarak satir-listesi.txt
+  dosyasina yaz
+
+reference_solution: |
+  printf '%s\n' $(seq 1 1) > /dev/null
+  for f in $(find veri -name '*.log' | sort); do
+    sed "s|^|$(basename "$f"):|" "$f"
+  done > satir-listesi.txt
+
+outputs:
+  - {path: satir-listesi.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: satir-listesi.txt, value: ['ankara.log:01:00 15.2 acik', 'ankara.log:02:00 14.9 bulutlu', 'ankara.log:03:00 13.1 yagmur', 'istanbul.log:01:00 12.5 acik', 'istanbul.log:02:00 11.8 bulutlu', 'istanbul.log:03:00 10.4 yagmur', 'izmir.log:01:00 18.0 acik', 'izmir.log:02:00 17.5 bulutlu', 'izmir.log:03:00 16.2 yagmur']}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7103
+    bundle: uret
+    tools:
+    - printf
+    - seq
+    konu: hava-durumu-kayitlari
+    hedef: yeniden-duzenle
+    girdi: log-satiri
+    kaynak: cok-dosya
+    cikti: satir-listesi
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

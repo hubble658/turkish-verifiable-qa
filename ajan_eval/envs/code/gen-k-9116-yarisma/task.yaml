@@ -1,0 +1,135 @@
+id: gen-k-9116-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 20
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  callcenter/prefix.py içindeki prefix_totals fonksiyonunu, her çağrı merkezi temsilcisi için yalnızca o temsilciye ait sürelerin kümülatif (önek) toplamını temsilci başına ayrı ayrı hesaplayacak biçimde düzelt. callcenter/report.py içindeki agent_durations fonksiyonunu, prefix_totals sonucunu temsilci adına göre artan sırada (agent, toplam) ikililerinden oluşan liste döndürecek şekilde düzelt. Ayrıca callcenter/report.py içinde decorator_count adlı bir dekoratör tanımlayıp agent_durations fonksiyonunu onunla sar; öyle ki agent_durations çağrıldığında sonucu döndürmeden önce sonucun eleman sayısını fonksiyonun last_count özelliğine yazsın. callcenter/records.py ve callcenter/prefix.py dosyalarındaki mevcut yapıyı koru.
+
+setup: |
+  mkdir -p callcenter
+  cat > callcenter/records.py <<'PY'
+  RECORDS = [
+      ("agent_a", 10, 4),
+      ("agent_a", 25, 6),
+      ("agent_b", 5, 2),
+      ("agent_b", 40, 8),
+      ("agent_c", 30, 3),
+      ("agent_a", 15, 5),
+  ]
+  PY
+  cat > callcenter/prefix.py <<'PY'
+  def prefix_totals(records):
+      totals = {}
+      running = 0
+      for agent, duration, score in records:
+          running += duration
+          totals[agent] = running
+      return totals
+  PY
+  cat > callcenter/report.py <<'PY'
+  from callcenter.records import RECORDS
+  from callcenter.prefix import prefix_totals
+
+
+  def agent_durations():
+      return prefix_totals(RECORDS)
+  PY
+
+goal_tr: >
+  callcenter/prefix.py icindeki prefix_totals fonksiyonunu, her cagri
+  merkezi temsilcisi icin yalnizca o temsilciye ait surelerin kumulatif
+  (onek) toplamini temsilci basina ayri ayri hesaplayacak bicimde duzelt;
+  callcenter/report.py icindeki agent_durations fonksiyonunu, prefix_totals
+  sonucunu temsilci adina gore artan sirada (agent, toplam) ikililerinden
+  olusan liste dondurecek sekilde duzelt; ve callcenter/report.py icindeki
+  decorator_count adli bir dekorator tanimlayip agent_durations fonksiyonunu
+  onunla sar ki cagrildiginda sonucu donmeden once sonucun eleman sayisini
+  fonksiyonun `last_count` ozelligine yazsin.
+
+reference_solution: |
+  cat > callcenter/prefix.py <<'PY'
+  def prefix_totals(records):
+      totals = {}
+      running = {}
+      for agent, duration, score in records:
+          running[agent] = running.get(agent, 0) + duration
+          totals[agent] = running[agent]
+      return totals
+  PY
+  cat > callcenter/report.py <<'PY'
+  from callcenter.records import RECORDS
+  from callcenter.prefix import prefix_totals
+
+
+  def decorator_count(func):
+      def wrapper(*args, **kwargs):
+          result = func(*args, **kwargs)
+          wrapper.last_count = len(result)
+          return result
+      wrapper.last_count = 0
+      return wrapper
+
+
+  @decorator_count
+  def agent_durations():
+      totals = prefix_totals(RECORDS)
+      return sorted(totals.items())
+  PY
+
+ara_adim: |
+  cat > callcenter/prefix.py <<'PY'
+  def prefix_totals(records):
+      totals = {}
+      running = {}
+      for agent, duration, score in records:
+          running[agent] = running.get(agent, 0) + duration
+          totals[agent] = running[agent]
+      return totals
+  PY
+
+outputs:
+  - {path: callcenter/report.py, kind: program, run: 'python3 -c ''from callcenter.report import agent_durations as f; r=f(); assert r==[("agent_a",50),("agent_b",45),("agent_c",30)], r; assert f.last_count==3, f.last_count; print("TAMAM")'''}
+  - {path: callcenter/prefix.py, kind: program, run: 'python3 -c ''from callcenter.prefix import prefix_totals as f; recs=[("a",10,1),("b",5,1),("a",20,1)]; r=f(recs); assert r=={"a":30,"b":5}, r; print("ILERLEME-TAMAM")'''}
+  - {path: callcenter/records.py, kind: program, run: 'python3 -c ''from callcenter.records import RECORDS as R; assert len(R)==6; assert all(len(x)==3 for x in R); assert R[0]==("agent_a",10,4); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from callcenter.prefix import prefix_totals as f; recs=[("a",10,1),("b",5,1),("a",20,1)]; r=f(recs); assert r=={"a":30,"b":5}, r; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from callcenter.report import agent_durations as f; r=f(); assert r==[("agent_a",50),("agent_b",45),("agent_c",30)], r; assert f.last_count==3, f.last_count; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from callcenter.records import RECORDS as R; assert len(R)==6; assert all(len(x)==3 for x in R); assert R[0]==("agent_a",10,4); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9116
+    bundle: yarisma
+    tools:
+    - python3
+    konu: cagri-merkezi-kayitlari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 7
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: onek-toplam
+      karmasiklik: orta
+      kalip: dekorator
+      akis: cok-dosya-birlestirme
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

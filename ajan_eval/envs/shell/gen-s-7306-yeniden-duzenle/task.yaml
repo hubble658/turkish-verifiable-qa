@@ -1,0 +1,73 @@
+id: gen-s-7306-yeniden-duzenle
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  ölçümler dizinindeki a.tsv ve b.tsv dosyalarında ortak geçen her sensör için iki dosyadaki değerlerin toplamını hesapla. Toplamı 15'ten büyük olan sensörlerin toplamlarının genel toplamını sonuç.txt dosyasına sadece sayı olarak yaz.
+
+  Şu şartlar sağlanmalı:
+  - olcumler/a.tsv ve olcumler/b.tsv dosyalarındaki ortak sensörler dikkate alınmalı.
+  - Her ortak sensör için iki dosyadaki değerlerin toplamı hesaplanmalı.
+  - Yalnızca toplamı 15'ten büyük olan sensörlerin toplamları genel toplama dahil edilmeli.
+  - sonuc.txt dosyası oluşturulmalı ve içinde sadece sayı bulunmalı.
+
+setup: |
+  mkdir -p olcumler
+  cat > olcumler/a.tsv <<'TSV'
+  sensor1	12
+  sensor2	7
+  sensor3	19
+  sensor4	3
+  sensor5	4
+  TSV
+  cat > olcumler/b.tsv <<'TSV'
+  sensor2	5
+  sensor3	2
+  sensor4	11
+  sensor5	14
+  sensor6	2
+  TSV
+
+goal_tr: >
+  olcumler dizinindeki a.tsv ve b.tsv dosyalarinda ortak gecen her sensor
+  icin iki dosyadaki degerlerin toplamini hesapla; toplami 15'ten buyuk olan
+  sensorlerin toplamlarinin genel toplamini sonuc.txt'ye sadece sayi olarak
+  yaz.
+
+reference_solution: |
+  find olcumler -name '*.tsv' -print0 | xargs -0 awk -F'\t' '{c[$1]++; s[$1]+=$2} END{for(k in c) if(c[k]==2 && s[k]>15) t+=s[k]; print t}' > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '39'}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7306
+    bundle: bul-tasi
+    tools:
+    - find
+    - xargs
+    konu: sensor-olcumleri
+    hedef: yeniden-duzenle
+    girdi: tsv
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: yok
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

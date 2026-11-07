@@ -1,0 +1,154 @@
+id: gen-k-5054-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  clinic/appointments/stack.py içindeki AppointmentStack sınıfını gerçek bir yığın olarak tamamla; şu an tüm metotlar NotImplementedError ile duruyor ve bunların çalışır hale gelmesi gerekiyor. push, aynı doktor için arka arkaya iki randevuyu SlotUnavailable ile reddetsin, farklı doktorlar arka arkaya sorunsuz eklenebilsin. pop, yığına en son eklenen (doctor, patient) çiftini döndürsün ve onu yığından çıkarsın. peek ise hiçbir şeyi silmeden en son eklenen çifti döndürsün. __len__ yığındaki eleman sayısını versin. cancel_last en son eklenen kaydı silip döndürsün. Yığın boşken pop, peek ve cancel_last çağrılarının hepsi AppointmentError yükseltsin. Hata sınıfları clinic/appointments/errors.py içinde hazır duruyor, bunları yeniden tanımlamana gerek yok; mevcut AppointmentError ve SlotUnavailable sınıflarını kullan. loader.py ve bookings.txt dosyalarına dokunma, onlar olduğu gibi kalmalı; sadece stack.py üzerinde çalış.
+
+setup: |
+  mkdir -p clinic/appointments
+  cat > clinic/__init__.py <<'EOF'
+  EOF
+  cat > clinic/appointments/__init__.py <<'EOF'
+  EOF
+  cat > clinic/appointments/errors.py <<'EOF'
+  class AppointmentError(Exception):
+      pass
+
+
+  class SlotUnavailable(AppointmentError):
+      pass
+
+
+  class UnknownDoctor(AppointmentError):
+      pass
+  EOF
+  cat > clinic/appointments/stack.py <<'EOF'
+  class AppointmentStack:
+      def __init__(self):
+          raise NotImplementedError
+
+      def push(self, doctor, patient):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+
+      def cancel_last(self):
+          raise NotImplementedError
+  EOF
+  cat > clinic/appointments/loader.py <<'EOF'
+  from clinic.appointments.stack import AppointmentStack
+  from clinic.appointments.errors import UnknownDoctor, SlotUnavailable
+
+  KNOWN_DOCTORS = {"ayse", "mehmet", "zeynep"}
+
+
+  def load_bookings(path):
+      stack = AppointmentStack()
+      with open(path, encoding="utf-8") as fh:
+          for raw in fh:
+              line = raw.strip()
+              if not line:
+                  continue
+              doctor, patient = line.split(";")
+              if doctor not in KNOWN_DOCTORS:
+                  raise UnknownDoctor(doctor)
+              stack.push(doctor, patient)
+      return stack
+  EOF
+  cat > bookings.txt <<'EOF'
+  ayse;hasta-1
+  mehmet;hasta-2
+  ayse;hasta-3
+  EOF
+
+goal_tr: >
+  clinic/appointments/stack.py icindeki AppointmentStack sinifini gercek bir
+  yigin olacak sekilde tamamla; push ayni doktor icin ardisik iki randevuyu
+  SlotUnavailable ile reddetsin, pop en son eklenen (doctor, patient)
+  ciftini dondursun, peek silmeden dondursun, __len__ eleman sayisini
+  versin, cancel_last en son eklenen kaydi silip dondursun ve bos yiginda
+  pop/peek/cancel_last AppointmentError yukseltsin.
+
+reference_solution: |
+  cat > clinic/appointments/stack.py <<'EOF'
+  from clinic.appointments.errors import AppointmentError, SlotUnavailable
+
+
+  class AppointmentStack:
+      def __init__(self):
+          self._items = []
+
+      def push(self, doctor, patient):
+          if self._items and self._items[-1][0] == doctor:
+              raise SlotUnavailable(doctor)
+          self._items.append((doctor, patient))
+
+      def pop(self):
+          if not self._items:
+              raise AppointmentError("empty stack")
+          return self._items.pop()
+
+      def peek(self):
+          if not self._items:
+              raise AppointmentError("empty stack")
+          return self._items[-1]
+
+      def __len__(self):
+          return len(self._items)
+
+      def cancel_last(self):
+          if not self._items:
+              raise AppointmentError("empty stack")
+          return self._items.pop()
+  EOF
+
+outputs:
+  - {path: clinic/appointments/stack.py, kind: program, run: 'python3 -c ''from clinic.appointments.stack import AppointmentStack; from clinic.appointments.errors import AppointmentError, SlotUnavailable, UnknownDoctor; from clinic.appointments.loader import load_bookings; s=AppointmentStack(); assert len(s)==0; s.push("ayse","h1"); s.push("mehmet","h2"); s.push("ayse","h3"); assert len(s)==3; assert s.peek()==("ayse","h3"); assert s.pop()==("ayse","h3"); assert len(s)==2; assert s.cancel_last()==("mehmet","h2"); assert len(s)==1; ok=[False]; exec("try:\n s.push(\"ayse\",\"h4\")\nexcept SlotUnavailable:\n ok[0]=True"); assert ok[0]; empty=AppointmentStack(); res=[0,0,0]; exec("for i,m in enumerate((empty.pop, empty.peek, empty.cancel_last)):\n try:\n  m()\n except AppointmentError:\n  res[i]=1"); assert res==[1,1,1], res; st=load_bookings("bookings.txt"); assert len(st)==3; assert st.peek()==("ayse","hasta-3"); assert st.pop()==("ayse","hasta-3"); assert st.pop()==("mehmet","hasta-2"); assert st.pop()==("ayse","hasta-1"); assert len(st)==0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from clinic.appointments.stack import AppointmentStack; from clinic.appointments.errors import AppointmentError, SlotUnavailable, UnknownDoctor; from clinic.appointments.loader import load_bookings; s=AppointmentStack(); assert len(s)==0; s.push("ayse","h1"); s.push("mehmet","h2"); s.push("ayse","h3"); assert len(s)==3; assert s.peek()==("ayse","h3"); assert s.pop()==("ayse","h3"); assert len(s)==2; assert s.cancel_last()==("mehmet","h2"); assert len(s)==1; ok=[False]; exec("try:\n s.push(\"ayse\",\"h4\")\nexcept SlotUnavailable:\n ok[0]=True"); assert ok[0]; empty=AppointmentStack(); res=[0,0,0]; exec("for i,m in enumerate((empty.pop, empty.peek, empty.cancel_last)):\n try:\n  m()\n except AppointmentError:\n  res[i]=1"); assert res==[1,1,1], res; st=load_bookings("bookings.txt"); assert len(st)==3; assert st.peek()==("ayse","hasta-3"); assert st.pop()==("ayse","hasta-3"); assert st.pop()==("mehmet","hasta-2"); assert st.pop()==("ayse","hasta-1"); assert len(st)==0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5054
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: hastane-randevulari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: dosya-okuma
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

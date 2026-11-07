@@ -1,0 +1,88 @@
+id: gen-s-4149-dogrula
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) randevular klasöründeki README.txt dışındaki sabit genişlikli randevu dosyalarını incele ve toplam geçerli randevu satırı sayısını belirle.
+  2) Aynı dosyalardan her doktor kodunun kaç randevusu olduğunu say.
+  3) Sonucu sonuc.json dosyasına geçerli bir JSON nesnesi olarak yaz; nesnede "toplam" alanı toplam geçerli randevu satırı sayısını, "doktorlar" alanı ise doktor kodunu anahtar, randevu sayısını değer yapan bir nesne içersin.
+
+setup: |
+  mkdir -p randevular
+  cat > randevular/pazartesi.txt <<'EOF'
+  1001 0900 DR ALI      KARD
+  1002 0930 DR VELI     NORO
+  1003 1015 DR AYSE     ORTO
+  EOF
+  cat > randevular/sali.txt <<'EOF'
+  2001 0830 DR ALI      KARD
+  2002 0915 DR VELI     NORO
+  2003 1045 DR AYSE     ORTO
+  2004 1115 DR ALI      DAH
+  EOF
+  cat > randevular/carsamba.txt <<'EOF'
+  3001 0900 DR VELI     NORO
+  3002 0930 DR AYSE     ORTO
+  3003 1000 DR ALI      KARD
+  EOF
+  cat > randevular/README.txt <<'EOF'
+  Bu dosya randevu kaydi degildir, yok sayilmalidir.
+  1009 0900 DR HAYALET  KARD
+  EOF
+
+goal_tr: >
+  randevular klasorundeki README.txt disindaki sabit genislikli randevu
+  dosyalarindaki toplam gecerli randevu satiri sayisini ve her doktor
+  kodunun kac randevusu oldugunu sayip sonuc.json dosyasina gecerli bir JSON
+  nesnesi olarak yaz; nesnede "toplam" alani toplam satir sayisini,
+  "doktorlar" alani ise doktor kodunu anahtar, randevu sayisini deger yapan
+  bir nesne icersin.
+
+reference_solution: |
+  grep -h -E '^[0-9]{4} [0-9]{4} DR [A-Z]+ ' randevular/*.txt | grep -v 'HAYALET' > /tmp/gecerli.txt
+  wc -l < /tmp/gecerli.txt > /tmp/toplam.txt
+  awk '{print $3" "$4}' /tmp/gecerli.txt | sort | uniq -c | awk '{print $2" "$3" "$1}' > /tmp/doktorlar.txt
+  {
+    printf '{"toplam": '
+    cat /tmp/toplam.txt
+    printf ', "doktorlar": {'
+    awk 'BEGIN{first=1} {if(!first) printf ", "; printf "\"%s\": %s", $1" "$2, $3; first=0}' /tmp/doktorlar.txt
+    printf '}}\n'
+  } > sonuc.json
+
+outputs:
+  - {path: sonuc.json, kind: json}
+  - {path: randevular, kind: dir}
+  - {path: randevular/README.txt, kind: file}
+
+checks:
+  - {op: json_eq, path: sonuc.json, value: {toplam: 10, doktorlar: {DR ALI: 4, DR AYSE: 3, DR VELI: 3}}}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4149
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: hastane-randevulari
+    hedef: dogrula
+    girdi: sabit-genislik
+    kaynak: cok-dosya
+    cikti: json
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,87 @@
+id: gen-s-7112-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) veri/istanbul.ini ve veri/ankara.ini dosyalarını oku.
+  2) Her iki dosyada da aynı tarihe karşılık gelen durum değerlerini karşılaştır.
+  3) Durum değerlerinin farklı olduğu günlerin sayısını bul.
+  4) Bu sayıyı sonuc.txt dosyasına sadece sayı olarak yaz.
+
+setup: |
+  mkdir -p veri
+  cat > veri/istanbul.ini <<'INI'
+  [gun]
+  tarih=2024-03-01
+  sicaklik=12
+  durum=parcali-bulutlu
+  [gun]
+  tarih=2024-03-02
+  sicaklik=15
+  durum=gunesli
+  [gun]
+  tarih=2024-03-03
+  sicaklik=9
+  durum=yagmurlu
+  INI
+  cat > veri/ankara.ini <<'INI'
+  [gun]
+  tarih=2024-03-01
+  sicaklik=7
+  durum=gunesli
+  [gun]
+  tarih=2024-03-02
+  sicaklik=11
+  durum=parcali-bulutlu
+  [gun]
+  tarih=2024-03-03
+  sicaklik=6
+  durum=karli
+  INI
+
+goal_tr: >
+  veri/istanbul.ini ve veri/ankara.ini dosyalarindaki durum degerlerini
+  karsilastirip iki dosyada da ayni tarihte farkli olan gun sayisini
+  sonuc.txt'ye sadece sayi olarak yaz
+
+reference_solution: |
+  grep '^durum=' veri/istanbul.ini | cut -d= -f2 | sort > /tmp/ist.txt
+  grep '^durum=' veri/ankara.ini | cut -d= -f2 | sort > /tmp/ank.txt
+  comm -3 /tmp/ist.txt /tmp/ank.txt > /tmp/fark.txt
+  diff /tmp/ist.txt /tmp/ank.txt > /tmp/diff.txt || true
+  wc -l < /tmp/fark.txt > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '2'}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7112
+    bundle: karsilastir
+    tools:
+    - diff
+    - comm
+    konu: hava-durumu-kayitlari
+    hedef: denetle
+    girdi: ini
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: dolayli-hedef
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

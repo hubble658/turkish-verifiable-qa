@@ -1,0 +1,146 @@
+id: gen-k-9109-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  pkg/parse.py ve pkg/rank.py içindeki iki hatayı düzeltmeni istiyorum. Öncelikle pkg/parse.py içindeki parse_rows fonksiyonu her satırı doğru ayrıştırmalı: boş satırları atlamalı ve her satırdaki ad ile puanı birbirinden ayırmalı. Ardından pkg/rank.py içindeki rank_scores fonksiyonu sonucu puana göre ARTAN, puanlar eşit olduğunda ise ada göre ARTAN sırada döndürmeli. Son olarak pkg/rank.py içindeki lower_bound fonksiyonu, rank_scores tarafından üretilen bu sıralı liste üzerinde verilen puan için lower_bound indeksini doğru şekilde bulmalı.
+
+setup: |
+  mkdir -p pkg
+  cat > pkg/parse.py <<'PARSE'
+  def parse_rows(text):
+      rows = []
+      for line in text.strip().splitlines():
+          name, score = line.split(',')
+          rows.append((name, int(score)))
+      return rows
+  PARSE
+  cat > pkg/rank.py <<'RANK'
+  from pkg.parse import parse_rows
+
+
+  def rank_scores(text):
+      rows = parse_rows(text)
+      rows.sort(key=lambda r: r[0])
+      return rows
+
+
+  def lower_bound(text, target):
+      rows = rank_scores(text)
+      lo, hi = 0, len(rows)
+      while lo < hi:
+          mid = (lo + hi) // 2
+          if rows[mid][1] < target:
+              lo = mid + 1
+          else:
+              hi = mid
+      return lo
+  RANK
+  cat > data.csv <<'CSV'
+  ayse,70
+  mehmet,95
+  zeynep,88
+  can,70
+  elif,95
+  CSV
+
+goal_tr: >
+  pkg/parse.py ve pkg/rank.py zincirindeki iki hatayi gider: parse_rows her
+  satiri dogru ayristirsin (bos satirlari atlayip ad ve puani ayirsin) ve
+  rank_scores sonucu puana gore ARTAN, esitlikte ada gore ARTAN sirada
+  dondursun; lower_bound bu sirali liste uzerinde verilen puana lower_bound
+  indeksini dogru bulsun.
+
+reference_solution: |
+  cat > pkg/parse.py <<'PARSE'
+  def parse_rows(text):
+      rows = []
+      for line in text.strip().splitlines():
+          line = line.strip()
+          if not line:
+              continue
+          name, score = line.split(',')
+          rows.append((name, int(score)))
+      return rows
+  PARSE
+  cat > pkg/rank.py <<'RANK'
+  from pkg.parse import parse_rows
+
+
+  def rank_scores(text):
+      rows = parse_rows(text)
+      rows.sort(key=lambda r: (r[1], r[0]))
+      return rows
+
+
+  def lower_bound(text, target):
+      rows = rank_scores(text)
+      lo, hi = 0, len(rows)
+      while lo < hi:
+          mid = (lo + hi) // 2
+          if rows[mid][1] < target:
+              lo = mid + 1
+          else:
+              hi = mid
+      return lo
+  RANK
+
+ara_adim: |
+  cat > pkg/parse.py <<'PARSE'
+  def parse_rows(text):
+      rows = []
+      for line in text.strip().splitlines():
+          line = line.strip()
+          if not line:
+              continue
+          name, score = line.split(',')
+          rows.append((name, int(score)))
+      return rows
+  PARSE
+
+outputs:
+  - {path: pkg/rank.py, kind: program, run: 'python3 -c ''from pkg.rank import lower_bound as f; t=open("data.csv").read(); assert f(t,70)==0, f(t,70); assert f(t,88)==2, f(t,88); assert f(t,95)==3, f(t,95); assert f(t,100)==5; print("ZINCIR-TAMAM")'''}
+  - {path: pkg/parse.py, kind: program, run: 'python3 -c ''from pkg.parse import parse_rows as f; assert f("a,1")==[("a",1)], f("a,1"); assert f("a,1\n\nb,2")==[("a",1),("b",2)], f("a,1\n\nb,2"); print("ILERLEME-TAMAM")'''}
+  - {path: pkg/rank.py, kind: program, run: 'python3 -c ''from pkg.rank import rank_scores as f; assert f("a,1\nb,2")==[("a",1),("b",2)]; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from pkg.parse import parse_rows as f; assert f("a,1")==[("a",1)], f("a,1"); assert f("a,1\n\nb,2")==[("a",1),("b",2)], f("a,1\n\nb,2"); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from pkg.rank import lower_bound as f; t=open("data.csv").read(); assert f(t,70)==0, f(t,70); assert f(t,88)==2, f(t,88); assert f(t,95)==3, f(t,95); assert f(t,100)==5; print("ZINCIR-TAMAM")''', value: ZINCIR-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from pkg.rank import rank_scores as f; assert f("a,1\nb,2")==[("a",1),("b",2)]; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9109
+    bundle: yarisma
+    tools:
+    - python3
+    konu: ogrenci-transkripti
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-ikili-arama
+      karmasiklik: orta
+      kalip: duz-fonksiyon
+      akis: parcali-akis
+      topoloji: iki-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

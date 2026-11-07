@@ -1,0 +1,126 @@
+id: gen-k-8336-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) fx/core/chain.py dosyasındaki RateChain.convert metodunu düzelt; verilen kur yolundaki ilk bacaktan son bacaga kadar tüm bacakları kullanarak cevrimi doğru hesapla.
+
+  2) Düzeltilen convert metodu, verilen yol üzerindeki her bacak için ilgili kuru uygulayarak nihai tutarı hesaplasın; ara adımlarda yolun eksik bacaklarını atlamasın.
+
+setup: |
+  mkdir -p fx/core fx/rates
+  cat > fx/core/parse.py <<'PARSE'
+  def load_quotes(text):
+      rows = []
+      for line in text.strip().splitlines():
+          pair, rate = line.split('=')
+          rows.append((pair.strip(), float(rate)))
+      return rows
+  PARSE
+  cat > fx/core/chain.py <<'CHAIN'
+  class RateChain:
+      def __init__(self, quotes):
+          self._q = dict(quotes)
+
+      def __enter__(self):
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          return False
+
+      def convert(self, amount, path):
+          total = amount
+          for i in range(1, len(path) - 1):
+              step = path[i - 1] + path[i]
+              total = total * self._q[step]
+          return round(total, 6)
+  CHAIN
+  cat > fx/rates/table.py <<'TABLE'
+  from fx.core.parse import load_quotes
+  from fx.core.chain import RateChain
+
+
+  def build_table(text):
+      quotes = load_quotes(text)
+      with RateChain(quotes) as chain:
+          return chain.convert
+  TABLE
+  cat > fx/__init__.py <<'INIT'
+  INIT
+  cat > fx/core/__init__.py <<'INIT'
+  INIT
+  cat > fx/rates/__init__.py <<'INIT'
+  INIT
+  cat > quotes.txt <<'Q'
+  USDTRY=8.5
+  TRYEUR=0.1
+  EURGBP=0.9
+  Q
+
+goal_tr: >
+  fx/core/chain.py icindeki RateChain.convert metodunu, verilen kur
+  yolundaki tum bacaklari (ilk bacaktan son bacaga kadar) kullanarak cevrimi
+  dogru hesaplayacak bicimde duzelt.
+
+reference_solution: |
+  cat > fx/core/chain.py <<'CHAIN'
+  class RateChain:
+      def __init__(self, quotes):
+          self._q = dict(quotes)
+
+      def __enter__(self):
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          return False
+
+      def convert(self, amount, path):
+          total = amount
+          for i in range(1, len(path)):
+              step = path[i - 1] + path[i]
+              total = total * self._q[step]
+          return round(total, 6)
+  CHAIN
+
+outputs:
+  - {path: fx/core/chain.py, kind: program, run: 'python3 -c ''from fx.rates.table import build_table as b; t=open("quotes.txt").read(); f=b(t); r=f(100,["USD","TRY","EUR","GBP"]); assert r==76.5, r; r2=f(100,["USD","TRY","EUR"]); assert r2==85.0, r2; r3=f(50,["TRY","EUR"]); assert r3==5.0, r3; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fx.rates.table import build_table as b; t=open("quotes.txt").read(); f=b(t); r=f(100,["USD","TRY","EUR","GBP"]); assert r==76.5, r; r2=f(100,["USD","TRY","EUR"]); assert r2==85.0, r2; r3=f(50,["TRY","EUR"]); assert r3==5.0, r3; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8336
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kur-cevrimleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: off-by-one
+      karmasiklik: duz
+      kalip: context-manager
+      akis: ic-ice-yapi
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

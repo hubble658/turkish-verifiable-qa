@@ -1,0 +1,102 @@
+id: gen-s-0041-birlestir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+prompt: 'staff.txt ve shifts.txt dosyalarındaki personel ID''lerini eşleştirerek isimleri ve vardiyaları içeren merged.txt
+  dosyasını oluşturun, ardından her vardiya için shift_Day.txt ve shift_Night.txt dosyalarını üretin.
+
+
+  merged.txt satırları "<id> <ad> <vardiya>" biçiminde olsun; shift_Day.txt ve shift_Night.txt o vardiyanın merged.txt satırlarını
+  içersin.
+
+  '
+setup: 'cat > staff.txt <<''EOF''
+
+  101 Alice
+
+  102 Bob
+
+  103 Charlie
+
+  104 David
+
+  EOF
+
+
+  cat > shifts.txt <<''EOF''
+
+  101 Night
+
+  102 Day
+
+  104 Night
+
+  103 Day
+
+  EOF
+
+
+  printf "105 Eve\n106 Frank" > backup_staff.txt
+
+  touch dummy_shifts.txt
+
+  echo "101 Morning" > dummy_shifts.txt
+
+  '
+goal_tr: 'staff.txt ve shifts.txt dosyalarındaki personel ID''lerini eşleştirerek isimleri ve vardiyaları içeren bir dosya
+  oluştur, ardından her vardiya için ayrı dosyalar üret.
+
+  '
+reference_solution: 'join <(sort staff.txt) <(sort shifts.txt) > merged.txt
+
+  grep '' Day$'' merged.txt > shift_Day.txt
+
+  grep '' Night$'' merged.txt > shift_Night.txt
+
+  '
+outputs: []
+checks:
+- op: file_lines_eq
+  path: merged.txt
+  value:
+  - 101 Alice Night
+  - 102 Bob Day
+  - 103 Charlie Day
+  - 104 David Night
+- op: file_lines_eq
+  path: shift_Day.txt
+  value:
+  - 102 Bob Day
+  - 103 Charlie Day
+- op: file_lines_eq
+  path: shift_Night.txt
+  value:
+  - 101 Alice Night
+  - 104 David Night
+metadata:
+  domain: birlestir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-0041
+    bundle: birlestir
+    tools:
+    - join
+    - sort
+    konu: personel-vardiyalari
+    hedef: birlestir
+    girdi: log-satiri
+    kaynak: iki-dosya-capraz
+    cikti: birden-cok-dosya
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: son-newline-yok
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    metadata: {}
+  duzeltme:
+    neden: altin_yanlis
+    not: Vardiya dosyalarında yalnız 'Day'/'Night' sözcüğü vardı.

@@ -1,0 +1,123 @@
+id: gen-k-5142-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) store/summary.py dosyasındaki net_total fonksiyonunu, Ledger üzerinden yapılan işlemlerin net sonucunu doğru biçimde toplayacak şekilde düzelt.
+
+  2) net_total fonksiyonu, prices.txt dosyasındaki her satır için yapılan deposit ve withdraw işlemlerinin net etkisini doğru hesaplasın; geçmişi ters çevirip çıkarma yapmasın.
+
+  3) Düzeltme yalnızca store/summary.py içinde olsun; store/loader.py ve store/ledger.py değişmeden kalsın.
+
+setup: |
+  mkdir -p store
+  cat > store/loader.py <<'LOADER'
+  def read_prices(path):
+      rows = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              name, price = line.split(',')
+              rows.append((name, float(price)))
+      return rows
+  LOADER
+  cat > store/ledger.py <<'LEDGER'
+  class Ledger:
+      def __init__(self):
+          self.balance = 0.0
+          self.history = []
+
+      def deposit(self, amount):
+          self.balance += amount
+          self.history.append(amount)
+
+      def withdraw(self, amount):
+          self.balance -= amount
+          self.history.append(-amount)
+  LEDGER
+  cat > store/summary.py <<'SUMMARY'
+  from store.loader import read_prices
+  from store.ledger import Ledger
+
+
+  def net_total(path):
+      ledger = Ledger()
+      for name, price in read_prices(path):
+          ledger.deposit(price)
+          ledger.withdraw(0.5 * price)
+      total = 0.0
+      for amount in ledger.history:
+          total -= amount
+      return round(total, 2)
+  SUMMARY
+  cat > prices.txt <<'PRICES'
+  widget,10.0
+  gadget,4.0
+  bolt,6.0
+  PRICES
+
+goal_tr: >
+  store/summary.py icindeki net_total fonksiyonunu, Ledger uzerinden yapilan
+  islemlerin net sonucunu dogru toplayacak bicimde duzelt.
+
+reference_solution: |
+  cat > store/summary.py <<'SUMMARY'
+  from store.loader import read_prices
+  from store.ledger import Ledger
+
+
+  def net_total(path):
+      ledger = Ledger()
+      for name, price in read_prices(path):
+          ledger.deposit(price)
+          ledger.withdraw(0.5 * price)
+      total = 0.0
+      for amount in ledger.history:
+          total += amount
+      return round(total, 2)
+  SUMMARY
+
+outputs:
+  - {path: store/summary.py, kind: program, run: 'python3 -c ''from store.summary import net_total as f; assert f("prices.txt")==10.0, f("prices.txt"); assert f("prices.txt")>0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from store.summary import net_total as f; assert f("prices.txt")==10.0, f("prices.txt"); assert f("prices.txt")>0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5142
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: urun-fiyatlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-toplama-sirasi
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

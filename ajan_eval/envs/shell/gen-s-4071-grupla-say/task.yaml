@@ -1,0 +1,77 @@
+id: gen-s-4071-grupla-say
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  "notlar dizini/ogrenci notlari.txt" dosyasındaki her öğrenci için notların toplamını hesapla ve sonucu "ozet.csv" dosyasına öğrenci,toplam biçiminde yaz.
+
+setup: |
+  mkdir -p "notlar dizini"
+  cat > "notlar dizini/ogrenci notlari.txt" <<'DATA'
+  Ali   Matematik 90
+  Ali   Fizik     75
+  Ayse  Matematik 85
+  Ayse  Fizik     95
+  Can   Matematik 60
+  Can   Fizik     70
+  DATA
+  cat > "notlar dizini/ogretmen notlari.txt" <<'DATA'
+  Ali   Matematik 90
+  Ali   Fizik     75
+  Ayse  Matematik 85
+  Ayse  Fizik     95
+  Can   Matematik 60
+  Can   Fizik     70
+  DATA
+
+goal_tr: >
+  "notlar dizini/ogrenci notlari.txt" dosyasindaki her ogrenci icin notlarin
+  toplamini hesaplayip "ozet.csv" dosyasina ogrenci,toplam biciminde yaz
+
+reference_solution: |
+  python3 -c "
+  import csv
+  with open('notlar dizini/ogrenci notlari.txt') as f:
+      rows=[l.split() for l in f if l.strip()]
+  tot={}
+  for r in rows:
+      tot[r[0]]=tot.get(r[0],0)+int(r[2])
+  with open('ozet.csv','w',newline='') as f:
+      w=csv.writer(f)
+      for k in sorted(tot):
+          w.writerow([k,tot[k]])
+  "
+
+outputs:
+  - {path: ozet.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: ozet.csv, value: ['Ali,165', 'Ayse,180', 'Can,130']}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4071
+    bundle: python-veri
+    tools:
+    - python3
+    konu: ogrenci-notlari
+    hedef: grupla-say
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: csv
+    kesif: yok
+    uslup: duz-hedef
+    direnc: bosluklu-ad
+    bukulme: tuzak-dosya
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

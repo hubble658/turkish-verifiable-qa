@@ -1,0 +1,134 @@
+id: gen-k-8343-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Sabah beri log dosyalarını elle karşılaştırıyordum, iki ayrı oturumun kayıtlarını birleştirip tek bir analizde görmem gerekiyor. Bu yüzden netlog/analyzer.py içindeki LogAnalyzer sınıfını düzeltmeni istiyorum.
+
+  Şu an iki LogAnalyzer nesnesini `+` operatörüyle birleştirdiğimde satırlar kayboluyor; bunun yerine birleştirme sonucunda satırları sırayla arkasına eklenmiş yeni bir LogAnalyzer nesnesi dönsün. Bu birleşik nesne üzerinde longest_streak ve distinct_ips metotları da birleşik satırların tamamına göre doğru sonucu versin.
+
+  Sadece netlog/analyzer.py üzerinde çalış; netlog/records.py ve netlog/streaks.py olduğu gibi kalsın.
+
+setup: |
+  mkdir -p netlog
+  cat > netlog/records.py <<'RECORDS'
+  def parse_lines(lines):
+      rows = []
+      for line in lines:
+          line = line.strip()
+          if not line:
+              continue
+          ip, path, status = line.split('|')
+          rows.append((ip, path, int(status)))
+      return rows
+  RECORDS
+  cat > netlog/streaks.py <<'STREAKS'
+  def longest_ok_streak(rows):
+      best = 0
+      run = 0
+      for _ip, _path, status in rows:
+          if status == 200:
+              run += 1
+              if run > best:
+                  best = run
+          else:
+              run = 0
+      return best
+  STREAKS
+  cat > netlog/analyzer.py <<'ANALYZER'
+  from netlog.records import parse_lines
+  from netlog.streaks import longest_ok_streak
+
+
+  class LogAnalyzer:
+      def __init__(self, lines):
+          self.rows = parse_lines(lines)
+
+      def __add__(self, other):
+          return LogAnalyzer([])
+
+      def longest_streak(self):
+          return longest_ok_streak(self.rows)
+
+      def distinct_ips(self):
+          return len({ip for ip, _p, _s in self.rows})
+  ANALYZER
+  cat > sample.log <<'LOG'
+  10.0.0.1|/index|200
+  10.0.0.2|/index|200
+  10.0.0.1|/cart|500
+  10.0.0.3|/index|200
+  10.0.0.3|/buy|200
+  10.0.0.2|/cart|200
+  LOG
+
+goal_tr: >
+  netlog/analyzer.py icindeki LogAnalyzer sinifini, iki LogAnalyzer nesnesi
+  `+` ile birlestirildiginde satirlari sirayla birlestirilmis yeni bir
+  LogAnalyzer dondurecek ve longest_streak ile distinct_ips bu birlesik
+  satirlar uzerinde dogru calisacak bicimde duzelt.
+
+reference_solution: |
+  cat > netlog/analyzer.py <<'ANALYZER'
+  from netlog.records import parse_lines
+  from netlog.streaks import longest_ok_streak
+
+
+  class LogAnalyzer:
+      def __init__(self, lines):
+          self.rows = parse_lines(lines)
+
+      def __add__(self, other):
+          merged = self.rows + other.rows
+          lines = ["%s|%s|%d" % (ip, path, status) for ip, path, status in merged]
+          return LogAnalyzer(lines)
+
+      def longest_streak(self):
+          return longest_ok_streak(self.rows)
+
+      def distinct_ips(self):
+          return len({ip for ip, _p, _s in self.rows})
+  ANALYZER
+
+outputs:
+  - {path: netlog/analyzer.py, kind: program, run: 'python3 -c ''from netlog.analyzer import LogAnalyzer as L; a=L(["1.1.1.1|/a|200","1.1.1.2|/b|500"]); b=L(["1.1.1.3|/c|200","1.1.1.3|/d|200","1.1.1.4|/e|200"]); c=a+b; assert c.longest_streak()==3, c.longest_streak(); assert c.distinct_ips()==4, c.distinct_ips(); assert a.longest_streak()==1; assert b.distinct_ips()==2; assert (b+a).distinct_ips()==4; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from netlog.analyzer import LogAnalyzer as L; a=L(["1.1.1.1|/a|200","1.1.1.2|/b|500"]); b=L(["1.1.1.3|/c|200","1.1.1.3|/d|200","1.1.1.4|/e|200"]); c=a+b; assert c.longest_streak()==3, c.longest_streak(); assert c.distinct_ips()==4, c.distinct_ips(); assert a.longest_streak()==1; assert b.distinct_ips()==2; assert (b+a).distinct_ips()==4; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8343
+    bundle: yarisma
+    tools:
+    - python3
+    konu: web-erisim-loglari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kolay
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: dinamik-programlama
+      karmasiklik: duz
+      kalip: operator-asiri-yukleme
+      akis: bellek-ici
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

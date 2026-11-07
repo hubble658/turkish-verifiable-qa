@@ -1,0 +1,155 @@
+id: gen-k-8301-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  rates/ops/apply.py dosyasındaki StackRateStack sınıfının push, pop, depth ve current metotlarını gerçek bir yığın gibi çalışacak şekilde gerçekleştir. push metodu en üste eleman eklemeli, pop metodu en üstteki elemanı çıkarıp döndürmeli, depth metodu yığındaki eleman sayısını döndürmeli, current metodu ise yığın boş değilse en üstteki elemanı, boşsa None döndürmeli. rates/ops/apply.py içindeki RateEngine soyut sınıfını değiştirme.
+
+  Şu şartlar sağlanmalı:
+  - rates/ops/apply.py dosyası mevcut olmalı ve StackRateStack sınıfını içermeli.
+  - StackRateStack sınıfının push, pop, depth ve current metotları NotImplementedError yerine gerçek bir yığın davranışı sergilemeli.
+  - push en üste eleman eklemeli.
+  - pop en üstteki elemanı çıkarıp döndürmeli.
+  - depth yığındaki eleman sayısını döndürmeli.
+  - current yığın boş değilse en üstteki elemanı, boşsa None döndürmeli.
+  - RateEngine soyut sınıfı değiştirilmemiş olmalı.
+
+setup: |
+  mkdir -p rates/core rates/ops
+  cat > rates/core/stack.py <<'STACK'
+  from abc import ABC, abstractmethod
+
+
+  class RateStack(ABC):
+      @abstractmethod
+      def push(self, rate):
+          ...
+
+      @abstractmethod
+      def pop(self):
+          ...
+
+      @abstractmethod
+      def depth(self):
+          ...
+
+      @abstractmethod
+      def current(self):
+          ...
+  STACK
+  cat > rates/core/__init__.py <<'INIT'
+  INIT
+  cat > rates/ops/__init__.py <<'INIT'
+  INIT
+  cat > rates/ops/apply.py <<'APPLY'
+  from abc import ABC, abstractmethod
+
+  from rates.core.stack import RateStack
+
+
+  class StackRateStack(RateStack):
+      def __init__(self):
+          self._items = []
+
+      def push(self, rate):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def depth(self):
+          raise NotImplementedError
+
+      def current(self):
+          raise NotImplementedError
+
+
+  class RateEngine(ABC):
+      @abstractmethod
+      def apply(self, stack, code):
+          ...
+  APPLY
+  cat > rates/__init__.py <<'INIT'
+  INIT
+
+goal_tr: >
+  rates/ops/apply.py icindeki StackRateStack sinifinin push, pop, depth ve
+  current metotlarini bir yigin gibi calisacak sekilde (push en uste ekler,
+  pop en usttekini cikarir ve dondurur, depth eleman sayisini, current bos
+  degilse en usttekini aksi halde None dondurur) gerceklestir; RateEngine
+  soyut sinifini degistirme.
+
+reference_solution: |
+  cat > rates/ops/apply.py <<'APPLY'
+  from abc import ABC, abstractmethod
+
+  from rates.core.stack import RateStack
+
+
+  class StackRateStack(RateStack):
+      def __init__(self):
+          self._items = []
+
+      def push(self, rate):
+          self._items.append(rate)
+
+      def pop(self):
+          return self._items.pop()
+
+      def depth(self):
+          return len(self._items)
+
+      def current(self):
+          if not self._items:
+              return None
+          return self._items[-1]
+
+
+  class RateEngine(ABC):
+      @abstractmethod
+      def apply(self, stack, code):
+          ...
+  APPLY
+
+outputs:
+  - {path: rates/ops/apply.py, kind: program, run: python3 -c 'import sys; from rates.ops.apply import StackRateStack as S; s=S(); assert s.depth()==0; assert s.current() is None; s.push(1.5); s.push(2.25); s.push(3.0); assert s.depth()==3; assert s.current()==3.0; assert s.pop()==3.0; assert s.current()==2.25; assert s.depth()==2; assert s.pop()==2.25; assert s.pop()==1.5; assert s.depth()==0; assert s.current() is None; print("TAMAM")'}
+
+checks:
+  - {op: run_stdout_eq, cmd: python3 -c 'import sys; from rates.ops.apply import StackRateStack as S; s=S(); assert s.depth()==0; assert s.current() is None; s.push(1.5); s.push(2.25); s.push(3.0); assert s.depth()==3; assert s.current()==3.0; assert s.pop()==3.0; assert s.current()==2.25; assert s.depth()==2; assert s.pop()==2.25; assert s.pop()==1.5; assert s.depth()==0; assert s.current() is None; print("TAMAM")', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8301
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: kur-cevrimleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin
+      karmasiklik: duz
+      kalip: abc-protokol
+      akis: stdin-boru
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

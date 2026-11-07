@@ -1,0 +1,116 @@
+id: gen-k-5030-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sensors/counter.py içindeki SampleCounter sınıfını iterator protokolüne uygun yap; __iter__ kendini döndürsün, next her çağrıldığında sensors/reader.py üzerinden readings.txt'ten okunan değerleri ilk görülme sırasına göre (değer, adet) çiftleri olarak üretsin.
+
+setup: |
+  mkdir -p sensors
+  cat > sensors/reader.py <<'READER'
+  def read_samples(path):
+      with open(path) as fh:
+          return [int(line.strip()) for line in fh if line.strip()]
+  READER
+  cat > sensors/counter.py <<'COUNTER'
+  from sensors.reader import read_samples
+
+
+  class SampleCounter:
+      def __init__(self, path):
+          self._values = read_samples(path)
+
+      def __iter__(self):
+          raise NotImplementedError
+  COUNTER
+  cat > readings.txt <<'DATA'
+  3
+  7
+  3
+  7
+  3
+  11
+  7
+  3
+  11
+  7
+  DATA
+
+goal_tr: >
+  sensors/counter.py icindeki SampleCounter sinifini iterator protokolune
+  uygun bicimde gerceklestir; __iter__ kendini dondursun ve her next
+  cagrisinda sensors/reader.py uzerinden readings.txt dosyasindan okunan
+  degerleri degerin ilk gorulme sirasina gore (deger, adet) ciftleri olarak
+  uretsin.
+
+reference_solution: |
+  cat > sensors/counter.py <<'COUNTER'
+  from sensors.reader import read_samples
+
+
+  class SampleCounter:
+      def __init__(self, path):
+          values = read_samples(path)
+          self._pairs = []
+          seen = {}
+          for value in values:
+              if value not in seen:
+                  seen[value] = 0
+                  self._pairs.append((value, 0))
+              seen[value] += 1
+          self._pairs = [(v, seen[v]) for v, _ in self._pairs]
+          self._index = 0
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          if self._index >= len(self._pairs):
+              raise StopIteration
+          pair = self._pairs[self._index]
+          self._index += 1
+          return pair
+  COUNTER
+
+outputs:
+  - {path: sensors/counter.py, kind: program, run: 'python3 -c ''from sensors.counter import SampleCounter as C; it=C("readings.txt"); assert iter(it) is it; assert next(it)==(3,4), next(iter(C("readings.txt"))); assert list(it)==[(7,4),(11,2)]; assert list(C("readings.txt"))==[(3,4),(7,4),(11,2)]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensors.counter import SampleCounter as C; it=C("readings.txt"); assert iter(it) is it; assert next(it)==(3,4), next(iter(C("readings.txt"))); assert list(it)==[(7,4),(11,2)]; assert list(C("readings.txt"))==[(3,4),(7,4),(11,2)]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5030
+    bundle: yarisma
+    tools:
+    - python3
+    konu: sensor-serisi
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sayma
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

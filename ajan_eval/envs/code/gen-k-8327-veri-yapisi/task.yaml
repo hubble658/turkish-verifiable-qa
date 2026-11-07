@@ -1,0 +1,132 @@
+id: gen-k-8327-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Sabah toplantısında öğrenci işleriyle ilgilenen ekipten biri, not dökümlerini her seferinde baştan okumaktan şikayet etti; aynı öğrenciyi arka arkaya sorguladıklarında bile dosyanın yeniden okunması can sıkıcıymış. Ben de bugün o işi biraz toparlamak istiyorum. Çalışma dizininde records/grades.txt diye bir dosya var; içinde öğrenci adı, ders ve not üçlüleri iki nokta üst üste ile ayrılmış satırlar halinde duruyor. Bu dosyadaki notları okuyup her öğrencinin ders notu toplamını hesaplayan bir yapı kurmam lazım.
+
+  Bunu records/transcript.py dosyası olarak yaz. İçinde iki şey olsun: birincisi `memoize_by_file` adında bir dekoratör; aynı öğrenci için tekrar tekrar sorulduğunda dosyayı yeniden okumadan sonucu önbellekten dönsün. İkincisi de sınıf tabanlı bir LRU önbellek, adı `LRUCache` olsun. Yani hem dekoratör hem de sınıf aynı dosyada yer alsın.
+
+setup: |
+  mkdir -p records
+  cat > records/grades.txt <<'GRADES'
+  ada:math:90
+  ada:phys:80
+  ada:chem:70
+  bora:math:60
+  bora:phys:95
+  bora:chem:85
+  cem:math:100
+  cem:phys:100
+  cem:chem:100
+  GRADES
+
+goal_tr: >
+  records/grades.txt dosyasindaki notlari okuyup her ogrencinin ders notu
+  toplamini hesaplayan, ayni ogrenci icin tekrar tekrar soruldugunda dosyayi
+  yeniden okumadan sonucu onbellekten donen bir `memoize_by_file` dekoratoru
+  ile sinif tabanli bir LRU onbellek (`LRUCache`) iceren
+  records/transcript.py dosyasini yaz.
+
+reference_solution: |
+  cat > records/transcript.py <<'PY'
+  from collections import OrderedDict
+
+
+  class LRUCache:
+      def __init__(self, capacity):
+          if capacity <= 0:
+              raise ValueError("capacity must be positive")
+          self.capacity = capacity
+          self._store = OrderedDict()
+
+      def get(self, key):
+          if key not in self._store:
+              return None
+          self._store.move_to_end(key)
+          return self._store[key]
+
+      def put(self, key, value):
+          if key in self._store:
+              self._store.move_to_end(key)
+          self._store[key] = value
+          if len(self._store) > self.capacity:
+              self._store.popitem(last=False)
+
+      def __len__(self):
+          return len(self._store)
+
+
+  def memoize_by_file(capacity):
+      def decorator(func):
+          cache = LRUCache(capacity)
+
+          def wrapper(path):
+              hit = cache.get(path)
+              if hit is not None:
+                  return hit
+              value = func(path)
+              cache.put(path, value)
+              return value
+
+          wrapper.cache = cache
+          return wrapper
+
+      return decorator
+
+
+  @memoize_by_file(2)
+  def total_scores(path):
+      totals = {}
+      with open(path, "r", encoding="ascii") as handle:
+          for line in handle:
+              line = line.strip()
+              if not line:
+                  continue
+              name, subject, score = line.split(":")
+              totals[name] = totals.get(name, 0) + int(score)
+      return totals
+  PY
+
+outputs:
+  - {path: records/transcript.py, kind: program, run: 'python3 -c ''import records.transcript as t; assert t.total_scores("records/grades.txt")=={"ada":240,"bora":240,"cem":300}; assert len(t.total_scores.cache)==1; assert t.total_scores.cache.get("records/grades.txt")=={"ada":240,"bora":240,"cem":300}; c=t.LRUCache(2); c.put("a",1); c.put("b",2); assert c.get("a")==1; c.put("c",3); assert c.get("b") is None; assert c.get("a")==1 and c.get("c")==3; assert len(c)==2; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import records.transcript as t; assert t.total_scores("records/grades.txt")=={"ada":240,"bora":240,"cem":300}; assert len(t.total_scores.cache)==1; assert t.total_scores.cache.get("records/grades.txt")=={"ada":240,"bora":240,"cem":300}; c=t.LRUCache(2); c.put("a",1); c.put("b",2); assert c.get("a")==1; c.put("c",3); assert c.get("b") is None; assert c.get("a")==1 and c.get("c")==3; assert len(c)==2; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8327
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: ogrenci-transkripti
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: zor
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: lru-onbellek
+      karmasiklik: duz
+      kalip: dekorator
+      akis: dosya-okuma
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

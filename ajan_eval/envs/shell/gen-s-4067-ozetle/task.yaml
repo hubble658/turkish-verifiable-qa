@@ -1,0 +1,85 @@
+id: gen-s-4067-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi/hesaplar.tsv ve girdi/kalemler.tsv dosyalarındaki satırları sırayla eşleştir; her hesap için kalem bazında toplam tutarı hesapla. Aynı hesap-kalem-tutar üçlüsü birden fazla kez geçiyorsa onu yalnızca bir kez hesaba kat. Sonuçları cikti dizini altında her hesap için ayrı bir dosyaya yaz: cikti/hesap_kasa.txt ve cikti/hesap_banka.txt dosyaları oluşsun ve her dosyada her satırda bir kalem ile o kaleme ait toplam tutar, aralarında sekme olacak biçimde yer alsın. girdi/notlar.tsv dosyasını ise tamamen yok say.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/hesaplar.tsv <<'TSV'
+  kasa	100	gelir
+  banka	250	gider
+  kasa	100	gelir
+  banka	40	gider
+  kasa	50	gelir
+  TSV
+  cat > girdi/kalemler.tsv <<'TSV'
+  kasa	malzeme
+  banka	kira
+  kasa	malzeme
+  banka	kira
+  kasa	nakliye
+  TSV
+  cat > girdi/notlar.tsv <<'TSV'
+  kasa	100	gelir
+  banka	999	gider
+  TSV
+
+goal_tr: >
+  girdi/hesaplar.tsv ve girdi/kalemler.tsv dosyalarini satir sirasina gore
+  birlestirip, ayni hesap-kalem-tutar uclusu tekrar eden satirlari bir kez
+  sayarak, her hesap icin kalem bazinda toplam tutari
+  cikti/hesap_<hesap>.txt dosyalarina "<kalem>\t<tutar>" satirlari halinde
+  yaz; girdi/notlar.tsv dosyasini yok say.
+
+reference_solution: |
+  cut -f1,2 girdi/kalemler.tsv > /tmp/anahtar.tsv
+  cut -f1,3 girdi/hesaplar.tsv > /tmp/tutar.tsv
+  paste /tmp/anahtar.tsv /tmp/tutar.tsv | sort -u | sort -k1,1 -k2,2 > /tmp/birlesik.tsv
+  while IFS=$'\t' read -r hesap kalem tutar; do
+    mkdir -p cikti
+    printf '%s\t%s\n' "$kalem" "$tutar" >> "cikti/hesap_${hesap}.txt"
+  done < /tmp/birlesik.tsv
+  for f in cikti/hesap_*.txt; do
+    sort "$f" -o "$f"
+  done
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/hesap_kasa.txt, kind: file}
+  - {path: cikti/hesap_banka.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [hesap_banka.txt, hesap_kasa.txt]}
+  - {op: file_content_eq, path: cikti/hesap_banka.txt, value: "kira\tbanka\tgider"}
+  - {op: file_lines_eq, path: cikti/hesap_kasa.txt, value: ["malzeme\tkasa\tgelir", "nakliye\tkasa\tgelir"]}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4067
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: muhasebe-kalemleri
+    hedef: ozetle
+    girdi: tsv
+    kaynak: iki-dosya-capraz
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: tekrar-eden-kayit
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

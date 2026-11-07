@@ -1,0 +1,112 @@
+id: gen-k-8421-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  fx/core/convert.py içindeki convert fonksiyonu her çağrıldığında rates.csv dosyasını yeniden okusun, önbellekteki eski kurlar kullanılmasın.
+
+setup: |
+  mkdir -p fx/core fx/io
+  cat > fx/io/rates.py <<'RATES'
+  def load_rates(path):
+      table = {}
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              code, rate = line.split(',')
+              table[code] = float(rate)
+      return table
+  RATES
+  cat > fx/core/convert.py <<'CONVERT'
+  from fx.io.rates import load_rates
+
+  _CACHE = {}
+
+
+  def convert(amount, path, chain):
+      if path not in _CACHE:
+          _CACHE[path] = load_rates(path)
+      return _walk(amount, _CACHE[path], chain)
+
+
+  def _walk(amount, table, chain):
+      if not chain:
+          return amount
+      head, rest = chain[0], chain[1:]
+      rate = table.get(head, 1.0)
+      return _walk(amount * rate, table, rest)
+  CONVERT
+  cat > rates.csv <<'CSV'
+  USD,1.0
+  EUR,0.8
+  GBP,0.5
+  JPY,100.0
+  CSV
+
+goal_tr: >
+  fx/core/convert.py icindeki convert fonksiyonunu, her cagride rates.csv
+  dosyasini yeniden okuyacak bicimde duzelt; boylece dosya degistiginde
+  onbellek yuzunden eski kurlar kullanilmasin.
+
+reference_solution: |
+  cat > fx/core/convert.py <<'CONVERT'
+  from fx.io.rates import load_rates
+
+
+  def convert(amount, path, chain):
+      table = load_rates(path)
+      return _walk(amount, table, chain)
+
+
+  def _walk(amount, table, chain):
+      if not chain:
+          return amount
+      head, rest = chain[0], chain[1:]
+      rate = table.get(head, 1.0)
+      return _walk(amount * rate, table, rest)
+  CONVERT
+
+outputs:
+  - {path: fx/core/convert.py, kind: program, run: 'python3 -c ''import os; from fx.core.convert import convert as c; assert c(100,"rates.csv",["EUR"])==80.0; open("rates.csv","w").write("USD,1.0\nEUR,0.9\nGBP,0.5\nJPY,100.0\n"); assert c(100,"rates.csv",["EUR"])==90.0, c(100,"rates.csv",["EUR"]); open("rates.csv","w").write("USD,1.0\nEUR,0.8\nGBP,0.5\nJPY,100.0\n"); assert c(100,"rates.csv",["EUR","GBP"])==40.0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import os; from fx.core.convert import convert as c; assert c(100,"rates.csv",["EUR"])==80.0; open("rates.csv","w").write("USD,1.0\nEUR,0.9\nGBP,0.5\nJPY,100.0\n"); assert c(100,"rates.csv",["EUR"])==90.0, c(100,"rates.csv",["EUR"]); open("rates.csv","w").write("USD,1.0\nEUR,0.8\nGBP,0.5\nJPY,100.0\n"); assert c(100,"rates.csv",["EUR","GBP"])==40.0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8421
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kur-cevrimleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-durum-sifirlama
+      karmasiklik: duz
+      kalip: ozyineleme
+      akis: dosya-okuma
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,108 @@
+id: gen-k-8383-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  weblog/agg/queue.py içindeki EventQueue sınıfını gerçekleştir: push öğeyi kuyruğun sonuna koysun, pop ilk öğeyi çıkarsın ve boş kuyrukta IndexError yükseltsin, drain ise kalan tüm öğeleri FIFO sırasıyla döndürüp kuyruğu boşaltsın. İç içe geçmiş sözlükleri düz bir olay listesine açan bir kuyruk olmalı.
+
+setup: |
+  mkdir -p weblog/agg
+  cat > weblog/__init__.py <<'PY'
+  PY
+  cat > weblog/agg/__init__.py <<'PY'
+  PY
+  cat > weblog/agg/queue.py <<'PY'
+  class EventQueue:
+      def __init__(self):
+          raise NotImplementedError
+
+      def push(self, item):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def drain(self):
+          raise NotImplementedError
+  PY
+  cat > weblog/agg/replay.py <<'PY'
+  from weblog.agg.queue import EventQueue
+
+
+  def replay(events):
+      q = EventQueue()
+      for e in events:
+          q.push(e)
+      return q.drain()
+  PY
+
+goal_tr: >
+  weblog/agg/queue.py icindeki EventQueue sinifini, ic ice gecmis (nested)
+  sozlukleri duz bir olay listesine FIFO sirasiyla acan bir kuyruk olacak
+  sekilde gerceklestir; push eklenen ogeyi kuyrugun sonuna koyar, pop ilk
+  ogeyi cikarir ve bos kuyrukta IndexError yukseltir, drain ise kalan tum
+  ogeleri sirayla dondurup kuyrugu bosaltir.
+
+reference_solution: |
+  cat > weblog/agg/queue.py <<'PY'
+  class EventQueue:
+      def __init__(self):
+          self._items = []
+
+      def push(self, item):
+          self._items.append(item)
+
+      def pop(self):
+          if not self._items:
+              raise IndexError("pop from empty queue")
+          return self._items.pop(0)
+
+      def drain(self):
+          out = []
+          while self._items:
+              out.append(self._items.pop(0))
+          return out
+  PY
+
+outputs:
+  - {path: weblog/agg/queue.py, kind: program, run: 'python3 -c ''from weblog.agg.queue import EventQueue as Q; from weblog.agg.replay import replay as r; ev=[{"path":"/a","hits":[1,{"deep":[2,3]}]},{"path":"/b"}]; assert r(ev)==ev, r(ev); q=Q(); q.push("x"); q.push("y"); assert q.pop()=="x"; assert q.drain()==["y"]; assert q.drain()==[]; ok=[False]; exec("try:\n    q.pop()\nexcept IndexError:\n    ok[0]=True"); assert ok[0], "expected IndexError"; q.push(1); q.push(2); q.push(3); assert q.drain()==[1,2,3]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from weblog.agg.queue import EventQueue as Q; from weblog.agg.replay import replay as r; ev=[{"path":"/a","hits":[1,{"deep":[2,3]}]},{"path":"/b"}]; assert r(ev)==ev, r(ev); q=Q(); q.push("x"); q.push("y"); assert q.pop()=="x"; assert q.drain()==["y"]; assert q.drain()==[]; ok=[False]; exec("try:\n    q.pop()\nexcept IndexError:\n    ok[0]=True"); assert ok[0], "expected IndexError"; q.push(1); q.push(2); q.push(3); assert q.drain()==[1,2,3]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8383
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: web-erisim-loglari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kuyruk
+      karmasiklik: duz
+      kalip: ozyineleme
+      akis: ic-ice-yapi
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

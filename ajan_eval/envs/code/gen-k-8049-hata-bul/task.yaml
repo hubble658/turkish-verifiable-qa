@@ -1,0 +1,121 @@
+id: gen-k-8049-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  weblog/stats.py içindeki error_hosts fonksiyonunu düzelt: status >= 400 olan tüm kayıtların ana bilgisayar adlarını ilk görülme sırasına göre tekrarsız döndürsün, erken dönüş yapmasın.
+
+setup: |
+  mkdir -p weblog
+  cat > weblog/records.py <<'RECORDS'
+  from dataclasses import dataclass
+
+
+  @dataclass
+  class Access:
+      host: str
+      path: str
+      status: int
+      bytes_sent: int
+
+      @classmethod
+      def from_line(cls, line):
+          host, path, status, size = line.split(" ")
+          return cls(host, path, int(status), int(size))
+  RECORDS
+  cat > weblog/stats.py <<'STATS'
+  from weblog.records import Access
+
+
+  def load(text):
+      return [Access.from_line(ln) for ln in text.strip().splitlines()]
+
+
+  def error_hosts(records):
+      seen = []
+      for rec in records:
+          if rec.status >= 400:
+              if rec.host not in seen:
+                  seen.append(rec.host)
+              return seen
+      return seen
+  STATS
+  cat > weblog/report.py <<'REPORT'
+  from weblog.stats import load, error_hosts
+
+
+  def summarize(text):
+      records = load(text)
+      hosts = error_hosts(records)
+      return {
+          "total": len(records),
+          "errors": len(hosts),
+          "hosts": hosts,
+      }
+  REPORT
+
+goal_tr: >
+  weblog/stats.py icindeki error_hosts fonksiyonunu duzelt: status >= 400
+  olan TUM kayitlarin ana bilgisayar adlarini ilk gorulme sirasina gore
+  tekrarsiz dondursun; erken donus yapmasin.
+
+reference_solution: |
+  cat > weblog/stats.py <<'STATS'
+  from weblog.records import Access
+
+
+  def load(text):
+      return [Access.from_line(ln) for ln in text.strip().splitlines()]
+
+
+  def error_hosts(records):
+      seen = []
+      for rec in records:
+          if rec.status >= 400:
+              if rec.host not in seen:
+                  seen.append(rec.host)
+      return seen
+  STATS
+
+outputs:
+  - {path: weblog/stats.py, kind: program, run: 'python3 -c ''from weblog.records import Access; from weblog.stats import error_hosts as f; recs=[Access("a.example","/x",200,1),Access("b.example","/y",500,1),Access("a.example","/z",404,1),Access("c.example","/w",503,1),Access("b.example","/v",404,1)]; r=f(recs); assert r==["b.example","a.example","c.example"], r; assert f([])==[], "empty"; assert f([Access("h","/p",200,1)])==[], "no-errors"; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from weblog.records import Access; from weblog.stats import error_hosts as f; recs=[Access("a.example","/x",200,1),Access("b.example","/y",500,1),Access("a.example","/z",404,1),Access("c.example","/w",503,1),Access("b.example","/v",404,1)]; r=f(recs); assert r==["b.example","a.example","c.example"], r; assert f([])==[], "empty"; assert f([Access("h","/p",200,1)])==[], "no-errors"; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8049
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: web-erisim-loglari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: terse
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: erken-donus
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: bellek-ici
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

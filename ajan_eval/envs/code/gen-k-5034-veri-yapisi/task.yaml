@@ -1,0 +1,150 @@
+id: gen-k-5034-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  callcenter/queue/store.py içindeki CallQueue sınıfını bir öncelik kuyruğu olarak gerçekleştir; yüksek öncelikli arayan önce çıkar, aynı öncelikte olanlar geliş sırasını korusun. Kuyrukta enqueue, dequeue, peek, size ve pending işlemleri çalışsın. Ayrıca callcenter/queue/stream.py içindeki drain ve batches fonksiyonlarını bu kuyruğu tüketen generator olarak yaz; drain kuyruk boşalana kadar sırayla eleman üretsin, batches ise elemanları verilen boyutta gruplar halinde üretsin.
+
+setup: |
+  mkdir -p callcenter/queue
+  cat > callcenter/__init__.py <<'PY'
+  PY
+  cat > callcenter/queue/__init__.py <<'PY'
+  PY
+  cat > callcenter/queue/store.py <<'PY'
+  class CallQueue:
+      def __init__(self):
+          raise NotImplementedError
+
+      def enqueue(self, caller, priority):
+          raise NotImplementedError
+
+      def dequeue(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def size(self):
+          raise NotImplementedError
+
+      def pending(self):
+          raise NotImplementedError
+  PY
+  cat > callcenter/queue/stream.py <<'PY'
+  from callcenter.queue.store import CallQueue
+
+
+  def drain(queue):
+      raise NotImplementedError
+
+
+  def batches(queue, size):
+      raise NotImplementedError
+  PY
+  cat > calls.txt <<'TXT'
+  Ayse 3
+  Bora 1
+  Cem 3
+  Deniz 2
+  Ece 1
+  TXT
+
+goal_tr: >
+  callcenter/queue/store.py icindeki CallQueue sinifini oncelik kuyrugu
+  olarak gerceklestir (yuksek oncelik once cikar, ayni oncelikte gelis
+  sirasi korunur) ve callcenter/queue/stream.py icindeki drain ile batches
+  fonksiyonlarini bu kuyrugu tuketen generator olarak yaz.
+
+reference_solution: |
+  cat > callcenter/queue/store.py <<'PY'
+  import heapq
+
+
+  class CallQueue:
+      def __init__(self):
+          self._heap = []
+          self._counter = 0
+
+      def enqueue(self, caller, priority):
+          heapq.heappush(self._heap, (-priority, self._counter, caller))
+          self._counter += 1
+
+      def dequeue(self):
+          if not self._heap:
+              raise IndexError("empty queue")
+          return heapq.heappop(self._heap)[2]
+
+      def peek(self):
+          if not self._heap:
+              raise IndexError("empty queue")
+          return self._heap[0][2]
+
+      def size(self):
+          return len(self._heap)
+
+      def pending(self):
+          return [item[2] for item in sorted(self._heap)]
+  PY
+  cat > callcenter/queue/stream.py <<'PY'
+  from callcenter.queue.store import CallQueue
+
+
+  def drain(queue):
+      while queue.size() > 0:
+          yield queue.dequeue()
+
+
+  def batches(queue, size):
+      batch = []
+      for caller in drain(queue):
+          batch.append(caller)
+          if len(batch) == size:
+              yield batch
+              batch = []
+      if batch:
+          yield batch
+  PY
+
+outputs:
+  - {path: callcenter/queue/store.py, kind: program, run: 'python3 -c ''from callcenter.queue.store import CallQueue; from callcenter.queue.stream import drain, batches; q=CallQueue(); [q.enqueue(n,p) for n,p in [("Ayse",3),("Bora",1),("Cem",3),("Deniz",2),("Ece",1)]]; assert q.size()==5; assert q.peek()=="Ayse"; assert list(drain(q))==["Ayse","Cem","Deniz","Bora","Ece"]; assert q.size()==0; q2=CallQueue(); [q2.enqueue(n,p) for n,p in [("Ayse",3),("Bora",1),("Cem",3),("Deniz",2),("Ece",1)]]; assert list(batches(q2,2))==[["Ayse","Cem"],["Deniz","Bora"],["Ece"]]; q3=CallQueue(); q3.enqueue("Zed",1); assert q3.pending()==["Zed"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from callcenter.queue.store import CallQueue; from callcenter.queue.stream import drain, batches; q=CallQueue(); [q.enqueue(n,p) for n,p in [("Ayse",3),("Bora",1),("Cem",3),("Deniz",2),("Ece",1)]]; assert q.size()==5; assert q.peek()=="Ayse"; assert list(drain(q))==["Ayse","Cem","Deniz","Bora","Ece"]; assert q.size()==0; q2=CallQueue(); [q2.enqueue(n,p) for n,p in [("Ayse",3),("Bora",1),("Cem",3),("Deniz",2),("Ece",1)]]; assert list(batches(q2,2))==[["Ayse","Cem"],["Deniz","Bora"],["Ece"]]; q3=CallQueue(); q3.enqueue("Zed",1); assert q3.pending()==["Zed"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5034
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: cagri-merkezi-kayitlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kuyruk
+      karmasiklik: duz
+      kalip: generator
+      akis: ic-ice-yapi
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

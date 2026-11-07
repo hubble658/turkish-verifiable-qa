@@ -1,0 +1,136 @@
+id: gen-k-5154-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Depo sayımlarını haftalık kapatmaya yetiştirmeye çalışıyoruz ve dün gece fark ettim ki stok hareketlerini ürün bazında toplayan rapor tarafı yanlış sonuç veriyor; aynı ürünün birden fazla satırda geçtiği durumlarda toplamlar birbirini ezmiş. Bugün oturup stock/ledger.py tarafındaki dekoratörün sağladığı (sku, delta) çiftlerini stock/report.py içindeki net_by_sku fonksiyonunda sku başına toplayacak biçimde düzeltmem gerekiyor, yani her ürün için net stok, o ürünün tüm deltalarının toplamı olmalı. Aynı dosyada yer alan lowest_sku fonksiyonu da bu düzeltmeden sonra çalışsın ve en düşük net stoklu ürünün kodunu döndürsün.
+
+setup: |
+  mkdir -p stock
+  cat > stock/ledger.py <<'LEDGER'
+  def chunked(text):
+      """Split a movement stream into non-empty chunks.
+
+      Chunks are separated by blank lines; each chunk is a list of
+      "sku,delta" strings with whitespace stripped.
+      """
+      chunks = []
+      current = []
+      for raw in text.splitlines():
+          line = raw.strip()
+          if not line:
+              if current:
+                  chunks.append(current)
+                  current = []
+              continue
+          current.append(line)
+      if current:
+          chunks.append(current)
+      return chunks
+
+
+  def with_totals(fn):
+      """Decorator: parse each chunk into (sku, int(delta)) pairs and
+      hand the resulting list of pairs to fn as its single argument.
+      """
+      def wrapper(text):
+          pairs = []
+          for chunk in chunked(text):
+              for line in chunk:
+                  sku, delta = line.split(',')
+                  pairs.append((sku, int(delta)))
+          return fn(pairs)
+      return wrapper
+  LEDGER
+  cat > stock/report.py <<'REPORT'
+  from stock.ledger import with_totals
+
+
+  @with_totals
+  def net_by_sku(pairs):
+      totals = {}
+      for sku, delta in pairs:
+          totals[sku] = delta
+      return totals
+
+
+  def lowest_sku(text):
+      totals = net_by_sku(text)
+      return min(totals.items(), key=lambda kv: kv[1])[0]
+  REPORT
+  cat > movements.txt <<'MOVES'
+  a,5
+  b,3
+
+  a,-2
+  c,7
+
+  b,-1
+  c,-3
+  MOVES
+
+goal_tr: >
+  stock/report.py icindeki net_by_sku fonksiyonunu, dekoratorun sagladigi
+  (sku, delta) ciftlerini sku basina toplayacak bicimde duzelt; lowest_sku
+  en dusuk net stoklu urunun kodunu dondursun.
+
+reference_solution: |
+  cat > stock/report.py <<'REPORT'
+  from stock.ledger import with_totals
+
+
+  @with_totals
+  def net_by_sku(pairs):
+      totals = {}
+      for sku, delta in pairs:
+          totals[sku] = totals.get(sku, 0) + delta
+      return totals
+
+
+  def lowest_sku(text):
+      totals = net_by_sku(text)
+      return min(totals.items(), key=lambda kv: kv[1])[0]
+  REPORT
+
+outputs:
+  - {path: stock/report.py, kind: program, run: 'python3 -c ''from stock.report import net_by_sku as n, lowest_sku as l; t=open("movements.txt").read(); assert n(t)=={"a":3,"b":2,"c":4}, n(t); assert l(t)=="b", l(t); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from stock.report import net_by_sku as n, lowest_sku as l; t=open("movements.txt").read(); assert n(t)=={"a":3,"b":2,"c":4}, n(t); assert l(t)=="b", l(t); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5154
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: stok-hareketleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: tip-karismasi
+      karmasiklik: duz
+      kalip: dekorator
+      akis: parcali-akis
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

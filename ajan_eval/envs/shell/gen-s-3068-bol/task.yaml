@@ -1,0 +1,75 @@
+id: gen-s-3068-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) randevular klasöründeki sabah.json ve ogleden_sonra.json dosyalarındaki tüm randevu kayıtlarını birleştir.
+
+  2) Birleştirilen kayıtları bolum alanına göre grupla ve her bölümdeki randevu sayısını hesapla.
+
+  3) En çok randevusu olan bölümün adını tek satır olarak sonuc.txt dosyasına yaz.
+
+setup: |
+  mkdir -p randevular
+  cat > randevular/sabah.json <<'JSON'
+  {"tarih":"2024-03-11","hasta":"Ali Veli","bolum":"kardiyoloji"}
+  {"tarih":"2024-03-11","hasta":"Ayse Yilmaz","bolum":"noroloji"}
+  {"tarih":"2024-03-11","hasta":"Mehmet Demir","bolum":"kardiyoloji"}
+  {"tarih":"2024-03-12","hasta":"Fatma Kaya","bolum":"ortopedi"}
+  {"tarih":"2024-03-12","hasta":"Hasan Celik","bolum":"noroloji"}
+  JSON
+  cat > randevular/ogleden_sonra.json <<'JSON'
+  {"tarih":"2024-03-12","hasta":"Zeynep Arslan","bolum":"kardiyoloji"}
+  {"tarih":"2024-03-13","hasta":"Emre Dogan","bolum":"ortopedi"}
+  {"tarih":"2024-03-13","hasta":"Selin Koc","bolum":"kardiyoloji"}
+  {"tarih":"2024-03-13","hasta":"Burak Ozturk","bolum":"noroloji"}
+  {"tarih":"2024-03-13","hasta":"Deniz Sahin","bolum":"ortopedi"}
+  JSON
+
+goal_tr: >
+  randevular klasorundeki sabah.json ve ogleden_sonra.json dosyalarindaki
+  kayitlari birlestirip bolum alanina gore gruplayarak, en cok randevusu
+  olan bolumun adini tek satir olarak sonuc.txt dosyasina yaz
+
+reference_solution: |
+  mkdir -p gecici
+  mv randevular/sabah.json gecici/bolum_sabah.json
+  mv randevular/ogleden_sonra.json gecici/bolum_ogleden_sonra.json
+  cat gecici/bolum_sabah.json gecici/bolum_ogleden_sonra.json | sed 's/.*"bolum":"//; s/".*//' | sort | uniq -c | sort -rn | head -n 1 | awk '{print $2}' > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: kardiyoloji}
+  - {op: not_exists, path: randevular/ogleden_sonra.json}
+  - {op: not_exists, path: randevular/sabah.json}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3068
+    bundle: dosya-duzen
+    tools:
+    - mkdir
+    - mv
+    konu: hastane-randevulari
+    hedef: bol
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

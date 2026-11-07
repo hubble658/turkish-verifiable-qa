@@ -1,0 +1,100 @@
+id: gen-k-5089-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  meters/stream.py dosyasına make_pair_stream(tree) fonksiyonunu ekle; iç içe okuma ağacını düzleştirip ardışık okuma çiftlerini üretsin ve her çağrıldığında sıradaki çifti döndüren bir iç fonksiyon döndürsün, çiftler bitince None versin.
+
+setup: |
+  mkdir -p meters
+  cat > meters/readings.py <<'READINGS'
+  def flatten(node):
+      if isinstance(node, list):
+          out = []
+          for item in node:
+              out.extend(flatten(item))
+          return out
+      return [node]
+  READINGS
+  cat > meters/stream.py <<'STREAM'
+  from meters.readings import flatten
+
+
+  def window_pairs(tree):
+      values = flatten(tree)
+      pairs = []
+      for i in range(len(values) - 1):
+          pairs.append((values[i], values[i + 1]))
+      return pairs
+  STREAM
+  cat > sample_tree.py <<'TREE'
+  TREE_DATA = [[1, [2, 3]], [4, [[5, 6]], 7], [8]]
+  TREE
+
+goal_tr: >
+  meters/stream.py icine, ic ice okuma agacini duzlestirip ardisik okuma
+  ciftlerini ureten bir closure fabrikasi olan make_pair_stream(tree)
+  fonksiyonunu ekle; fonksiyon her cagrildiginda bir sonraki cifti donduren
+  bir ic fonksiyon dondursun ve ciftler bitince None versin.
+
+reference_solution: |
+  cat > meters/stream.py <<'STREAM'
+  from meters.readings import flatten
+
+
+  def make_pair_stream(tree):
+      values = flatten(tree)
+      index = [0]
+
+      def next_pair():
+          i = index[0]
+          if i + 1 >= len(values):
+              return None
+          index[0] = i + 1
+          return (values[i], values[i + 1])
+
+      return next_pair
+  STREAM
+
+outputs:
+  - {path: meters/stream.py, kind: program, run: 'python3 -c ''from meters.stream import make_pair_stream as f; t=[[1,[2,3]],[4,[[5,6]],7],[8]]; n=f(t); assert n()==(1,2); assert n()==(2,3); assert n()==(3,4); assert n()==(4,5); assert n()==(5,6); assert n()==(6,7); assert n()==(7,8); assert n() is None; assert n() is None; m=f([[9,10]]); assert m()==(9,10); assert m() is None; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from meters.stream import make_pair_stream as f; t=[[1,[2,3]],[4,[[5,6]],7],[8]]; n=f(t); assert n()==(1,2); assert n()==(2,3); assert n()==(3,4); assert n()==(4,5); assert n()==(5,6); assert n()==(6,7); assert n()==(7,8); assert n() is None; assert n() is None; m=f([[9,10]]); assert m()==(9,10); assert m() is None; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5089
+    bundle: yarisma
+    tools:
+    - python3
+    konu: elektrik-sayaclari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: terse
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: iki-isaretci
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: ic-ice-yapi
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

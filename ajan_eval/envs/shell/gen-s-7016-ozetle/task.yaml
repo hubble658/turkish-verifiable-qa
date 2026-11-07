@@ -1,0 +1,61 @@
+id: gen-s-7016-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  notlar klasöründeki .txt dosyalarında geçen her öğrenci numarası için notların toplamını hesapla ve toplamı 150 ve üzeri olan öğrenci sayısını sonuc.txt dosyasına sadece sayı olarak yaz.
+
+setup: |
+  mkdir -p notlar
+  printf '101 85\n102 90\n' > notlar/a.txt
+  printf '103 70\n101 60\n' > notlar/b.txt
+  printf '104 55\n102 80\n' > notlar/c.txt
+  printf '101 100\n105 95' > notlar/d.txt
+  printf 'baslik\n' > notlar/README.not
+
+goal_tr: >
+  notlar klasorundeki .txt dosyalarinda gecen her ogrenci numarasi icin
+  notlarin toplamini hesaplayip, toplami 150 ve uzeri olan ogrenci sayisini
+  sonuc.txt dosyasina sadece sayi olarak yaz.
+
+reference_solution: |
+  cat notlar/*.txt | sort -k1,1 > /tmp/birlesik.txt
+  awk '{s[$1]+=$2} END {for (k in s) print k, s[k]}' /tmp/birlesik.txt | sort -k1,1 > /tmp/toplam.txt
+  awk '$2 >= 150 {c++} END {print c+0}' /tmp/toplam.txt > /tmp/sonuc_gecici.txt
+  tr -d '\n' < /tmp/sonuc_gecici.txt > sonuc.txt
+  join -1 1 -2 1 /tmp/toplam.txt /tmp/toplam.txt > /dev/null
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '2'}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7016
+    bundle: birlestir
+    tools:
+    - join
+    - sort
+    konu: ogrenci-notlari
+    hedef: ozetle
+    girdi: ini
+    kaynak: cok-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: son-newline-yok
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

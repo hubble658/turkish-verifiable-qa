@@ -1,0 +1,64 @@
+id: gen-s-7124-bol
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi dizin ağacındaki tüm .json dosyalarındaki tutar değerlerinin toplamını hesapla ve sonucu tek bir sayı olarak toplam.txt dosyasına yaz.
+
+setup: |
+  mkdir -p girdi/2024/ocak girdi/2024/subat girdi/2023
+  cat > girdi/2024/ocak/k1.json <<'J'
+  {"tutar": 100}
+  J
+  cat > girdi/2024/ocak/k2.json <<'J'
+  {"tutar": 250}
+  J
+  cat > girdi/2024/subat/k3.json <<'J'
+  {"tutar": 75}
+  J
+  cat > girdi/2023/k4.json <<'J'
+  {"tutar": 400}
+  J
+
+goal_tr: >
+  girdi dizin agacindaki tum .json dosyalarindaki tutar degerlerinin
+  toplamini tek sayi olarak toplam.txt dosyasina yaz
+
+reference_solution: |
+  mkdir -p cikti && mv girdi cikti/girdi && find cikti/girdi -name '*.json' -exec cat {} + | grep -o '[0-9]\+' | awk '{s+=$1} END {print s}' > toplam.txt
+
+outputs:
+  - {path: toplam.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: toplam.txt, value: '825'}
+  - {op: not_exists, path: girdi}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7124
+    bundle: dosya-duzen
+    tools:
+    - mkdir
+    - mv
+    konu: muhasebe-kalemleri
+    hedef: bol
+    girdi: json
+    kaynak: dizin-agaci
+    cikti: tek-sayi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

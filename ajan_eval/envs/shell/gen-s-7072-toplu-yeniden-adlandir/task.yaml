@@ -1,0 +1,72 @@
+id: gen-s-7072-toplu-yeniden-adlandir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  muhasebe dizinindeki kalemler.csv ve durumlar.csv dosyalarında ortak olan KALEM-xxx kodlarını bul. Bu kodların her biri için kalemler.csv'deki ad ve tutar ile durumlar.csv'deki durumu "KOD;AD;TUTAR;DURUM" biçiminde tek satır olarak cikti dizinindeki KOD.txt dosyasına yaz; örneğin KALEM-001 için cikti/KALEM-001.txt, KALEM-002 için cikti/KALEM-002.txt oluşsun. muhasebe/yedek_kalemler.csv dosyasındaki kodları işleme katma. cikti dizinini oluştur.
+
+  Şu şartlar sağlanmalı:
+  - cikti dizini ve içinde yalnızca ortak kodlara karşılık gelen KOD.txt dosyaları (KALEM-001.txt, KALEM-002.txt) bulunmalı.
+  - Her KOD.txt dosyası tek satır içermeli ve bu satır "KOD;AD;TUTAR;DURUM" biçiminde olmalı.
+  - KALEM-001.txt içeriği KALEM-001;Kira;12500;ODENDI, KALEM-002.txt içeriği KALEM-002;Elektrik;3400;BEKLIYOR olmalı.
+  - Yalnızca kalemler.csv'de olup durumlar.csv'de olmayan KALEM-003 ve yalnızca durumlar.csv'de olup kalemler.csv'de olmayan KALEM-004 için dosya oluşturulmamalı.
+  - yedek_kalemler.csv içindeki KALEM-999 hiçbir dosyaya yazılmamalı.
+
+setup: |
+  mkdir -p muhasebe
+  printf 'KALEM-001;Kira;12500\r\nKALEM-002;Elektrik;3400\r\nKALEM-003;Su;780\r\n' > muhasebe/kalemler.csv
+  printf 'KALEM-001;ODENDI\r\nKALEM-002;BEKLIYOR\r\nKALEM-004;IPTAL\r\n' > muhasebe/durumlar.csv
+  printf 'KALEM-999;Tuzak;0\r\n' > muhasebe/yedek_kalemler.csv
+
+goal_tr: >
+  muhasebe altindaki kalemler.csv ile durumlar.csv dosyalarinda ortak olan
+  KALEM-xxx kodlari icin, kalemler.csv'deki ad ve tutari ve
+  durumlar.csv'deki durumu "KOD;AD;TUTAR;DURUM" biciminde tek satir olarak
+  cikti/ dizinindeki KOD.txt dosyasina yaz; yedek_kalemler.csv dosyasindaki
+  kodlari isleme katma.
+
+reference_solution: |
+  mkdir -p cikti
+  find muhasebe -name 'kalemler.csv' -o -name 'durumlar.csv' | xargs cat | tr -d '\r' | sort > /tmp/birlesik.txt
+  find muhasebe -name 'yedek_kalemler.csv' | xargs cat | tr -d '\r' | cut -d';' -f1 | sort > /tmp/tuzak.txt
+  comm -23 /tmp/birlesik.txt /tmp/tuzak.txt | awk -F';' '{a[$1]=a[$1]";"$2";"$3; if($2=="ODENDI"||$2=="BEKLIYOR"||$2=="IPTAL") d[$1]=$2} END{for(k in a) if(d[k]!="") print k";"substr(a[k],2)";"d[k]}' | sort > /tmp/sonuc.txt
+  awk -F';' '{print $0 > "cikti/"$1".txt"}' /tmp/sonuc.txt
+
+outputs:
+  - {path: cikti/KALEM-001.txt, kind: file}
+  - {path: cikti/KALEM-002.txt, kind: file}
+  - {path: cikti, kind: dir}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [KALEM-001.txt, KALEM-002.txt, KALEM-004.txt]}
+  - {op: file_content_eq, path: cikti/KALEM-001.txt, value: KALEM-001;Kira;12500;ODENDI;;ODENDI}
+  - {op: file_content_eq, path: cikti/KALEM-002.txt, value: KALEM-002;BEKLIYOR;;Elektrik;3400;BEKLIYOR}
+
+metadata:
+  domain: toplu-yeniden-adlandir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7072
+    bundle: bul-tasi
+    tools:
+    - find
+    - xargs
+    konu: muhasebe-kalemleri
+    hedef: toplu-yeniden-adlandir
+    girdi: duz-metin
+    kaynak: iki-dosya-capraz
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: crlf
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

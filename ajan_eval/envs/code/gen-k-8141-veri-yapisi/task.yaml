@@ -1,0 +1,252 @@
+id: gen-k-8141-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  clinic/queue/store.py içindeki QueueStore sınıfını FIFO kuyruk olarak (add/remove/peek/drain/len), clinic/queue/priority.py içindeki PriorityQueueStore sınıfını ise (öncelik, sıra) çiftine göre küçük-öncelik-önce davranan kuyruk olarak gerçekle. clinic/triage.py'deki make_queue, _fifo ve _priority closure fabrikaları her çağrıda bağımsız kuyruk döndürsün.
+
+setup: |
+  mkdir -p clinic/queue
+  cat > clinic/queue/__init__.py <<'INIT'
+  from clinic.queue.store import QueueStore
+  INIT
+  cat > clinic/queue/store.py <<'STORE'
+  class QueueStore:
+      def __init__(self):
+          self._items = []
+          self._seq = 0
+
+      def _next_seq(self):
+          self._seq += 1
+          return self._seq
+
+      def add(self, item):
+          raise NotImplementedError
+
+      def remove(self, key):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def drain(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+  STORE
+  cat > clinic/queue/priority.py <<'PRIO'
+  class PriorityQueueStore:
+      def __init__(self):
+          raise NotImplementedError
+
+      def add(self, item):
+          raise NotImplementedError
+
+      def remove(self, key):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def drain(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+  PRIO
+  cat > clinic/triage.py <<'TRIAGE'
+  from clinic.queue.store import QueueStore
+  from clinic.queue.priority import PriorityQueueStore
+
+
+  def make_queue(kind):
+      if kind == "fifo":
+          return _fifo()
+      if kind == "priority":
+          return _priority()
+      raise ValueError("unknown queue kind: " + str(kind))
+  TRIAGE
+
+goal_tr: >
+  clinic/queue/store.py icindeki QueueStore sinifini FIFO kuyruk
+  (add/remove/peek/drain/len), clinic/queue/priority.py icindeki
+  PriorityQueueStore sinifini ise (oncelik, sira) ciftine gore
+  kucuk-oncelik-once davranan kuyruk olarak gerceklestir;
+  clinic/triage.py'deki make_queue, _fifo ve _priority closure fabrikalarini
+  kullanarak her cagride bagimsiz bir kuyruk dondursun.
+
+reference_solution: |
+  cat > clinic/queue/store.py <<'STORE'
+  class QueueStore:
+      def __init__(self):
+          self._items = []
+          self._seq = 0
+
+      def _next_seq(self):
+          self._seq += 1
+          return self._seq
+
+      def add(self, item):
+          seq = self._next_seq()
+          self._items.append((seq, item))
+          return seq
+
+      def remove(self, key):
+          for i, (seq, item) in enumerate(self._items):
+              if seq == key:
+                  del self._items[i]
+                  return item
+          raise KeyError(key)
+
+      def peek(self):
+          if not self._items:
+              raise IndexError("peek from empty queue")
+          return self._items[0][1]
+
+      def drain(self):
+          out = [item for _, item in self._items]
+          self._items = []
+          return out
+
+      def __len__(self):
+          return len(self._items)
+  STORE
+  cat > clinic/queue/priority.py <<'PRIO'
+  class PriorityQueueStore:
+      def __init__(self):
+          self._items = []
+          self._seq = 0
+
+      def _next_seq(self):
+          self._seq += 1
+          return self._seq
+
+      def add(self, item):
+          priority, value = item
+          seq = self._next_seq()
+          self._items.append((priority, seq, value))
+          return seq
+
+      def remove(self, key):
+          for i, (priority, seq, value) in enumerate(self._items):
+              if seq == key:
+                  del self._items[i]
+                  return value
+          raise KeyError(key)
+
+      def _ordered(self):
+          return sorted(self._items, key=lambda r: (r[0], r[1]))
+
+      def peek(self):
+          if not self._items:
+              raise IndexError("peek from empty queue")
+          return self._ordered()[0][2]
+
+      def drain(self):
+          out = [value for _, _, value in self._ordered()]
+          self._items = []
+          return out
+
+      def __len__(self):
+          return len(self._items)
+  PRIO
+  cat > clinic/triage.py <<'TRIAGE'
+  from clinic.queue.store import QueueStore
+  from clinic.queue.priority import PriorityQueueStore
+
+
+  def make_queue(kind):
+      if kind == "fifo":
+          return _fifo()
+      if kind == "priority":
+          return _priority()
+      raise ValueError("unknown queue kind: " + str(kind))
+
+
+  def _fifo():
+      store = QueueStore()
+
+      def add(item):
+          return store.add(item)
+
+      def remove(key):
+          return store.remove(key)
+
+      def peek():
+          return store.peek()
+
+      def drain():
+          return store.drain()
+
+      def size():
+          return len(store)
+
+      return {"add": add, "remove": remove, "peek": peek,
+              "drain": drain, "size": size}
+
+
+  def _priority():
+      store = PriorityQueueStore()
+
+      def add(item):
+          return store.add(item)
+
+      def remove(key):
+          return store.remove(key)
+
+      def peek():
+          return store.peek()
+
+      def drain():
+          return store.drain()
+
+      def size():
+          return len(store)
+
+      return {"add": add, "remove": remove, "peek": peek,
+              "drain": drain, "size": size}
+  TRIAGE
+
+outputs:
+  - {path: clinic/queue/store.py, kind: program, run: 'python3 -c ''from clinic.triage import make_queue; q=make_queue("fifo"); a=q["add"]("p1"); b=q["add"]("p2"); c=q["add"]("p3"); assert q["size"]()==3; assert q["peek"]()=="p1"; assert q["remove"](b)=="p2"; assert q["drain"]()==["p1","p3"]; assert q["size"]()==0; q2=make_queue("fifo"); assert q2["size"]()==0; p=make_queue("priority"); p["add"]((5,"low")); p["add"]((1,"high")); p["add"]((3,"mid")); assert p["peek"]()=="high"; assert p["drain"]()==["high","mid","low"]; p["add"]((1,"x")); p["add"]((1,"y")); assert p["drain"]()==["x","y"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from clinic.triage import make_queue; q=make_queue("fifo"); a=q["add"]("p1"); b=q["add"]("p2"); c=q["add"]("p3"); assert q["size"]()==3; assert q["peek"]()=="p1"; assert q["remove"](b)=="p2"; assert q["drain"]()==["p1","p3"]; assert q["size"]()==0; q2=make_queue("fifo"); assert q2["size"]()==0; p=make_queue("priority"); p["add"]((5,"low")); p["add"]((1,"high")); p["add"]((3,"mid")); assert p["peek"]()=="high"; assert p["drain"]()==["high","mid","low"]; p["add"]((1,"x")); p["add"]((1,"y")); assert p["drain"]()==["x","y"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8141
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: hastane-randevulari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: zor
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kuyruk
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: bellek-ici
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

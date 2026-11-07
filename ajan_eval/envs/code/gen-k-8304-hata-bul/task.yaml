@@ -1,0 +1,94 @@
+id: gen-k-8304-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  depo/siralama.py içindeki agirliga_gore fonksiyonunu düzelt. Şu an ağırlığa göre artan sıralama yapıyor ve eşit ağırlıklı kayıtlar giriş sırasını koruyor. Bunun yerine, ağırlığı eşit olan kayıtlar ada göre ters alfabetik sırada gelsin; ağırlık sıralaması yine artan kalsın. depo/parca.py, depo/rapor.py ve envanter.csv dosyalarına dokunma; sadece depo/siralama.py değişsin. Sonuçta depo/rapor.py içindeki en_agir_parcalar, eşit ağırlıklı parçalar arasında ters alfabetik ad sırası döndürsün.
+
+setup: |
+  mkdir -p depo
+  cat > depo/parca.py <<'PARCA'
+  def parca_kayitlari(metin):
+      kayitlar = []
+      for satir in metin.strip().splitlines():
+          ad, miktar, agirlik = satir.split(',')
+          kayitlar.append({"ad": ad, "miktar": int(miktar), "agirlik": float(agirlik)})
+      return kayitlar
+  PARCA
+  cat > depo/siralama.py <<'SIRALAMA'
+  def agirliga_gore(kayitlar):
+      sirali = sorted(kayitlar, key=lambda k: k["agirlik"])
+      return [k["ad"] for k in sirali]
+  SIRALAMA
+  cat > depo/rapor.py <<'RAPOR'
+  from depo.parca import parca_kayitlari
+  from depo.siralama import agirliga_gore
+
+
+  def en_agir_parcalar(metin, k):
+      kayitlar = parca_kayitlari(metin)
+      adlar = agirliga_gore(kayitlar)
+      return adlar[-k:]
+  RAPOR
+  cat > envanter.csv <<'CSV'
+  civata,100,2.5
+  somun,50,2.5
+  pul,200,1.0
+  vida,80,2.5
+  CSV
+
+goal_tr: >
+  depo/siralama.py icindeki agirliga_gore fonksiyonunu, esit agirlikli
+  parcalarda giris sirasini korumak yerine agirligi esit olanlari ada gore
+  ters alfabetik sirada dizecek sekilde duzelt; boylece depo/rapor.py
+  en_agir_parcalar esit agirliklarda ters alfabetik ad sirasi dondursun.
+
+reference_solution: |
+  cat > depo/siralama.py <<'SIRALAMA'
+  def agirliga_gore(kayitlar):
+      sirali = sorted(kayitlar, key=lambda k: (k["agirlik"], [-ord(c) for c in k["ad"]]))
+      return [k["ad"] for k in sirali]
+  SIRALAMA
+
+outputs:
+  - {path: depo/siralama.py, kind: program, run: 'python3 -c ''from depo.rapor import en_agir_parcalar as f; t=open("envanter.csv").read(); r=f(t,3); assert r==["vida","somun","civata"], r; r2=f(t,4); assert r2==["pul","vida","somun","civata"], r2; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.rapor import en_agir_parcalar as f; t=open("envanter.csv").read(); r=f(t,3); assert r==["vida","somun","civata"], r; r2=f(t,4); assert r2==["pul","vida","somun","civata"], r2; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8304
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: depo-envanteri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-kararsizligi
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: bellek-ici
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

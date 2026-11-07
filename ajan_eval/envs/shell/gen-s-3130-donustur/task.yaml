@@ -1,0 +1,71 @@
+id: gen-s-3130-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri dizinindeki uzantısı tam olarak .log olan dosyaları bul; her satırdaki dikey çubukları noktalı virgüle çevir ve ilk alanı YYYY-AA-GG biçiminden GG-AA-YYYY biçimine dönüştür. Elde ettiğin tüm satırları tekrarsız olarak randevular.csv dosyasına yaz. veri/randevular.log.yedek dosyasına dokunma; veri/notlar.txt gibi .log uzantılı olmayan dosyalar dikkate alınmasın.
+
+setup: |
+  mkdir -p veri
+  cat > veri/randevular.log <<'LOG'
+  2024-03-01|09:15|Ayse Yilmaz|Kardiyoloji|tamamlandi
+  2024-03-01|10:00|Mehmet Demir|Ortopedi|iptal
+  2024-03-02|08:30|Zeynep Kaya|Kardiyoloji|tamamlandi
+  2024-03-02|11:45|Ali Celik|Noroloji|tamamlandi
+  2024-03-03|14:20|Ayse Yilmaz|Kardiyoloji|tamamlandi
+  2024-03-03|15:00|Fatma Sahin|Ortopedi|beklemede
+  LOG
+  cat > veri/randevular.log.yedek <<'LOG'
+  2020-01-01|00:00|Tuzak Kisi|Tuzak Bolum|tamamlandi
+  2020-01-01|00:00|Tuzak Kisi|Tuzak Bolum|tamamlandi
+  LOG
+  cat > veri/notlar.txt <<'TXT'
+  bu dosya log degil
+  TXT
+
+goal_tr: >
+  veri dizinindeki uzantisi tam olarak .log olan dosyalari bul,
+  satirlarindaki dikey cubuklari noktali virgule cevirip ilk alani
+  YYYY-AA-GG biciminden GG-AA-YYYY bicimine donusturerek tum satirlari
+  tekrarsiz sekilde randevular.csv dosyasina yaz
+
+reference_solution: |
+  find veri -type f -name '*.log' | sort > /tmp/loglar.lst
+  sed 's/|/;/g' $(cat /tmp/loglar.lst) | sed -E 's/^([0-9]{4})-([0-9]{2})-([0-9]{2})/\3-\2-\1/' | tr 'A-Z' 'a-z' | sort -u > randevular.csv
+
+outputs:
+  - {path: randevular.csv, kind: file}
+  - {path: veri/randevular.log, kind: file}
+  - {path: veri/randevular.log.yedek, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: randevular.csv, value: ['01-03-2024;09:15;ayse yilmaz;kardiyoloji;tamamlandi', '01-03-2024;10:00;mehmet demir;ortopedi;iptal', '02-03-2024;08:30;zeynep kaya;kardiyoloji;tamamlandi', '02-03-2024;11:45;ali celik;noroloji;tamamlandi', '03-03-2024;14:20;ayse yilmaz;kardiyoloji;tamamlandi', '03-03-2024;15:00;fatma sahin;ortopedi;beklemede']}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3130
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: hastane-randevulari
+    hedef: donustur
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: csv
+    kesif: dosyayi-bul
+    uslup: kisit-sakli
+    direnc: tekrar-eden-kayit
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

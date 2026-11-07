@@ -1,0 +1,123 @@
+id: gen-k-5012-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  cargo/tracker.py dosyasındaki make_tracker fonksiyonunu, kendisine verilen kayıtlardan her takip numarası için ayrı bir yığın tutan bir closure döndürecek şekilde gerçekleştir. Döndürülen closure üzerinde append, pop, peek ve size metotları bulunmalı. Ayrıca aynı dosyadaki replay fonksiyonunu, verilen bir takip numarasının geçmişini sondan başa doğru listeleyecek şekilde gerçekleştir. cargo/tracker.py dışında yeni bir dosya oluşturma; mevcut cargo/events.py dosyasındaki scan_events fonksiyonundan yararlanabilirsin.
+
+  Şu şartlar sağlanmalı:
+  - cargo/tracker.py dosyası mevcut olmalı ve içinde make_tracker ile replay fonksiyonları tanımlı olmalı.
+  - make_tracker(records) çağrıldığında bir closure döndürmeli; bu closure her takip numarası için bağımsız bir yığın tutmalı.
+  - Closure üzerinde append, pop, peek ve size metotları bulunmalı ve doğru şekilde çalışmalı.
+  - replay(tracker, tracking_no) çağrıldığında ilgili takip numarasının geçmişi sondan başa doğru sıralanmış bir liste olarak dönmeli.
+  - cargo/events.py dosyasındaki scan_events fonksiyonu kullanılmalı; dosya adı ve fonksiyon adı değiştirilmemeli.
+
+setup: |
+  mkdir -p cargo
+  cat > cargo/events.py <<'EVENTS'
+  def scan_events(records):
+      """records: list of (tracking_no, action). Returns dict tracking -> list of actions."""
+      table = {}
+      for tracking_no, action in records:
+          if tracking_no not in table:
+              table[tracking_no] = []
+          table[tracking_no].append(action)
+      return table
+  EVENTS
+  cat > cargo/tracker.py <<'TRACKER'
+  from cargo.events import scan_events
+
+
+  def make_tracker(records):
+      raise NotImplementedError
+
+
+  def replay(tracker, tracking_no):
+      raise NotImplementedError
+  TRACKER
+
+goal_tr: >
+  cargo/tracker.py icindeki make_tracker fonksiyonunu, kayitlardan her takip
+  numarasi icin bir yigin tutan ve append/pop/peek/size metotlari olan bir
+  closure dondurecek sekilde; replay fonksiyonunu ise verilen takip
+  numarasinin gecmisini sondan basa dogru listeleyecek sekilde gerceklestir.
+
+reference_solution: |
+  cat > cargo/tracker.py <<'TRACKER'
+  from cargo.events import scan_events
+
+
+  def make_tracker(records):
+      table = scan_events(records)
+      stacks = {tracking_no: list(actions) for tracking_no, actions in table.items()}
+
+      def append(tracking_no, action):
+          stacks.setdefault(tracking_no, []).append(action)
+
+      def pop(tracking_no):
+          stack = stacks.get(tracking_no)
+          if not stack:
+              return None
+          return stack.pop()
+
+      def peek(tracking_no):
+          stack = stacks.get(tracking_no)
+          if not stack:
+              return None
+          return stack[-1]
+
+      def size(tracking_no):
+          return len(stacks.get(tracking_no, []))
+
+      return {"append": append, "pop": pop, "peek": peek, "size": size}
+
+
+  def replay(tracker, tracking_no):
+      out = []
+      while tracker["size"](tracking_no) > 0:
+          out.append(tracker["pop"](tracking_no))
+      return out
+  TRACKER
+
+outputs:
+  - {path: cargo/tracker.py, kind: program, run: 'python3 -c ''from cargo.tracker import make_tracker, replay; recs=[("T1","picked"),("T2","picked"),("T1","hub"),("T1","out"),("T2","hub")]; t=make_tracker(recs); assert t["peek"]("T1")=="out", t["peek"]("T1"); assert t["size"]("T1")==3; assert t["pop"]("T1")=="out"; assert t["peek"]("T1")=="hub"; t["append"]("T1","delivered"); assert t["peek"]("T1")=="delivered"; assert t["size"]("T1")==3; assert t["pop"]("T9") is None; assert t["peek"]("T9") is None; assert t["size"]("T9")==0; assert replay(t,"T2")==["hub","picked"], replay(t,"T2"); assert t["size"]("T2")==0; assert replay(t,"T2")==[]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from cargo.tracker import make_tracker, replay; recs=[("T1","picked"),("T2","picked"),("T1","hub"),("T1","out"),("T2","hub")]; t=make_tracker(recs); assert t["peek"]("T1")=="out", t["peek"]("T1"); assert t["size"]("T1")==3; assert t["pop"]("T1")=="out"; assert t["peek"]("T1")=="hub"; t["append"]("T1","delivered"); assert t["peek"]("T1")=="delivered"; assert t["size"]("T1")==3; assert t["pop"]("T9") is None; assert t["peek"]("T9") is None; assert t["size"]("T9")==0; assert replay(t,"T2")==["hub","picked"], replay(t,"T2"); assert t["size"]("T2")==0; assert replay(t,"T2")==[]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5012
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: kargo-takibi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: bellek-ici
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

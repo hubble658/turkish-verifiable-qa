@@ -1,0 +1,81 @@
+id: gen-s-7052-karsilastir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri/sensor_a.csv ve veri/sensor_b.csv dosyalarını zaman sütununa göre karşılaştır; yalnızca iki dosyada farklı olan satırları farklar.txt dosyasına yaz. farklar.txt içindeki her satır önce dosya adı, sonra iki nokta, sonra satırın tamamı biçiminde olsun ve satırlar dosya adına göre sıralansın.
+
+  Şu şartlar sağlanmalı:
+  - farklar.txt dosyası oluşturulmalı.
+  - veri/sensor_a.csv ve veri/sensor_b.csv dosyaları zaman sütununa göre karşılaştırılmalı.
+  - Yalnızca iki dosyada farklı olan satırlar farklar.txt dosyasına yazılmalı.
+  - farklar.txt içindeki her satır önce dosya adı, sonra iki nokta, sonra satırın tamamı biçiminde olmalı.
+  - farklar.txt içindeki satırlar dosya adına göre sıralı olmalı.
+
+setup: |
+  mkdir -p veri
+  cat > veri/sensor_a.csv <<'CSV'
+  zaman,sicaklik,nem
+  01:00,21,40
+  02:00,22,41
+  03:00,23,42
+  04:00,24,43
+  05:00,25,44
+  CSV
+  cat > veri/sensor_b.csv <<'CSV'
+  zaman,sicaklik,nem
+  01:00,21,40
+  02:00,22,41
+  03:00,99,42
+  04:00,24,43
+  05:00,25,45
+  CSV
+
+goal_tr: >
+  veri/sensor_a.csv ile veri/sensor_b.csv dosyalarini zaman sutununa gore
+  karsilastirip yalnizca iki dosyada farkli olan satirlari farklar.txt
+  dosyasina yaz; her satir once dosya adi, sonra iki nokta, sonra satirin
+  tamami biciminde olsun ve satirlar dosya adina gore siralansin
+
+reference_solution: |
+  tail -n +2 veri/sensor_a.csv | sort > /tmp/a.csv
+  tail -n +2 veri/sensor_b.csv | sort > /tmp/b.csv
+  comm -3 /tmp/a.csv /tmp/b.csv | sed 's/^\t//' > /tmp/fark.csv
+  grep -F -x -f /tmp/a.csv /tmp/fark.csv | sed 's|^|veri/sensor_a.csv:|' > farklar.txt
+  grep -F -x -f /tmp/b.csv /tmp/fark.csv | sed 's|^|veri/sensor_b.csv:|' >> farklar.txt
+  diff farklar.txt farklar.txt > /dev/null
+
+outputs:
+  - {path: farklar.txt, kind: lines, run: cat farklar.txt}
+
+checks:
+  - {op: file_lines_eq, path: farklar.txt, value: ['veri/sensor_a.csv:03:00,23,42', 'veri/sensor_a.csv:05:00,25,44', 'veri/sensor_b.csv:03:00,99,42', 'veri/sensor_b.csv:05:00,25,45']}
+
+metadata:
+  domain: karsilastir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7052
+    bundle: karsilastir
+    tools:
+    - diff
+    - comm
+    konu: sensor-olcumleri
+    hedef: karsilastir
+    girdi: csv
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: veriye-bak
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

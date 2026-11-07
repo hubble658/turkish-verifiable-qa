@@ -1,0 +1,167 @@
+id: gen-k-8337-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  planner/agenda.py dosyasını düzelt. Bu dosyadaki agenda fonksiyonu, çakışan etkinlik aralıklarını birleştirip (start, end) çiftlerinden oluşan artan sıralı bir liste döndürmeli. Ayrıca aynı dosyada agenda sonucunu yazdıran bir dekoratör tanımla ve agenda fonksiyonunun kendisini bu dekoratörle sar.
+
+setup: |
+  mkdir -p planner
+  cat > planner/intervals.py <<'INTERVALS'
+  class Interval:
+      def __init__(self, start, end):
+          self.start = start
+          self.end = end
+
+
+  def merge_intervals(intervals):
+      if not intervals:
+          return []
+      ordered = sorted(intervals, key=lambda iv: iv.start)
+      merged = []
+      for iv in ordered:
+          if merged and iv.start <= merged[-1].end:
+              merged[-1] = Interval(merged[-1].start, max(merged[-1].end, iv.end))
+          else:
+              merged.append(Interval(iv.start, iv.end))
+      return merged
+  INTERVALS
+  cat > planner/loader.py <<'LOADER'
+  from planner.intervals import Interval
+
+
+  def load_events(path):
+      events = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              name, start, end = line.split(',')
+              events.append((name, Interval(int(start), int(end))))
+      return events
+  LOADER
+  cat > planner/agenda.py <<'AGENDA'
+  from planner.loader import load_events
+  from planner.intervals import merge_intervals
+
+
+  def agenda(path):
+      events = load_events(path)
+      merged = merge_intervals([iv for _, iv in events])
+      return [(iv.start, iv.end) for iv in merged]
+  AGENDA
+  cat > events.txt <<'EVENTS'
+  standup,9,10
+  review,11,13
+  lunch,12,14
+  sync,16,17
+  EVENTS
+
+goal_tr: >
+  planner/agenda.py icinde agenda fonksiyonunu, cakisan etkinlik
+  araliklarini birlestirip (start, end) ciftlerinin artan sirada listesini
+  dondurecek sekilde duzelt; agenda sonucunu yazdiran bir dekorator tanimla
+  ve fonksiyonun kendisini bu dekorator ile sar.
+
+reference_solution: |
+  cat > planner/intervals.py <<'INTERVALS'
+  class Interval:
+      def __init__(self, start, end):
+          self.start = start
+          self.end = end
+
+
+  def merge_intervals(intervals):
+      if not intervals:
+          return []
+      ordered = sorted(intervals, key=lambda iv: iv.start)
+      merged = []
+      for iv in ordered:
+          if merged and iv.start <= merged[-1].end:
+              merged[-1] = Interval(merged[-1].start, max(merged[-1].end, iv.end))
+          else:
+              merged.append(Interval(iv.start, iv.end))
+      return merged
+  INTERVALS
+  cat > planner/loader.py <<'LOADER'
+  from planner.intervals import Interval
+
+
+  def load_events(path):
+      events = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              name, start, end = line.split(',')
+              events.append((name, Interval(int(start), int(end))))
+      return events
+  LOADER
+  cat > planner/agenda.py <<'AGENDA'
+  from planner.loader import load_events
+  from planner.intervals import merge_intervals
+
+
+  def logged(func):
+      def wrapper(path):
+          result = func(path)
+          print("agenda:", result)
+          return result
+      return wrapper
+
+
+  @logged
+  def agenda(path):
+      events = load_events(path)
+      merged = merge_intervals([iv for _, iv in events])
+      return [(iv.start, iv.end) for iv in merged]
+  AGENDA
+
+outputs:
+  - {path: planner/agenda.py, kind: program, run: 'python3 -c ''from planner.agenda import agenda; r=agenda("events.txt"); assert r==[(9,10),(11,14),(16,17)], r; assert agenda("events.txt")==[(9,10),(11,14),(16,17)]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from planner.agenda import agenda; r=agenda("events.txt"); assert r==[(9,10),(11,14),(16,17)], r; assert agenda("events.txt")==[(9,10),(11,14),(16,17)]; print("TAMAM")''', value: 'agenda: [(9, 10), (11, 14), (16, 17)]
+
+    agenda: [(9, 10), (11, 14), (16, 17)]
+
+    TAMAM'}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8337
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: takvim-etkinlikleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: aralik-birlestirme
+      karmasiklik: duz
+      kalip: dekorator
+      akis: cok-dosya-birlestirme
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

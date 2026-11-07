@@ -1,0 +1,131 @@
+id: gen-k-2005-hata-bul-v2
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  cargo/report/summary.py içindeki describe fonksiyonu, cargo/core/totals.py üzerinden tüm satırların ağırlıklarını doğru şekilde toplamalı ve sonucu "total=<toplam> count=<satır sayısı>" biçiminde döndürmeli. Şu anda toplam yanlış hesaplanıyor; cargo/core/totals.py içindeki total_weight fonksiyonu her satırın ağırlığını toplama eklemek yerine yalnızca son değeri tutuyor. Bunu, SKIP kodlu satırlar hariç tüm satırların ağırlıklarının toplanması ve describe fonksiyonunun doğru toplamı ve satır sayısını istenen biçimde döndürmesi gerekiyor. Gerekirse cargo/core/events.py içindeki scan_events fonksiyonunu da gözden geçir, ancak satır ayrıştırma biçimi korunmalı.
+
+setup: |
+  mkdir -p cargo/core cargo/report
+  cat > cargo/core/events.py <<'PY'
+  def scan_events(rows):
+      out = []
+      for row in rows:
+          code, weight = row.split(":")
+          out.append((code, int(weight)))
+      return out
+  PY
+  cat > cargo/core/totals.py <<'PY'
+  from cargo.core.events import scan_events
+
+
+  def total_weight(rows):
+      total = 0
+      for code, weight in scan_events(rows):
+          if code == "SKIP":
+              continue
+          total = weight
+      return total
+  PY
+  cat > cargo/report/summary.py <<'PY'
+  from cargo.core.totals import total_weight
+
+
+  def describe(rows):
+      total = total_weight(rows)
+      return "total=%d count=%d" % (total, len(rows))
+  PY
+  cat > sample.txt <<'TXT'
+  A:4
+  B:6
+  C:10
+  TXT
+
+goal_tr: >
+  cargo/report/summary.py icindeki describe fonksiyonunun,
+  cargo/core/totals.py uzerinden tum satirlarin agirliklarini toplayip
+  "total=<toplam> count=<satir sayisi>" biciminde dogru metni dondurmesini
+  sagla.
+
+reference_solution: |
+  cat > cargo/core/totals.py <<'PY'
+  from cargo.core.events import scan_events
+
+
+  def total_weight(rows):
+      total = 0
+      for code, weight in scan_events(rows):
+          if code == "SKIP":
+              continue
+          total += weight
+      return total
+  PY
+  cat > cargo/core/events.py <<'PY'
+  def scan_events(rows):
+      out = []
+      for row in rows:
+          code, weight = row.split(":")
+          out.append((code.strip(), int(weight)))
+      return out
+  PY
+
+ara_adim: |
+  cat > cargo/core/totals.py <<'PY'
+  from cargo.core.events import scan_events
+
+
+  def total_weight(rows):
+      total = 0
+      for code, weight in scan_events(rows):
+          if code == "SKIP":
+              continue
+          total += weight
+      return total
+  PY
+
+outputs:
+  - {path: cargo/report/summary.py, kind: program, run: 'python3 -c ''from cargo.report.summary import describe as f; rows=["A:4","B:6","C:10"]; assert f(rows)=="total=20 count=3", f(rows); assert f(["X:7"])=="total=7 count=1", f(["X:7"]); print("TAMAM")'''}
+  - {path: cargo/core/totals.py, kind: program, run: 'python3 -c ''from cargo.core.totals import total_weight as f; assert f(["A:4","B:6","C:10"])==20, f(["A:4","B:6","C:10"]); assert f(["SKIP:9","B:2"])==2, f(["SKIP:9","B:2"]); print("ILERLEME-TAMAM")'''}
+  - {path: cargo/core/events.py, kind: program, run: 'python3 -c ''from cargo.core.events import scan_events as f; assert f(["A:4","B:6"])==[("A",4),("B",6)], f(["A:4","B:6"]); assert f([" C :10"])==[("C",10)], f([" C :10"]); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from cargo.core.events import scan_events as f; assert f(["A:4","B:6"])==[("A",4),("B",6)], f(["A:4","B:6"]); assert f([" C :10"])==[("C",10)], f([" C :10"]); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from cargo.core.totals import total_weight as f; assert f(["A:4","B:6","C:10"])==20, f(["A:4","B:6","C:10"]); assert f(["SKIP:9","B:2"])==2, f(["SKIP:9","B:2"]); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from cargo.report.summary import describe as f; rows=["A:4","B:6","C:10"]; assert f(rows)=="total=20 count=3", f(rows); assert f(["X:7"])=="total=7 count=1", f(["X:7"]); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-2005
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kargo-takibi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-toplama-sirasi
+      karmasiklik: orta
+      kalip: duz-fonksiyon
+      akis: bellek-ici
+      topoloji: paket-alt-paket
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

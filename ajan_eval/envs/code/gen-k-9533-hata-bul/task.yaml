@@ -1,0 +1,193 @@
+id: gen-k-9533-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 28
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  fleet/report.py, fleet/totals.py ve fleet/store.py düzeltilsin; rapor her plakayı tek satırda ve toplam kilometresiyle göstersin. Şu an aynı plaka birden çok satırda çıkıyor, toplamlar eksik.
+
+setup: |
+  mkdir -p fleet
+  cat > fleet/store.py <<'STORE'
+  def load_routes(path):
+      routes = {}
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              plate, km = line.split(",")
+              routes[plate] = int(km)
+      return routes
+
+
+  class RouteLog:
+      def __init__(self, path):
+          self.path = path
+          self.entries = []
+
+      def __enter__(self):
+          self.entries = list(load_routes(self.path).items())
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self.entries = []
+          return False
+  STORE
+  cat > fleet/totals.py <<'TOTALS'
+  from fleet.store import RouteLog
+
+
+  def vehicle_totals(path):
+      totals = {}
+      with RouteLog(path) as log:
+          for plate, km in log.entries:
+              totals[plate] = km
+      return totals
+  TOTALS
+  cat > fleet/report.py <<'REPORT'
+  from fleet.totals import vehicle_totals
+
+
+  def fleet_summary(path):
+      totals = vehicle_totals(path)
+      lines = []
+      for plate in sorted(totals):
+          lines.append(plate + "=" + str(totals[plate]))
+      return lines
+  REPORT
+  cat > routes.csv <<'CSV'
+  AB12,120
+  CD34,80
+  AB12,30
+  EF56,50
+  CSV
+
+goal_tr: >
+  Arac filosu raporu her plakayi tek satirda ve plakanin toplam
+  kilometresini gostermeli; su an ayni plaka birden fazla satirda cikiyor ve
+  toplamlar eksik.
+
+reference_solution: |
+  cat > fleet/store.py <<'STORE'
+  def load_routes(path):
+      rows = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              plate, km = line.split(",")
+              rows.append((plate, int(km)))
+      return rows
+
+
+  class RouteLog:
+      def __init__(self, path):
+          self.path = path
+          self.entries = []
+
+      def __enter__(self):
+          self.entries = load_routes(self.path)
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self.entries = []
+          return False
+  STORE
+  cat > fleet/totals.py <<'TOTALS'
+  from fleet.store import RouteLog
+
+
+  def vehicle_totals(path):
+      totals = {}
+      with RouteLog(path) as log:
+          for plate, km in log.entries:
+              totals[plate] = totals.get(plate, 0) + km
+      return totals
+  TOTALS
+  cat > fleet/report.py <<'REPORT'
+  from fleet.totals import vehicle_totals
+
+
+  def fleet_summary(path):
+      totals = vehicle_totals(path)
+      lines = []
+      for plate in sorted(totals):
+          lines.append(plate + "=" + str(totals[plate]))
+      return lines
+  REPORT
+
+ara_adim: |
+  cat > fleet/store.py <<'STORE'
+  def load_routes(path):
+      rows = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              plate, km = line.split(",")
+              rows.append((plate, int(km)))
+      return rows
+
+
+  class RouteLog:
+      def __init__(self, path):
+          self.path = path
+          self.entries = []
+
+      def __enter__(self):
+          self.entries = load_routes(self.path)
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self.entries = []
+          return False
+  STORE
+
+outputs:
+  - {path: fleet/report.py, kind: program, run: 'python3 -c ''from fleet.report import fleet_summary as f; r=f("routes.csv"); assert r==["AB12=150","CD34=80","EF56=50"], r; print("TAMAM")'''}
+  - {path: fleet/totals.py, kind: program, run: 'python3 -c ''from fleet.totals import vehicle_totals as f; t=f("routes.csv"); assert t["AB12"]==150, t; print("ILERLEME-TAMAM")'''}
+  - {path: fleet/store.py, kind: program, run: 'python3 -c ''from fleet.store import load_routes as f; rows=f("routes.csv"); assert len(rows)==4, rows; assert rows[0]==("AB12",120), rows; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.store import load_routes as f; rows=f("routes.csv"); assert len(rows)==4, rows; assert rows[0]==("AB12",120), rows; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.totals import vehicle_totals as f; t=f("routes.csv"); assert t["AB12"]==150, t; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.report import fleet_summary as f; r=f("routes.csv"); assert r==["AB12=150","CD34=80","EF56=50"], r; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9533
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: arac-filosu
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: kolay
+    adim: 11
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: erken-donus
+      karmasiklik: derin
+      kalip: context-manager
+      akis: cok-dosya-birlestirme
+      topoloji: elmas
+      zincir: 3
+      regresyon: true
+      bagimli: true
+      kesif_zor: true

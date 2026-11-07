@@ -1,0 +1,189 @@
+id: gen-k-9534-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 28
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  routes paketindeki yol planlayıcısı bazı hedefler için boş yol döndürüyor, ulaşılabilen düğümlerde sıra çağrılar arasında değişiyor ve ağırlık karşılaştırması yanlış sonuç veriyor. Bu sorunları routes/plan.py, routes/graph.py ve routes/edges.py dosyalarında gider; planlayıcı her çağrıda aynı ve doğru sırayı verecek hale gelsin ve ulaşılabilen her hedef için hedefi de içeren bir yol dönsün.
+
+setup: |
+  mkdir -p routes
+  cat > routes/edges.py <<'EDGES'
+  def load_edges(text):
+      out = []
+      for line in text.strip().splitlines():
+          left, weight = line.split(':')
+          src, dst = left.split('>')
+          out.append((src, dst, weight))
+      return out
+  EDGES
+  cat > routes/graph.py <<'GRAPH'
+  from routes.edges import load_edges
+
+
+  class RouteGraph:
+      def __init__(self, text):
+          self.edges = load_edges(text)
+
+      def neighbors(self, node):
+          result = []
+          for index, (src, dst, weight) in enumerate(self.edges):
+              if src == node:
+                  result.append((weight, index, dst))
+          result.sort(key=lambda item: (item[0], item[1]))
+          return [dst for _, _, dst in result]
+
+      def reachable(self, start):
+          seen = []
+          stack = [start]
+          while stack:
+              node = stack.pop()
+              if node in seen:
+                  continue
+              seen.append(node)
+              for nxt in self.neighbors(node):
+                  stack.append(nxt)
+          return seen
+  GRAPH
+  cat > routes/plan.py <<'PLAN'
+  from routes.graph import RouteGraph
+
+
+  class RoutePlanner:
+      def __init__(self, text):
+          self.graph = RouteGraph(text)
+
+      def route(self, start, goal):
+          order = self.graph.reachable(start)
+          if goal not in order:
+              return []
+          return order[:order.index(goal)]
+  PLAN
+  cat > net.txt <<'NET'
+  A>B:5
+  A>C:1
+  C>D:2
+  B>D:9
+  D>E:3
+  A>F:10
+  A>G:9
+  NET
+
+goal_tr: >
+  routes paketindeki yol planlayicisi bazi hedefler icin bos yol donduruyor,
+  ulasilabilen dugumlerde sira cagrilar arasinda degisiyor ve agirlik
+  karsilastirmasi yanlis sonuc veriyor; planlayici her cagrida ayni ve dogru
+  sirayi versin, ulasilabilen her hedef icin hedefi de iceren yol donsun.
+
+reference_solution: |
+  cat > routes/edges.py <<'EDGES'
+  def load_edges(text):
+      out = []
+      for line in text.strip().splitlines():
+          left, weight = line.split(':')
+          src, dst = left.split('>')
+          out.append((src, dst, int(weight)))
+      return out
+  EDGES
+  cat > routes/graph.py <<'GRAPH'
+  from routes.edges import load_edges
+
+
+  class RouteGraph:
+      def __init__(self, text):
+          self.edges = load_edges(text)
+
+      def neighbors(self, node):
+          result = []
+          for index, (src, dst, weight) in enumerate(self.edges):
+              if src == node:
+                  result.append((weight, index, dst))
+          result.sort(key=lambda item: (item[0], item[1]))
+          return [dst for _, _, dst in result]
+
+      def reachable(self, start):
+          seen = []
+          queue = [start]
+          while queue:
+              node = queue.pop(0)
+              if node in seen:
+                  continue
+              seen.append(node)
+              for nxt in self.neighbors(node):
+                  if nxt not in seen:
+                      queue.append(nxt)
+          return seen
+  GRAPH
+  cat > routes/plan.py <<'PLAN'
+  from routes.graph import RouteGraph
+
+
+  class RoutePlanner:
+      def __init__(self, text):
+          self.graph = RouteGraph(text)
+
+      def route(self, start, goal):
+          order = self.graph.reachable(start)
+          if goal not in order:
+              return []
+          return order[:order.index(goal) + 1]
+  PLAN
+
+ara_adim: |
+  cat > routes/edges.py <<'EDGES'
+  def load_edges(text):
+      out = []
+      for line in text.strip().splitlines():
+          left, weight = line.split(':')
+          src, dst = left.split('>')
+          out.append((src, dst, int(weight)))
+      return out
+  EDGES
+
+outputs:
+  - {path: routes/plan.py, kind: program, run: 'python3 -c ''from routes.plan import RoutePlanner as P; t=open("net.txt").read(); p=P(t); assert p.route("A","B")==["A","C","B"], p.route("A","B"); assert p.route("A","E")==["A","C","B","G","F","D","E"], p.route("A","E"); print("TAMAM")'''}
+  - {path: routes/graph.py, kind: program, run: 'python3 -c ''from routes.graph import RouteGraph as G; t=open("net.txt").read(); g=G(t); assert g.reachable("A")==["A","C","B","G","F","D","E"], g.reachable("A"); assert g.neighbors("A")==["C","B","G","F"], g.neighbors("A"); print("ARA-HALKA-TAMAM")'''}
+  - {path: routes/edges.py, kind: program, run: 'python3 -c ''from routes.edges import load_edges as f; t=open("net.txt").read(); rows=f(t); assert rows[0]==("A","B",5), rows[0]; assert all(isinstance(w,int) for _,_,w in rows), rows; print("ILERLEME-TAMAM")'''}
+  - {path: routes/plan.py, kind: program, run: 'python3 -c ''from routes.plan import RoutePlanner as P; t=open("net.txt").read(); p=P(t); assert p.route("Z","A")==[], p.route("Z","A"); assert p.route("A","Z")==[], p.route("A","Z"); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from routes.edges import load_edges as f; t=open("net.txt").read(); rows=f(t); assert rows[0]==("A","B",5), rows[0]; assert all(isinstance(w,int) for _,_,w in rows), rows; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from routes.graph import RouteGraph as G; t=open("net.txt").read(); g=G(t); assert g.reachable("A")==["A","C","B","G","F","D","E"], g.reachable("A"); assert g.neighbors("A")==["C","B","G","F"], g.neighbors("A"); print("ARA-HALKA-TAMAM")''', value: ARA-HALKA-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from routes.plan import RoutePlanner as P; t=open("net.txt").read(); p=P(t); assert p.route("A","B")==["A","C","B"], p.route("A","B"); assert p.route("A","E")==["A","C","B","G","F","D","E"], p.route("A","E"); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from routes.plan import RoutePlanner as P; t=open("net.txt").read(); p=P(t); assert p.route("Z","A")==[], p.route("Z","A"); assert p.route("A","Z")==[], p.route("A","Z"); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9534
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: yol-tarifi-agi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 11
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-kararsizligi
+      karmasiklik: derin
+      kalip: durumlu-sinif
+      akis: cok-dosya-birlestirme
+      topoloji: iki-modul-zincir
+      zincir: 3
+      regresyon: true
+      bagimli: true
+      kesif_zor: true

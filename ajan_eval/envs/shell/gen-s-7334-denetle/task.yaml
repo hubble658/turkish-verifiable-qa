@@ -1,0 +1,78 @@
+id: gen-s-7334-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Çalışma dizinindeki olcumler klasörü altında bulunan tüm .ini dosyalarını ele al. Her dosya için, dosya adını uzantısı olmadan ve o dosyanın içindeki sicaklik değerini birlikte içeren tek bir JSON nesnesi oluştur. Bu nesnede dosya adları artan sırada yer alsın. Sonucu rapor.json dosyasına yaz.
+
+setup: |
+  mkdir -p olcumler/alt
+  cat > olcumler/alt/istasyon_a.ini <<'INI'
+  sicaklik=21
+  nem=45
+  basinc=1013
+  INI
+  cat > olcumler/alt/istasyon_b.ini <<'INI'
+  sicaklik=19
+  nem=52
+  basinc=1008
+  INI
+  cat > olcumler/alt/istasyon_c.ini <<'INI'
+  sicaklik=24
+  nem=38
+  basinc=1015
+  INI
+
+goal_tr: >
+  olcumler klasoru altindaki her .ini dosyasinin adini (uzantisiz) ve
+  icindeki sicaklik degerini iceren, dosya adina gore artan sirada bir JSON
+  nesnesi rapor.json dosyasina yaz
+
+reference_solution: |
+  for f in olcumler/alt/*.ini; do
+    d=$(dirname "$f")
+    ad=$(basename "$f" .ini)
+    deger=$(sed -n 's/^sicaklik=//p' "$f")
+    printf '%s %s\n' "$ad" "$deger"
+  done | sort -k1,1 > gecici.txt
+  {
+    printf '{\n'
+    awk '{printf "  \"%s\": %s,\n", $1, $2}' gecici.txt | sed '$ s/,$//'
+    printf '}\n'
+  } > rapor.json
+  rm -f gecici.txt
+
+outputs:
+  - {path: rapor.json, kind: json}
+
+checks:
+  - {op: json_eq, path: rapor.json, value: {istasyon_a: 21, istasyon_b: 19, istasyon_c: 24}}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7334
+    bundle: yol-parcala
+    tools:
+    - basename
+    - dirname
+    konu: sensor-olcumleri
+    hedef: denetle
+    girdi: ini
+    kaynak: cok-dosya
+    cikti: json
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

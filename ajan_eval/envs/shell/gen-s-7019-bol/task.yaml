@@ -1,0 +1,71 @@
+id: gen-s-7019-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kargolar.txt'deki sabit genislikli satırları ilk 4 karakter takip no, sonraki 10 çıkış, sonraki 10 varış, kalanı ağırlık olacak şekilde ayır. Başlığı takip_no,cikis,varis,agirlik olan ve ağırlığı 0'dan büyük kayıtları kargolar.csv'ye yaz.
+
+setup: |
+  cat > kargolar.txt <<'KARGO'
+  1001ISTANBUL  ANKARA    12.5
+  1002IZMIR     BURSA     3.0
+  1003ANKARA    ISTANBUL  7.25
+  1004BURSA     IZMIR     0.0
+  1005ISTANBUL  IZMIR     25.75
+  1006ANKARA    BURSA     4.5
+  KARGO
+
+goal_tr: >
+  kargolar.txt sabit genislikli dosyasindaki her satiri, ilk 4 karakter
+  takip numarasi, sonraki 10 karakter cikis sehri, sonraki 10 karakter varis
+  sehri ve kalan kisim agirlik olacak sekilde ayirip, baslik satiri
+  takip_no,cikis,varis,agirlik olan ve agirligi 0'dan buyuk olan kayitlari
+  iceren kargolar.csv dosyasini uret
+
+reference_solution: |
+  head -1 kargolar.txt | cut -c1-4 > /dev/null
+  printf 'takip_no,cikis,varis,agirlik\n' > kargolar.csv
+  tail -n +1 kargolar.txt | while IFS= read -r satir; do
+    no=$(printf '%s' "$satir" | cut -c1-4)
+    cikis=$(printf '%s' "$satir" | cut -c5-14 | tr -d ' ')
+    varis=$(printf '%s' "$satir" | cut -c15-24 | tr -d ' ')
+    agirlik=$(printf '%s' "$satir" | cut -c25- | tr -d ' ')
+    if [ "$agirlik" != "0.0" ] && [ "$agirlik" != "0" ]; then
+      printf '%s,%s,%s,%s\n' "$no" "$cikis" "$varis" "$agirlik" >> kargolar.csv
+    fi
+  done
+
+outputs:
+  - {path: kargolar.csv, kind: csv}
+
+checks:
+  - {op: file_lines_eq, path: kargolar.csv, value: ['takip_no,cikis,varis,agirlik', '1001,ISTANBUL,ANKARA,12.5', '1002,IZMIR,BURSA,3.0', '1003,ANKARA,ISTANBUL,7.25', '1005,ISTANBUL,IZMIR,25.75', '1006,ANKARA,BURSA,4.5']}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7019
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: kargo-takibi
+    hedef: bol
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: csv
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: olcek
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

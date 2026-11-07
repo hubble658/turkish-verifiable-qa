@@ -1,0 +1,146 @@
+id: gen-k-9068-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  fleet/parse.py, fleet/consume.py ve fleet/report.py dosyalarındaki araç filosu tüketim hattını düzelt. manifest.txt içindeki her satır doğru şekilde ayrıştırılmalı ve her plaka için 100 km başına litre değeri iki ondalık basamakla döndürülmeli. fleet/report.py içinde dekoratör ile sarmalanmış bir fleet_report fonksiyonu kullanılmalı.
+
+setup: |
+  mkdir -p fleet
+  cat > fleet/parse.py <<'PY'
+  def split_record(line):
+      """Split one manifest line into (plate, km, liters)."""
+      parts = line.split(";")
+      return parts[0], parts[1]
+  PY
+  cat > fleet/consume.py <<'PY'
+  from fleet.parse import split_record
+
+
+  def consumption(line):
+      """Return liters per 100 km for one manifest line, rounded to 2 decimals."""
+      plate, km, liters = split_record(line)
+      return round(float(liters) / float(km) * 100, 2)
+  PY
+  cat > fleet/report.py <<'PY'
+  from fleet.consume import consumption
+
+
+  def fleet_report(manifest):
+      """Return {plate: consumption} for every non-empty line."""
+      out = {}
+      for line in manifest.splitlines():
+          if line.strip():
+              plate, km, liters = line.split(";")
+              out[plate] = consumption(line)
+      return out
+  PY
+  cat > manifest.txt <<'TXT'
+  AB12;100;8.0
+  CD34;250;20.0
+  EF56;50;4.0
+  TXT
+
+goal_tr: >
+  fleet/parse.py, fleet/consume.py ve fleet/report.py dosyalarindaki arac
+  filosu tuketim hattini, manifest.txt icindeki her satiri dogru ayristirip
+  her plaka icin 100 km basina litre degerini iki ondalikla dondurecek
+  bicimde duzelt; dekorator ile sarmalanmis bir `fleet_report` fonksiyonu
+  kullan.
+
+reference_solution: |
+  cat > fleet/parse.py <<'PY'
+  def split_record(line):
+      """Split one manifest line into (plate, km, liters)."""
+      plate, km, liters = line.split(";")
+      return plate, km, liters
+  PY
+  cat > fleet/consume.py <<'PY'
+  from fleet.parse import split_record
+
+
+  def consumption(line):
+      """Return liters per 100 km for one manifest line, rounded to 2 decimals."""
+      plate, km, liters = split_record(line)
+      return round(float(liters) / float(km) * 100, 2)
+  PY
+  cat > fleet/report.py <<'PY'
+  from fleet.consume import consumption
+
+
+  def _tagged(fn):
+      """Decorator that marks the wrapped function as a fleet report."""
+      def wrapper(manifest):
+          result = fn(manifest)
+          wrapper.last_result = result
+          return result
+      wrapper.last_result = None
+      wrapper.__name__ = fn.__name__
+      return wrapper
+
+
+  @_tagged
+  def fleet_report(manifest):
+      """Return {plate: consumption} for every non-empty line."""
+      out = {}
+      for line in manifest.splitlines():
+          if line.strip():
+              plate, km, liters = line.split(";")
+              out[plate] = consumption(line)
+      return out
+  PY
+
+ara_adim: |
+  cat > fleet/parse.py <<'PY'
+  def split_record(line):
+      """Split one manifest line into (plate, km, liters)."""
+      plate, km, liters = line.split(";")
+      return plate, km, liters
+  PY
+
+outputs:
+  - {path: fleet/report.py, kind: program, run: 'python3 -c ''from fleet.report import fleet_report as f; m=open("manifest.txt").read(); r=f(m); assert r=={"AB12":8.0,"CD34":8.0,"EF56":8.0}, r; assert getattr(f,"last_result",None)==r, "decorator missing"; print("TAMAM")'''}
+  - {path: fleet/parse.py, kind: program, run: 'python3 -c ''from fleet.parse import split_record as f; assert f("AB12;100;8.0")==("AB12","100","8.0"), f("AB12;100;8.0"); print("ILERLEME-TAMAM")'''}
+  - {path: fleet/consume.py, kind: program, run: 'python3 -c ''from fleet.consume import consumption as f; assert f("AB12;100;8.0")==8.0, f("AB12;100;8.0"); assert f("CD34;250;20.0")==8.0; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.parse import split_record as f; assert f("AB12;100;8.0")==("AB12","100","8.0"), f("AB12;100;8.0"); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.report import fleet_report as f; m=open("manifest.txt").read(); r=f(m); assert r=={"AB12":8.0,"CD34":8.0,"EF56":8.0}, r; assert getattr(f,"last_result",None)==r, "decorator missing"; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.consume import consumption as f; assert f("AB12;100;8.0")==8.0, f("AB12;100;8.0"); assert f("CD34;250;20.0")==8.0; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9068
+    bundle: yarisma
+    tools:
+    - python3
+    konu: arac-filosu
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: metin-ayristirma
+      karmasiklik: orta
+      kalip: dekorator
+      akis: bellek-ici
+      topoloji: elmas
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

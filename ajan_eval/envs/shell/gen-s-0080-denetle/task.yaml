@@ -1,0 +1,95 @@
+id: gen-s-0080-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+prompt: '1) data/students_a.txt ve data/students_b.txt dosyalarını karşılaştırarak, her iki dosyada da yer alan ancak notları
+  farklı olan öğrencileri belirleyin.
+
+  2) Bu öğrencilerin bilgilerini bir JSON listesi olarak sonuc.json dosyasına yazın.
+
+
+  Her öğrenci {"id": "102", "name": "Ad Soyad", "grade_a": <a dosyasındaki not>, "grade_b": <b dosyasındaki not>} biçiminde
+  olsun.
+
+  '
+setup: 'cat > students_a.txt <<''EOF''
+
+  101 Alice Smith     85
+
+  102 Bob Johnson     92
+
+  103 Charlie Brown   78
+
+  105 Eve Adams       88
+
+  106 Frank White     95
+
+  EOF
+
+
+  cat > students_b.txt <<''EOF''
+
+  101 Alice Smith     85
+
+  102 Bob Johnson     90
+
+  103 Charlie Brown   78
+
+  104 David Miller    82
+
+  106 Frank White     95
+
+  EOF
+
+
+  mkdir -p data
+
+  mv students_a.txt data/students_a.txt
+
+  mv students_b.txt data/students_b.txt
+
+  '
+goal_tr: 'data dizinindeki students_a.txt ve students_b.txt dosyalarini karsilastirarak, her iki dosyada da bulunan ancak
+  notlari farkli olan ogrencileri bul ve sonuc.json dosyasina JSON listesi olarak yaz.
+
+  '
+reference_solution: "python3 - <<'PY'\nimport json\ndef oku(y):\n    d = {}\n    for s in open(y):\n        p = s.split()\n\
+  \        d[p[0]] = (\" \".join(p[1:-1]), int(p[-1]))\n    return d\na, b = oku(\"data/students_a.txt\"), oku(\"data/students_b.txt\"\
+  )\njson.dump([{\"id\": i, \"name\": a[i][0], \"grade_a\": a[i][1], \"grade_b\": b[i][1]}\n           for i in sorted(a)\
+  \ if i in b and a[i][1] != b[i][1]], open(\"sonuc.json\", \"w\"))\nPY\n"
+outputs: []
+checks:
+- op: json_eq
+  path: sonuc.json
+  value:
+  - id: '102'
+    name: Bob Johnson
+    grade_a: 92
+    grade_b: 90
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-0080
+    bundle: karsilastir
+    tools:
+    - diff
+    - comm
+    konu: ogrenci-notlari
+    hedef: denetle
+    girdi: sabit-genislik
+    kaynak: iki-dosya-capraz
+    cikti: json
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 4
+    image: verifiable-dataset/base:latest
+    metadata: {}
+  duzeltme:
+    neden: altin_yanlis
+    not: Referans ortak kimlikleri yanlış buluyor; altın [] idi, doğrusu notu değişen 102 Bob Johnson.

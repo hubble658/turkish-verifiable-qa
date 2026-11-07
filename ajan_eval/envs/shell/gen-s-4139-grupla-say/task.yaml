@@ -1,0 +1,75 @@
+id: gen-s-4139-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) logs dizinindeki tüm .log dosyalarındaki satırları tek bir listede birleştir.
+  2) Birleşen bu listede her benzersiz satırın kaç kez geçtiğini say.
+  3) Satırları önce tekrar sayısına göre büyükten küçüğe, tekrar sayısı eşit olanları ise satırın kendisine göre alfabetik artan sırada sırala.
+  4) Bu sıralı sayım sonucunu yedek/log_sayim.txt dosyasına yaz.
+  5) Sayılan benzersiz satırların toplam sayısını satir_sayisi.txt dosyasına yaz.
+
+setup: |
+  mkdir -p logs yedek
+  cat > logs/sunucu_a.log <<'LOG'
+  2024-01-01 BILGI sistem basladi
+  2024-01-01 HATA disk dolu
+  2024-01-02 UYARI bellek az
+  2024-01-02 HATA baglanti koptu
+  2024-01-03 BILGI kullanici giris yapti
+  LOG
+  cat > logs/sunucu_b.log <<'LOG'
+  2024-01-01 BILGI yedek alindi
+  2024-01-02 HATA zaman asimi
+  2024-01-03 UYARI cpu yuksek
+  2024-01-03 HATA disk dolu
+  2024-01-04 BILGI sistem kapatildi
+  LOG
+  printf '2024-01-05 HATA ag hatasi\r\n2024-01-05 BILGI yeniden baslatildi\r\n2024-01-06 HATA disk dolu\r\n' > logs/sunucu_c.log
+
+goal_tr: >
+  logs dizinindeki tum .log dosyalarindaki satirlari birlestirip her
+  benzersiz satirin kac kez gectigini buyukten kucuge, esitlikte satir
+  alfabetik artan sirada say; sonucu yedek/log_sayim.txt dosyasina yaz.
+
+reference_solution: |
+  find logs -name '*.log' -type f -exec cat {} + | tr -d '\r' | sort | uniq -c | sort -k1,1nr -k2,2 | sed 's/^ *//' > gecici_sayim.txt
+  wc -l < gecici_sayim.txt > satir_sayisi.txt
+  mv gecici_sayim.txt yedek/log_sayim.txt
+
+outputs:
+  - {path: yedek/log_sayim.txt, kind: file}
+  - {path: satir_sayisi.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: satir_sayisi.txt, value: '13'}
+  - {op: file_lines_eq, path: yedek/log_sayim.txt, value: [1 2024-01-01 BILGI sistem basladi, 1 2024-01-01 BILGI yedek alindi, 1 2024-01-01 HATA disk dolu, 1 2024-01-02 HATA baglanti koptu, 1 2024-01-02 HATA zaman asimi, 1 2024-01-02 UYARI bellek az, 1 2024-01-03 BILGI kullanici giris yapti, 1 2024-01-03 HATA disk dolu, 1 2024-01-03 UYARI cpu yuksek, 1 2024-01-04 BILGI sistem kapatildi, 1 2024-01-05 BILGI yeniden baslatildi, 1 2024-01-05 HATA ag hatasi, 1 2024-01-06 HATA disk dolu]}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4139
+    bundle: dizin-istatistik
+    tools:
+    - wc
+    - find
+    konu: sunucu-loglari
+    hedef: grupla-say
+    girdi: duz-metin
+    kaynak: iki-dosya-capraz
+    cikti: yeniden-adlandirilmis
+    kesif: yok
+    uslup: numarali-emir
+    direnc: crlf
+    bukulme: olcek
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

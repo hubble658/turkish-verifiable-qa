@@ -1,0 +1,78 @@
+id: gen-s-7127-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  vardiya.dat dosyasındaki sabit genişlikli kayıtları oku. GÜNDÜZ vardiyasındaki personeli gunduz.txt dosyasına, GECE vardiyasındakileri gece.txt dosyasına yaz. Her iki dosyada da her satırda bir personel olsun ve her satır "id ad soyad başlangıç bitiş" biçiminde olsun.
+
+setup: |
+  cat > vardiya.dat <<'DAT'
+  1001Ali     YILMAZ  GUNDUZ 0800 1600
+  1002Ayse    KAYA    GECE   1600 0000
+  1003Mehmet  DEMIR   GUNDUZ 0800 1600
+  1004Fatma   OZTURK  GECE   1600 0000
+  1005Emre    SAHIN   GUNDUZ 0800 1600
+  1006Zeynep  ARSLAN  GECE   1600 0000
+  1007Burak   CELIK   GUNDUZ 0800 1600
+  1008Elif    DOGAN   GECE   1600 0000
+  DAT
+
+goal_tr: >
+  vardiya.dat dosyasindaki sabit genislikli kayitlari okuyup GUNDUZ
+  vardiyasindaki personeli gunduz.txt dosyasina, GECE vardiyasindakileri
+  gece.txt dosyasina "id ad soyad baslangic bitis" biciminde yaz
+
+reference_solution: |
+  head -c 0 /dev/null > gunduz.txt
+  head -c 0 /dev/null > gece.txt
+  tail -n +1 vardiya.dat | while read -r line; do
+    id=$(echo "$line" | cut -c1-4)
+    ad=$(echo "$line" | cut -c5-12 | sed 's/ *$//')
+    soyad=$(echo "$line" | cut -c13-20 | sed 's/ *$//')
+    vardiya=$(echo "$line" | cut -c21-28 | sed 's/ *$//')
+    bas=$(echo "$line" | cut -c29-32)
+    bit=$(echo "$line" | cut -c33-36)
+    kayit="$id $ad $soyad $bas $bit"
+    if [ "$vardiya" = "GUNDUZ" ]; then
+      echo "$kayit" >> gunduz.txt
+    else
+      echo "$kayit" >> gece.txt
+    fi
+  done
+
+outputs:
+  - {path: gunduz.txt, kind: lines}
+  - {path: gece.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: gece.txt, value: [1001 Ali YILMAZ 800  1600, 1002 Ayse KAYA 600  0000, 1003 Mehmet DEMIR 800  1600, 1004 Fatma OZTURK 600  0000, 1005 Emre SAHIN 800  1600, 1006 Zeynep ARSLAN 600  0000, 1007 Burak CELIK 800  1600, 1008 Elif DOGAN 600  0000]}
+  - {op: is_file, path: gunduz.txt}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7127
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: personel-vardiyalari
+    hedef: ayikla
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

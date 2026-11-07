@@ -1,0 +1,74 @@
+id: gen-s-7054-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) randevular.csv dosyasını oku; başlık satırını alan adları olarak kullan ve geri kalan her randevu satırını, alan adlarını anahtar yapan bir JSON nesnesine dönüştür.
+
+  2) Elde ettiğin tüm JSON nesnelerini tek bir JSON dizisi halinde birleştir.
+
+  3) Bu JSON dizisini cikti.json dosyasına yaz.
+
+  4) İşlem sırasında .bak ile biten dosyaları (örneğin randevular.csv.bak) işleme katma.
+
+setup: |
+  cat > randevular.csv <<'CSV'
+  hasta_id;poliklinik;tarih;saat;durum
+  H001;kardiyoloji;2024-03-01;09:00;tamamlandi
+  H002;noroloji;2024-03-01;10:30;iptal
+  H003;kardiyoloji;2024-03-02;11:15;tamamlandi
+  H004;ortopedi;2024-03-02;13:45;bekliyor
+  H005;noroloji;2024-03-03;08:30;tamamlandi
+  H006;ortopedi;2024-03-03;15:00;iptal
+  H007;kardiyoloji;2024-03-04;09:45;bekliyor
+  CSV
+  cat > randevular.csv.bak <<'CSV'
+  hasta_id;poliklinik;tarih;saat;durum
+  H999;test;2000-01-01;00:00;tamamlandi
+  CSV
+
+goal_tr: >
+  randevular.csv dosyasindaki her randevu satirini, baslik satiri haric,
+  alan adlarini anahtar yapan bir JSON nesnesi olarak tek bir JSON dizisine
+  donusturup cikti.json dosyasina yaz; .bak ile biten tuzak dosyalari isleme
+  katma.
+
+reference_solution: |
+  cut -d';' -f1-5 -s randevular.csv | tail -n +2 > govde.txt
+  paste -d'|' govde.txt /dev/null | sed 's/|$//' | awk -F';' '{printf "{\"hasta_id\":\"%s\",\"poliklinik\":\"%s\",\"tarih\":\"%s\",\"saat\":\"%s\",\"durum\":\"%s\"}\n", $1,$2,$3,$4,$5}' > kayitlar.txt
+  { printf '['; paste -sd',' kayitlar.txt; printf ']\n'; } > cikti.json
+
+outputs:
+  - {path: cikti.json, kind: json}
+
+checks:
+  - {op: json_eq, path: cikti.json, value: [{hasta_id: H001, poliklinik: kardiyoloji, tarih: '2024-03-01', saat: '09:00', durum: tamamlandi}, {hasta_id: H002, poliklinik: noroloji, tarih: '2024-03-01', saat: '10:30', durum: iptal}, {hasta_id: H003, poliklinik: kardiyoloji, tarih: '2024-03-02', saat: '11:15', durum: tamamlandi}, {hasta_id: H004, poliklinik: ortopedi, tarih: '2024-03-02', saat: '13:45', durum: bekliyor}, {hasta_id: H005, poliklinik: noroloji, tarih: '2024-03-03', saat: '08:30', durum: tamamlandi}, {hasta_id: H006, poliklinik: ortopedi, tarih: '2024-03-03', saat: '15:00', durum: iptal}, {hasta_id: H007, poliklinik: kardiyoloji, tarih: '2024-03-04', saat: '09:45', durum: bekliyor}]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7054
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: hastane-randevulari
+    hedef: donustur
+    girdi: csv
+    kaynak: tek-dosya
+    cikti: json
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

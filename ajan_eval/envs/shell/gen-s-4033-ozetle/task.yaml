@@ -1,0 +1,68 @@
+id: gen-s-4033-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) vardiyalar klasöründeki tüm .txt dosyalarını oku; boş satırları atlayarak her dosyadaki personel adlarını ele al.
+  2) Elde ettiğin tüm personel adlarını sırala ve aynı ada sahip kayıtları tek isimde birleştir.
+  3) Her personel için adını ve kaç vardiyada geçtiğini "ad sayi" biçiminde, her satırda bir personel olacak şekilde ozet.txt dosyasına yaz.
+
+setup: |
+  mkdir -p vardiyalar
+  cat > vardiyalar/pazartesi.txt <<'EOF'
+  ayse sabah
+  mehmet aksam
+  zeynep sabah
+  EOF
+  cat > vardiyalar/sali.txt <<'EOF'
+  ayse aksam
+  mehmet sabah
+  EOF
+  cat > vardiyalar/carsamba.txt <<'EOF'
+  zeynep aksam
+  EOF
+  : > vardiyalar/persembe.txt
+
+goal_tr: >
+  vardiyalar klasorundeki her .txt dosyasindaki personel adlarini bos
+  satirlari atlayarak sirala, tekrarlari birlestir ve her personel icin
+  adini ve kac vardiyada gectigini "ad sayi" biciminde satir listesi olarak
+  ozet.txt dosyasina yaz
+
+reference_solution: |
+  find vardiyalar -name '*.txt' -type f -print0 | xargs -0 cat | grep -v '^[[:space:]]*$' | cut -d' ' -f1 | sort | uniq -c | awk '{print $2, $1}' > ozet.txt
+
+outputs:
+  - {path: ozet.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: ozet.txt, value: [ayse 2, mehmet 2, zeynep 2]}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4033
+    bundle: cok-dosya-ara
+    tools:
+    - xargs
+    - grep
+    konu: personel-vardiyalari
+    hedef: ozetle
+    girdi: duz-metin
+    kaynak: cok-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: bos-dosya
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

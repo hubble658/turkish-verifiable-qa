@@ -1,0 +1,101 @@
+id: gen-k-5087-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  access.log dosyasını okuyup her istemci IP'sinin toplam istek sayısını, başarılı (2xx) istek sayısını ve toplam baytını tutan durumlu bir AccessLog sınıfını access_log.py dosyasına yaz. Sınıfın load(path) metodu verilen yoldaki dosyayı okuyup durumu güncellemeli, summary() metodu ise her IP için bu üç değeri döndürmeli.
+
+  Şu şartlar sağlanmalı:
+  - access_log.py adında tek bir dosya oluşturulmalı.
+  - AccessLog sınıfı durumlu olmalı; yani okunan veriler nesne üzerinde saklanmalı.
+  - load(path) metodu access.log dosyasını okuyup durumu güncellemeli.
+  - summary() metodu her istemci IP'si için toplam istek sayısını, başarılı (2xx) istek sayısını ve toplam baytı döndürmeli.
+  - Başlangıçta verilen access.log içeriğiyle çalıştırıldığında 10.0.0.1, 10.0.0.2 ve 10.0.0.3 için doğru değerler elde edilmeli.
+
+setup: |
+  cat > access.log <<'LOG'
+  10.0.0.1 GET /index.html 200 512
+  10.0.0.2 POST /api/login 401 128
+  10.0.0.1 GET /style.css 200 64
+  10.0.0.3 GET /missing 404 0
+  10.0.0.2 POST /api/login 200 256
+  10.0.0.1 GET /index.html 200 512
+  10.0.0.2 GET /api/data 500 32
+  LOG
+
+goal_tr: >
+  access.log dosyasini okuyup her istemci IP'sinin toplam istek sayisini,
+  basarili (2xx) istek sayisini ve toplam baytini tutan durumlu bir
+  AccessLog sinifini tek dosyada (access_log.py) yaz; sinif load(path) ile
+  dosyayi okuyup durumu guncellemeli ve summary() her IP icin bu uc degeri
+  dondurmeli.
+
+reference_solution: |
+  cat > access_log.py <<'PY'
+  class AccessLog:
+      def __init__(self):
+          self._stats = {}
+
+      def load(self, path):
+          with open(path, "r", encoding="ascii") as fh:
+              for line in fh:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  parts = line.split()
+                  ip = parts[0]
+                  status = int(parts[3])
+                  size = int(parts[4])
+                  entry = self._stats.setdefault(ip, [0, 0, 0])
+                  entry[0] += 1
+                  if 200 <= status < 300:
+                      entry[1] += 1
+                  entry[2] += size
+          return self
+
+      def summary(self):
+          return {ip: (v[0], v[1], v[2]) for ip, v in self._stats.items()}
+  PY
+
+outputs:
+  - {path: access_log.py, kind: program, run: 'python3 -c ''from access_log import AccessLog; a=AccessLog(); a.load("access.log"); s=a.summary(); assert s["10.0.0.1"]==(3,3,1088), s["10.0.0.1"]; assert s["10.0.0.2"]==(3,1,416), s["10.0.0.2"]; assert s["10.0.0.3"]==(1,0,0), s["10.0.0.3"]; assert len(s)==3, len(s); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from access_log import AccessLog; a=AccessLog(); a.load("access.log"); s=a.summary(); assert s["10.0.0.1"]==(3,3,1088), s["10.0.0.1"]; assert s["10.0.0.2"]==(3,1,416), s["10.0.0.2"]; assert s["10.0.0.3"]==(1,0,0), s["10.0.0.3"]; assert len(s)==3, len(s); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5087
+    bundle: yarisma
+    tools:
+    - python3
+    konu: web-erisim-loglari
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: metin-ayristirma
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: dosya-okuma
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

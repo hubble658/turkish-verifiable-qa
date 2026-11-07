@@ -1,0 +1,122 @@
+id: gen-s-3228-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  /workspace dizinindeki personel.txt ve vardiya.txt dosyalarını personel kimliği üzerinden birleştirerek her departman için bir özet oluştur ve bunu ozet.csv dosyasına yaz. ozet.csv dosyasında her satır bir departmanı temsil etsin; ilk satır başlık satırı olsun. Başlık ve veri satırlarında şu alanlar virgülle ayrılmış olarak yer alsın: departman adı, toplam vardiya sayısı, toplam çalışma saati ve vardiyası olan farklı personel sayısı. Satırlar departman adına göre alfabetik olarak sıralı olsun.
+
+setup: |
+  mkdir -p /workspace
+  cat > personel.txt <<'EOF'
+  101,Ayse,Yazilim
+  102,Mehmet,Yazilim
+  103,Zeynep,Operasyon
+  104,Ali,Operasyon
+  105,Fatma,Muhasebe
+  106,Can,Muhasebe
+  107,Elif,Yazilim
+  EOF
+  cat > vardiya.txt <<'EOF'
+  101,Pazartesi,08:00,16:00
+  101,Sali,08:00,16:00
+  101,Carsamba,08:00,16:00
+  102,Pazartesi,16:00,24:00
+  102,Sali,16:00,24:00
+  103,Pazartesi,08:00,16:00
+  103,Carsamba,08:00,16:00
+  104,Sali,16:00,24:00
+  104,Carsamba,16:00,24:00
+  104,Persembe,16:00,24:00
+  105,Pazartesi,08:00,16:00
+  106,Cuma,08:00,16:00
+  106,Cumartesi,08:00,16:00
+  107,Pazartesi,16:00,24:00
+  107,Sali,16:00,24:00
+  107,Carsamba,16:00,24:00
+  107,Persembe,16:00,24:00
+  EOF
+
+goal_tr: >
+  personel.txt ve vardiya.txt dosyalarini personel kimligi uzerinden
+  birlestirip her departman icin departman adi, toplam vardiya sayisi,
+  toplam calisma saati ve vardiyasi olan farkli personel sayisini virgulle
+  ayrilmis olarak departman adina gore alfabetik sirali ozet.csv dosyasina
+  yaz; ilk satir baslik olsun.
+
+reference_solution: |
+  python3 - <<'PY'
+  import csv
+  from collections import defaultdict
+
+  personel = {}
+  with open('personel.txt') as f:
+      for line in f:
+          line = line.strip()
+          if not line:
+              continue
+          pid, ad, dep = line.split(',')
+          personel[pid] = dep
+
+  dep_vardiya = defaultdict(int)
+  dep_saat = defaultdict(float)
+  dep_personel = defaultdict(set)
+
+  with open('vardiya.txt') as f:
+      for line in f:
+          line = line.strip()
+          if not line:
+              continue
+          pid, gun, bas, bit = line.split(',')
+          dep = personel[pid]
+          bh, bm = bas.split(':')
+          eh, em = bit.split(':')
+          sure = (int(eh) * 60 + int(em) - (int(bh) * 60 + int(bm))) / 60.0
+          dep_vardiya[dep] += 1
+          dep_saat[dep] += sure
+          dep_personel[dep].add(pid)
+
+  with open('ozet.csv', 'w', newline='') as out:
+      w = csv.writer(out)
+      w.writerow(['departman', 'vardiya_sayisi', 'toplam_saat', 'personel_sayisi'])
+      for dep in sorted(dep_vardiya):
+          saat = dep_saat[dep]
+          if saat == int(saat):
+              saat_str = str(int(saat))
+          else:
+              saat_str = str(saat)
+          w.writerow([dep, dep_vardiya[dep], saat_str, len(dep_personel[dep])])
+  PY
+
+outputs:
+  - {path: ozet.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: ozet.csv, value: ['departman,vardiya_sayisi,toplam_saat,personel_sayisi', 'Muhasebe,3,24,2', 'Operasyon,5,40,2', 'Yazilim,9,72,3']}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3228
+    bundle: python-veri
+    tools:
+    - python3
+    konu: personel-vardiyalari
+    hedef: ozetle
+    girdi: duz-metin
+    kaynak: iki-dosya-capraz
+    cikti: csv
+    kesif: yok
+    uslup: duz-hedef
+    direnc: bom
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

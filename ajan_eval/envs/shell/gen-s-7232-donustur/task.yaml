@@ -1,0 +1,72 @@
+id: gen-s-7232-donustur
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  envanter.txt dosyasındaki sabit genişlikli satırları okuyup, her satırdaki ürün adı, adet ve fiyat alanlarını boşlukla ayrılmış biçimde tek satır listesi olarak satirlar.txt dosyasına yaz.
+
+setup: |
+  cat > envanter.txt <<'EOF'
+  URUN      ADET    FIYAT
+  kalem       12     5.50
+  defter       3    12.00
+  silgi       40     1.25
+  cetvel       7     8.75
+  EOF
+  mkdir -p yedek
+  cp envanter.txt yedek/envanter.txt
+
+goal_tr: >
+  envanter.txt dosyasindaki sabit genislikli satirlari, her satirda urun
+  adi, adet ve fiyat alanlarini boslukla ayrilmis sekilde tek satir listesi
+  olarak satirlar.txt dosyasina yaz
+
+reference_solution: |
+  python3 -c "
+  girdi = open('envanter.txt')
+  cikti = open('satirlar.txt', 'w')
+  for satir in girdi:
+      satir = satir.rstrip('\n')
+      if not satir.strip():
+          continue
+      isim = satir[0:10].strip()
+      adet = satir[10:18].strip()
+      fiyat = satir[18:].strip()
+      cikti.write(isim + ' ' + adet + ' ' + fiyat + '\n')
+  girdi.close()
+  cikti.close()
+  "
+
+outputs:
+  - {path: satirlar.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: satirlar.txt, value: [URUN ADET FIYAT, kalem 12 5.50, defter 3 12.00, silgi 40 1.25, cetvel 7 8.75]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7232
+    bundle: python-veri
+    tools:
+    - python3
+    konu: envanter
+    hedef: donustur
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

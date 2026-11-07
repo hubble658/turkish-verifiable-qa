@@ -1,0 +1,110 @@
+id: gen-k-5033-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) sessions/report.py dosyasındaki session_report fonksiyonunu düzelt; users.txt içindeki her kullanıcı için bir oturum kimliği üretilsin.
+
+  2) Fonksiyon, tüm kullanıcıları kimlik sırasına göre döndürsün; hiçbir kullanıcı atlanmasın.
+
+setup: |
+  mkdir -p sessions
+  cat > sessions/store.py <<'STORE'
+  def make_counter(start):
+      count = [start]
+
+      def bump():
+          value = count[0]
+          count[0] = count[0] + 1
+          return value
+
+      return bump
+  STORE
+  cat > sessions/registry.py <<'REGISTRY'
+  from sessions.store import make_counter
+
+
+  def build_registry(users):
+      next_id = make_counter(100)
+      registry = {}
+      for user in users:
+          registry[user] = next_id()
+      return registry
+  REGISTRY
+  cat > sessions/report.py <<'REPORT'
+  from sessions.registry import build_registry
+
+
+  def session_report(lines):
+      users = [line.strip() for line in lines if line.strip()]
+      registry = build_registry(users)
+      ordered = sorted(registry.items(), key=lambda pair: pair[1])
+      return [name for name, _ in ordered[:len(ordered) - 1]]
+  REPORT
+  cat > users.txt <<'USERS'
+  ada
+  bora
+  cem
+  deniz
+  ece
+  USERS
+
+goal_tr: >
+  sessions/report.py icindeki session_report fonksiyonunu, users.txt
+  icindeki her kullanici icin bir oturum kimligi uretip TUM kullanicilari
+  kimlik sirasina gore dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > sessions/report.py <<'REPORT'
+  from sessions.registry import build_registry
+
+
+  def session_report(lines):
+      users = [line.strip() for line in lines if line.strip()]
+      registry = build_registry(users)
+      ordered = sorted(registry.items(), key=lambda pair: pair[1])
+      return [name for name, _ in ordered[:len(ordered)]]
+  REPORT
+
+outputs:
+  - {path: sessions/report.py, kind: program, run: 'python3 -c ''from sessions.report import session_report as f; lines=open("users.txt").read().splitlines(); r=f(lines); assert r==["ada","bora","cem","deniz","ece"], r; assert len(r)==5, len(r); assert f(["zoe"])==["zoe"]; assert f([])==[]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sessions.report import session_report as f; lines=open("users.txt").read().splitlines(); r=f(lines); assert r==["ada","bora","cem","deniz","ece"], r; assert len(r)==5, len(r); assert f(["zoe"])==["zoe"]; assert f([])==[]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5033
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kullanici-oturumlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: off-by-one
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: cok-dosya-birlestirme
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

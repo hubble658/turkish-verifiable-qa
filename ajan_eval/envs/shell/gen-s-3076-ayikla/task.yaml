@@ -1,0 +1,78 @@
+id: gen-s-3076-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Klinikte randevu kayıtlarını tek bir CSV dosyasında tutuyoruz ve artık bölüm bazında ayrı listelere ihtiyacımız var. Sekreterin bilgisayarında veri klasörü içinde randevular.csv dışında notlar.txt gibi alakasız dosyalar da birikmiş durumda, o yüzden doğru dosyayı seçmek önemli. veri klasöründeki tek CSV randevu dosyasını bul; başlık satırını atlayıp durumu tamamlandi olan satırları bölüm adına göre ayır ve her bölüm için cikti klasöründe ayrı bir dosya oluştur: cikti/Kardiyoloji.txt, cikti/Ortopedi.txt ve cikti/Noroloji.txt. Bu dosyalarda yalnızca hasta numaraları olsun, her satırda bir tane.
+
+setup: |
+  mkdir -p veri
+  cat > veri/randevular.csv <<'CSV'
+  hasta,bolum,tarih,durum
+  A101,Kardiyoloji,2024-03-01,tamamlandi
+  A102,Ortopedi,2024-03-02,iptal
+  A103,Kardiyoloji,2024-03-03,tamamlandi
+  A104,Noroloji,2024-03-04,bekliyor
+  A105,Ortopedi,2024-03-05,tamamlandi
+  A106,Kardiyoloji,2024-03-06,iptal
+  A107,Noroloji,2024-03-07,tamamlandi
+  CSV
+  cat > veri/notlar.txt <<'TXT'
+  bu dosya randevu degil
+  CSV degil sadece not
+  TXT
+
+goal_tr: >
+  veri klasorundeki tek CSV randevu dosyasini bulup baslik satirini
+  atlayarak tamamlandi durumundaki satirlari bolum adina gore ayir ve her
+  bolum icin cikti klasorunde <bolum>.txt dosyasi olustur, dosyalarda
+  yalnizca hasta numaralarini birer satir olarak yaz
+
+reference_solution: |
+  mkdir -p cikti
+  dosya=$(find veri -name '*.csv' -type f)
+  head -n 1 "$dosya" > /dev/null
+  tail -n +2 "$dosya" | awk -F, '$4=="tamamlandi"{print $2" "$1}' > gecici.txt
+  while read -r bolum hasta; do
+    echo "$hasta" >> "cikti/$bolum.txt"
+  done < gecici.txt
+  rm -f gecici.txt
+
+outputs:
+  - {path: cikti/Kardiyoloji.txt, kind: file}
+  - {path: cikti/Ortopedi.txt, kind: file}
+  - {path: cikti/Noroloji.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: cikti/Kardiyoloji.txt, value: [A101, A103]}
+  - {op: file_content_eq, path: cikti/Noroloji.txt, value: A107}
+  - {op: file_content_eq, path: cikti/Ortopedi.txt, value: A105}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3076
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: hastane-randevulari
+    hedef: ayikla
+    girdi: csv
+    kaynak: tek-dosya
+    cikti: birden-cok-dosya
+    kesif: dosyayi-bul
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

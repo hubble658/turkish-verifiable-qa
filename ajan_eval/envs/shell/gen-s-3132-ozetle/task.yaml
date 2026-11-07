@@ -1,0 +1,59 @@
+id: gen-s-3132-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  envanter dizin ağacındaki tüm normal dosyaların toplam satır sayısını ve toplam dosya sayısını hesapla. Sonucu sonuc.json dosyasına {"toplam_satir": <sayi>, "toplam_dosya": <sayi>} biçiminde yaz; değerler yalnızca sayı olsun.
+
+setup: |
+  mkdir -p envanter/bolum_a envanter/bolum_b/logs envanter/bolum_c
+  printf 'parca-001\nparca-002\nparca-003\n' > envanter/bolum_a/parcalar.txt
+  printf 'kayit-001\nkayit-002\n' > envanter/bolum_b/kayitlar.txt
+  printf 'log-001\nlog-002\nlog-003\nlog-004\n' > envanter/bolum_b/logs/sistem.log
+  printf 'yedek-001\n' > envanter/bolum_c/yedek.txt
+
+goal_tr: >
+  envanter dizin agacindaki tum normal dosyalarin toplam satir sayisini ve
+  toplam dosya sayisini hesaplayip sonuc.json dosyasina {"toplam_satir":
+  <sayi>, "toplam_dosya": <sayi>} biciminde yaz
+
+reference_solution: |
+  find envanter -type f | sort > /tmp/dosyalar.txt
+  wc -l < /tmp/dosyalar.txt | tr -d ' ' > /tmp/dosya_sayisi.txt
+  xargs wc -l < /tmp/dosyalar.txt | tail -n 1 | awk '{print $1}' > /tmp/satir_sayisi.txt
+  printf '{"toplam_satir": %s, "toplam_dosya": %s}\n' "$(cat /tmp/satir_sayisi.txt)" "$(cat /tmp/dosya_sayisi.txt)" > sonuc.json
+
+outputs:
+  - {path: sonuc.json, kind: json}
+
+checks:
+  - {op: json_eq, path: sonuc.json, value: {toplam_satir: 10, toplam_dosya: 4}}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3132
+    bundle: dizin-istatistik
+    tools:
+    - wc
+    - find
+    konu: envanter
+    hedef: ozetle
+    girdi: log-satiri
+    kaynak: dizin-agaci
+    cikti: json
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

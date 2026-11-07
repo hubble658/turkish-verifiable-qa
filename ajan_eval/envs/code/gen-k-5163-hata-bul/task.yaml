@@ -1,0 +1,103 @@
+id: gen-k-5163-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  `farm/yield_stats.py` içindeki `average_yield` fonksiyonunu düzeltmeni istiyorum. Alan satırı içermeyen bir girdi verildiğinde, yani metin yalnızca boşluklardan oluştuğunda ya da tamamen boş olduğunda fonksiyon artık 0.0 değil None döndürmeli; geçerli alan satırları içeren girdilerde ise ortalamayı eskisi gibi doğru hesaplamaya devam etmeli. `farm/yield_stats.py` dışındaki dosyalara dokunma.
+
+setup: |
+  mkdir -p farm
+  cat > farm/readings.py <<'READINGS'
+  def parse_readings(text):
+      for line in text.splitlines():
+          line = line.strip()
+          if not line:
+              continue
+          field, value = line.split(':')
+          yield field.strip(), float(value)
+  READINGS
+  cat > farm/yield_stats.py <<'YIELDSTATS'
+  from farm.readings import parse_readings
+
+
+  def average_yield(text):
+      total = 0.0
+      count = 0
+      for field, value in parse_readings(text):
+          total += value
+          count += 1
+      if count == 0:
+          return 0.0
+      return total / count
+  YIELDSTATS
+  cat > farm/fields.txt <<'FIELDS'
+  north: 12.5
+  south: 8.0
+  east: 15.5
+  west: 9.0
+  FIELDS
+
+goal_tr: >
+  farm/yield_stats.py icindeki average_yield fonksiyonunu, hicbir alan
+  satiri olmayan girdide (yalnizca bosluk veya bos metin) 0.0 yerine None
+  dondurecek ve gecerli girdilerde ortalama degeri dogru hesaplayacak
+  bicimde duzelt.
+
+reference_solution: |
+  cat > farm/yield_stats.py <<'YIELDSTATS'
+  from farm.readings import parse_readings
+
+
+  def average_yield(text):
+      total = 0.0
+      count = 0
+      for field, value in parse_readings(text):
+          total += value
+          count += 1
+      if count == 0:
+          return None
+      return total / count
+  YIELDSTATS
+
+outputs:
+  - {path: farm/yield_stats.py, kind: program, run: 'python3 -c ''from farm.yield_stats import average_yield as f; t=open("farm/fields.txt").read(); assert abs(f(t)-11.25)<1e-9, f(t); assert f("") is None; assert f("   \n\n") is None; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from farm.yield_stats import average_yield as f; t=open("farm/fields.txt").read(); assert abs(f(t)-11.25)<1e-9, f(t); assert f("") is None; assert f("   \n\n") is None; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5163
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: tarim-verim-olcumleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: zor
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kenar-durum
+      karmasiklik: duz
+      kalip: generator
+      akis: cok-dosya-birlestirme
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

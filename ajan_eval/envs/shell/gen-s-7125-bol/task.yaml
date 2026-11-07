@@ -1,0 +1,76 @@
+id: gen-s-7125-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  gelen/kargolar.csv ve islenen/kargolar.csv içindeki takip_no değerlerinden yalnızca islenen/kargolar.csv'de olup gelen/kargolar.csv'de olmayanları, her biri kendi adıyla bol/ dizininde boş olmayan bir dosya olsun; içeriği tam olarak o takip_no olsun. bol/TR1005 de oluşsun.
+
+setup: |
+  mkdir -p gelen islenen
+  cat > gelen/kargolar.csv <<'CSV'
+  takip_no,sehir,durum
+  TR1001,Ankara,yolda
+  TR1002,Izmir,teslim
+  TR1003,Bursa,yolda
+  TR1004,Ankara,teslim
+  CSV
+  cat > islenen/kargolar.csv <<'CSV'
+  takip_no,sehir,durum
+  TR1002,Izmir,teslim
+  TR1003,Bursa,yolda
+  TR1005,Adana,yolda
+  TR1004,Ankara,teslim
+  CSV
+
+goal_tr: >
+  gelen/kargolar.csv ve islenen/kargolar.csv dosyalarindaki takip_no
+  degerlerinden yalnizca islenen/kargolar.csv icinde gecen,
+  gelen/kargolar.csv icinde gecmeyen takip_no degerlerini her biri kendi
+  adiyla bol/ dizininde BOS OLMAYAN bir dosya olarak olustur; her dosyanin
+  icerigi tam olarak o takip_no olsun
+
+reference_solution: |
+  mkdir -p bol
+  cut -d, -f1 islenen/kargolar.csv | tail -n +2 | sort > /tmp/islenen.txt
+  cut -d, -f1 gelen/kargolar.csv | tail -n +2 | sort > /tmp/gelen.txt
+  comm -23 /tmp/islenen.txt /tmp/gelen.txt | while read -r n; do
+    printf '%s\n' "$n" > /tmp/newfile
+    mv /tmp/newfile "bol/$n"
+  done
+
+outputs:
+  - {path: bol, kind: dir}
+  - {path: bol/TR1005, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: bol, value: [TR1005]}
+  - {op: file_content_eq, path: bol/TR1005, value: TR1005}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7125
+    bundle: dosya-duzen
+    tools:
+    - mkdir
+    - mv
+    konu: kargo-takibi
+    hedef: bol
+    girdi: csv
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: dolayli-hedef
+    uslup: terse
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,130 @@
+id: gen-k-5048-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sessions.txt dosyasındaki oturum kayıtlarını işleyen bir SessionLog sınıfını sessions.py dosyası içinde yaz. Sınıf, load metodu ile sessions.txt dosyasından kayıtları okuyup aktif oturumları bağlı liste olarak tutmalı. Ayrıca active_users ve total_time metotları ile bu oturumlar hakkında sorgulama yapılabilmeli.
+
+  Şu şartlar sağlanmalı:
+  - sessions.py dosyası oluşturulmalı.
+  - SessionLog sınıfı sessions.py içinde tanımlanmalı.
+  - load metodu sessions.txt dosyasından kayıtları okumalı.
+  - Aktif oturumlar bağlı liste olarak tutulmalı.
+  - active_users metodu ile aktif kullanıcılar sorgulanabilmeli.
+  - total_time metodu ile toplam süre sorgulanabilmeli.
+  - sessions.txt dosyasındaki login, action ve logout kayıtları doğru şekilde işlenmeli.
+
+setup: |
+  cat > sessions.txt <<'DATA'
+  alice login 100
+  bob login 105
+  alice action 110
+  carol login 120
+  bob logout 130
+  alice logout 140
+  carol action 150
+  DATA
+
+goal_tr: >
+  sessions.txt dosyasini okuyup oturum kayitlarini isleyen SessionLog
+  sinifini sessions.py icinde yaz; sinif load ile dosyadan okuyup aktif
+  oturumlari bagli liste olarak tutmali, active_users ve total_time
+  metotlari ile sorgulanmali.
+
+reference_solution: |
+  cat > sessions.py <<'PY'
+  class _Node:
+      def __init__(self, user, start):
+          self.user = user
+          self.start = start
+          self.next = None
+
+
+  class SessionLog:
+      def __init__(self):
+          self.head = None
+          self._totals = {}
+
+      def load(self, path):
+          with open(path) as fh:
+              for line in fh:
+                  parts = line.split()
+                  if len(parts) != 3:
+                      continue
+                  user, action, ts = parts[0], parts[1], int(parts[2])
+                  if action == "login":
+                      node = _Node(user, ts)
+                      node.next = self.head
+                      self.head = node
+                  elif action == "logout":
+                      self._close(user, ts)
+          return self
+
+      def _close(self, user, ts):
+          prev = None
+          cur = self.head
+          while cur is not None:
+              if cur.user == user:
+                  self._totals[user] = self._totals.get(user, 0) + (ts - cur.start)
+                  if prev is None:
+                      self.head = cur.next
+                  else:
+                      prev.next = cur.next
+                  return
+              prev = cur
+              cur = cur.next
+
+      def active_users(self):
+          users = []
+          cur = self.head
+          while cur is not None:
+              users.append(cur.user)
+              cur = cur.next
+          return users
+
+      def total_time(self, user):
+          return self._totals.get(user, 0)
+  PY
+
+outputs:
+  - {path: sessions.py, kind: program, run: 'python3 -c ''from sessions import SessionLog; s=SessionLog().load("sessions.txt"); assert s.active_users()==["carol"], s.active_users(); assert s.total_time("alice")==40, s.total_time("alice"); assert s.total_time("bob")==25; assert s.total_time("carol")==0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sessions import SessionLog; s=SessionLog().load("sessions.txt"); assert s.active_users()==["carol"], s.active_users(); assert s.total_time("alice")==40, s.total_time("alice"); assert s.total_time("bob")==25; assert s.total_time("carol")==0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5048
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: kullanici-oturumlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: bagli-liste
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: dosya-okuma
+      topoloji: tek-modul
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

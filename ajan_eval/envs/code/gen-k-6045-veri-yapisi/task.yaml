@@ -1,0 +1,232 @@
+id: gen-k-6045-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) callcenter/queue_store.py içindeki CallQueue sınıfını FIFO kuyruk olacak şekilde gerçekleştir: push elemanı sona eklesin, pop elemanı baştan çıkarsın, size eleman sayısını döndürsün.
+
+  2) callcenter/records.py içindeki drain_report fonksiyonunu, kuyruğu boşaltıp çağrıları geliş sırasında "caller->agent" biçiminde döndürecek şekilde düzelt.
+
+  3) callcenter/pipe_main.py dosyasını yaz: stdin'den satır satır "caller|agent" okusun, build_queue ile kuyruk kursun ve drain_report sonucunu her satırda bir eleman olacak şekilde stdout'a yazsın.
+
+setup: |
+  mkdir -p callcenter
+  cat > callcenter/queue_store.py <<'PY'
+  from abc import ABC, abstractmethod
+
+
+  class Queue(ABC):
+      @abstractmethod
+      def push(self, item):
+          ...
+
+      @abstractmethod
+      def pop(self):
+          ...
+
+      @abstractmethod
+      def size(self):
+          ...
+
+
+  class CallQueue(Queue):
+      def __init__(self):
+          self._items = []
+
+      def push(self, item):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def size(self):
+          raise NotImplementedError
+  PY
+  cat > callcenter/records.py <<'PY'
+  from callcenter.queue_store import CallQueue
+
+
+  def build_queue(lines):
+      q = CallQueue()
+      for line in lines:
+          line = line.strip()
+          if not line:
+              continue
+          caller, agent = line.split("|")
+          q.push((caller, agent))
+      return q
+
+
+  def drain_report(q):
+      order = []
+      while q.size() > 0:
+          caller, agent = q.pop()
+          order.append(caller + "->" + agent)
+      return order
+  PY
+  cat > sample.txt <<'TXT'
+  ayse|101
+  mehmet|102
+  zeynep|103
+  TXT
+
+goal_tr: >
+  1) callcenter/queue_store.py icindeki CallQueue sinifini FIFO kuyruk
+  olacak sekilde (push sona ekler, pop bastan cikarir, size eleman sayisini
+  dondurur) gerceklestir; 2) callcenter/records.py icindeki drain_report
+  fonksiyonunu kuyrugu bosaltip cagrilari gelis sirasinda "caller->agent"
+  biciminde dondurecek sekilde duzelt; 3) callcenter/pipe_main.py dosyasini
+  yaz: stdin'den satir satir "caller|agent" okur, build_queue ile kuyruk
+  kurar, drain_report sonucunu her satiri bir eleman olacak sekilde stdout'a
+  yazar.
+
+reference_solution: |
+  cat > callcenter/queue_store.py <<'PY'
+  from abc import ABC, abstractmethod
+
+
+  class Queue(ABC):
+      @abstractmethod
+      def push(self, item):
+          ...
+
+      @abstractmethod
+      def pop(self):
+          ...
+
+      @abstractmethod
+      def size(self):
+          ...
+
+
+  class CallQueue(Queue):
+      def __init__(self):
+          self._items = []
+
+      def push(self, item):
+          self._items.append(item)
+
+      def pop(self):
+          return self._items.pop(0)
+
+      def size(self):
+          return len(self._items)
+  PY
+  cat > callcenter/records.py <<'PY'
+  from callcenter.queue_store import CallQueue
+
+
+  def build_queue(lines):
+      q = CallQueue()
+      for line in lines:
+          line = line.strip()
+          if not line:
+              continue
+          caller, agent = line.split("|")
+          q.push((caller, agent))
+      return q
+
+
+  def drain_report(q):
+      order = []
+      while q.size() > 0:
+          caller, agent = q.pop()
+          order.append(caller + "->" + agent)
+      return order
+  PY
+  cat > callcenter/pipe_main.py <<'PY'
+  import sys
+
+  from callcenter.records import build_queue, drain_report
+
+
+  def main():
+      lines = sys.stdin.read().splitlines()
+      q = build_queue(lines)
+      for entry in drain_report(q):
+          print(entry)
+
+
+  if __name__ == "__main__":
+      main()
+  PY
+
+ara_adim: |
+  cat > callcenter/queue_store.py <<'PY'
+  from abc import ABC, abstractmethod
+
+
+  class Queue(ABC):
+      @abstractmethod
+      def push(self, item):
+          ...
+
+      @abstractmethod
+      def pop(self):
+          ...
+
+      @abstractmethod
+      def size(self):
+          ...
+
+
+  class CallQueue(Queue):
+      def __init__(self):
+          self._items = []
+
+      def push(self, item):
+          self._items.append(item)
+
+      def pop(self):
+          return self._items.pop(0)
+
+      def size(self):
+          return len(self._items)
+  PY
+
+outputs:
+  - {path: callcenter/queue_store.py, kind: program, run: 'python3 -c ''from callcenter.queue_store import CallQueue as C; q=C(); q.push(1); q.push(2); q.push(3); assert q.size()==3, q.size(); assert q.pop()==1; assert q.pop()==2; assert q.size()==1; assert q.pop()==3; assert q.size()==0; print("ILERLEME-TAMAM")'''}
+  - {path: callcenter/records.py, kind: program, run: 'python3 -c ''from callcenter.records import build_queue as b, drain_report as d; q=b(["a|1","b|2","c|3"]); assert q.size()==3; assert d(q)==["a->1","b->2","c->3"], d(q); print("TAMAM")'''}
+  - {path: callcenter/pipe_main.py, kind: program, run: 'python3 -c ''import subprocess,sys; r=subprocess.run([sys.executable,"-m","callcenter.pipe_main"],input="x|9\ny|8\n",capture_output=True,text=True); assert r.returncode==0, r.stderr; assert r.stdout=="x->9\ny->8\n", repr(r.stdout); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import subprocess,sys; r=subprocess.run([sys.executable,"-m","callcenter.pipe_main"],input="x|9\ny|8\n",capture_output=True,text=True); assert r.returncode==0, r.stderr; assert r.stdout=="x->9\ny->8\n", repr(r.stdout); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from callcenter.queue_store import CallQueue as C; q=C(); q.push(1); q.push(2); q.push(3); assert q.size()==3, q.size(); assert q.pop()==1; assert q.pop()==2; assert q.size()==1; assert q.pop()==3; assert q.size()==0; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from callcenter.records import build_queue as b, drain_report as d; q=b(["a|1","b|2","c|3"]); assert q.size()==3; assert d(q)==["a->1","b->2","c->3"], d(q); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-6045
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: cagri-merkezi-kayitlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kuyruk
+      karmasiklik: orta
+      kalip: abc-protokol
+      akis: stdin-boru
+      topoloji: iki-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

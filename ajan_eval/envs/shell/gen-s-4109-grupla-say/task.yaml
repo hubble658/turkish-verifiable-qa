@@ -1,0 +1,57 @@
+id: gen-s-4109-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  vardiya ve kayitlar klasörlerindeki bütün dosyaları ele alıp ilk sütundaki personel adlarını gruplayarak her adın kaç satırda geçtiğini büyük-küçük harf duyarlı biçimde say ve sonucu "ad sayi" biçiminde, her satırda bir ad olacak şekilde sonuc.txt dosyasına yaz.
+
+setup: |
+  mkdir -p vardiya kayitlar
+  printf 'Ali Sabah\nAyse Gece\nMehmet Sabah\nZeynep Gece\nAli Gece\n' > vardiya/a.txt
+  printf 'Ayse Sabah\nMehmet Gece\nZeynep Sabah\nAli Sabah\n' > kayitlar/b.txt
+  printf 'Ali Gece\nZeynep Sabah\n' > kayitlar/c.txt
+
+goal_tr: >
+  vardiya ve kayitlar klasorlerindeki tum dosyalarda ilk sutundaki personel
+  adlarini gruplayip her ad icin kac satir gectigini buyuk-kucuk harf
+  duyarli sayarak "ad sayi" biciminde sonuc.txt dosyasina yaz
+
+reference_solution: |
+  find vardiya kayitlar -type f -print0 | xargs -0 cat | awk '{print $1}' | sort | uniq -c | awk '{print $2, $1}' > sonuc.txt
+  grep -c . sonuc.txt > /dev/null
+  wc -l < sonuc.txt > /dev/null
+
+outputs:
+  - {path: sonuc.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: sonuc.txt, value: [Ali 4, Ayse 2, Mehmet 2, Zeynep 3]}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4109
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: personel-vardiyalari
+    hedef: grupla-say
+    girdi: sabit-genislik
+    kaynak: cok-dosya
+    cikti: satir-listesi
+    kesif: dosyayi-bul
+    uslup: kisit-sakli
+    direnc: bosluklu-ad
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

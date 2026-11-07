@@ -75,6 +75,8 @@ def tur_ve_grup(s, r):
 def sec(a):
     gruplar = defaultdict(lambda: defaultdict(list))
     for s, r in satirlar():
+        if s in ("ajan_terminal", "regex", "karakter_islemleri"):  # ajan: ajan_eval/ ile kosulur; yeni setler sec akisini kaydirmasin
+            continue
         t, g = tur_ve_grup(s, r)
         gruplar[t][str(g)].append((s, r["id"]))
     rnd = random.Random(TOHUM)
@@ -221,7 +223,10 @@ def hakem(a, D):
 
 
 def rapor(a, D):
-    sonuc = {m: [json.loads(l) for l in open(D / f"sonuc_{m}.jsonl", encoding="utf-8")]
+    # Ham sonuc dosyalari degismez; rapor yalniz alt_kume.jsonl'daki sorulari sayar (2026-11-03 Cognipeer cikarildi).
+    secim = {(x["set"], x["id"]) for x in map(json.loads, open(ALT_KUME, encoding="utf-8"))}
+    sonuc = {m: [x for x in map(json.loads, open(D / f"sonuc_{m}.jsonl", encoding="utf-8"))
+                 if (x["set"], x["id"]) in secim]
              for m in MODELLER if (D / f"sonuc_{m}.jsonl").exists()}
     tablo = {}
     for m, xs in sonuc.items():

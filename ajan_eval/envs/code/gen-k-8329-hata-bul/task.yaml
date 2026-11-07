@@ -1,0 +1,112 @@
+id: gen-k-8329-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  bank/ledger.py içindeki Ledger.totals metodunu her hesap için toplamı doğru hesaplayacak şekilde düzelt. bank/report.py ve bank/audit.py değişmeden çalışsın.
+
+setup: |
+  mkdir -p bank
+  cat > bank/ledger.py <<'LEDGER'
+  class Ledger:
+      def __init__(self):
+          self._rows = []
+
+      def add(self, account, amount):
+          self._rows.append((account, amount))
+
+      def totals(self):
+          out = {}
+          for account, amount in self._rows:
+              out[account] = out[account] + amount
+          return out
+  LEDGER
+  cat > bank/audit.py <<'AUDIT'
+  from bank.ledger import Ledger
+
+
+  def audit(stream):
+      led = Ledger()
+      for line in stream:
+          line = line.strip()
+          if not line:
+              continue
+          account, amount = line.split()
+          led.add(account, int(amount))
+      return led.totals()
+  AUDIT
+  cat > bank/report.py <<'REPORT'
+  from bank.audit import audit
+
+
+  def summarize(stream):
+      totals = audit(stream)
+      lines = []
+      for account in sorted(totals):
+          lines.append("%s %d" % (account, totals[account]))
+      return "\n".join(lines)
+  REPORT
+
+goal_tr: >
+  bank/ledger.py icindeki Ledger.totals metodunu, her hesap icin toplamin
+  dogru hesaplanacagi bicimde duzelt; bank/report.py ve bank/audit.py
+  degismeden calismali.
+
+reference_solution: |
+  cat > bank/ledger.py <<'LEDGER'
+  class Ledger:
+      def __init__(self):
+          self._rows = []
+
+      def add(self, account, amount):
+          self._rows.append((account, amount))
+
+      def totals(self):
+          out = {}
+          for account, amount in self._rows:
+              out[account] = out.get(account, 0) + amount
+          return out
+  LEDGER
+
+outputs:
+  - {path: bank/ledger.py, kind: program, run: 'python3 -c ''import io; from bank.report import summarize as f; s=io.StringIO("alice 10\nbob 5\nalice -3\ncarol 7\nbob 2\n"); assert f(s)=="alice 7\nbob 7\ncarol 7", repr(f(io.StringIO("alice 10\nbob 5\nalice -3\ncarol 7\nbob 2\n"))); assert f(io.StringIO("z 1\nz 1\nz 1\n"))=="z 3"; assert f(io.StringIO(""))==""; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import io; from bank.report import summarize as f; s=io.StringIO("alice 10\nbob 5\nalice -3\ncarol 7\nbob 2\n"); assert f(s)=="alice 7\nbob 7\ncarol 7", repr(f(io.StringIO("alice 10\nbob 5\nalice -3\ncarol 7\nbob 2\n"))); assert f(io.StringIO("z 1\nz 1\nz 1\n"))=="z 3"; assert f(io.StringIO(""))==""; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8329
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: banka-hareketleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sozluk-anahtar-hatasi
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: stdin-boru
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

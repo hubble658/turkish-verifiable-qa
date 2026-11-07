@@ -1,0 +1,132 @@
+id: gen-k-8147-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  /workspace dizinindeki kitchen.py dosyasında yer alan OrderQueue sınıfını, iç içe geçmiş bilet yapısını doğru işleyecek şekilde özyineleme kullanarak gerçekleştir. Sınıfın push, pop, peek, __len__ ve total_items metotları bu yapıya uygun çalışsın; pop her zaman en küçük priority değerine sahip bileti döndürsün, eşit priority durumunda ise daha önce eklenen bilet önce çıksın. Mevcut dosyadaki sınıf iskeletini ve metot imzalarını koru.
+
+setup: |
+  cat > kitchen.py <<'PY'
+  class OrderQueue:
+      """Priority queue of nested restaurant tickets.
+
+      Each ticket is a dict:
+          {"id": str, "priority": int, "items": [ {"name": str, "qty": int}, ... ]}
+      Lower priority number means the ticket must be cooked sooner.
+      """
+
+      def __init__(self):
+          raise NotImplementedError
+
+      def push(self, ticket):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+
+      def total_items(self):
+          raise NotImplementedError
+  PY
+
+goal_tr: >
+  kitchen.py icindeki OrderQueue sinifini ozyineleme kullanarak
+  gerceklestir: push, pop, peek, __len__ ve total_items metotlari ic ice
+  gecmis bilet yapisini dogru islesin; pop her zaman en kucuk priority
+  degerli bileti dondursun ve esitlikte daha once eklenen once ciksin.
+
+reference_solution: |
+  cat > kitchen.py <<'PY'
+  class OrderQueue:
+      """Priority queue of nested restaurant tickets.
+
+      Each ticket is a dict:
+          {"id": str, "priority": int, "items": [ {"name": str, "qty": int}, ... ]}
+      Lower priority number means the ticket must be cooked sooner.
+      """
+
+      def __init__(self):
+          self._entries = []
+          self._seq = 0
+
+      def push(self, ticket):
+          self._entries.append((ticket["priority"], self._seq, ticket))
+          self._seq += 1
+          self._entries.sort(key=lambda e: (e[0], e[1]))
+
+      def pop(self):
+          if not self._entries:
+              raise IndexError("pop from empty OrderQueue")
+          return self._entries.pop(0)[2]
+
+      def peek(self):
+          if not self._entries:
+              raise IndexError("peek from empty OrderQueue")
+          return self._entries[0][2]
+
+      def __len__(self):
+          return len(self._entries)
+
+      def total_items(self):
+          return self._count_items([e[2] for e in self._entries])
+
+      def _count_items(self, tickets):
+          if not tickets:
+              return 0
+          head, *tail = tickets
+          return self._count_items_in_basket(head["items"]) + self._count_items(tail)
+
+      def _count_items_in_basket(self, items):
+          if not items:
+              return 0
+          first, *rest = items
+          return first["qty"] + self._count_items_in_basket(rest)
+  PY
+
+outputs:
+  - {path: kitchen.py, kind: program, run: 'python3 -c ''from kitchen import OrderQueue as Q; q=Q(); assert len(q)==0; q.push({"id":"a","priority":5,"items":[{"name":"soup","qty":2}]}); q.push({"id":"b","priority":1,"items":[{"name":"steak","qty":1},{"name":"fries","qty":3}]}); q.push({"id":"c","priority":1,"items":[{"name":"salad","qty":4}]}); assert len(q)==3; assert q.peek()["id"]=="b"; assert q.pop()["id"]=="b"; assert q.pop()["id"]=="c"; assert q.total_items()==2; assert q.peek()["id"]=="a"; assert q.pop()["id"]=="a"; assert len(q)==0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from kitchen import OrderQueue as Q; q=Q(); assert len(q)==0; q.push({"id":"a","priority":5,"items":[{"name":"soup","qty":2}]}); q.push({"id":"b","priority":1,"items":[{"name":"steak","qty":1},{"name":"fries","qty":3}]}); q.push({"id":"c","priority":1,"items":[{"name":"salad","qty":4}]}); assert len(q)==3; assert q.peek()["id"]=="b"; assert q.pop()["id"]=="b"; assert q.pop()["id"]=="c"; assert q.total_items()==2; assert q.peek()["id"]=="a"; assert q.pop()["id"]=="a"; assert len(q)==0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8147
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: restoran-siparisleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: oncelik-kuyrugu
+      karmasiklik: duz
+      kalip: ozyineleme
+      akis: ic-ice-yapi
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

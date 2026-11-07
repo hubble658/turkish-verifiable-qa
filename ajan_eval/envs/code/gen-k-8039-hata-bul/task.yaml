@@ -1,0 +1,107 @@
+id: gen-k-8039-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) depot/inventory.py dosyasındaki make_counter fabrikasını, her çağrıldığında yalnızca o handle'a ait bağımsız bir sayaç durumu tutan ve bir handle döndüren biçimde düzelt.
+
+  2) İki farklı handle'ın birbirinin sayaç durumunu paylaşmamasını sağla.
+
+  3) depot/inventory.py içindeki modül seviyesindeki _TOTALS sözlüğünü kaldır.
+
+setup: |
+  mkdir -p depot
+  cat > depot/reader.py <<'READER'
+  def read_lines(stream):
+      return [line.strip() for line in stream if line.strip()]
+  READER
+  cat > depot/inventory.py <<'INVENTORY'
+  from depot.reader import read_lines
+
+  _TOTALS = {"in": 0, "out": 0}
+
+
+  def make_counter():
+      def handle(line):
+          op, _, qty = line.partition(" ")
+          _TOTALS["in" if op == "IN" else "out"] += int(qty)
+          return _TOTALS["in"] - _TOTALS["out"]
+
+      return handle
+
+
+  def run(stream):
+      handle = make_counter()
+      return [handle(line) for line in read_lines(stream)]
+  INVENTORY
+  printf 'IN 5\nIN 3\nOUT 4\nOUT 1\n' > stream.txt
+
+goal_tr: >
+  depot/inventory.py icindeki make_counter fabrikasini, her cagrildiginda
+  kendi bagimsiz sayaclarini tutan bir handle dondurecek bicimde duzelt; iki
+  farkli handle birbirinin durumunu paylasmamali ve modul seviyesindeki
+  _TOTALS sozlugu kaldirilmalidir.
+
+reference_solution: |
+  cat > depot/inventory.py <<'INVENTORY'
+  from depot.reader import read_lines
+
+
+  def make_counter():
+      counts = {"in": 0, "out": 0}
+
+      def handle(line):
+          op, _, qty = line.partition(" ")
+          counts["in" if op == "IN" else "out"] += int(qty)
+          return counts["in"] - counts["out"]
+
+      return handle
+
+
+  def run(stream):
+      handle = make_counter()
+      return [handle(line) for line in read_lines(stream)]
+  INVENTORY
+
+outputs:
+  - {path: depot/inventory.py, kind: program, run: 'python3 -c ''import depot.inventory as inv; h1=inv.make_counter(); h2=inv.make_counter(); assert h1("IN 5")==5, h1("IN 5"); assert h2("IN 2")==2, h2("IN 2"); assert h1("IN 3")==8; assert h2("OUT 1")==1; assert h1("OUT 4")==4; s=open("stream.txt"); a=inv.run(s); s.seek(0); b=inv.run(s); assert a==[5,8,4,3], a; assert b==[5,8,4,3], b; src=open("depot/inventory.py").read(); assert "_TOTALS" not in src; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import depot.inventory as inv; h1=inv.make_counter(); h2=inv.make_counter(); assert h1("IN 5")==5, h1("IN 5"); assert h2("IN 2")==2, h2("IN 2"); assert h1("IN 3")==8; assert h2("OUT 1")==1; assert h1("OUT 4")==4; s=open("stream.txt"); a=inv.run(s); s.seek(0); b=inv.run(s); assert a==[5,8,4,3], a; assert b==[5,8,4,3], b; src=open("depot/inventory.py").read(); assert "_TOTALS" not in src; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8039
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: depo-envanteri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-durum-sifirlama
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: stdin-boru
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

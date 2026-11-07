@@ -1,0 +1,63 @@
+id: gen-s-3036-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi'deki yorum dosyalarındaki puanları (ikinci alan) ürün adına göre ayırıp her ürünü cikti/ altında kendi adını taşıyan dosyaya yaz: cikti/urunA.txt, cikti/urunB.txt, cikti/urunC.txt.
+
+setup: |
+  mkdir -p girdi
+  printf 'urunA|5|harika urun\nurunB|1|berbat\nurunC|4|iyi' > girdi/yorum1.txt
+  printf 'urunA|2|fena degil\nurunB|5|cok iyi\nurunC|3|orta' > girdi/yorum2.txt
+  printf 'urunA|4|begendim\nurunB|3|idare eder\nurunC|5|mukemmel' > girdi/yorum3.txt
+
+goal_tr: >
+  girdi dizinindeki her yorum dosyasini okuyup her satirdaki urun adina gore
+  cikti dizininde urun adiyla ayni isimde bir dosya olustur ve o urune ait
+  puanlari (ikinci alan) kendi dosyasina yaz; boylece cikti dizininde her
+  urun icin bir dosya bulunsun.
+
+reference_solution: |
+  mkdir -p cikti
+  cat girdi/yorum1.txt girdi/yorum2.txt girdi/yorum3.txt | tee /dev/null | cut -d'|' -f1,2 | while IFS='|' read -r urun puan; do printf '%s\n' "$puan" >> "cikti/$urun.txt"; done
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/urunA.txt, kind: file}
+  - {path: cikti/urunB.txt, kind: file}
+  - {path: cikti/urunC.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [urunA.txt, urunB.txt, urunC.txt]}
+  - {op: file_content_eq, path: cikti/urunA.txt, value: '5'}
+  - {op: file_lines_eq, path: cikti/urunB.txt, value: ['1', '5', '3']}
+  - {op: file_lines_eq, path: cikti/urunC.txt, value: ['4', '3', '5']}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3036
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: urun-yorumlari
+    hedef: bol
+    girdi: log-satiri
+    kaynak: cok-dosya
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: terse
+    direnc: son-newline-yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

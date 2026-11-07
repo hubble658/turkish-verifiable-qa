@@ -1,0 +1,76 @@
+id: gen-s-3129-onar
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+prompt: 'kayitlar.txt dosyasındaki her satırı oku; her satırda sicaklik ve nem alanlarının sayısal değerlerini kontrol et.
+  Bu değerlerden biri eksikse ya da sayısal değilse o satırı düzeltilmiş haliyle, değilse olduğu gibi bırak. Sonuçta tüm satırları
+  düzeltilmiş kayıtlar olarak kayitlar_duzeltilmis.txt dosyasına yaz; kayitlar.txt dosyası olduğu gibi korunsun.
+
+  '
+setup: 'cat > kayitlar.txt <<''KAYIT''
+
+  2024-01-01 12:00 sicaklik=21.5 nem=45
+
+  2024-01-01 13:00 sicaklik=22.1 nem=44
+
+  2024-01-01 14:00 sicaklik=23.0 nem=43
+
+  2024-01-01 15:00 sicaklik=23.4 nem=42
+
+  2024-01-01 16:00 sicaklik=22.8 nem=44
+
+  2024-01-01 17:00 sicaklik=21.9 nem=46
+
+  2024-01-01 18:00 sicaklik=20.5 nem=48
+
+  KAYIT
+
+  '
+goal_tr: 'kayitlar.txt dosyasindaki her satiri "sicaklik" ve "nem" alanlarinin sayisal degerlerine gore kontrol edip, degerlerden
+  biri eksik veya sayisal degilse o satiri duzeltilmis haliyle, degilse oldugu gibi koruyup, tum satirlari duzeltilmis kayitlar
+  olarak kayitlar_duzeltilmis.txt dosyasina yaz
+
+  '
+reference_solution: 'cp kayitlar.txt kayitlar_duzeltilmis.txt
+
+  '
+outputs: []
+checks:
+- op: file_lines_eq
+  path: kayitlar_duzeltilmis.txt
+  as_set: false
+  value:
+  - 2024-01-01 12:00 sicaklik=21.5 nem=45
+  - 2024-01-01 13:00 sicaklik=22.1 nem=44
+  - 2024-01-01 14:00 sicaklik=23.0 nem=43
+  - 2024-01-01 15:00 sicaklik=23.4 nem=42
+  - 2024-01-01 16:00 sicaklik=22.8 nem=44
+  - 2024-01-01 17:00 sicaklik=21.9 nem=46
+  - 2024-01-01 18:00 sicaklik=20.5 nem=48
+metadata:
+  domain: onar
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3129
+    bundle: python-veri
+    tools:
+    - python3
+    konu: hava-durumu-kayitlari
+    hedef: onar
+    girdi: duz-metin
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: veriye-bak
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: olcek
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}
+  duzeltme:
+    neden: altin_yanlis
+    not: Altında satır sonları kaybolmuştu; hiçbir satır bozuk olmadığı için çıktı girdinin aynısı.

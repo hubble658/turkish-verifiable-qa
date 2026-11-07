@@ -1,0 +1,61 @@
+id: gen-s-3087-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+prompt: 'envanter dizin ağacındaki stok.tsv dosyalarındaki ürün, kod ve adet satırlarını birleştir. Kod alanını ters çevir
+  ve sonucu kod, ürün, adet biçiminde tek bir envanter.csv dosyasına yaz. Başlık satırı yalnızca bir kez, en başta yer alsın.
+
+
+  Kod alanını karakter karakter ters çevir (K01 → 10K). Çıktıyı çalışma dizininin kökünde (envanter.csv) oluştur, alt dizine
+  yazma.
+
+  '
+setup: "mkdir -p envanter/depo_a envanter/depo_b\ncat > envanter/depo_a/stok.tsv <<'TSV'\nurun\tkod\tadet\nkalem\tK01\t12\n\
+  silgi\tK02\t7\ndefter\tK03\t25\nTSV\ncat > envanter/depo_b/stok.tsv <<'TSV'\nurun\tkod\tadet\ndefter\tK03\t5\nkalem\tK01\t\
+  3\nTSV\ncat > envanter/depo_a/notlar.txt <<'TXT'\nbu dosya tsv degil\nTXT\n"
+goal_tr: 'envanter dizin agacindaki stok.tsv dosyalarindaki urun,kod,adet satirlarini birlestirip kod alanini ters cevirerek
+  kod,urun,adet biciminde tek bir envanter.csv dosyasina yaz; baslik satiri yalnizca bir kez en basta yer alsin.
+
+  '
+reference_solution: "python3 - <<'PY'\nimport csv, glob\ns = [\"kod,urun,adet\"]\nfor f in sorted(glob.glob(\"envanter/*/stok.tsv\"\
+  )):\n    for r in csv.DictReader(open(f), delimiter=\"\\t\"):\n        s.append(f\"{r['kod'][::-1]},{r['urun']},{r['adet']}\"\
+  )\nopen(\"envanter.csv\", \"w\").write(\"\\n\".join(s) + \"\\n\")\nPY\n"
+outputs: []
+checks:
+- op: file_lines_eq
+  path: envanter.csv
+  value:
+  - kod,urun,adet
+  - 10K,kalem,12
+  - 20K,silgi,7
+  - 30K,defter,25
+  - 30K,defter,5
+  - 10K,kalem,3
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3087
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: envanter
+    hedef: donustur
+    girdi: tsv
+    kaynak: dizin-agaci
+    cikti: csv
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}
+  duzeltme:
+    neden: altin_yanlis
+    not: Altında kod ters çevrilmemiş, sütunlar başlıkla uyuşmuyordu; ayrıca çıktı yeri yazmıyordu.

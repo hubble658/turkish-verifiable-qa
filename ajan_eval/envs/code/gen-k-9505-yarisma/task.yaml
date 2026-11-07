@@ -1,0 +1,257 @@
+id: gen-k-9505-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 28
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  pricing dizinindeki fiyat listesi raporlama kodunu düzelt. pricing/report.py, pricing/engine.py ve pricing/catalog.py dosyaları birbiriyle uyumlu çalışsın.
+
+  pricing/report.py standart girdiden iki blok ürün-fiyat listesi okusun; bloklar tek bir "---" satırıyla ayrılsın. Her ürün satırı "urun_kodu,fiyat" biçiminde olsun. Rapor şunları hesaplasın: birinci ve ikinci blokta ortak olan ürün kodlarının sayısı, yalnızca birinci blokta bulunan ürün kodlarının sayısı, yalnızca ikinci blokta bulunan ürün kodlarının sayısı ve ortak ürünlerin birinci bloktaki fiyatlarının toplamı. Toplam, iki ondalık basamaklı olarak gösterilsin.
+
+  pricing/report.py çıktıyı tek satırda tam olarak "shared=<n> only=<n> missing=<n> total=<x.xx>" biçiminde yazsın; burada <n> sayıları tam sayı, <x.xx> ise iki ondalık basamaklı toplam olsun. Çıktı deterministik olsun ve gerçek sayıları doğru yansıtsın.
+
+  pricing/engine.py, fiyat listelerini ayrıştırıp ortak, yalnızca birinci blokta olan ve yalnızca ikinci blokta olan ürün kümelerini doğru biçimde döndürsün; ortak ürünlerin birinci bloktaki fiyat toplamını da doğru hesaplasın. pricing/catalog.py ise ürün kodları ile fiyatları tutan ve sorgulanabilen katalog yapısını sağlasın. Bu üç dosya birbiriyle tutarlı olsun.
+
+  Şu şartlar sağlanmalı:
+  - pricing/catalog.py, pricing/engine.py ve pricing/report.py dosyalarının tümü mevcut ve birbiriyle uyumlu olmalı.
+  - pricing/report.py standart girdiden iki bloğu tek bir "---" satırına göre ayırabilmeli.
+  - Ortak ürün kodlarının sayısı doğru hesaplanmalı.
+  - Yalnızca birinci blokta olan ürün kodlarının sayısı doğru hesaplanmalı.
+  - Yalnızca ikinci blokta olan ürün kodlarının sayısı doğru hesaplanmalı.
+  - Ortak ürünlerin birinci bloktaki fiyat toplamı doğru hesaplanmalı.
+  - Toplam, iki ondalık basamaklı olarak gösterilmeli.
+  - Çıktı tek satırda "shared=<n> only=<n> missing=<n> total=<x.xx>" biçiminde olmalı.
+  - Çıktı deterministik olmalı; aynı girdi her zaman aynı çıktıyı vermeli.
+
+setup: |
+  mkdir -p pricing
+  cat > pricing/catalog.py <<'CAT'
+  class Catalog:
+      def __init__(self, rows):
+          self._rows = {}
+          for sku, price in rows:
+              self._rows[sku] = float(price)
+
+      def skus(self):
+          return set(self._rows)
+
+      def price(self, sku):
+          return self._rows[sku]
+  CAT
+  cat > pricing/parse.py <<'PARSE'
+  def parse_lines(text):
+      out = []
+      for line in text.splitlines():
+          line = line.strip()
+          if not line:
+              continue
+          sku, price = line.split(",")
+          out.append((sku.strip(), float(price)))
+      return out
+  PARSE
+  cat > pricing/engine.py <<'ENG'
+  from pricing.catalog import Catalog
+  from pricing.parse import parse_lines
+
+
+  class PriceEngine:
+      def __init__(self, text):
+          self._catalog = Catalog(parse_lines(text))
+
+      def shared_skus(self, other_text):
+          other = Catalog(parse_lines(other_text))
+          return self._catalog.skus() & other.skus()
+
+      def only_here(self, other_text):
+          other = Catalog(parse_lines(other_text))
+          return self._catalog.skus() & other.skus()
+
+      def missing_here(self, other_text):
+          other = Catalog(parse_lines(other_text))
+          return other.skus() - self._catalog.skus()
+
+      def total(self, skus):
+          return sum(self._catalog.price(s) for s in skus)
+  ENG
+  cat > pricing/report.py <<'REP'
+  import sys
+
+  from pricing.engine import PriceEngine
+
+
+  def build_report(text, other_text):
+      eng = PriceEngine(text)
+      shared = eng.shared_skus(other_text)
+      only = eng.only_here(other_text)
+      missing = eng.missing_here(other_text)
+      total = eng.total(shared)
+      return "shared=%d only=%d missing=%d total=%.1f" % (
+          len(shared), len(only), len(missing), total)
+
+
+  def main():
+      data = sys.stdin.read()
+      first, other = data.split("---", 1)
+      sys.stdout.write(build_report(first, other) + "\n")
+
+
+  if __name__ == "__main__":
+      main()
+  REP
+
+goal_tr: >
+  stdin'den iki blok urun-fiyat listesi okuyup (bloklar tek bir "---"
+  satiriyla ayrilir) birinci ve ikinci bloktaki ortak urun kodlarinin
+  sayisini, yalnizca birinci blokta olanlarin sayisini, yalnizca ikinci
+  blokta olanlarin sayisini ve ortak urunlerin birinci bloktaki fiyat
+  toplaminin iki ondalikli gosterimini hesaplayip "shared=<n> only=<n>
+  missing=<n> total=<x.xx>" biciminde tek satir yazan pricing/report.py'yi,
+  pricing/engine.py ve pricing/catalog.py ile uyumlu olacak sekilde duzelt;
+  cikti deterministik olmali ve gercek sayilar tutmali.
+
+reference_solution: |
+  cat > pricing/catalog.py <<'CAT'
+  class Catalog:
+      def __init__(self, rows):
+          self._rows = {}
+          for sku, price in rows:
+              self._rows[sku] = float(price)
+
+      def skus(self):
+          return set(self._rows)
+
+      def price(self, sku):
+          return self._rows[sku]
+  CAT
+  cat > pricing/parse.py <<'PARSE'
+  def parse_lines(text):
+      out = []
+      for line in text.splitlines():
+          line = line.strip()
+          if not line:
+              continue
+          sku, price = line.split(",")
+          out.append((sku.strip(), float(price)))
+      return out
+  PARSE
+  cat > pricing/engine.py <<'ENG'
+  from pricing.catalog import Catalog
+  from pricing.parse import parse_lines
+
+
+  class PriceEngine:
+      def __init__(self, text):
+          self._catalog = Catalog(parse_lines(text))
+
+      def shared_skus(self, other_text):
+          other = Catalog(parse_lines(other_text))
+          return self._catalog.skus() & other.skus()
+
+      def only_here(self, other_text):
+          other = Catalog(parse_lines(other_text))
+          return self._catalog.skus() - other.skus()
+
+      def missing_here(self, other_text):
+          other = Catalog(parse_lines(other_text))
+          return other.skus() - self._catalog.skus()
+
+      def total(self, skus):
+          return sum(self._catalog.price(s) for s in sorted(skus))
+  ENG
+  cat > pricing/report.py <<'REP'
+  import sys
+
+  from pricing.engine import PriceEngine
+
+
+  def build_report(text, other_text):
+      eng = PriceEngine(text)
+      shared = eng.shared_skus(other_text)
+      only = eng.only_here(other_text)
+      missing = eng.missing_here(other_text)
+      total = eng.total(shared)
+      return "shared=%d only=%d missing=%d total=%.2f" % (
+          len(shared), len(only), len(missing), total)
+
+
+  def main():
+      data = sys.stdin.read()
+      first, other = data.split("---", 1)
+      sys.stdout.write(build_report(first, other) + "\n")
+
+
+  if __name__ == "__main__":
+      main()
+  REP
+
+ara_adim: |
+  cat > pricing/engine.py <<'ENG'
+  from pricing.catalog import Catalog
+  from pricing.parse import parse_lines
+
+
+  class PriceEngine:
+      def __init__(self, text):
+          self._catalog = Catalog(parse_lines(text))
+
+      def shared_skus(self, other_text):
+          other = Catalog(parse_lines(other_text))
+          return self._catalog.skus() & other.skus()
+
+      def only_here(self, other_text):
+          other = Catalog(parse_lines(other_text))
+          return self._catalog.skus() - other.skus()
+
+      def missing_here(self, other_text):
+          other = Catalog(parse_lines(other_text))
+          return other.skus() - self._catalog.skus()
+
+      def total(self, skus):
+          return sum(self._catalog.price(s) for s in skus)
+  ENG
+
+outputs:
+  - {path: pricing/report.py, kind: program, run: 'python3 -c ''from pricing.report import build_report as f; a="a,1.50\nb,2.00\nc,3.00\n"; b="b,9.00\nc,1.00\nd,4.00\n"; r=f(a,b); assert r=="shared=2 only=1 missing=1 total=5.00", r; print("TAMAM")'''}
+  - {path: pricing/engine.py, kind: program, run: 'python3 -c ''from pricing.engine import PriceEngine as E; e=E("a,1.50\nb,2.00\nc,3.00\n"); o="b,9.00\nc,1.00\nd,4.00\n"; assert sorted(e.only_here(o))==["a"]; assert sorted(e.missing_here(o))==["d"]; print("ILERLEME-TAMAM")'''}
+  - {path: pricing/catalog.py, kind: program, run: 'python3 -c ''from pricing.catalog import Catalog as C; c=C([("a",1.5),("b",2.0)]); assert c.skus()=={"a","b"}; assert c.price("a")==1.5; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from pricing.engine import PriceEngine as E; e=E("a,1.50\nb,2.00\nc,3.00\n"); o="b,9.00\nc,1.00\nd,4.00\n"; assert sorted(e.only_here(o))==["a"]; assert sorted(e.missing_here(o))==["d"]; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from pricing.report import build_report as f; a="a,1.50\nb,2.00\nc,3.00\n"; b="b,9.00\nc,1.00\nd,4.00\n"; r=f(a,b); assert r=="shared=2 only=1 missing=1 total=5.00", r; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from pricing.catalog import Catalog as C; c=C([("a",1.5),("b",2.0)]); assert c.skus()=={"a","b"}; assert c.price("a")==1.5; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9505
+    bundle: yarisma
+    tools:
+    - python3
+    konu: urun-fiyatlari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: zor
+    adim: 11
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kume-islemleri
+      karmasiklik: derin
+      kalip: durumlu-sinif
+      akis: stdin-boru
+      topoloji: elmas
+      zincir: 3
+      regresyon: true
+      bagimli: true
+      kesif_zor: true

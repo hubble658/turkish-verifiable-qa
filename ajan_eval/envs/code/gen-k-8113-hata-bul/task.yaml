@@ -1,0 +1,79 @@
+id: gen-k-8113-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+prompt: 'logs/parser.py dosyasını oluştur. Bu dosyada, gelen log satırlarını "ip method path status" biçiminde dört alana
+  ayıran bir parse_stream fonksiyonu olsun; dört alandan farklı sayıda parça içeren satırlarda logs.base modülündeki MalformedLine
+  hatası fırlatılsın. Ayrıca aynı dosyada, her bir IP adresi için durum kodu 400 ve üzeri olan istekleri sayan ve bu sayıları
+  döndüren bir count_errors fonksiyonu bulunsun.
+
+
+  parse_stream dosya benzeri nesne alıp (ip, method, path, status) demetlerinin listesini döndürsün (status int); count_errors
+  da dosya benzeri nesne alsın, IP→sayı sözlüğü döndürsün; hatası olmayan IP sözlükte yer almasın.
+
+  '
+setup: "mkdir -p logs\ncat > logs/__init__.py <<'INIT'\nINIT\ncat > logs/base.py <<'BASE'\nclass LogError(Exception):\n  \
+  \  \"\"\"Base error for the log parsing package.\"\"\"\n    pass\n\n\nclass MalformedLine(LogError):\n    \"\"\"Raised when\
+  \ a log line cannot be parsed.\"\"\"\n    pass\nBASE\ncat > data.log <<'LOG'\n10.0.0.1 GET /index.html 200\n10.0.0.2 GET\
+  \ /missing 404\n10.0.0.3 POST /submit 500\n10.0.0.1 GET /style.css 200\nLOG\n"
+goal_tr: 'logs/parser.py dosyasini yaz: satirlari "ip method path status" olarak ayristiran parse_stream fonksiyonu ile 4
+  alandan farkli satirlarda logs.base.MalformedLine firlatsin, ve count_errors fonksiyonu her IP icin 400 ve uzeri durum kodlarini
+  dogru sayip dondursun.
+
+  '
+reference_solution: "cat > logs/parser.py <<'PARSER'\nfrom logs.base import MalformedLine\n\n\ndef parse_stream(lines):\n\
+  \    records = []\n    for line in lines:\n        parts = line.strip().split()\n        if len(parts) != 4:\n         \
+  \   raise MalformedLine(\"bad line: %r\" % (line,))\n        ip, method, path, status = parts\n        records.append((ip,\
+  \ method, path, int(status)))\n    return records\n\n\ndef count_errors(lines):\n    counts = {}\n    for ip, method, path,\
+  \ status in parse_stream(lines):\n        if status >= 400:\n            counts[ip] = counts.get(ip, 0) + 1\n    return\
+  \ counts\nPARSER\n"
+outputs:
+- path: logs/parser.py
+  kind: program
+  run: python3 -c 'import io; from logs.parser import parse_stream, count_errors; from logs.base import MalformedLine; data=open("data.log").read();
+    recs=parse_stream(io.StringIO(data)); assert recs==[("10.0.0.1","GET","/index.html",200),("10.0.0.2","GET","/missing",404),("10.0.0.3","POST","/submit",500),("10.0.0.1","GET","/style.css",200)],
+    recs; c=count_errors(io.StringIO(data)); assert c=={"10.0.0.2":1,"10.0.0.3":1}, c; raised=[False]; exec("try:\n    parse_stream(io.StringIO(\"10.0.0.9
+    GET /x 200\\noops\\n\"))\nexcept MalformedLine:\n    raised[0]=True"); assert raised[0]; print("TAMAM")'
+checks:
+- op: run_stdout_eq
+  cmd: python3 -c 'import io; from logs.parser import parse_stream, count_errors; from logs.base import MalformedLine; data=open("data.log").read();
+    recs=parse_stream(io.StringIO(data)); assert recs==[("10.0.0.1","GET","/index.html",200),("10.0.0.2","GET","/missing",404),("10.0.0.3","POST","/submit",500),("10.0.0.1","GET","/style.css",200)],
+    recs; c=count_errors(io.StringIO(data)); assert c=={"10.0.0.2":1,"10.0.0.3":1}, c; raised=[False]; exec("try:\n    parse_stream(io.StringIO(\"10.0.0.9
+    GET /x 200\\noops\\n\"))\nexcept MalformedLine:\n    raised[0]=True"); assert raised[0]; print("TAMAM")'
+  value: TAMAM
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8113
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: web-erisim-loglari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-durum-sifirlama
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: parcali-akis
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false
+  duzeltme:
+    neden: gizli_sart
+    not: Dönüş biçimi yazmıyordu.

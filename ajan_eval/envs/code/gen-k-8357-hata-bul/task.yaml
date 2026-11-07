@@ -1,0 +1,131 @@
+id: gen-k-8357-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  route/paths.py içindeki cheapest_paths fonksiyonunu, eşit uzaklıktaki düğümler çıktıda düğüm adına göre alfabetik sıralanacak şekilde düzelt.
+
+setup: |
+  mkdir -p route
+  cat > route/loader.py <<'LOADER'
+  def load_edges(path):
+      edges = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              a, b, w = line.split(',')
+              edges.append((a, b, int(w)))
+      return edges
+  LOADER
+  cat > route/graph.py <<'GRAPH'
+  from route.loader import load_edges
+
+
+  def build_adj(path):
+      adj = {}
+      for a, b, w in load_edges(path):
+          adj.setdefault(a, []).append((b, w))
+          adj.setdefault(b, [])
+      return adj
+  GRAPH
+  cat > route/paths.py <<'PATHS'
+  from route.graph import build_adj
+
+
+  def cheapest_paths(path, src):
+      adj = build_adj(path)
+      dist = {src: 0}
+      order = [src]
+      seen = set()
+      while order:
+          node = order.pop(0)
+          if node in seen:
+              continue
+          seen.add(node)
+          for nxt, w in adj.get(node, []):
+              cand = dist[node] + w
+              if nxt not in dist or cand < dist[nxt]:
+                  dist[nxt] = cand
+              order.append(nxt)
+      return sorted(dist.items(), key=lambda kv: kv[1])
+  PATHS
+  cat > net.txt <<'NET'
+  A,B,1
+  A,C,1
+  B,D,5
+  C,D,5
+  D,E,2
+  NET
+
+goal_tr: >
+  route/paths.py icindeki cheapest_paths fonksiyonunu, esit uzakliktaki
+  dugumlerin cikti sirasini dugum adina gore alfabetik yapacak bicimde
+  duzelt.
+
+reference_solution: |
+  cat > route/paths.py <<'PATHS'
+  from route.graph import build_adj
+
+
+  def cheapest_paths(path, src):
+      adj = build_adj(path)
+      dist = {src: 0}
+      order = [src]
+      seen = set()
+      while order:
+          node = order.pop(0)
+          if node in seen:
+              continue
+          seen.add(node)
+          for nxt, w in adj.get(node, []):
+              cand = dist[node] + w
+              if nxt not in dist or cand < dist[nxt]:
+                  dist[nxt] = cand
+              order.append(nxt)
+      return sorted(dist.items(), key=lambda kv: (kv[1], kv[0]))
+  PATHS
+
+outputs:
+  - {path: route/paths.py, kind: program, run: 'python3 -c ''from route.paths import cheapest_paths as f; r=f("net.txt","A"); assert r==[("A",0),("B",1),("C",1),("D",6),("E",8)], r; import pathlib; pathlib.Path("net2.txt").write_text("A,C,3\nA,B,3\nB,D,1\nC,D,1\n"); s=f("net2.txt","A"); assert s==[("A",0),("B",3),("C",3),("D",4)], s; pathlib.Path("net3.txt").write_text("A,Z,2\nA,B,2\nB,M,1\nZ,M,1\n"); t=f("net3.txt","A"); assert t==[("A",0),("B",2),("Z",2),("M",3)], t; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from route.paths import cheapest_paths as f; r=f("net.txt","A"); assert r==[("A",0),("B",1),("C",1),("D",6),("E",8)], r; import pathlib; pathlib.Path("net2.txt").write_text("A,C,3\nA,B,3\nB,D,1\nC,D,1\n"); s=f("net2.txt","A"); assert s==[("A",0),("B",3),("C",3),("D",4)], s; pathlib.Path("net3.txt").write_text("A,Z,2\nA,B,2\nB,M,1\nZ,M,1\n"); t=f("net3.txt","A"); assert t==[("A",0),("B",2),("Z",2),("M",3)], t; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8357
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: yol-tarifi-agi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-kararsizligi
+      karmasiklik: duz
+      kalip: ozyineleme
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

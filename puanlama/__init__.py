@@ -19,6 +19,8 @@ from functools import lru_cache
 from pathlib import Path
 
 from . import meb, solver, sql
+from ._ek import EK_SETLER
+from ._ek import modul as _ek_modul
 
 PAKET = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent / "_hesaplama"))
@@ -144,7 +146,8 @@ def tablo_metni(o):
 
 
 SET_KAYNAK = {"bulmaca": "bulmaca", "meb_tek_ders": "korpus", "meb_capraz": "korpus", "hesaplama": "hesaplama",
-              "excel_veritabani": "hesaplama", "solver": "solver"}
+              "excel_veritabani": "hesaplama", "solver": "solver", "ajan_terminal": "ajan_terminal",
+              **{s: s for s in EK_SETLER}}
 
 
 def _uyarla(satir):
@@ -163,6 +166,10 @@ def orijinal(satir):
 def istem(satir):
     satir = _uyarla(satir)
     k, o, soru = satir["kategori"], orijinal(satir), satir["soru"]
+    if k.startswith("ajan_terminal"):
+        return soru  # ajan: cok turlu, ortam ve arac tanimi ajan_eval/ icinde
+    if satir["kaynak"] in EK_SETLER:
+        return _ek_modul(satir["kaynak"]).istem(satir)
     if satir["kaynak"] == "bulmaca":
         return bulmaca_scoring.INSTRUCTION + o["prompt"]
     if satir["kaynak"] == "korpus":
@@ -219,6 +226,10 @@ def puanla(satir, metin, hakem=None):
     (bkz. meb.puanla). Paket satiri da Hugging Face satiri da verilebilir."""
     satir = _uyarla(satir)
     k, o = satir["kategori"], orijinal(satir)
+    if k.startswith("ajan_terminal"):
+        raise NotImplementedError("Ajan terminal gorevleri tek metinle puanlanmaz: ajan_eval/README.md")
+    if satir["kaynak"] in EK_SETLER:
+        return bool(_ek_modul(satir["kaynak"]).puanla(satir, metin))
     if satir["kaynak"] == "bulmaca":
         # 2026-10-31: gevsek eslesme (sira/ek/bicim farki tolere) doner. Kesin eslesme, hakemin dogru saydigi
         # 720 cevabin 114'unu reddediyordu ("Aslı ve Pelin" / "Aslı, Pelin", "13.45" / "13:45", "Mutfakta");
@@ -245,7 +256,10 @@ def puanla(satir, metin, hakem=None):
             ters = sql.calistir(str(vt_klasoru() / o["db"]), satir["cevap"], _ekler(o), ters=True)
         except Exception:
             return False
-        return sql.belirsizlik_toleransli(o["gercek_sonuc"], rows, sira, ters)
+        if sql.belirsizlik_toleransli(o["gercek_sonuc"], rows, sira, ters):
+            return True
+        return sql.limit_esitlik_kabul(o["gercek_sonuc"], rows, sira,
+                                       sql.limit_gruplari(str(vt_klasoru() / o["db"]), satir["cevap"], _ekler(o)))
     if k == "sql_cognipeer":
         return sql.puanla_cognipeer(o, satir["cevap"], metin)
     if k == "sql_cikti_tahmini":

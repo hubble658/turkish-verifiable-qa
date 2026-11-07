@@ -1,0 +1,162 @@
+id: gen-k-9089-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  planner/intervals.py ve planner/agenda.py dosyalarını tamamla. planner/intervals.py içinde merge_intervals ve make_merger işlevleri yer almalı; merge_intervals verilen aralıkları sıralı ve birleştirilmiş biçimde döndürmeli, make_merger ise gap parametresi kadar boşluğu olan aralıkları da birleştiren bir işlev üretmeli. planner/agenda.py içinde read_events ve build_agenda işlevleri bulunmalı; read_events stdin'den "HH:MM HH:MM etiket" biçimindeki satırları okuyup olayları döndürmeli, build_agenda ise bu olaylardan gap kadar boşlukları da birleştirerek sıralı ve birleştirilmiş bir takvim listesi üretmeli. Örnek girdi olarak sample.txt dosyasındaki satırlar kullanılabilir.
+
+setup: |
+  mkdir -p planner
+  cat > planner/intervals.py <<'PY'
+  def merge_intervals(intervals):
+      raise NotImplementedError
+
+
+  def make_merger(gap):
+      raise NotImplementedError
+  PY
+  cat > planner/agenda.py <<'PY'
+  from planner.intervals import make_merger
+
+
+  def read_events(stream):
+      raise NotImplementedError
+
+
+  def build_agenda(stream, gap=0):
+      raise NotImplementedError
+  PY
+  cat > sample.txt <<'TXT'
+  09:00 10:30 standup
+  10:00 11:00 review
+  13:00 13:45 lunch
+  13:30 14:15 sync
+  16:00 16:30 retro
+  TXT
+
+goal_tr: >
+  planner/intervals.py ve planner/agenda.py dosyalarini, stdin'den gelen
+  "HH:MM HH:MM etiket" satirlarini okuyup araliklari (gap parametresi kadar
+  bosluklari da birlestirerek) sirali ve birlestirilmis bir takvim listesi
+  uretecek bicimde tamamla.
+
+reference_solution: |
+  cat > planner/intervals.py <<'PY'
+  def _to_minutes(t):
+      h, m = t.split(":")
+      return int(h) * 60 + int(m)
+
+
+  def _to_time(n):
+      return "%02d:%02d" % (n // 60, n % 60)
+
+
+  def merge_intervals(intervals):
+      ordered = sorted(intervals, key=lambda p: (p[0], p[1]))
+      merged = []
+      for start, end in ordered:
+          if merged and start <= merged[-1][1]:
+              if end > merged[-1][1]:
+                  merged[-1] = (merged[-1][0], end)
+          else:
+              merged.append((start, end))
+      return merged
+
+
+  def make_merger(gap):
+      def merger(intervals):
+          widened = [
+              (_to_time(_to_minutes(s) - gap), _to_time(_to_minutes(e) + gap))
+              for s, e in intervals
+          ]
+          return merge_intervals(widened)
+      return merger
+  PY
+  cat > planner/agenda.py <<'PY'
+  from planner.intervals import make_merger
+
+
+  def read_events(stream):
+      events = []
+      for line in stream:
+          line = line.strip()
+          if not line:
+              continue
+          start, end, label = line.split()
+          events.append((start, end, label))
+      return events
+
+
+  def build_agenda(stream, gap=0):
+      events = read_events(stream)
+      merge = make_merger(gap)
+      merged = merge([(s, e) for s, e, _ in events])
+      return merged
+  PY
+
+ara_adim: |
+  cat > planner/intervals.py <<'PY'
+  def merge_intervals(intervals):
+      ordered = sorted(intervals, key=lambda p: (p[0], p[1]))
+      merged = []
+      for start, end in ordered:
+          if merged and start <= merged[-1][1]:
+              if end > merged[-1][1]:
+                  merged[-1] = (merged[-1][0], end)
+          else:
+              merged.append((start, end))
+      return merged
+
+
+  def make_merger(gap):
+      raise NotImplementedError
+  PY
+
+outputs:
+  - {path: planner/agenda.py, kind: program, run: 'python3 -c ''import io; from planner.agenda import build_agenda as f; s=io.StringIO("09:00 10:30 a\n10:00 11:00 b\n13:00 13:45 c\n13:30 14:15 d\n16:00 16:30 e\n"); r=f(s); assert r==[("09:00","11:00"),("13:00","14:15"),("16:00","16:30")], r; print("TAMAM")'''}
+  - {path: planner/intervals.py, kind: program, run: 'python3 -c ''from planner.intervals import merge_intervals as f; assert f([("09:00","10:30"),("10:00","11:00")])==[("09:00","11:00")]; assert f([("13:00","13:45"),("13:30","14:15")])==[("13:00","14:15")]; print("ILERLEME-TAMAM")'''}
+  - {path: planner/intervals.py, kind: program, run: 'python3 -c ''from planner.intervals import make_merger as m; g=m(15); assert g([("13:00","13:45"),("13:30","14:15")])==[("12:45","14:30")]; print("ILERLEME2-TAMAM")'''}
+  - {path: planner/agenda.py, kind: program, run: 'python3 -c ''import io; from planner.agenda import read_events as f; r=f(io.StringIO("09:00 10:30 standup\n\n10:00 11:00 review\n")); assert r==[("09:00","10:30","standup"),("10:00","11:00","review")], r; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import io; from planner.agenda import build_agenda as f; s=io.StringIO("09:00 10:30 a\n10:00 11:00 b\n13:00 13:45 c\n13:30 14:15 d\n16:00 16:30 e\n"); r=f(s); assert r==[("09:00","11:00"),("13:00","14:15"),("16:00","16:30")], r; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import io; from planner.agenda import read_events as f; r=f(io.StringIO("09:00 10:30 standup\n\n10:00 11:00 review\n")); assert r==[("09:00","10:30","standup"),("10:00","11:00","review")], r; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from planner.intervals import merge_intervals as f; assert f([("09:00","10:30"),("10:00","11:00")])==[("09:00","11:00")]; assert f([("13:00","13:45"),("13:30","14:15")])==[("13:00","14:15")]; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from planner.intervals import make_merger as m; g=m(15); assert g([("13:00","13:45"),("13:30","14:15")])==[("12:45","14:30")]; print("ILERLEME2-TAMAM")''', value: ILERLEME2-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9089
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: takvim-etkinlikleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: aralik-birlestirme
+      karmasiklik: orta
+      kalip: closure-fabrika
+      akis: stdin-boru
+      topoloji: iki-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

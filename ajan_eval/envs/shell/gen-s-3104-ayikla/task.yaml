@@ -1,0 +1,75 @@
+id: gen-s-3104-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) siparisler dizinindeki her json dosyasından restoran adını ve siparişler listesini çıkar.
+  2) cikti dizinini oluştur.
+  3) Her restoran adı için cikti dizini altında aynı adı taşıyan bir alt dizin oluştur.
+  4) Her restoranın tüm siparişlerini sıralı ve tekrarsız olarak o restoranın alt dizinindeki siparisler.txt dosyasına yaz; örnek olarak cikti/Lale/siparisler.txt.
+
+setup: |
+  mkdir -p siparisler
+  cat > siparisler/ocak.json <<'JSON'
+  {"restoran": "Lale", "siparisler": ["corba", "kebap", "ayran"]}
+  JSON
+  cat > siparisler/subat.json <<'JSON'
+  {"restoran": "Lale", "siparisler": ["pizza", "kebap", "salata", "ayran"]}
+  JSON
+  cat > siparisler/mart.json <<'JSON'
+  {"restoran": "Lale", "siparisler": ["corba", "pizza", "kebap"]}
+  JSON
+
+goal_tr: >
+  siparisler dizinindeki her json dosyasindan restoran adini ve siparisler
+  listesini cikarip, restoran adini tasiyan bir alt dizin olusturup, o
+  restoranin tum siparislerini sirali ve tekrarsiz olarak bu alt dizindeki
+  siparisler.txt dosyasina yaz
+
+reference_solution: |
+  for f in siparisler/*.json; do
+    restoran=$(sed -n 's/.*"restoran": "\([^"]*\)".*/\1/p' "$f")
+    mkdir -p "cikti/$restoran"
+    sed -n 's/.*"siparisler": \[\(.*\)\].*/\1/p' "$f" | tr -d '"' | tr ',' '\n' | sed 's/^ *//;s/ *$//' >> "cikti/$restoran/siparisler.txt"
+  done
+  for d in cikti/*/; do
+    sort -u "$d/siparisler.txt" > "$d/siparisler.tmp" && mv "$d/siparisler.tmp" "$d/siparisler.txt"
+  done
+  comm -3 <(sort /dev/null) <(sort /dev/null) > /dev/null
+
+outputs:
+  - {path: cikti/Lale/siparisler.txt, kind: file}
+  - {path: cikti, kind: dir}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [Lale]}
+  - {op: file_lines_eq, path: cikti/Lale/siparisler.txt, value: [ayran, corba, kebap, pizza, salata]}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3104
+    bundle: kume-farki
+    tools:
+    - comm
+    - sort
+    konu: restoran-siparisleri
+    hedef: ayikla
+    girdi: json
+    kaynak: cok-dosya
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,73 @@
+id: gen-s-7097-onar
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  envanter/bolumler dizini altındaki tüm tsv dosyalarındaki toplam satır sayısından her dosyanın başlık satırını çıkarıp kalan veri satırlarının toplamını sonuc.txt dosyasına yaz. sonuc.txt içinde sadece sayı olsun, başka bir şey olmasın.
+
+setup: |
+  mkdir -p envanter/bolumler
+  cat > envanter/bolumler/a.tsv <<'TSV'
+  urun	adet	fiyat
+  kalem	10	5
+  silgi	4	2
+  TSV
+  cat > envanter/bolumler/b.tsv <<'TSV'
+  urun	adet	fiyat
+  defter	3	7
+  silgi	6	2
+  TSV
+  cat > envanter/bolumler/c.tsv <<'TSV'
+  urun	adet	fiyat
+  kalem	2	5
+  TSV
+
+goal_tr: >
+  envanter/bolumler altindaki tum tsv dosyalarindaki satir sayilarinin
+  toplamindan her dosyanin baslik satiri kadarini cikarip kalan veri satiri
+  toplamini sonuc.txt'ye sadece sayi olarak yaz
+
+reference_solution: |
+  python3 - <<'PY' > sonuc.txt
+  import glob
+  toplam = 0
+  for yol in sorted(glob.glob('envanter/bolumler/*.tsv')):
+      with open(yol) as f:
+          satirlar = f.readlines()
+      toplam += len(satirlar) - 1
+  print(toplam)
+  PY
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '5'}
+
+metadata:
+  domain: onar
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7097
+    bundle: python-veri
+    tools:
+    - python3
+    konu: envanter
+    hedef: onar
+    girdi: tsv
+    kaynak: cok-dosya
+    cikti: tek-sayi
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

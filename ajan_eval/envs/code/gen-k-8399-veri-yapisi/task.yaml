@@ -1,0 +1,159 @@
+id: gen-k-8399-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) /workspace/depot/queue.py dosyasındaki ReplenishQueue sınıfını, depo-envanteri partilerini öncelik kuyruğuna alacak biçimde gerçekleştir.
+
+  2) Kuyruğa koyarken sıralamayı şöyle yap: önce yüksek öncelikli parti önce gelsin.
+
+  3) Öncelikler eşitse, son-kullanma tarihi erken olan parti önce gelsin.
+
+  4) Son-kullanma tarihleri de eşitse, SKU harf sırası küçük olan parti önce gelsin.
+
+  5) peek, pop ve drain metotları, partileri bu sıralamaya göre doğru biçimde döndürsün.
+
+setup: |
+  mkdir -p depot
+  cat > depot/records.py <<'RECORDS'
+  from dataclasses import dataclass
+
+
+  @dataclass(frozen=True)
+  class Batch:
+      sku: str
+      units: int
+      priority: int
+      expires: int
+
+
+  def load_batches(text):
+      batches = []
+      for line in text.strip().splitlines():
+          sku, units, priority, expires = line.split(',')
+          batches.append(Batch(sku, int(units), int(priority), int(expires)))
+      return batches
+  RECORDS
+  cat > depot/queue.py <<'QUEUE'
+  from depot.records import load_batches
+
+
+  class ReplenishQueue:
+      def __init__(self):
+          raise NotImplementedError
+
+      def push(self, batch):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def drain(self):
+          raise NotImplementedError
+  QUEUE
+  cat > depot/planner.py <<'PLANNER'
+  from depot.queue import ReplenishQueue
+  from depot.records import load_batches
+
+
+  def plan(text, limit):
+      queue = ReplenishQueue()
+      for batch in load_batches(text):
+          queue.push(batch)
+      return queue.drain()[:limit]
+  PLANNER
+  cat > stock.txt <<'STOCK'
+  bolt,40,2,9
+  nut,10,5,3
+  washer,7,5,3
+  screw,25,1,4
+  rivet,60,3,1
+  STOCK
+
+goal_tr: >
+  depot/queue.py icindeki ReplenishQueue sinifini, depo-envanteri
+  partilerini once yuksek oncelik, esitlikte once erken son-kullanma tarihi,
+  esitlikte once kucuk SKU harf sirasi olacak sekilde oncelik kuyruguna
+  koyup peek/pop/drain ile dogru sirada veren bicimde gerceklestir.
+
+reference_solution: |
+  cat > depot/queue.py <<'QUEUE'
+  import heapq
+
+  from depot.records import load_batches
+
+
+  class ReplenishQueue:
+      def __init__(self):
+          self._heap = []
+          self._counter = 0
+
+      def _key(self, batch):
+          return (-batch.priority, batch.expires, batch.sku, self._counter)
+
+      def push(self, batch):
+          heapq.heappush(self._heap, (self._key(batch), batch))
+          self._counter += 1
+
+      def peek(self):
+          if not self._heap:
+              return None
+          return self._heap[0][1]
+
+      def pop(self):
+          if not self._heap:
+              return None
+          return heapq.heappop(self._heap)[1]
+
+      def drain(self):
+          out = []
+          while self._heap:
+              out.append(self.pop())
+          return out
+  QUEUE
+
+outputs:
+  - {path: depot/queue.py, kind: program, run: 'python3 -c ''from depot.queue import ReplenishQueue as Q; from depot.records import load_batches as L; from depot.planner import plan as P; t=open("stock.txt").read(); b=L(t); q=Q(); [q.push(x) for x in b]; assert q.peek().sku=="nut", q.peek(); assert q.pop().sku=="nut"; assert q.pop().sku=="washer"; assert q.pop().sku=="rivet"; assert [x.sku for x in q.drain()]==["bolt","screw"]; assert q.peek() is None; assert q.pop() is None; assert [x.sku for x in P(t,3)]==["nut","washer","rivet"]; assert [x.sku for x in P(t,5)]==["nut","washer","rivet","bolt","screw"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depot.queue import ReplenishQueue as Q; from depot.records import load_batches as L; from depot.planner import plan as P; t=open("stock.txt").read(); b=L(t); q=Q(); [q.push(x) for x in b]; assert q.peek().sku=="nut", q.peek(); assert q.pop().sku=="nut"; assert q.pop().sku=="washer"; assert q.pop().sku=="rivet"; assert [x.sku for x in q.drain()]==["bolt","screw"]; assert q.peek() is None; assert q.pop() is None; assert [x.sku for x in P(t,3)]==["nut","washer","rivet"]; assert [x.sku for x in P(t,5)]==["nut","washer","rivet","bolt","screw"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8399
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: depo-envanteri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: oncelik-kuyrugu
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: cok-dosya-birlestirme
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

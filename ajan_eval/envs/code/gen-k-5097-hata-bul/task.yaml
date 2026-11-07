@@ -1,0 +1,105 @@
+id: gen-k-5097-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  library/loans.py içindeki make_lender fabrikasını öyle bir hale getir ki, her çağrıldığında bağımsız bir ödünç kaydı tutan bir lender üretsin. Varsayılan count ile çağrıldığında ise önceki çağrıların geçmişine sızmasın; yani her yeni lender kendi temiz geçmişiyle başlasın. Sadece library/loans.py dosyasını düzelt, başka bir şey ekleme.
+
+setup: |
+  mkdir -p library
+  cat > library/catalog.py <<'CATALOG'
+  def build_catalog(records):
+      catalog = {}
+      for title, total in records:
+          catalog[title] = total
+      return catalog
+  CATALOG
+  cat > library/loans.py <<'LOANS'
+  from library.catalog import build_catalog
+
+
+  def make_lender(records):
+      catalog = build_catalog(records)
+
+      def lend(title, count=1, log=[]):
+          if catalog.get(title, 0) < count:
+              return False
+          catalog[title] -= count
+          log.append((title, count))
+          return True
+
+      def history():
+          return list(log)
+
+      return lend, history
+  LOANS
+
+goal_tr: >
+  library/loans.py icindeki make_lender fabrikasini, her cagrildiginda
+  bagimsiz bir odunc kaydi tutan ve varsayilan count ile cagrildiginda
+  onceki cagrilarin gecmisine sizmayan bir lender uretecek bicimde duzelt.
+
+reference_solution: |
+  cat > library/loans.py <<'LOANS'
+  from library.catalog import build_catalog
+
+
+  def make_lender(records):
+      catalog = build_catalog(records)
+      log = []
+
+      def lend(title, count=1):
+          if catalog.get(title, 0) < count:
+              return False
+          catalog[title] -= count
+          log.append((title, count))
+          return True
+
+      def history():
+          return list(log)
+
+      return lend, history
+  LOANS
+
+outputs:
+  - {path: library/loans.py, kind: program, run: 'python3 -c ''from library.loans import make_lender; r=[("dune",4),("neuromancer",2)]; l1,h1=make_lender(r); l2,h2=make_lender(r); assert l1("dune") is True; assert l1("dune",2) is True; assert h1()==[("dune",1),("dune",2)], h1(); assert h2()==[], h2(); assert l2("neuromancer") is True; assert h2()==[("neuromancer",1)], h2(); assert h1()==[("dune",1),("dune",2)], h1(); assert l1("neuromancer",5) is False; assert h1()==[("dune",1),("dune",2)]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from library.loans import make_lender; r=[("dune",4),("neuromancer",2)]; l1,h1=make_lender(r); l2,h2=make_lender(r); assert l1("dune") is True; assert l1("dune",2) is True; assert h1()==[("dune",1),("dune",2)], h1(); assert h2()==[], h2(); assert l2("neuromancer") is True; assert h2()==[("neuromancer",1)], h2(); assert h1()==[("dune",1),("dune",2)], h1(); assert l1("neuromancer",5) is False; assert h1()==[("dune",1),("dune",2)]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5097
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kutuphane-oduncleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: mutable-varsayilan
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: bellek-ici
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

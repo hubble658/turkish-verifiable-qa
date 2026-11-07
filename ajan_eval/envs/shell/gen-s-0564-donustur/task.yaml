@@ -1,0 +1,81 @@
+id: gen-s-0564-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+prompt: '1) kayitlar/hava.tsv dosyasındaki her şehri kendi adıyla cikti dizini altında bir alt dizine ayır.
+
+  2) Her şehir dizininde o şehre ait satırları başlık satırı dahil olacak şekilde <şehir adı>.tsv adlı dosyaya (ör. ankara/ankara.tsv)
+  yaz.
+
+  3) Tüm şehir dizinlerini içeren hava.tar.gz arşivini oluştur.
+
+
+  Arşivin kökünde doğrudan şehir dizinleri olsun (cikti/ öneki olmasın).
+
+  '
+setup: "mkdir -p kayitlar\ncat > kayitlar/hava.tsv <<'TSV'\ntarih\tsehir\tolcum\n2024-01-01\tankara\t3\n2024-01-02\tankara\t\
+  5\n2024-01-03\tizmir\t12\n2024-01-04\tizmir\t14\n2024-01-05\tistanbul\t8\n2024-01-06\tistanbul\t9\n2024-01-07\tankara\t\
+  4\n2024-01-08\tizmir\t13\n2024-01-09\tistanbul\t7\n2024-01-10\tankara\t6\nTSV\n"
+goal_tr: 'kayitlar/hava.tsv dosyasindaki her sehri kendi adiyla bir alt dizine ayir; her sehir dizininde o sehre ait satirlari
+  (baslik satiri dahil) sehir.tsv adli dosyaya yaz ve tum sehir dizinlerini iceren arsivi hava.tar.gz olarak olustur
+
+  '
+reference_solution: 'mkdir -p cikti
+
+  tail -n +2 kayitlar/hava.tsv | cut -f2 | sort -u | while read s; do mkdir -p "cikti/$s"; { head -n1 kayitlar/hava.tsv; grep
+  -P "\t$s\t" kayitlar/hava.tsv; } > "cikti/$s/$s.tsv"; done
+
+  tar -cf hava.tar -C cikti .
+
+  gzip -f hava.tar
+
+  '
+outputs: []
+checks:
+- op: dir_entries_eq
+  path: cikti
+  value:
+  - ankara
+  - istanbul
+  - izmir
+- op: run_stdout_eq
+  cmd: tar -tzf hava.tar.gz | sed 's#^\./##' | grep -v '^$' | sort
+  value: 'ankara/
+
+    ankara/ankara.tsv
+
+    istanbul/
+
+    istanbul/istanbul.tsv
+
+    izmir/
+
+    izmir/izmir.tsv'
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-0564
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: hava-durumu-kayitlari
+    hedef: donustur
+    girdi: tsv
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: dolayli-hedef
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}
+  duzeltme:
+    neden: gizli_sart
+    not: Dosya adı ve arşiv kökü yazmıyordu; kontrol ./ önekine bağlıydı, gevşetildi.

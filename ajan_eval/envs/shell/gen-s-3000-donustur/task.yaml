@@ -1,0 +1,58 @@
+id: gen-s-3000-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  muhasebe klasöründeki .json uzantılı dosyaların adlarını sırasıyla kalem-1.json, kalem-2.json, kalem-3.json ... olacak şekilde yeniden adlandır. .json dışındaki dosyalara dokunma.
+
+setup: |
+  mkdir -p muhasebe
+  printf '{"kalem":"kira","tutar":1200}\n{"kalem":"elektrik","tutar":340}\n' > muhasebe/ocak.json
+  printf '{"kalem":"su","tutar":85}\n{"kalem":"kira","tutar":1200}\n' > muhasebe/subat.json
+  printf 'bu bir tuzak dosyadir\n' > muhasebe/notlar.txt
+  printf '{"kalem":"kira","tutar":1200}\n' > muhasebe/ocak.json.bak
+
+goal_tr: >
+  muhasebe klasorundeki .json uzantili dosyalarin her birinin adini
+  sirasiyla kalem-1.json, kalem-2.json, kalem-3.json ... olacak sekilde
+  yeniden adlandir, .json disindaki dosyalara dokunma
+
+reference_solution: |
+  n=$(printf '%s\n' muhasebe/*.json | wc -l); for i in $(seq 1 "$n"); do f=$(printf '%s\n' muhasebe/*.json | sort | sed -n "${i}p"); mv "$f" "muhasebe/kalem-$i.json"; done
+
+outputs:
+  - {path: muhasebe, kind: dir}
+
+checks:
+  - {op: dir_entries_eq, path: muhasebe, value: [kalem-1.json, kalem-2.json, notlar.txt, ocak.json.bak]}
+  - {op: not_exists, path: muhasebe/ocak.json}
+  - {op: not_exists, path: muhasebe/subat.json}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3000
+    bundle: uret
+    tools:
+    - printf
+    - seq
+    konu: muhasebe-kalemleri
+    hedef: donustur
+    girdi: json
+    kaynak: cok-dosya
+    cikti: yeniden-adlandirilmis
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

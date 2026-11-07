@@ -1,0 +1,117 @@
+id: gen-k-8095-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  catalog/pricing/engine.py dosyasındaki PricePairer sınıfının pair metodunu gerçekle. Metot, cat_a ve cat_b olarak verilen iki kategorideki ürünleri, fiyatları hedef toplama ulaşan çiftler halinde bulmalı ve (a_adi, b_adi) biçimindeki çiftlerden oluşan bir liste döndürmeli. Bunun için iki-işaretçi yöntemi kullanılmalı: her kategori kendi fiyatına göre artan sırada gezilmeli, bir işaretçi baştan bir işaretçi sondan ilerlemeli.
+
+setup: |
+  mkdir -p catalog/pricing
+  cat > catalog/__init__.py <<'EOF'
+  EOF
+  cat > catalog/pricing/__init__.py <<'EOF'
+  EOF
+  cat > catalog/pricing/loader.py <<'EOF'
+  def load_catalog(entries):
+      """Build a nested structure: {category: {name: price}}."""
+      catalog = {}
+      for entry in entries:
+          cat = entry["category"]
+          catalog.setdefault(cat, {})[entry["name"]] = entry["price"]
+      return catalog
+  EOF
+  cat > catalog/pricing/engine.py <<'EOF'
+  from catalog.pricing.loader import load_catalog
+
+
+  class PricePairer:
+      """Pair products across two categories whose prices sum to a target."""
+
+      def __init__(self, entries, target):
+          self.catalog = load_catalog(entries)
+          self.target = target
+
+      def pair(self, cat_a, cat_b):
+          raise NotImplementedError
+  EOF
+
+goal_tr: >
+  catalog/pricing/engine.py icindeki PricePairer sinifinin pair metodunu,
+  iki kategoriden fiyatlari hedef toplama ulasan urun adi ciftlerini
+  iki-isaretci yontemiyle (her kategori kendi fiyatina gore artan sirali,
+  bir isaretci bastan bir isaretci sondan) bulan ve (a_adi, b_adi)
+  ciftlerini donduren bicimde gercekle.
+
+reference_solution: |
+  cat > catalog/pricing/engine.py <<'EOF'
+  from catalog.pricing.loader import load_catalog
+
+
+  class PricePairer:
+      """Pair products across two categories whose prices sum to a target."""
+
+      def __init__(self, entries, target):
+          self.catalog = load_catalog(entries)
+          self.target = target
+
+      def pair(self, cat_a, cat_b):
+          left = sorted(self.catalog.get(cat_a, {}).items(), key=lambda kv: kv[1])
+          right = sorted(self.catalog.get(cat_b, {}).items(), key=lambda kv: kv[1])
+          results = []
+          i = 0
+          j = len(right) - 1
+          while i < len(left) and j >= 0:
+              total = left[i][1] + right[j][1]
+              if total == self.target:
+                  results.append((left[i][0], right[j][0]))
+                  i += 1
+                  j -= 1
+              elif total < self.target:
+                  i += 1
+              else:
+                  j -= 1
+          return results
+  EOF
+
+outputs:
+  - {path: catalog/pricing/engine.py, kind: program, run: 'python3 -c ''from catalog.pricing.engine import PricePairer as P; e=[{"category":"a","name":"x1","price":1.0},{"category":"a","name":"x2","price":3.0},{"category":"a","name":"x3","price":5.0},{"category":"b","name":"y1","price":2.0},{"category":"b","name":"y2","price":4.0},{"category":"b","name":"y3","price":6.0}]; assert P(e,7.0).pair("a","b")==[("x1","y3"),("x2","y2"),("x3","y1")], P(e,7.0).pair("a","b"); assert P(e,5.0).pair("a","b")==[("x1","y2"),("x2","y1")], P(e,5.0).pair("a","b"); assert P(e,100.0).pair("a","b")==[]; assert P(e,7.0).pair("missing","b")==[]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from catalog.pricing.engine import PricePairer as P; e=[{"category":"a","name":"x1","price":1.0},{"category":"a","name":"x2","price":3.0},{"category":"a","name":"x3","price":5.0},{"category":"b","name":"y1","price":2.0},{"category":"b","name":"y2","price":4.0},{"category":"b","name":"y3","price":6.0}]; assert P(e,7.0).pair("a","b")==[("x1","y3"),("x2","y2"),("x3","y1")], P(e,7.0).pair("a","b"); assert P(e,5.0).pair("a","b")==[("x1","y2"),("x2","y1")], P(e,5.0).pair("a","b"); assert P(e,100.0).pair("a","b")==[]; assert P(e,7.0).pair("missing","b")==[]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8095
+    bundle: yarisma
+    tools:
+    - python3
+    konu: urun-fiyatlari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: iki-isaretci
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: ic-ice-yapi
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

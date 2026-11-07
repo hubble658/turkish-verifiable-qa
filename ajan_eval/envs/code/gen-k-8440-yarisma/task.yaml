@@ -1,0 +1,132 @@
+id: gen-k-8440-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  planner/report.py içindeki busiest_day ve peak_load fonksiyonlarını düzelt. Bu fonksiyonlar, önek-toplam yüklerine göre günler arasında en yüksek yüke ulaşılan günü ve o günkü yükü doğru döndürmeli.
+
+  Şu şartlar sağlanmalı:
+  - planner/report.py dosyası düzeltilmiş olarak mevcut olmalı.
+  - busiest_day, önek-toplam yüklerine göre en yüksek yüke ulaşılan günün adını döndürmeli.
+  - peak_load, önek-toplam yüklerine göre ulaşılan en yüksek yük değerini döndürmeli.
+  - Fonksiyonlar, planner/core/prefix.py içindeki daily_loads fonksiyonunu kullanmaya devam etmeli.
+  - Girdi olarak events.txt içeriği verildiğinde (mon,3; tue,-5; wed,4; thu,2; fri,-1) fonksiyonlar günler arasındaki en yüksek yüke göre doğru sonucu vermeli; yalnızca son günün değeri değil, tüm günlerin önek-toplam yükleri dikkate alınmalı.
+
+setup: |
+  mkdir -p planner/core
+  cat > planner/core/events.py <<'EVENTS'
+  def parse_events(text):
+      rows = []
+      for line in text.strip().splitlines():
+          if not line:
+              continue
+          day, delta = line.split(',')
+          rows.append((day.strip(), int(delta.strip())))
+      return rows
+  EVENTS
+  cat > planner/core/prefix.py <<'PREFIX'
+  from planner.core.events import parse_events
+
+
+  def daily_loads(text):
+      rows = parse_events(text)
+      total = 0
+      loads = []
+      for day, delta in rows:
+          total += delta
+          loads.append((day, total))
+      return loads
+  PREFIX
+  cat > planner/report.py <<'REPORT'
+  from planner.core.prefix import daily_loads
+
+
+  def busiest_day(text):
+      loads = daily_loads(text)
+      return loads[-1][0]
+
+
+  def peak_load(text):
+      loads = daily_loads(text)
+      return loads[-1][1]
+  REPORT
+  cat > events.txt <<'DATA'
+  mon,3
+  tue,-5
+  wed,4
+  thu,2
+  fri,-1
+  DATA
+
+goal_tr: >
+  planner/report.py icindeki busiest_day ve peak_load fonksiyonlarini,
+  onek-toplam yuklerine gore gunler arasinda en yuksek yuke ulasilan gunu ve
+  o yuku dogru dondurecek bicimde duzelt
+
+reference_solution: |
+  cat > planner/report.py <<'REPORT'
+  from planner.core.prefix import daily_loads
+
+
+  def busiest_day(text):
+      loads = daily_loads(text)
+      best_day = None
+      best_load = None
+      for day, load in loads:
+          if best_load is None or load > best_load:
+              best_day = day
+              best_load = load
+      return best_day
+
+
+  def peak_load(text):
+      loads = daily_loads(text)
+      peak = None
+      for day, load in loads:
+          if peak is None or load > peak:
+              peak = load
+      return peak
+  REPORT
+
+outputs:
+  - {path: planner/report.py, kind: program, run: 'python3 -c ''from planner.report import busiest_day as b, peak_load as p; t=open("events.txt").read(); assert b(t)=="thu", b(t); assert p(t)==4, p(t); assert b("a,5\nb,5\nc,1")=="c"; assert p("a,5\nb,5\nc,1")==11; assert p("x,-2\ny,-3")==-2; assert b("x,-2\ny,-3")=="x"; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from planner.report import busiest_day as b, peak_load as p; t=open("events.txt").read(); assert b(t)=="thu", b(t); assert p(t)==4, p(t); assert b("a,5\nb,5\nc,1")=="c"; assert p("a,5\nb,5\nc,1")==11; assert p("x,-2\ny,-3")==-2; assert b("x,-2\ny,-3")=="x"; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8440
+    bundle: yarisma
+    tools:
+    - python3
+    konu: takvim-etkinlikleri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kolay
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: onek-toplam
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: dosya-okuma
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,78 @@
+id: gen-s-3046-sirala-sec
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Kafeteryanın menü planlaması için aylık sipariş kayıtlarını tek tek açıp yemek adlarını elle çıkarmak epey zaman alıyordu; bugün öğle arasında bunu bir kere daha yapmaya çalışınca aynı işi tekrar tekrar yaptığımı fark ettim. Artık el ile uğraşmak yerine bütün işi tek seferde halletmek istiyorum.
+
+  Çalışma dizinindeki siparişler dizin ağacının altında, ocak, şubat ve mart klasörlerinde yer alan tüm sipariş.ini dosyalarını bul ve bu dosyalardaki yemek adlarını topla. Topladığın yemek adlarını tekrarsız hale getirip alfabetik olarak sırala ve sonucu bir JSON dizisi olarak yemekler.json dosyasına yaz.
+
+setup: |
+  mkdir -p siparisler/ocak siparisler/subat siparisler/mart
+  cat > siparisler/ocak/siparis.ini <<'INI'
+  [masa:1]
+  yemek=pizza
+  adet=2
+  [mama:2]
+  yemek=corba
+  adet=1
+  INI
+  cat > siparisler/subat/siparis.ini <<'INI'
+  [masa:3]
+  yemek=salata
+  adet=3
+  [mama:4]
+  yemek=pizza
+  adet=1
+  INI
+  cat > siparisler/mart/siparis.ini <<'INI'
+  [masa:5]
+  yemek=kebap
+  adet=4
+  [mama:6]
+  yemek=corba
+  adet=2
+  INI
+
+goal_tr: >
+  siparisler dizin agacindaki tum siparis.ini dosyalarindan yemek adlarini
+  toplayip tekrarsiz olarak alfabetik sirala ve sonucu JSON dizisi olarak
+  yemekler.json dosyasina yaz
+
+reference_solution: |
+  grep -rh '^yemek=' siparisler | sed 's/^yemek=//' | sort | uniq | awk 'BEGIN{printf "["} {if(NR>1)printf ","; printf "\"%s\"", $0} END{print "]"}' > yemekler.json
+
+outputs:
+  - {path: yemekler.json, kind: json}
+
+checks:
+  - {op: json_eq, path: yemekler.json, value: [corba, kebap, pizza, salata]}
+
+metadata:
+  domain: sirala-sec
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3046
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: restoran-siparisleri
+    hedef: sirala-sec
+    girdi: ini
+    kaynak: dizin-agaci
+    cikti: json
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

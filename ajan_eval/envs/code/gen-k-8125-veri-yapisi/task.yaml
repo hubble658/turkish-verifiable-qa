@@ -1,0 +1,160 @@
+id: gen-k-8125-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  registrar/core/intervals.py içindeki SpanSet sınıfını gerçekle: add ile eklenen aralıklar merged çağrısında artan sırada birleşsin, kesişen veya birbirine değen aralıklar tek Span olsun; coverage birleşik aralıkların toplam uzunluğunu döndürsün.
+
+setup: |
+  mkdir -p registrar/core registrar/merge
+  cat > registrar/core/intervals.py <<'PY'
+  from dataclasses import dataclass, field
+
+
+  @dataclass
+  class Span:
+      start: int
+      end: int
+      tags: list = field(default_factory=list)
+
+      def __post_init__(self):
+          if self.end < self.start:
+              raise ValueError("end before start")
+
+
+  class SpanSet:
+      def __init__(self):
+          self._spans = []
+
+      def add(self, span):
+          raise NotImplementedError
+
+      def merged(self):
+          raise NotImplementedError
+
+      def coverage(self):
+          raise NotImplementedError
+  PY
+  cat > registrar/merge/stream.py <<'PY'
+  from registrar.core.intervals import Span, SpanSet
+
+
+  def parse_span(line):
+      parts = line.strip().split("|")
+      start, end = parts[0].split(":")
+      tags = parts[1].split(",") if len(parts) > 1 and parts[1] else []
+      return Span(int(start), int(end), tags)
+
+
+  def feed(lines):
+      box = SpanSet()
+      for line in lines:
+          if not line.strip():
+              continue
+          box.add(parse_span(line))
+      return box
+  PY
+  cat > registrar/__init__.py <<'PY'
+  PY
+  cat > registrar/core/__init__.py <<'PY'
+  PY
+  cat > registrar/merge/__init__.py <<'PY'
+  PY
+  cat > transcript.txt <<'TXT'
+  10:20|math
+  15:30|phys,chem
+  35:40|bio
+  40:45|chem
+  TXT
+
+goal_tr: >
+  registrar/core/intervals.py icindeki SpanSet sinifini oyle gercekle ki add
+  ile eklenen araliklar merged cagrisinda artan sirada ve kesisen ya da
+  birbirine degerek temas eden araliklar tek Span olacak sekilde
+  birlestirilsin, coverage ise birlesik araliklarin toplam uzunlugunu
+  dondursun.
+
+reference_solution: |
+  cat > registrar/core/intervals.py <<'PY'
+  from dataclasses import dataclass, field
+
+
+  @dataclass
+  class Span:
+      start: int
+      end: int
+      tags: list = field(default_factory=list)
+
+      def __post_init__(self):
+          if self.end < self.start:
+              raise ValueError("end before start")
+
+
+  class SpanSet:
+      def __init__(self):
+          self._spans = []
+
+      def add(self, span):
+          self._spans.append(span)
+
+      def merged(self):
+          ordered = sorted(self._spans, key=lambda s: (s.start, s.end))
+          out = []
+          for span in ordered:
+              if not out or span.start > out[-1].end:
+                  out.append(Span(span.start, span.end, list(span.tags)))
+              else:
+                  last = out[-1]
+                  if span.end > last.end:
+                      last.end = span.end
+                  for tag in span.tags:
+                      if tag not in last.tags:
+                          last.tags.append(tag)
+          return out
+
+      def coverage(self):
+          return sum(s.end - s.start for s in self.merged())
+  PY
+
+outputs:
+  - {path: registrar/core/intervals.py, kind: program, run: 'python3 -c ''from registrar.core.intervals import Span, SpanSet; a=SpanSet(); a.add(Span(10,20,["math"])); a.add(Span(15,30,["phys","chem"])); a.add(Span(35,40,["bio"])); a.add(Span(40,45,["chem"])); m=a.merged(); assert [(s.start,s.end) for s in m]==[(10,30),(35,45)], [(s.start,s.end) for s in m]; assert m[0].tags==["math","phys","chem"], m[0].tags; assert m[1].tags==["bio","chem"], m[1].tags; assert a.coverage()==30, a.coverage(); b=SpanSet(); b.add(Span(5,9,[])); b.add(Span(9,15,[])); b.add(Span(20,25,[])); mm=b.merged(); assert [(s.start,s.end) for s in mm]==[(5,15),(20,25)], [(s.start,s.end) for s in mm]; assert b.coverage()==15, b.coverage(); c=SpanSet(); c.add(Span(3,4,[])); assert [(s.start,s.end) for s in c.merged()]==[(3,4)]; assert c.coverage()==1; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from registrar.core.intervals import Span, SpanSet; a=SpanSet(); a.add(Span(10,20,["math"])); a.add(Span(15,30,["phys","chem"])); a.add(Span(35,40,["bio"])); a.add(Span(40,45,["chem"])); m=a.merged(); assert [(s.start,s.end) for s in m]==[(10,30),(35,45)], [(s.start,s.end) for s in m]; assert m[0].tags==["math","phys","chem"], m[0].tags; assert m[1].tags==["bio","chem"], m[1].tags; assert a.coverage()==30, a.coverage(); b=SpanSet(); b.add(Span(5,9,[])); b.add(Span(9,15,[])); b.add(Span(20,25,[])); mm=b.merged(); assert [(s.start,s.end) for s in mm]==[(5,15),(20,25)], [(s.start,s.end) for s in mm]; assert b.coverage()==15, b.coverage(); c=SpanSet(); c.add(Span(3,4,[])); assert [(s.start,s.end) for s in c.merged()]==[(3,4)]; assert c.coverage()==1; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8125
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: ogrenci-transkripti
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: aralik-birlestirme
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: parcali-akis
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

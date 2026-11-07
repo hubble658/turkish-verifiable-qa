@@ -1,0 +1,137 @@
+id: gen-k-8040-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) stock/queue.py dosyasındaki MoveQueue sınıfını, içine eklenen her hareketi öncelik değerine göre küçükten büyüğe, aynı öncelik değerine sahip hareketleri ise ürün adına göre alfabetik sırada tutacak şekilde gerçekleştir.
+
+  2) MoveQueue sınıfına push metodu ekle; bu metot verilen bir hareketi sıralamayı bozmayacak biçimde kuyruğa yerleştirsin.
+
+  3) MoveQueue sınıfına pop metodu ekle; bu metot sıralamaya göre en öndeki hareketi kuyruktan çıkarıp döndürsün.
+
+  4) MoveQueue sınıfına __len__ metodu ekle; bu metot kuyrukta bekleyen hareket sayısını döndürsün.
+
+  5) stock/queue.py içindeki MoveQueue sınıfının push, pop ve __len__ metotlarının stock/report.py dosyasındaki apply_moves fonksiyonuyla birlikte çalışmasını sağla; böylece moves.txt içindeki hareketler öncelik değerine göre küçükten büyüğe ve aynı öncelikte ürün adına göre alfabetik sırada uygulanabilsin.
+
+setup: |
+  mkdir -p stock
+  cat > stock/record.py <<'REC'
+  def parse_moves(text):
+      moves = []
+      for line in text.strip().splitlines():
+          item, delta, priority = line.split(',')
+          moves.append((item, int(delta), int(priority)))
+      return moves
+  REC
+  cat > stock/priority.py <<'PRI'
+  def order_key(move):
+      item, delta, priority = move
+      return (priority, item)
+  PRI
+  cat > stock/queue.py <<'QUE'
+  from stock.priority import order_key
+
+
+  class MoveQueue:
+      def __init__(self):
+          raise NotImplementedError
+
+      def push(self, move):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+  QUE
+  cat > stock/report.py <<'REP'
+  from stock.record import parse_moves
+  from stock.queue import MoveQueue
+
+
+  def apply_moves(text):
+      queue = MoveQueue()
+      for move in parse_moves(text):
+          queue.push(move)
+      applied = []
+      while len(queue) > 0:
+          applied.append(queue.pop())
+      return applied
+  REP
+  cat > moves.txt <<'MOVES'
+  bolt,5,2
+  widget,-3,1
+  gadget,7,2
+  nut,4,3
+  screw,-1,1
+  MOVES
+
+goal_tr: >
+  stock/queue.py icindeki MoveQueue sinifini, hareketleri oncelik degerine
+  gore kucukten buyuge ve ayni oncelikte urun adina gore alfabetik sirada
+  cikaracak bicimde (push/pop/__len__ metotlariyla) gerceklestir.
+
+reference_solution: |
+  cat > stock/queue.py <<'QUE'
+  import heapq
+
+  from stock.priority import order_key
+
+
+  class MoveQueue:
+      def __init__(self):
+          self._heap = []
+
+      def push(self, move):
+          heapq.heappush(self._heap, (order_key(move), move))
+
+      def pop(self):
+          return heapq.heappop(self._heap)[1]
+
+      def __len__(self):
+          return len(self._heap)
+  QUE
+
+outputs:
+  - {path: stock/queue.py, kind: program, run: 'python3 -c ''from stock.report import apply_moves as f; t=open("moves.txt").read(); r=f(t); assert [m[0] for m in r]==["screw","widget","bolt","gadget","nut"], r; assert [m[2] for m in r]==[1,1,2,2,3], r; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from stock.report import apply_moves as f; t=open("moves.txt").read(); r=f(t); assert [m[0] for m in r]==["screw","widget","bolt","gadget","nut"], r; assert [m[2] for m in r]==[1,1,2,2,3], r; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8040
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: stok-hareketleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: oncelik-kuyrugu
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: dosya-okuma
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,72 @@
+id: gen-s-7013-bol
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Vardiya planlamasını artık tek bir tabloda tutmak iyice zorlaştı; herkes kendi vardiyasının listesini ayrı ayrı görmek istiyor. Bu yüzden bugün oturup elimizdeki kaydı vardiyalara göre bölmeye karar verdik. /workspace altındaki vardiya.csv dosyasındaki her farklı vardiya değeri için, o vardiyaya ait satırları başlık satırıyla birlikte ayrı bir dosyaya yaz: vardiya_sabah.csv, vardiya_gece.csv ve vardiya_aksam.csv dosyalarını oluştur.
+
+setup: |
+  cat > vardiya.csv <<'CSV'
+  ad,gun,vardiya
+  Ayse,1,sabah
+  Burak,1,gece
+  Cem,2,sabah
+  Deniz,2,aksam
+  Ece,3,gece
+  Fatma,3,sabah
+  Gokhan,4,aksam
+  CSV
+
+goal_tr: >
+  vardiya.csv dosyasindaki her farkli vardiya degeri icin, o vardiyaya ait
+  satirlari vardiya_<deger>.csv adli ayri bir dosyaya baslik satiriyla
+  birlikte yaz.
+
+reference_solution: |
+  tail -n +2 vardiya.csv | cut -d, -f3 | sort -u > /tmp/vardiyalar.txt
+  n=$(wc -l < /tmp/vardiyalar.txt)
+  seq 1 "$n" | while read i; do
+    v=$(sed -n "${i}p" /tmp/vardiyalar.txt)
+    printf 'ad,gun,vardiya\n' > "vardiya_${v}.csv"
+    grep ",${v}$" vardiya.csv >> "vardiya_${v}.csv"
+  done
+  rm -f /tmp/vardiyalar.txt
+
+outputs:
+  - {path: vardiya_sabah.csv, kind: file}
+  - {path: vardiya_gece.csv, kind: file}
+  - {path: vardiya_aksam.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: vardiya_aksam.csv, value: ['ad,gun,vardiya', 'Deniz,2,aksam', 'Gokhan,4,aksam']}
+  - {op: file_lines_eq, path: vardiya_gece.csv, value: ['ad,gun,vardiya', 'Burak,1,gece', 'Ece,3,gece']}
+  - {op: file_lines_eq, path: vardiya_sabah.csv, value: ['ad,gun,vardiya', 'Ayse,1,sabah', 'Cem,2,sabah', 'Fatma,3,sabah']}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7013
+    bundle: uret
+    tools:
+    - printf
+    - seq
+    konu: personel-vardiyalari
+    hedef: bol
+    girdi: csv
+    kaynak: tek-dosya
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

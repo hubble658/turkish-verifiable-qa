@@ -1,0 +1,73 @@
+id: gen-s-7132-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kutuphane dizini ağacındaki tüm csv dosyalarından başlık sütununu topla ve tekrarsız olarak alfabetik sıralı biçimde basliklar.txt dosyasına yaz. Başlık satırı dışarıda bırakılsın; başlık sütunu olmayan bozuk satırlar atlansın.
+
+setup: |
+  mkdir -p kutuphane/arsiv kutuphane/odunc
+  cat > kutuphane/kitaplar.csv <<'CSV'
+  id,baslik,yazar,yil
+  1,Sefiller,Victor Hugo,1862
+  2,Suclu ve Ceza,Dostoyevski,1866
+  3,Kurk Mantolu Madonna,Sabahattin Ali,1943
+  4,Tutunamayanlar,Ogu,1971
+  CSV
+  cat > kutuphane/arsiv/eski.csv <<'CSV'
+  id,baslik,yazar,yil
+  5,Mai ve Siyah,Halit Ziya,1897
+  6,Araba Sevdasi,Recaizade,1896
+  CSV
+  cat > kutuphane/odunc/gecmis.csv <<'CSV'
+  id,baslik,yazar,yil
+  7,Yabanci,Albert Camus,1942
+  8,Donusum,Franz Kafka,1915
+  CSV
+  printf 'bozuk satir\n' > kutuphane/odunc/hatali.csv
+  printf 'id,baslik,yazar,yil\n9,Calikusu,Resat Nuri,1922\n' > kutuphane/odunc/ek.csv
+
+goal_tr: >
+  kutuphane dizini agacindaki tum csv dosyalarindan baslik sutununu toplayip
+  tekrarsiz olarak alfabetik sirali sekilde basliklar.txt dosyasina yaz,
+  baslik satirini disarida birak ve baslik sutunu olmayan bozuk satirlari
+  atla
+
+reference_solution: |
+  find kutuphane -name '*.csv' -type f | sort | xargs grep -h '^[0-9]*,' | cut -d',' -f2 | sed '/^baslik$/d' | sort -u > basliklar.txt
+  wc -l < basliklar.txt
+
+outputs:
+  - {path: basliklar.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: basliklar.txt, value: [Araba Sevdasi, Calikusu, Donusum, Kurk Mantolu Madonna, Mai ve Siyah, Sefiller, Suclu ve Ceza, Tutunamayanlar, Yabanci]}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7132
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: kutuphane-kayitlari
+    hedef: denetle
+    girdi: csv
+    kaynak: dizin-agaci
+    cikti: satir-listesi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

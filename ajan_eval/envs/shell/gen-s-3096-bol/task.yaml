@@ -1,0 +1,95 @@
+id: gen-s-3096-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+prompt: '1) muhasebe klasöründe adı kalemler_ ile başlayıp .txt ile biten dosyaları bul.
+
+
+  2) Bu dosyaların satırlarını dosya adına göre artan sırada birleştir ve her satırı olduğu gibi koru.
+
+
+  3) Birleştirilmiş içeriği muhasebe/birlesik.txt dosyasına yaz; çıktının sonunda newline olmasın.
+
+  '
+setup: 'mkdir -p muhasebe
+
+  cat > muhasebe/kalemler_a.txt <<''EOF''
+
+  100 kasa acilis
+
+  200 banka tahsilat
+
+  300 gider kira
+
+  EOF
+
+  cat > muhasebe/kalemler_b.txt <<''EOF''
+
+  400 gelir satis
+
+  500 gider maas
+
+  600 kasa kapanis
+
+  EOF
+
+  cat > muhasebe/notlar.txt <<''EOF''
+
+  bu dosya kalem degil
+
+  EOF
+
+  printf ''700 borc devir'' > muhasebe/kalemler_c.txt
+
+  '
+goal_tr: 'muhasebe klasorundeki adi kalemler_ ile baslayip .txt ile biten dosyalarin satirlarini dosya adina gore artan sirada
+  birlestirip her satiri oldugu gibi koruyarak birlesik.txt dosyasina yaz; cikti sonunda newline olmasin.
+
+  '
+reference_solution: 'cat muhasebe/kalemler_a.txt muhasebe/kalemler_b.txt muhasebe/kalemler_c.txt > muhasebe/birlesik.txt
+
+  '
+outputs: []
+checks:
+- op: file_lines_eq
+  path: muhasebe/birlesik.txt
+  as_set: false
+  value:
+  - 100 kasa acilis
+  - 200 banka tahsilat
+  - 300 gider kira
+  - 400 gelir satis
+  - 500 gider maas
+  - 600 kasa kapanis
+  - 700 borc devir
+- op: run_stdout_eq
+  cmd: python3 -c 'print(open("muhasebe/birlesik.txt","rb").read()[-1]==10)'
+  value: 'False'
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3096
+    bundle: dosya-duzen
+    tools:
+    - mkdir
+    - mv
+    konu: muhasebe-kalemleri
+    hedef: bol
+    girdi: json
+    kaynak: cok-dosya
+    cikti: satir-listesi
+    kesif: dolayli-hedef
+    uslup: numarali-emir
+    direnc: son-newline-yok
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}
+  duzeltme:
+    neden: gizli_sart
+    not: İstemde silme yokken kaynak dosyaların silinmesi aranıyordu; kontrol kaldırıldı, sondaki newline kontrolü eklendi.

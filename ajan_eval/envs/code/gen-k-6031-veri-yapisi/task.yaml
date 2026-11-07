@@ -1,0 +1,209 @@
+id: gen-k-6031-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 20
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Atölyede planlama araçları üzerine çalışıyoruz ve bugün ekip olarak zaman aralıklarını işleyen modülleri tamamlamaya odaklandık. Sabah toplantısında plan verilerinin nasıl okunacağını ve çakışan aralıkların nasıl birleştirileceğini konuştuk, öğleden sonra da bu konuyu kod tarafında netleştirmek istiyoruz. Elimizde plans dizini altında yarım kalmış üç modül var ve bunların iskeletlerindeki eksiklerin giderilmesi gerekiyor.
+
+  plans/intervals.py, plans/reader.py ve plans/schedule.py dosyalarındaki NotImplementedError iskeletlerini tamamla. plans/schedule.py içindeki PlanSchedule sınıfı, plans.txt dosyasının yolundan veriyi okuyup iterator protokolüne uygun şekilde (plan, aralık) çiftlerini üretsin ve merged_windows ile aralıkları birleştirilmiş pencereleri doğru biçimde döndürsün. plans/intervals.py ve plans/reader.py içindeki fonksiyonlar da bu akışı destekleyecek şekilde çalışsın.
+
+setup: |
+  mkdir -p plans
+  cat > plans/__init__.py <<'INIT'
+  INIT
+  cat > plans/intervals.py <<'INTERVALS'
+  def normalize(interval):
+      raise NotImplementedError
+
+
+  def merge_intervals(intervals):
+      raise NotImplementedError
+  INTERVALS
+  cat > plans/reader.py <<'READER'
+  from plans.intervals import normalize
+
+
+  def parse_lines(lines):
+      raise NotImplementedError
+
+
+  def load_plans(path):
+      raise NotImplementedError
+  READER
+  cat > plans/schedule.py <<'SCHEDULE'
+  from plans.reader import load_plans
+  from plans.intervals import merge_intervals
+
+
+  class PlanSchedule:
+      def __init__(self, path):
+          raise NotImplementedError
+
+      def __iter__(self):
+          raise NotImplementedError
+
+      def merged_windows(self):
+          raise NotImplementedError
+  SCHEDULE
+  cat > plans.txt <<'DATA'
+  basic:10-20
+  plus:15-35
+  pro:40-50
+  lite:45-60
+  DATA
+
+goal_tr: >
+  plans/intervals.py, plans/reader.py ve plans/schedule.py dosyalarindaki
+  NotImplementedError iskeletlerini tamamla; PlanSchedule sinifi plans.txt
+  yolundan dosyayi okuyup iterator protokoluyle (plan, aralik) ciftlerini ve
+  merged_windows ile araliklari birlestirilmis pencereleri dogru uretsin.
+
+reference_solution: |
+  cat > plans/intervals.py <<'INTERVALS'
+  def normalize(interval):
+      start, end = interval
+      if start > end:
+          start, end = end, start
+      return (start, end)
+
+
+  def merge_intervals(intervals):
+      ordered = sorted(intervals, key=lambda r: r[0])
+      merged = []
+      for start, end in ordered:
+          if merged and start <= merged[-1][1]:
+              merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+          else:
+              merged.append((start, end))
+      return merged
+  INTERVALS
+  cat > plans/reader.py <<'READER'
+  from plans.intervals import normalize
+
+
+  def parse_lines(lines):
+      records = []
+      for line in lines:
+          line = line.strip()
+          if not line:
+              continue
+          plan, span = line.split(":")
+          start, end = span.split("-")
+          records.append((plan, normalize((int(start), int(end)))))
+      return records
+
+
+  def load_plans(path):
+      with open(path, "r", encoding="ascii") as handle:
+          return parse_lines(handle.readlines())
+  READER
+  cat > plans/schedule.py <<'SCHEDULE'
+  from plans.reader import load_plans
+  from plans.intervals import merge_intervals
+
+
+  class PlanSchedule:
+      def __init__(self, path):
+          self.path = path
+          self._records = None
+
+      def _ensure(self):
+          if self._records is None:
+              self._records = load_plans(self.path)
+
+      def __iter__(self):
+          self._ensure()
+          for plan, span in self._records:
+              yield plan, span
+
+      def merged_windows(self):
+          self._ensure()
+          return merge_intervals([span for _, span in self._records])
+  SCHEDULE
+
+ara_adim: |
+  cat > plans/intervals.py <<'INTERVALS'
+  def normalize(interval):
+      start, end = interval
+      if start > end:
+          start, end = end, start
+      return (start, end)
+
+
+  def merge_intervals(intervals):
+      ordered = sorted(intervals, key=lambda r: r[0])
+      merged = []
+      for start, end in ordered:
+          if merged and start <= merged[-1][1]:
+              merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+          else:
+              merged.append((start, end))
+      return merged
+  INTERVALS
+  cat > plans/reader.py <<'READER'
+  from plans.intervals import normalize
+
+
+  def parse_lines(lines):
+      records = []
+      for line in lines:
+          line = line.strip()
+          if not line:
+              continue
+          plan, span = line.split(":")
+          start, end = span.split("-")
+          records.append((plan, normalize((int(start), int(end)))))
+      return records
+
+
+  def load_plans(path):
+      with open(path, "r", encoding="ascii") as handle:
+          return parse_lines(handle.readlines())
+  READER
+
+outputs:
+  - {path: plans/schedule.py, kind: program, run: 'python3 -c ''from plans.schedule import PlanSchedule as S; s=S("plans.txt"); assert list(s)==[("basic",(10,20)),("plus",(15,35)),("pro",(40,50)),("lite",(45,60))], list(s); assert s.merged_windows()==[(10,35),(40,60)], s.merged_windows(); print("TAMAM")'''}
+  - {path: plans/reader.py, kind: program, run: 'python3 -c ''from plans.reader import load_plans as f; assert f("plans.txt")==[("basic",(10,20)),("plus",(15,35)),("pro",(40,50)),("lite",(45,60))], f("plans.txt"); print("ILERLEME-TAMAM")'''}
+  - {path: plans/intervals.py, kind: program, run: 'python3 -c ''from plans.intervals import normalize as n, merge_intervals as m; assert n((30,10))==(10,30), n((30,10)); assert m([(10,20),(15,35),(40,50),(45,60)])==[(10,35),(40,60)], m([(10,20),(15,35),(40,50),(45,60)]); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from plans.intervals import normalize as n, merge_intervals as m; assert n((30,10))==(10,30), n((30,10)); assert m([(10,20),(15,35),(40,50),(45,60)])==[(10,35),(40,60)], m([(10,20),(15,35),(40,50),(45,60)]); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from plans.reader import load_plans as f; assert f("plans.txt")==[("basic",(10,20)),("plus",(15,35)),("pro",(40,50)),("lite",(45,60))], f("plans.txt"); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from plans.schedule import PlanSchedule as S; s=S("plans.txt"); assert list(s)==[("basic",(10,20)),("plus",(15,35)),("pro",(40,50)),("lite",(45,60))], list(s); assert s.merged_windows()==[(10,35),(40,60)], s.merged_windows(); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-6031
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: abonelik-planlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: orta
+    adim: 7
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: aralik-birlestirme
+      karmasiklik: orta
+      kalip: iterator-protokolu
+      akis: dosya-okuma
+      topoloji: yildiz
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

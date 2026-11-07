@@ -1,0 +1,78 @@
+id: gen-s-4103-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) olcumler klasöründeki tüm CSV dosyalarını oku; her dosyada başlık satırını atla ve yalnızca sensor,zaman,deger kayıtlarını dikkate al.
+
+  2) Tüm dosyalardan gelen sensor,zaman,deger kayıtlarını tek bir kümede birleştirerek benzersiz kayıtları elde et; bu sırada toplam benzersiz kayıt sayısını ve tekrar eden kayıt sayısını hesapla.
+
+  3) Elde ettiğin toplam benzersiz kayıt sayısı ile tekrar eden kayıt sayısını, geçici dosya kullanmadan doğrudan geçerli JSON biçiminde dogrulama.json dosyasına yaz.
+
+setup: |
+  mkdir -p olcumler
+  cat > olcumler/sensor_a.csv <<'CSV'
+  sensor,zaman,deger
+  A1,2024-01-01T00:00,12.5
+  A1,2024-01-01T00:01,12.7
+  A2,2024-01-01T00:00,8.1
+  A1,2024-01-01T00:00,12.5
+  CSV
+  cat > olcumler/sensor_b.csv <<'CSV'
+  sensor,zaman,deger
+  B1,2024-01-01T00:00,20.0
+  B2,2024-01-01T00:01,19.5
+  B1,2024-01-01T00:00,20.0
+  B3,2024-01-01T00:02,21.1
+  CSV
+  cat > olcumler/sensor_c.csv <<'CSV'
+  sensor,zaman,deger
+  C1,2024-01-01T00:00,5.5
+  C1,2024-01-01T00:00,5.5
+  C2,2024-01-01T00:01,6.0
+  CSV
+
+goal_tr: >
+  olcumler klasorundeki tum CSV dosyalarindan baslik satirini atlayip
+  benzersiz sensor,zaman,deger kayitlarini birlestirip, toplam benzersiz
+  kayit sayisini ve tekrar eden kayit sayisini gecici dosya kullanmadan
+  dogrudan gecerli JSON olarak dogrulama.json dosyasina yaz
+
+reference_solution: |
+  cat olcumler/*.csv | grep -v '^sensor,zaman,deger' | sort | uniq -c | awk '{if($1==1) u++; else d++} END {printf "{\"benzersiz\":%d,\"tekrar\":%d}\n", u, d}' > dogrulama.json
+  wc -l < dogrulama.json > /dev/null
+
+outputs:
+  - {path: dogrulama.json, kind: json}
+
+checks:
+  - {op: json_eq, path: dogrulama.json, value: {benzersiz: 5, tekrar: 3}}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4103
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: sensor-olcumleri
+    hedef: dogrula
+    girdi: csv
+    kaynak: cok-dosya
+    cikti: json
+    kesif: yok
+    uslup: numarali-emir
+    direnc: tekrar-eden-kayit
+    bukulme: olcek
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,142 @@
+id: gen-k-5161-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) clinic/queue.py dosyasındaki AppointmentQueue sınıfını, push ile eklenen randevuları son giren ilk çıkar sırada tutan ve pop ile en son ekleneni döndüren bir yığın olarak gerçekleştir; __iter__ ise yığını bozmadan sondan başa doğru dolaşabilsin.
+
+  2) clinic/schedule.py dosyasındaki build_schedule fonksiyonunu, verilen departman listesindeki her bölüm için o bölüme ait randevuları sırayla yığına itip yığından çekerek bölüm adından randevu listesine giden bir sözlük üretecek biçimde yaz.
+
+setup: |
+  mkdir -p clinic
+  cat > clinic/visits.py <<'VISITS'
+  VISITS = [
+      ("A-100", "checkup", "2024-05-01"),
+      ("A-101", "checkup", "2024-05-02"),
+      ("B-200", "surgery", "2024-05-03"),
+      ("A-102", "checkup", "2024-05-04"),
+      ("B-201", "surgery", "2024-05-05"),
+      ("C-300", "therapy", "2024-05-06"),
+      ("A-103", "checkup", "2024-05-07"),
+  ]
+  VISITS
+
+  cat > clinic/queue.py <<'QUEUE'
+  class AppointmentQueue:
+      def __init__(self):
+          raise NotImplementedError
+
+      def push(self, item):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+
+      def __iter__(self):
+          raise NotImplementedError
+  QUEUE
+
+  cat > clinic/schedule.py <<'SCHED'
+  from clinic.queue import AppointmentQueue
+
+
+  def build_schedule(visits, departments):
+      raise NotImplementedError
+  SCHED
+
+goal_tr: >
+  clinic/queue.py icindeki AppointmentQueue sinifini, push ile eklenen
+  randevulari son-giren-ilk-cikar sirada tutan ve pop ile en son ekleneni
+  donduren; __iter__ ile de yigini bozmadan sondan basa dogru dolasabilen
+  bir yigin olarak gerceklestir; ardindan clinic/schedule.py icindeki
+  build_schedule fonksiyonunu, verilen departman listesindeki her bolum icin
+  o bolume ait randevulari sirayla yigina itip yigindan cekerek bolum
+  adindan randevu listesine giden bir sozluk uretecek bicimde yaz.
+
+reference_solution: |
+  cat > clinic/queue.py <<'QUEUE'
+  class AppointmentQueue:
+      def __init__(self):
+          self._items = []
+
+      def push(self, item):
+          self._items.append(item)
+
+      def pop(self):
+          if not self._items:
+              raise IndexError("pop from empty queue")
+          return self._items.pop()
+
+      def __len__(self):
+          return len(self._items)
+
+      def __iter__(self):
+          index = len(self._items) - 1
+          while index >= 0:
+              yield self._items[index]
+              index -= 1
+  QUEUE
+
+  cat > clinic/schedule.py <<'SCHED'
+  from clinic.queue import AppointmentQueue
+
+
+  def build_schedule(visits, departments):
+      schedule = {}
+      for dept in departments:
+          queue = AppointmentQueue()
+          for code, kind, day in visits:
+              if kind == dept:
+                  queue.push((code, day))
+          ordered = []
+          while len(queue) > 0:
+              ordered.append(queue.pop())
+          schedule[dept] = ordered
+      return schedule
+  SCHED
+
+outputs:
+  - {path: clinic/queue.py, kind: program, run: 'python3 -c ''from clinic.queue import AppointmentQueue as Q; q=Q(); q.push(1); q.push(2); q.push(3); assert list(q)==[3,2,1]; assert list(q)==[3,2,1]; assert q.pop()==3; assert q.pop()==2; assert len(q)==1; q.push(9); assert q.pop()==9; assert q.pop()==1; assert len(q)==0; ok=False; exec("try:\n    q.pop()\nexcept IndexError:\n    ok=True"); assert ok; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from clinic.queue import AppointmentQueue as Q; q=Q(); q.push(1); q.push(2); q.push(3); assert list(q)==[3,2,1]; assert list(q)==[3,2,1]; assert q.pop()==3; assert q.pop()==2; assert len(q)==1; q.push(9); assert q.pop()==9; assert q.pop()==1; assert len(q)==0; ok=False; exec("try:\n    q.pop()\nexcept IndexError:\n    ok=True"); assert ok; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5161
+    bundle: yarisma
+    tools:
+    - python3
+    konu: hastane-randevulari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin-kullanimi
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: cok-dosya-birlestirme
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

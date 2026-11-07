@@ -1,0 +1,82 @@
+id: gen-s-7234-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) notlar dizin ağacındaki tüm .txt dosyalarını bul ve her biri için son iki karakteri not değeri olarak al.
+
+  2) Her .txt dosyasının adını ters çevirip uzantısını .puan yaparak, dosyanın bulunduğu dizinde yeni bir dosya oluştur: notlar/2024/ali.txt için notlar/2024/ila.puan, notlar/2024/zeynep.txt için notlar/2024/penyez.puan, notlar/2023/eski.txt için notlar/2023/ikse.puan.
+
+  3) Oluşturulan her .puan dosyasına yalnızca ilgili not değerini yaz; her dosyada sadece o değer bulunsun, başka hiçbir şey olmasın.
+
+setup: |
+  mkdir -p notlar/2024 notlar/2023
+  cat > notlar/2024/ali.txt <<'EOF'
+  ALI   90
+  AYSE  75
+  MEHMET60
+  EOF
+  cat > notlar/2024/zeynep.txt <<'EOF'
+  ZEYNEP 100
+  CAN    55
+  EOF
+  cat > notlar/2023/eski.txt <<'EOF'
+  ESKI  10
+  EOF
+  cat > notlar/2024/okunmaz.dat <<'EOF'
+  BU  99
+  EOF
+
+goal_tr: >
+  notlar dizin agacindaki .txt dosyalarindan her birinin son iki karakterini
+  (not degerini) alip, dosya adini ters cevirip .puan uzantisiyla ayni
+  dizinde yeni bir dosyaya yaz; her yeni dosyada sadece o not degeri
+  bulunsun
+
+reference_solution: |
+  find notlar -type f -name '*.txt' | while read -r f; do
+    d=$(dirname "$f")
+    b=$(basename "$f" .txt)
+    n=$(tail -n 1 "$f" | cut -c1-2)
+    rb=$(printf '%s' "$b" | rev)
+    printf '%s\n' "$n" > "$d/$rb.puan"
+  done
+
+outputs:
+  - {path: notlar/2024/ila.puan, kind: file}
+  - {path: notlar/2024/penyez.puan, kind: file}
+  - {path: notlar/2023/ikse.puan, kind: file}
+
+checks:
+  - {op: file_content_eq, path: notlar/2023/ikse.puan, value: ES}
+  - {op: file_content_eq, path: notlar/2024/ila.puan, value: ME}
+  - {op: file_content_eq, path: notlar/2024/penyez.puan, value: CA}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7234
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: ogrenci-notlari
+    hedef: ayikla
+    girdi: sabit-genislik
+    kaynak: dizin-agaci
+    cikti: birden-cok-dosya
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

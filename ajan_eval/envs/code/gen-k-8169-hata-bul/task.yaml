@@ -1,0 +1,153 @@
+id: gen-k-8169-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) bank/audit.py dosyasındaki net_change fonksiyonunu, bir hesabın açılış kaydı ve tüm hareketleri sonunda oluşan net değişimi doğru hesaplayacak biçimde düzelt. Net değişimde açılış ve yatırma bakiyeyi artırsın, çekme azaltsın.
+
+  2) Düzeltmeyi yalnızca bank/audit.py içinde yap; bank/ledger.py dosyasına dokunma.
+
+  3) Değişiklikten sonra net_change fonksiyonunun açılış kaydını da hesaba kattığını doğrula.
+
+setup: |
+  mkdir -p bank
+  cat > bank/ledger.py <<'LEDGER'
+  class LedgerError(Exception):
+      pass
+
+
+  class UnknownAccount(LedgerError):
+      pass
+
+
+  class InsufficientFunds(LedgerError):
+      pass
+
+
+  class Ledger:
+      def __init__(self):
+          self._balances = {}
+          self._history = {}
+
+      def open(self, account, amount):
+          if account in self._balances:
+              raise LedgerError("already open: %s" % account)
+          self._balances[account] = amount
+          self._history[account] = [("open", amount)]
+
+      def deposit(self, account, amount):
+          if account not in self._balances:
+              raise UnknownAccount(account)
+          self._balances[account] += amount
+          self._history[account].append(("deposit", amount))
+
+      def withdraw(self, account, amount):
+          if account not in self._balances:
+              raise UnknownAccount(account)
+          if amount > self._balances[account]:
+              raise InsufficientFunds(account)
+          self._balances[account] -= amount
+          self._history[account].append(("withdraw", amount))
+
+      def balance(self, account):
+          if account not in self._balances:
+              raise UnknownAccount(account)
+          return self._balances[account]
+
+      def history(self, account):
+          if account not in self._balances:
+              raise UnknownAccount(account)
+          return list(self._history[account])
+  LEDGER
+  cat > bank/audit.py <<'AUDIT'
+  from bank.ledger import Ledger, UnknownAccount, InsufficientFunds
+
+
+  def net_change(ledger, account):
+      total = 0
+      for kind, amount in ledger.history(account):
+          if kind == "deposit":
+              total = total + amount
+          elif kind == "withdraw":
+              total = total - amount
+      return total
+
+
+  def replay(ledger, account):
+      running = 0
+      for kind, amount in ledger.history(account):
+          running += amount
+          yield kind, amount, running
+  AUDIT
+
+goal_tr: >
+  bank/audit.py icindeki net_change fonksiyonunu, bir hesabin acilis kaydi
+  ve tum hareketleri sonunda olusan net degisimi (acilis ve yatirma artirir,
+  cekme azaltir) dogru hesaplayacak bicimde duzelt.
+
+reference_solution: |
+  cat > bank/audit.py <<'AUDIT'
+  from bank.ledger import Ledger, UnknownAccount, InsufficientFunds
+
+
+  def net_change(ledger, account):
+      total = 0
+      for kind, amount in ledger.history(account):
+          if kind == "open":
+              total = total + amount
+          elif kind == "deposit":
+              total = total + amount
+          elif kind == "withdraw":
+              total = total - amount
+      return total
+
+
+  def replay(ledger, account):
+      running = 0
+      for kind, amount in ledger.history(account):
+          running += amount
+          yield kind, amount, running
+  AUDIT
+
+outputs:
+  - {path: bank/audit.py, kind: program, run: 'python3 -c ''from bank.ledger import Ledger; from bank.audit import net_change as n; L=Ledger(); L.open("a",100); L.deposit("a",50); L.withdraw("a",30); assert n(L,"a")==120, n(L,"a"); L2=Ledger(); L2.open("b",10); L2.withdraw("b",10); assert n(L2,"b")==0, n(L2,"b"); L3=Ledger(); L3.open("c",5); assert n(L3,"c")==5, n(L3,"c"); L4=Ledger(); L4.open("d",40); L4.deposit("d",5); assert n(L4,"d")==45, n(L4,"d"); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from bank.ledger import Ledger; from bank.audit import net_change as n; L=Ledger(); L.open("a",100); L.deposit("a",50); L.withdraw("a",30); assert n(L,"a")==120, n(L,"a"); L2=Ledger(); L2.open("b",10); L2.withdraw("b",10); assert n(L2,"b")==0, n(L2,"b"); L3=Ledger(); L3.open("c",5); assert n(L3,"c")==5, n(L3,"c"); L4=Ledger(); L4.open("d",40); L4.deposit("d",5); assert n(L4,"d")==45, n(L4,"d"); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8169
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: banka-hareketleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-toplama-sirasi
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: bellek-ici
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

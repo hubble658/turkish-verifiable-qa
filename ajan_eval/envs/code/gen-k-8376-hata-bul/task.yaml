@@ -1,0 +1,132 @@
+id: gen-k-8376-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  clinic/schedule.py'yi yeniden yaz: DaySchedule context manager olsun (girişte açık kaydı döndürsün, çıkışta kaynağı kapatsın) ve slots_for kayıtlı olmayan hasta için boş liste döndürsün.
+
+setup: |
+  mkdir -p clinic
+  cat > clinic/records.py <<'REC'
+  def load_records(path):
+      rows = {}
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              pid, day, slot = line.split(',')
+              rows.setdefault(pid, []).append((day, slot))
+      return rows
+  REC
+  cat > clinic/schedule.py <<'SCHED'
+  from clinic.records import load_records
+
+
+  class DaySchedule:
+      def __init__(self, path):
+          self.rows = load_records(path)
+
+      def slots_for(self, pid):
+          return [slot for (day, slot) in self.rows[pid]]
+  SCHED
+  cat > clinic/report.py <<'REP'
+  from clinic.schedule import DaySchedule
+
+
+  class Report:
+      def __init__(self, path):
+          self.schedule = DaySchedule(path)
+
+      def count(self, pid):
+          return len(self.schedule.slots_for(pid))
+
+      def busiest(self, pids):
+          best = None
+          best_n = -1
+          for pid in pids:
+              n = self.count(pid)
+              if n > best_n:
+                  best = pid
+                  best_n = n
+          return best
+  REP
+  cat > appointments.txt <<'TXT'
+  p1,mon,09:00
+  p1,tue,10:00
+  p2,mon,11:00
+  p2,wed,12:00
+  p2,thu,13:00
+  p3,fri,14:00
+  TXT
+
+goal_tr: >
+  clinic/schedule.py dosyasini, DaySchedule sinifi bir context manager
+  olacak sekilde (__enter__ acik kaydi dondurup __exit__ kaynagi kapatsin)
+  ve slots_for kayitli olmayan hasta icin bos liste dondurecek bicimde
+  yeniden yaz.
+
+reference_solution: |
+  cat > clinic/schedule.py <<'SCHED'
+  from clinic.records import load_records
+
+
+  class DaySchedule:
+      def __init__(self, path):
+          self.path = path
+          self.rows = None
+
+      def __enter__(self):
+          self.rows = load_records(self.path)
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self.rows = None
+          return False
+
+      def slots_for(self, pid):
+          return [slot for (day, slot) in self.rows.get(pid, [])]
+  SCHED
+
+outputs:
+  - {path: clinic/schedule.py, kind: program, run: 'python3 -c ''from clinic.schedule import DaySchedule as D; s=D("appointments.txt"); assert hasattr(s,"__enter__") and hasattr(s,"__exit__"); s.__enter__(); assert s.slots_for("p1")==["09:00","10:00"]; assert s.slots_for("p2")==["11:00","12:00","13:00"]; assert s.slots_for("p9")==[]; assert s.__exit__(None,None,None) is False; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from clinic.schedule import DaySchedule as D; s=D("appointments.txt"); assert hasattr(s,"__enter__") and hasattr(s,"__exit__"); s.__enter__(); assert s.slots_for("p1")==["09:00","10:00"]; assert s.slots_for("p2")==["11:00","12:00","13:00"]; assert s.slots_for("p9")==[]; assert s.__exit__(None,None,None) is False; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8376
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: hastane-randevulari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sozluk-anahtar-hatasi
+      karmasiklik: duz
+      kalip: context-manager
+      akis: dosya-okuma
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,77 @@
+id: gen-s-3211-toplu-yeniden-adlandir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi klasöründeki her .json dosyasını içindeki "sehir" değeriyle <sehir>.json olarak aynı klasörde yeniden adlandır; boş dosyaları atla. Oluşan adları alfabetik sıralı cikti.txt dosyasına yaz.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/ist_01.json <<'EOF'
+  {"sehir":"istanbul","sicaklik":21,"durum":"parcali bulutlu"}
+  EOF
+  cat > girdi/ank_02.json <<'EOF'
+  {"sehir":"ankara","sicaklik":18,"durum":"acik"}
+  EOF
+  cat > girdi/izmir_03.json <<'EOF'
+  {"sehir":"izmir","sicaklik":26,"durum":"gunesli"}
+  EOF
+  cat > girdi/bos_04.json <<'EOF'
+  EOF
+
+goal_tr: >
+  girdi klasorundeki her .json dosyasinin adini, dosyanin icindeki "sehir"
+  alaninin degeri ile ayni klasorde <sehir>.json olacak sekilde degistir;
+  bos dosyalar atlanir ve olusan tum adlar alfabetik sirali olarak cikti.txt
+  dosyasina yazilir
+
+reference_solution: |
+  for f in $(find girdi -maxdepth 1 -name '*.json' | sort); do
+    sehir=$(sed -n 's/.*"sehir":"\([^"]*\)".*/\1/p' "$f")
+    if [ -n "$sehir" ]; then
+      taban=$(basename "$sehir")
+      mkdir -p "girdi/$(dirname "$sehir")"
+      mv "$f" "girdi/$taban.json"
+    fi
+  done
+  ls girdi | sort > cikti.txt
+
+outputs:
+  - {path: cikti.txt, kind: lines}
+  - {path: girdi, kind: dir}
+
+checks:
+  - {op: dir_entries_eq, path: girdi, value: [ankara.json, bos_04.json, istanbul.json, izmir.json]}
+  - {op: file_lines_eq, path: cikti.txt, value: [ankara.json, bos_04.json, istanbul.json, izmir.json]}
+  - {op: not_exists, path: girdi/ank_02.json}
+  - {op: not_exists, path: girdi/ist_01.json}
+  - {op: not_exists, path: girdi/izmir_03.json}
+
+metadata:
+  domain: toplu-yeniden-adlandir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3211
+    bundle: yol-parcala
+    tools:
+    - basename
+    - dirname
+    konu: hava-durumu-kayitlari
+    hedef: toplu-yeniden-adlandir
+    girdi: json
+    kaynak: cok-dosya
+    cikti: satir-listesi
+    kesif: veriye-bak
+    uslup: terse
+    direnc: bos-dosya
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

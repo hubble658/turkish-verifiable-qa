@@ -1,0 +1,100 @@
+id: gen-s-4134-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+prompt: 'subeler/merkez.csv ve subeler/kadikoy.csv dosyalarındaki sipariş satırlarını birleştir; her kalem için toplam adedi
+  hesapla ve sonucu kalem,toplam başlıklarıyla, kalem başına toplam adet büyükten küçüğe sıralanmış şekilde kalem-ozet.csv
+  dosyasına yaz. Ayrıca toplam adedi en yüksek olan kalemi tek satır olarak en-cok.csv dosyasına yaz.
+
+
+  Çıktıyı çalışma dizininin kökünde (kalem-ozet.csv ve en-cok.csv) oluştur, alt dizine yazma.
+
+  '
+setup: 'mkdir -p subeler
+
+  cat > subeler/merkez.csv <<''CSV''
+
+  siparis,kalem,adet
+
+  S001,pizza,2
+
+  S002,salata,1
+
+  S003,pizza,3
+
+  S004,makarna,1
+
+  S005,salata,2
+
+  CSV
+
+  cat > subeler/kadikoy.csv <<''CSV''
+
+  siparis,kalem,adet
+
+  S101,pizza,1
+
+  S102,makarna,4
+
+  S103,salata,1
+
+  S104,pizza,2
+
+  CSV
+
+  '
+goal_tr: 'subeler/merkez.csv ve subeler/kadikoy.csv dosyalarindaki siparis satirlarini birlestirip, kalem basina toplam adedi
+  buyukten kucuge siralayarak kalem-ozet.csv dosyasina kalem,toplam basliklariyla yaz ve toplam adedi en yuksek olan kalemi
+  tek satir olarak en-cok.csv dosyasina yaz
+
+  '
+reference_solution: '{ tail -n +2 subeler/merkez.csv; tail -n +2 subeler/kadikoy.csv; } | awk -F, ''{t[$2]+=$3} END{for(k
+  in t) print k","t[k]}'' | { echo "kalem,toplam"; sort -t, -k2,2nr; } > kalem-ozet.csv
+
+  head -n 2 kalem-ozet.csv | tail -n 1 > en-cok.csv
+
+  '
+outputs:
+- path: kalem-ozet.csv
+  kind: file
+- path: en-cok.csv
+  kind: file
+checks:
+- op: file_content_eq
+  path: en-cok.csv
+  value: pizza,8
+- op: file_lines_eq
+  path: kalem-ozet.csv
+  value:
+  - kalem,toplam
+  - pizza,8
+  - makarna,5
+  - salata,4
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4134
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: restoran-siparisleri
+    hedef: bol
+    girdi: csv
+    kaynak: iki-dosya-capraz
+    cikti: birden-cok-dosya
+    kesif: dolayli-hedef
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}
+  duzeltme:
+    neden: yol_belirsiz
+    not: Çıktının yeri yazmıyordu.

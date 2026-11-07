@@ -1,0 +1,136 @@
+id: gen-k-5081-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  grid/billing.py içindeki BillingEngine sınıfını, charge çağrılarını en son kullanılan önbellek (LRU) mantığıyla ve kapasite sınırında önbelleğe alacak biçimde gerçekleştir. charge sonucu, registry'deki okuma ile tariff oranının çarpımı olmalı. cached_count ise önbellekteki kayıt sayısını döndürmeli.
+
+  Şu şartlar sağlanmalı:
+  - grid/billing.py dosyası BillingEngine sınıfını içermeli.
+  - charge, registry'deki okuma ile tariff oranının çarpımını sonuç olarak vermeli.
+  - charge çağrıları LRU mantığıyla önbelleğe alınmalı.
+  - Önbellek kapasite sınırını aşmamalı; sınır aşıldığında en son kullanılan kayıt çıkarılmalı.
+  - cached_count, önbellekteki kayıt sayısını döndürmeli.
+
+setup: |
+  mkdir -p grid
+  cat > grid/registry.py <<'REGISTRY'
+  class MeterRegistry:
+      def __init__(self):
+          self._readings = {}
+
+      def add(self, meter_id, kwh):
+          self._readings[meter_id] = kwh
+
+      def reading(self, meter_id):
+          return self._readings.get(meter_id)
+  REGISTRY
+  cat > grid/tariff.py <<'TARIFF'
+  RATES = {"residential": 0.20, "commercial": 0.35, "industrial": 0.12}
+
+
+  def cost(reading, category):
+      return reading * RATES[category]
+  TARIFF
+  cat > grid/billing.py <<'BILLING'
+  from grid.registry import MeterRegistry
+  from grid.tariff import cost
+
+
+  class BillingEngine:
+      def __init__(self, capacity):
+          self._capacity = capacity
+          self._cache = {}
+          self._order = []
+
+      def charge(self, meter_id, category):
+          raise NotImplementedError
+
+      def cached_count(self):
+          raise NotImplementedError
+  BILLING
+
+goal_tr: >
+  grid/billing.py icindeki BillingEngine sinifini, en son kullanilan
+  onbellek (LRU) mantigiyla charge cagrilarini kapasite sinirinda onbellege
+  alip cached_count ile onbellekteki kayit sayisini dondurecek bicimde
+  gerceklestir; charge sonucu registry'deki okuma ile tariff oraninin
+  carpimidir.
+
+reference_solution: |
+  cat > grid/billing.py <<'BILLING'
+  from grid.registry import MeterRegistry
+  from grid.tariff import cost
+
+
+  class BillingEngine:
+      def __init__(self, capacity):
+          self._capacity = capacity
+          self._cache = {}
+          self._order = []
+
+      def _touch(self, key):
+          if key in self._order:
+              self._order.remove(key)
+          self._order.append(key)
+
+      def charge(self, meter_id, category):
+          key = (meter_id, category)
+          if key in self._cache:
+              self._touch(key)
+              return self._cache[key]
+          reading = self._registry.reading(meter_id)
+          value = cost(reading, category)
+          self._cache[key] = value
+          self._touch(key)
+          if len(self._cache) > self._capacity:
+              oldest = self._order.pop(0)
+              del self._cache[oldest]
+          return value
+
+      def cached_count(self):
+          return len(self._cache)
+  BILLING
+
+outputs:
+  - {path: grid/billing.py, kind: program, run: 'python3 -c ''from grid.billing import BillingEngine; from grid.registry import MeterRegistry; import sys; e=BillingEngine(2); e._registry=MeterRegistry(); e._registry.add("m1",100); e._registry.add("m2",50); e._registry.add("m3",10); assert e.charge("m1","residential")==20.0; assert e.charge("m2","commercial")==17.5; assert e.cached_count()==2; assert e.charge("m1","residential")==20.0; assert e.charge("m3","industrial")==1.2; assert e.cached_count()==2; assert e.charge("m2","commercial")==17.5; assert e.cached_count()==2; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from grid.billing import BillingEngine; from grid.registry import MeterRegistry; import sys; e=BillingEngine(2); e._registry=MeterRegistry(); e._registry.add("m1",100); e._registry.add("m2",50); e._registry.add("m3",10); assert e.charge("m1","residential")==20.0; assert e.charge("m2","commercial")==17.5; assert e.cached_count()==2; assert e.charge("m1","residential")==20.0; assert e.charge("m3","industrial")==1.2; assert e.cached_count()==2; assert e.charge("m2","commercial")==17.5; assert e.cached_count()==2; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5081
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: elektrik-sayaclari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: lru-onbellek
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: stdin-boru
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

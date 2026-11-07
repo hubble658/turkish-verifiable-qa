@@ -1,0 +1,67 @@
+id: gen-s-3121-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi altındaki her .ini dosyası için, içindeki kalem, hesap, borç ve alacak değerlerini alacak, borç, hesap, kalem sırasıyla ters çevirip virgülle ayrılmış tek satır halinde cikti/<dosya-adı>.csv dosyasına yaz. Yani girdi/a.ini için cikti/a.csv, girdi/b.ini için cikti/b.csv, girdi/c.ini için cikti/c.csv ve girdi/d.ini için cikti/d.csv oluşsun. girdi/notlar.txt gibi .ini uzantılı olmayan dosyaları atla; sadece .ini dosyaları işlensin.
+
+setup: |
+  mkdir -p girdi cikti
+  printf 'kalem=K001\nhesap=100\nborc=1250.50\nalacak=0\n' > girdi/a.ini
+  printf 'kalem=K002\nhesap=200\nborc=0\nalacak=800.25\n' > girdi/b.ini
+  printf 'kalem=K003\nhesap=300\nborc=410.00\nalacak=0\n' > girdi/c.ini
+  printf 'kalem=K004\nhesap=100\nborc=0\nalacak=95.75' > girdi/d.ini
+  printf 'bu bir tuzak dosyadir, ini degildir\n' > girdi/notlar.txt
+
+goal_tr: >
+  girdi altindaki .ini dosyalarinin her biri icin, kalem, hesap, borc ve
+  alacak degerlerini ters cevrilmis sirada (alacak, borc, hesap, kalem)
+  virgulle ayrilmis tek satir olarak cikti/<dosya-adi>.csv dosyasina yaz;
+  tuzak dosyayi atla.
+
+reference_solution: |
+  for f in girdi/*.ini; do
+    b=$(basename "$f" .ini)
+    cut -d= -f2 "$f" | rev | paste -sd, - > "cikti/$b.csv"
+  done
+
+outputs:
+  - {path: cikti/a.csv, kind: file}
+  - {path: cikti/b.csv, kind: file}
+  - {path: cikti/c.csv, kind: file}
+  - {path: cikti/d.csv, kind: file}
+
+checks:
+  - {op: file_content_eq, path: cikti/a.csv, value: '100K,001,05.0521,0'}
+  - {op: file_content_eq, path: cikti/b.csv, value: '200K,002,0,52.008'}
+  - {op: file_content_eq, path: cikti/c.csv, value: '300K,003,00.014,0'}
+  - {op: file_content_eq, path: cikti/d.csv, value: '400K,001,0,57.59'}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3121
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: muhasebe-kalemleri
+    hedef: donustur
+    girdi: ini
+    kaynak: cok-dosya
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: duz-hedef
+    direnc: son-newline-yok
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

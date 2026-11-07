@@ -1,0 +1,113 @@
+id: gen-k-8359-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) clinic/schedule.py dosyasını oluştur; içinde stateful bir AppointmentBook sınıfı tanımla.
+
+  2) Bu sınıf, clinic/patients.py içindeki parse_patient_stream fonksiyonundan gelen hastaları sırayla kabul etsin.
+
+  3) Her hastaya öncelik sırasına göre bir randevu numarası atansın: yüksek öncelik önce gelsin, eşit öncelikte geliş sırası korunsun.
+
+  4) Sınıf, randevu defterini kendi içinde tutsun.
+
+  5) feed(chunk) metodu ile parça parça hasta alınsın.
+
+  6) book() metodu, o ana kadar gelen hastaları numaralandırsın.
+
+  7) summary() metodu, (randevu_no, isim) çiftlerini öncelik sırasında döndürsün.
+
+setup: |
+  mkdir -p clinic
+  cat > clinic/patients.py <<'PATIENTS'
+  def parse_patient_stream(chunks):
+      """chunks: list of lines like 'id,name,priority'."""
+      patients = {}
+      for chunk in chunks:
+          for line in chunk.strip().splitlines():
+              pid, name, priority = line.split(',')
+              patients[pid] = (name, int(priority))
+      return patients
+  PATIENTS
+  cat > clinic/schedule.py <<'SCHEDULE'
+  raise NotImplementedError
+  SCHEDULE
+
+goal_tr: >
+  clinic/schedule.py icinde, clinic/patients.py'deki parse_patient_stream
+  ile gelen hastalari sirayla kabul eden, her hastaya oncelik sirasina gore
+  (yuksek oncelik once, esitlikte gelis sirasi) bir randevu numarasi atayan
+  ve randevu defterini tutan stateful bir AppointmentBook sinifi yaz; sinif
+  feed(chunk) ile parca parca hasta alip book() ile o ana kadar gelen
+  hastalari numaralandirsin ve summary() ile (randevu_no, isim) ciftlerini
+  oncelik sirasinda dondursun.
+
+reference_solution: |
+  cat > clinic/schedule.py <<'SCHEDULE'
+  from clinic.patients import parse_patient_stream
+
+
+  class AppointmentBook:
+      def __init__(self):
+          self._chunks = []
+          self._counter = 0
+          self._booked = {}
+
+      def feed(self, chunk):
+          self._chunks.append(chunk)
+
+      def book(self):
+          patients = parse_patient_stream(self._chunks)
+          order = sorted(patients.items(), key=lambda kv: (-kv[1][1], kv[0]))
+          for pid, (name, _priority) in order:
+              if pid not in self._booked:
+                  self._counter += 1
+                  self._booked[pid] = (self._counter, name)
+          return self._counter
+
+      def summary(self):
+          return sorted(self._booked.values(), key=lambda t: t[0])
+  SCHEDULE
+
+outputs:
+  - {path: clinic/schedule.py, kind: program, run: 'python3 -c ''from clinic.schedule import AppointmentBook as B; b=B(); b.feed("p1,Ada,2\np2,Bo,5\n"); b.feed("p3,Cem,5\np4,Deniz,1\n"); n=b.book(); assert n==4, n; assert b.summary()==[(1,"Bo"),(2,"Cem"),(3,"Ada"),(4,"Deniz")], b.summary(); b.feed("p5,Ece,9\n"); assert b.book()==5; assert b.summary()==[(1,"Bo"),(2,"Cem"),(3,"Ada"),(4,"Deniz"),(5,"Ece")], b.summary(); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from clinic.schedule import AppointmentBook as B; b=B(); b.feed("p1,Ada,2\np2,Bo,5\n"); b.feed("p3,Cem,5\np4,Deniz,1\n"); n=b.book(); assert n==4, n; assert b.summary()==[(1,"Bo"),(2,"Cem"),(3,"Ada"),(4,"Deniz")], b.summary(); b.feed("p5,Ece,9\n"); assert b.book()==5; assert b.summary()==[(1,"Bo"),(2,"Cem"),(3,"Ada"),(4,"Deniz"),(5,"Ece")], b.summary(); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8359
+    bundle: yarisma
+    tools:
+    - python3
+    konu: hastane-randevulari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: benzetim
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: parcali-akis
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

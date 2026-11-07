@@ -1,0 +1,238 @@
+id: gen-k-9013-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 18
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  library/catalog.py dosyasındaki Catalog sınıfının give metodu, bir kitap iade edildiğinde kütüphanedeki mevcut kopya sayısını doğru şekilde artıracak biçimde düzeltilsin. Ardından library/report.py dosyasındaki Report sınıfının top_borrowers metodu, en çok kitap ödünç alan k üyeyi doğru sırayla döndürecek şekilde düzeltilsin.
+
+setup: |
+  mkdir -p library
+  cat > library/catalog.py <<'CAT'
+  from abc import ABC, abstractmethod
+
+
+  class CatalogBase(ABC):
+      @abstractmethod
+      def available(self, title):
+          ...
+
+      @abstractmethod
+      def take(self, title):
+          ...
+
+      @abstractmethod
+      def give(self, title):
+          ...
+
+
+  class Catalog(CatalogBase):
+      def __init__(self):
+          self._copies = {}
+
+      def add(self, title, copies):
+          self._copies[title] = copies
+
+      def available(self, title):
+          return self._copies[title]
+
+      def take(self, title):
+          self._copies[title] -= 1
+
+      def give(self, title):
+          self._copies[title] -= 1
+  CAT
+  cat > library/loans.py <<'LOANS'
+  from library.catalog import CatalogBase
+
+
+  class LoanRecord:
+      def __init__(self, member, titles):
+          self.member = member
+          self.titles = titles
+
+
+  class LoanDesk:
+      def __init__(self, catalog):
+          assert isinstance(catalog, CatalogBase)
+          self.catalog = catalog
+          self.records = []
+
+      def borrow(self, member, titles):
+          taken = []
+          for title in titles:
+              self.catalog.take(title)
+              taken.append(title)
+          self.records.append(LoanRecord(member, taken))
+          return taken
+
+      def give_back(self, member):
+          for rec in self.records:
+              if rec.member == member:
+                  for title in rec.titles:
+                      self.catalog.give(title)
+                  return rec.titles
+          return []
+  LOANS
+  cat > library/report.py <<'REPORT'
+  class Report:
+      def __init__(self, desk):
+          self.desk = desk
+
+      def borrowed_count(self, member):
+          total = 0
+          for rec in self.desk.records:
+              if rec.member == member:
+                  total += len(rec.titles)
+          return total
+
+      def top_borrowers(self, k):
+          counts = {}
+          for rec in self.desk.records:
+              counts[rec.member] = counts.get(rec.member, 0) + len(rec.titles)
+          ranked = sorted(counts.items(), key=lambda p: (-p[1], p[0]))
+          return [name for name, _ in ranked[:k - 1]]
+  REPORT
+
+goal_tr: >
+  library/catalog.py icindeki Catalog.give metodunu iade edilen kopya
+  sayisini dogru artiracak sekilde duzelt; ardindan library/report.py
+  icindeki Report.top_borrowers metodunu en cok kitap odunc alan k uyeyi
+  dogru dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > library/catalog.py <<'CAT'
+  from abc import ABC, abstractmethod
+
+
+  class CatalogBase(ABC):
+      @abstractmethod
+      def available(self, title):
+          ...
+
+      @abstractmethod
+      def take(self, title):
+          ...
+
+      @abstractmethod
+      def give(self, title):
+          ...
+
+
+  class Catalog(CatalogBase):
+      def __init__(self):
+          self._copies = {}
+
+      def add(self, title, copies):
+          self._copies[title] = copies
+
+      def available(self, title):
+          return self._copies[title]
+
+      def take(self, title):
+          self._copies[title] -= 1
+
+      def give(self, title):
+          self._copies[title] += 1
+  CAT
+  cat > library/report.py <<'REPORT'
+  class Report:
+      def __init__(self, desk):
+          self.desk = desk
+
+      def borrowed_count(self, member):
+          total = 0
+          for rec in self.desk.records:
+              if rec.member == member:
+                  total += len(rec.titles)
+          return total
+
+      def top_borrowers(self, k):
+          counts = {}
+          for rec in self.desk.records:
+              counts[rec.member] = counts.get(rec.member, 0) + len(rec.titles)
+          ranked = sorted(counts.items(), key=lambda p: (-p[1], p[0]))
+          return [name for name, _ in ranked[:k]]
+  REPORT
+
+ara_adim: |
+  cat > library/catalog.py <<'CAT'
+  from abc import ABC, abstractmethod
+
+
+  class CatalogBase(ABC):
+      @abstractmethod
+      def available(self, title):
+          ...
+
+      @abstractmethod
+      def take(self, title):
+          ...
+
+      @abstractmethod
+      def give(self, title):
+          ...
+
+
+  class Catalog(CatalogBase):
+      def __init__(self):
+          self._copies = {}
+
+      def add(self, title, copies):
+          self._copies[title] = copies
+
+      def available(self, title):
+          return self._copies[title]
+
+      def take(self, title):
+          self._copies[title] -= 1
+
+      def give(self, title):
+          self._copies[title] += 1
+  CAT
+
+outputs:
+  - {path: library/catalog.py, kind: program, run: 'python3 -c ''from library.catalog import Catalog; c=Catalog(); c.add("dune",2); c.take("dune"); assert c.available("dune")==1, c.available("dune"); c.give("dune"); assert c.available("dune")==2, c.available("dune"); print("REGRESYON-TAMAM")'''}
+  - {path: library/catalog.py, kind: program, run: 'python3 -c ''from library.catalog import Catalog; from library.loans import LoanDesk; c=Catalog(); c.add("a",9); c.add("b",9); d=LoanDesk(c); d.borrow("mel",["a","b"]); d.give_back("mel"); assert c.available("a")==9, c.available("a"); assert c.available("b")==9, c.available("b"); print("ILERLEME-TAMAM")'''}
+  - {path: library/report.py, kind: program, run: 'python3 -c ''from library.catalog import Catalog; from library.loans import LoanDesk; from library.report import Report; c=Catalog(); c.add("a",9); c.add("b",9); c.add("c",9); d=LoanDesk(c); d.borrow("mel",["a","b"]); d.borrow("ada",["c"]); d.borrow("zoe",["a","b","c"]); r=Report(d); assert r.top_borrowers(2)==["zoe","mel"], r.top_borrowers(2); d.give_back("zoe"); assert c.available("a")==8, c.available("a"); assert r.top_borrowers(3)==["zoe","mel","ada"], r.top_borrowers(3); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from library.catalog import Catalog; c=Catalog(); c.add("dune",2); c.take("dune"); assert c.available("dune")==1, c.available("dune"); c.give("dune"); assert c.available("dune")==2, c.available("dune"); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from library.catalog import Catalog; from library.loans import LoanDesk; c=Catalog(); c.add("a",9); c.add("b",9); d=LoanDesk(c); d.borrow("mel",["a","b"]); d.give_back("mel"); assert c.available("a")==9, c.available("a"); assert c.available("b")==9, c.available("b"); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from library.catalog import Catalog; from library.loans import LoanDesk; from library.report import Report; c=Catalog(); c.add("a",9); c.add("b",9); c.add("c",9); d=LoanDesk(c); d.borrow("mel",["a","b"]); d.borrow("ada",["c"]); d.borrow("zoe",["a","b","c"]); r=Report(d); assert r.top_borrowers(2)==["zoe","mel"], r.top_borrowers(2); d.give_back("zoe"); assert c.available("a")==8, c.available("a"); assert r.top_borrowers(3)==["zoe","mel","ada"], r.top_borrowers(3); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9013
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kutuphane-oduncleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 6
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: off-by-one
+      karmasiklik: orta
+      kalip: abc-protokol
+      akis: bellek-ici
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

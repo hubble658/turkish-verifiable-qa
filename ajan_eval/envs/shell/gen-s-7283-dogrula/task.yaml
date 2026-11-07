@@ -1,0 +1,68 @@
+id: gen-s-7283-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) depo klasöründe içinde "urunler.txt" geçen dosyayı bul.
+  2) Bulduğun bu dosyadaki her ürünü, sayim.txt dosyasındaki stok değeriyle karşılaştır.
+  3) Stok değeri farklı olan ürünlerin kodlarını artan sırada, her satırda bir tane olacak şekilde fark.txt dosyasına yaz.
+
+setup: |
+  mkdir -p depo
+  cat > depo/urunler.txt <<'DATA'
+  1001  Kalem      12
+  1002  Defter     5
+  1003  Silgi      0
+  1004  Cetvel     8
+  DATA
+  cat > depo/sayim.txt <<'DATA'
+  1001 12
+  1002 4
+  1003 0
+  1004 8
+  1005 3
+  DATA
+
+goal_tr: >
+  depo klasorunde icinde "urunler.txt" gecen dosyayi bulup, o dosyadaki her
+  urun icin sayim.txt dosyasindaki stok degeriyle karsilastir ve stok degeri
+  farkli olan urunlerin kodlarini artan sirada birer satir olarak fark.txt
+  dosyasina yaz
+
+reference_solution: |
+  kaynak=$(find depo -name 'urunler.txt')
+  awk 'NR==FNR { sayim[$1]=$2; next } { if (sayim[$1] != $3) print $1 }' depo/sayim.txt "$kaynak" | sort > fark.txt
+
+outputs:
+  - {path: fark.txt, kind: lines}
+
+checks:
+  - {op: file_content_eq, path: fark.txt, value: '1002'}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7283
+    bundle: awk
+    tools:
+    - awk
+    konu: envanter
+    hedef: dogrula
+    girdi: sabit-genislik
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

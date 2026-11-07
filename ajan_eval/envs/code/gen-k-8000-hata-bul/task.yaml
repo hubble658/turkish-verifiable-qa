@@ -1,0 +1,116 @@
+id: gen-k-8000-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  depot/rank.py dosyasındaki top_items fonksiyonu, bir stok dosyasındaki en yüksek miktara sahip k ürünü döndürsün. Fonksiyon, aynı miktara sahip ürünler arasında ayrım yapmadan, dosyadaki sırayı koruyarak bu k ürünü döndürmeli.
+
+setup: |
+  mkdir -p depot
+  cat > depot/reader.py <<'READER'
+  class InventoryReader:
+      def __init__(self, path):
+          self.path = path
+          self._fh = None
+
+      def __enter__(self):
+          self._fh = open(self.path, "r", encoding="ascii")
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          if self._fh is not None:
+              self._fh.close()
+          return False
+
+      def rows(self):
+          out = []
+          for line in self._fh:
+              line = line.strip()
+              if not line:
+                  continue
+              name, qty = line.split(",")
+              out.append((name, int(qty)))
+          return out
+  READER
+  cat > depot/stock.py <<'STOCK'
+  from depot.reader import InventoryReader
+
+
+  def load_stock(path):
+      with InventoryReader(path) as reader:
+          return reader.rows()
+  STOCK
+  cat > depot/rank.py <<'RANK'
+  from depot.stock import load_stock
+
+
+  def top_items(path, k):
+      rows = load_stock(path)
+      rows.sort(key=lambda r: -r[1])
+      return [name for name, _ in rows[:k - 1]]
+  RANK
+  cat > inventory.txt <<'DATA'
+  widget,5
+  gadget,9
+  bolt,5
+  nut,9
+  cam,2
+  DATA
+
+goal_tr: >
+  depot/rank.py icindeki top_items fonksiyonunu, en yuksek miktarli k urunu
+  esit miktarlarda dosyadaki sirayi koruyarak dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > depot/rank.py <<'RANK'
+  from depot.stock import load_stock
+
+
+  def top_items(path, k):
+      rows = load_stock(path)
+      rows.sort(key=lambda r: r[1], reverse=True)
+      return [name for name, _ in rows[:k]]
+  RANK
+
+outputs:
+  - {path: depot/rank.py, kind: program, run: 'python3 -c ''from depot.rank import top_items as f; r=f("inventory.txt",2); assert r==["gadget","nut"], r; r=f("inventory.txt",3); assert r==["gadget","nut","widget"], r; r=f("inventory.txt",5); assert r==["gadget","nut","widget","bolt","cam"], r; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depot.rank import top_items as f; r=f("inventory.txt",2); assert r==["gadget","nut"], r; r=f("inventory.txt",3); assert r==["gadget","nut","widget"], r; r=f("inventory.txt",5); assert r==["gadget","nut","widget","bolt","cam"], r; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8000
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: depo-envanteri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-kararsizligi
+      karmasiklik: duz
+      kalip: context-manager
+      akis: cok-dosya-birlestirme
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

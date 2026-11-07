@@ -1,0 +1,70 @@
+id: gen-s-7217-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  notlar/sinif_a.csv ve notlar/sinif_b.csv'deki numaralardan ortak olanların sayısını sonuc.txt'ye sadece sayı olarak yaz.
+
+setup: |
+  mkdir -p notlar
+  cat > notlar/sinif_a.csv <<'CSV'
+  no,ad,not
+  101,ali,85
+  102,ayse,90
+  103,can,70
+  104,deniz,60
+  105,ece,95
+  CSV
+  cat > notlar/sinif_b.csv <<'CSV'
+  no,ad,not
+  101,ali,85
+  102,ayse,90
+  106,efe,80
+  107,fatma,75
+  108,gokhan,65
+  CSV
+
+goal_tr: >
+  notlar/sinif_a.csv ve notlar/sinif_b.csv dosyalarindaki ogrenci
+  numaralarini karsilastirip yalnizca her iki dosyada da bulunan ortak
+  numaralarin sayisini sonuc.txt dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  tail -n +2 notlar/sinif_a.csv | cut -d, -f1 | sort > /tmp/a.txt
+  tail -n +2 notlar/sinif_b.csv | cut -d, -f1 | sort > /tmp/b.txt
+  comm -12 /tmp/a.txt /tmp/b.txt | wc -l > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '2'}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7217
+    bundle: kume-farki
+    tools:
+    - comm
+    - sort
+    konu: ogrenci-notlari
+    hedef: ayikla
+    girdi: csv
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: veriye-bak
+    uslup: terse
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

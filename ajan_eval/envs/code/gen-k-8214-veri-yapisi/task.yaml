@@ -1,0 +1,109 @@
+id: gen-k-8214-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) /workspace dizinindeki sessions.py dosyasını aç ve make_forest fonksiyonunu incele.
+
+  2) make_forest fonksiyonunu, her (uid, peer) çifti için parent[uid] = peer atamasını doğrudan yapmak yerine, önce uid ve peer için find ile iki kök bulacak ve bu iki kökü birleştirecek biçimde düzelt.
+
+  3) Bu değişiklikten sonra iç içe zincirlerde yer alan tüm kullanıcıların aynı grubu paylaşması sağlanmış olsun.
+
+  4) sessions.py dosyasındaki find ve group_owner fonksiyonlarını koru; yalnızca make_forest fonksiyonunun davranışını düzelt.
+
+  5) Dosyayı /workspace/sessions.py olarak kaydet.
+
+setup: |
+  cat > sessions.py <<'PY'
+  def make_forest(events):
+      parent = {}
+      for uid, peer in events:
+          parent.setdefault(uid, uid)
+          parent.setdefault(peer, peer)
+      for uid, peer in events:
+          parent[uid] = peer
+      return parent
+
+
+  def find(parent, x):
+      while parent[x] != x:
+          x = parent[x]
+      return x
+
+
+  def group_owner(parent, uid):
+      return find(parent, uid)
+  PY
+
+goal_tr: >
+  sessions.py icindeki make_forest fonksiyonunu, parent[uid]=peer atamasini
+  dogrudan yapmak yerine find ile iki kok bulup kokleri birlestirecek
+  bicimde duzelt; boylece ic ice zincirlerdeki tum kullanicilar ayni grubu
+  paylassin.
+
+reference_solution: |
+  cat > sessions.py <<'PY'
+  def make_forest(events):
+      parent = {}
+      for uid, peer in events:
+          parent.setdefault(uid, uid)
+          parent.setdefault(peer, peer)
+      for uid, peer in events:
+          ra, rb = find(parent, uid), find(parent, peer)
+          if ra != rb:
+              parent[ra] = rb
+      return parent
+
+
+  def find(parent, x):
+      while parent[x] != x:
+          x = parent[x]
+      return x
+
+
+  def group_owner(parent, uid):
+      return find(parent, uid)
+  PY
+
+outputs:
+  - {path: sessions.py, kind: program, run: 'python3 -c ''import sessions as s; ev=[("a","b"),("c","d"),("b","c")]; p=s.make_forest(ev); assert s.group_owner(p,"a")==s.group_owner(p,"d"), (p, s.group_owner(p,"a"), s.group_owner(p,"d")); assert s.group_owner(p,"a")==s.group_owner(p,"c"); assert s.group_owner(p,"b")==s.group_owner(p,"d"); ev2=[("m","n"),("n","o"),("o","p")]; p2=s.make_forest(ev2); assert s.group_owner(p2,"m")==s.group_owner(p2,"p"), (p2, s.group_owner(p2,"m"), s.group_owner(p2,"p")); assert s.group_owner(p2,"m")==s.group_owner(p2,"o"); ev3=[("x","y"),("y","z"),("z","x")]; p3=s.make_forest(ev3); assert len({s.group_owner(p3,u) for u in ["x","y","z"]})==1; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import sessions as s; ev=[("a","b"),("c","d"),("b","c")]; p=s.make_forest(ev); assert s.group_owner(p,"a")==s.group_owner(p,"d"), (p, s.group_owner(p,"a"), s.group_owner(p,"d")); assert s.group_owner(p,"a")==s.group_owner(p,"c"); assert s.group_owner(p,"b")==s.group_owner(p,"d"); ev2=[("m","n"),("n","o"),("o","p")]; p2=s.make_forest(ev2); assert s.group_owner(p2,"m")==s.group_owner(p2,"p"), (p2, s.group_owner(p2,"m"), s.group_owner(p2,"p")); assert s.group_owner(p2,"m")==s.group_owner(p2,"o"); ev3=[("x","y"),("y","z"),("z","x")]; p3=s.make_forest(ev3); assert len({s.group_owner(p3,u) for u in ["x","y","z"]})==1; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8214
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: kullanici-oturumlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: birlesim-bulma
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: ic-ice-yapi
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,67 @@
+id: gen-s-7128-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) randevular.json dosyasını oku ve içindeki randevulardan durum değeri "onaylandi" olanları seç.
+
+  2) Seçilen her randevu için hasta adını, tarihini ve bölümünü "hasta|tarih|bolum" biçiminde birleştir.
+
+  3) Elde ettiğin kayıtları, her satırda bir kayıt olacak şekilde onayli_randevular.txt dosyasına yaz.
+
+setup: |
+  cat > randevular.json <<'JSON'
+  {"randevular":[
+  {"hasta":"Ali Yilmaz","bolum":"Kardiyoloji","tarih":"2024-03-01","durum":"onaylandi"},
+  {"hasta":"Ayse Demir","bolum":"Noroloji","tarih":"2024-03-02","durum":"iptal"},
+  {"hasta":"Mehmet Kaya","bolum":"Kardiyoloji","tarih":"2024-03-03","durum":"onaylandi"},
+  {"hasta":"Fatma Ozturk","bolum":"Ortopedi","tarih":"2024-03-04","durum":"beklemede"},
+  {"hasta":"Emre Sahin","bolum":"Noroloji","tarih":"2024-03-05","durum":"onaylandi"},
+  {"hasta":"Zeynep Arslan","bolum":"Ortopedi","tarih":"2024-03-06","durum":"iptal"},
+  {"hasta":"Burak Celik","bolum":"Kardiyoloji","tarih":"2024-03-07","durum":"beklemede"},
+  {"hasta":"Elif Yildiz","bolum":"Noroloji","tarih":"2024-03-08","durum":"onaylandi"}
+  ]}
+  JSON
+
+goal_tr: >
+  randevular.json dosyasindaki durum degeri onaylandi olan randevularin
+  hasta adlarini, tarihlerini ve bolumlerini "hasta|tarih|bolum" biciminde
+  onayli_randevular.txt dosyasina her satirda bir kayit olacak sekilde yaz
+
+reference_solution: |
+  tail -n +2 randevular.json | head -n -1 | sed 's/},{/}\n{/g' | sed -n 's/.*"hasta":"\([^"]*\)".*"bolum":"\([^"]*\)".*"tarih":"\([^"]*\)".*"durum":"onaylandi".*/\1|\3|\2/p' > onayli_randevular.txt
+
+outputs:
+  - {path: onayli_randevular.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: onayli_randevular.txt, value: [Ali Yilmaz|2024-03-01|Kardiyoloji, Mehmet Kaya|2024-03-03|Kardiyoloji, Emre Sahin|2024-03-05|Noroloji, Elif Yildiz|2024-03-08|Noroloji]}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7128
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: hastane-randevulari
+    hedef: ayikla
+    girdi: json
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: dolayli-hedef
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

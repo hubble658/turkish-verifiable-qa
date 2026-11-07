@@ -1,0 +1,176 @@
+id: gen-k-8045-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Sürüm takibi yapan küçük bir araç üzerinde çalışıyoruz ve dün fark ettik ki rapor çıktısı eklenen sürümleri doğru yansıtmıyor; bu yüzden releng/core/registry.py dosyasındaki ReleaseRegistry sınıfına bir düzeltme yapmam gerekiyor. Sorun şu: her add çağrısından sonra latest her zaman o ana kadar eklenmiş en yüksek sürümü döndürmeli, ama şu anki haliyle bu beklentiyi karşılamıyor. Bunu giderirsen releng/plugins/report.py içindeki build_report fonksiyonunun çıktısı da düzelecek; yani döndürdüğü listede her satır, o satıra kadar eklenen en yüksek sürümü gösterecek.
+
+  Yapman gereken tek şey releng/core/registry.py dosyasını bu davranışı sağlayacak şekilde düzeltmek. Sınıfın dışa dönük kullanımı aynı kalsın; add ve latest metotları beklendiği gibi çalışsın, latest çağrıldığında o isim için o ana kadar eklenmiş sürümler arasından en büyüğü dönsün. Başka bir dosyayı değiştirmene gerek yok, sadece bu dosya üzerinde çalış.
+
+setup: |
+  mkdir -p releng/core releng/plugins
+  cat > releng/core/__init__.py <<'EOF'
+  EOF
+  cat > releng/plugins/__init__.py <<'EOF'
+  EOF
+  cat > releng/core/version.py <<'EOF'
+  class Version:
+      def __init__(self, text):
+          parts = text.split(".")
+          self.parts = tuple(int(p) for p in parts)
+
+      def __eq__(self, other):
+          return self.parts == other.parts
+
+      def __lt__(self, other):
+          return self.parts < other.parts
+
+      def __le__(self, other):
+          return self.parts <= other.parts
+
+      def __gt__(self, other):
+          return self.parts > other.parts
+
+      def __ge__(self, other):
+          return self.parts >= other.parts
+
+      def __repr__(self):
+          return "Version(" + ".".join(str(p) for p in self.parts) + ")"
+
+      def __str__(self):
+          return ".".join(str(p) for p in self.parts)
+
+      def __hash__(self):
+          return hash(self.parts)
+  EOF
+  cat > releng/core/registry.py <<'EOF'
+  from releng.core.version import Version
+
+
+  class ReleaseRegistry:
+      def __init__(self):
+          self._releases = {}
+          self._cached_max = None
+
+      def add(self, name, text):
+          v = Version(text)
+          self._releases.setdefault(name, []).append(v)
+          return v
+
+      def latest(self, name):
+          if self._cached_max is not None:
+              return self._cached_max
+          versions = self._releases.get(name, [])
+          best = None
+          for v in versions:
+              if best is None or v > best:
+                  best = v
+          self._cached_max = best
+          return best
+
+      def count(self, name):
+          return len(self._releases.get(name, []))
+  EOF
+  cat > releng/plugins/report.py <<'EOF'
+  from releng.core.registry import ReleaseRegistry
+
+
+  def build_report(events):
+      reg = ReleaseRegistry()
+      lines = []
+      for name, text in events:
+          if text is None:
+              lines.append(name + "=" + str(reg.latest(name)))
+          else:
+              reg.add(name, text)
+              lines.append(name + "=" + str(reg.latest(name)))
+      return lines
+  EOF
+  cat > events.txt <<'EOF'
+  alpha,1.2.0
+  alpha,1.10.0
+  alpha,None
+  beta,2.0.0
+  beta,2.0.1
+  beta,None
+  alpha,1.9.0
+  alpha,None
+  EOF
+
+goal_tr: >
+  releng/core/registry.py icindeki ReleaseRegistry sinifini, her add
+  cagrisindan sonra latest dogru guncel surumu dondurecek sekilde duzelt;
+  boylece releng/plugins/report.py build_report ciktisi her satirda o ana
+  kadar eklenen en yuksek surumu gostersin.
+
+reference_solution: |
+  cat > releng/core/registry.py <<'EOF'
+  from releng.core.version import Version
+
+
+  class ReleaseRegistry:
+      def __init__(self):
+          self._releases = {}
+          self._cached_max = None
+
+      def add(self, name, text):
+          v = Version(text)
+          self._releases.setdefault(name, []).append(v)
+          if self._cached_max is None or v > self._cached_max:
+              self._cached_max = v
+          return v
+
+      def latest(self, name):
+          versions = self._releases.get(name, [])
+          best = None
+          for v in versions:
+              if best is None or v > best:
+                  best = v
+          return best
+
+      def count(self, name):
+          return len(self._releases.get(name, []))
+  EOF
+
+outputs:
+  - {path: releng/core/registry.py, kind: program, run: 'python3 -c ''from releng.plugins.report import build_report as f; ev=[("alpha","1.2.0"),("alpha","1.10.0"),("alpha",None),("beta","2.0.0"),("beta","2.0.1"),("beta",None),("alpha","1.9.0"),("alpha",None)]; got=f(ev); want=["alpha=1.2.0","alpha=1.10.0","alpha=1.10.0","beta=2.0.0","beta=2.0.1","beta=2.0.1","alpha=1.10.0","alpha=1.10.0"]; assert got==want, got; ev2=[("gamma","0.1.0")]; assert f(ev2)==["gamma=0.1.0"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from releng.plugins.report import build_report as f; ev=[("alpha","1.2.0"),("alpha","1.10.0"),("alpha",None),("beta","2.0.0"),("beta","2.0.1"),("beta",None),("alpha","1.9.0"),("alpha",None)]; got=f(ev); want=["alpha=1.2.0","alpha=1.10.0","alpha=1.10.0","beta=2.0.0","beta=2.0.1","beta=2.0.1","alpha=1.10.0","alpha=1.10.0"]; assert got==want, got; ev2=[("gamma","0.1.0")]; assert f(ev2)==["gamma=0.1.0"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8045
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: yazilim-surumleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: zor
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-durum-sifirlama
+      karmasiklik: duz
+      kalip: operator-asiri-yukleme
+      akis: bellek-ici
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

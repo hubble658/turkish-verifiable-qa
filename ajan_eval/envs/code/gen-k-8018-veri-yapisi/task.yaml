@@ -1,0 +1,146 @@
+id: gen-k-8018-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) kargo/aralik.py dosyasındaki Aralık sınıfını, ardışık ya da örtüşen aralıklar birleştirilecek şekilde tamamla; sınıfta @property ile tanımlı bir uzunluk erişimcisi ve @staticmethod ile tanımlı bir birlestir metodu bulunsun.
+
+  2) kargo/kayit.py dosyasındaki Kayıt sınıfını, __init__ aralıkları birleştirilmiş halde saklayacak ve toplam_mesafe doğru sonuç verecek biçimde tamamla.
+
+  3) kargo/ozet.py dosyasındaki ozet_metni fonksiyonunu, her kayıt için plaka ve toplam mesafeyi her satırda bir kayıt olacak biçimde doğru sonuç verecek şekilde tamamla.
+
+setup: |
+  mkdir -p kargo
+  cat > kargo/aralik.py <<'ARALIK'
+  class Aralik:
+      def __init__(self, bas, son):
+          self.bas = bas
+          self.son = son
+
+      def __repr__(self):
+          return f"Aralik({self.bas}, {self.son})"
+  ARALIK
+  cat > kargo/kayit.py <<'KAYIT'
+  from kargo.aralik import Aralik
+
+
+  class Kayit:
+      def __init__(self, plaka, araliklar):
+          self.plaka = plaka
+          self.araliklar = araliklar
+
+      def toplam_mesafe(self):
+          return sum(a.son - a.bas for a in self.araliklar)
+  KAYIT
+  cat > kargo/ozet.py <<'OZET'
+  from kargo.kayit import Kayit
+
+
+  def ozet_metni(kayitlar):
+      satirlar = []
+      for k in kayitlar:
+          satirlar.append(f"{k.plaka}:{k.toplam_mesafe()}")
+      return "\n".join(satirlar)
+  OZET
+
+goal_tr: >
+  kargo/aralik.py, kargo/kayit.py ve kargo/ozet.py dosyalarindaki Aralik,
+  Kayit ve ozet_metni tanimlarini, ardisik ya da ortusen araliklar
+  birlestirilerek Kayit.toplam_mesafe ve ozet_metni dogru sonuc verecek
+  bicimde tamamla; Aralik sinifinda @property ile tanimli bir uzunluk
+  erisimcisi ve @staticmethod ile tanimli bir birlestir metodu bulunsun,
+  Kayit.__init__ araliklari birlestirilmis halde saklasin.
+
+reference_solution: |
+  cat > kargo/aralik.py <<'ARALIK'
+  class Aralik:
+      def __init__(self, bas, son):
+          if son < bas:
+              raise ValueError("son < bas")
+          self.bas = bas
+          self.son = son
+
+      @property
+      def uzunluk(self):
+          return self.son - self.bas
+
+      @staticmethod
+      def birlestir(araliklar):
+          sirali = sorted(araliklar, key=lambda a: (a.bas, a.son))
+          sonuc = []
+          for a in sirali:
+              if sonuc and a.bas <= sonuc[-1].son:
+                  if a.son > sonuc[-1].son:
+                      sonuc[-1] = Aralik(sonuc[-1].bas, a.son)
+              else:
+                  sonuc.append(Aralik(a.bas, a.son))
+          return sonuc
+
+      def __repr__(self):
+          return f"Aralik({self.bas}, {self.son})"
+  ARALIK
+  cat > kargo/kayit.py <<'KAYIT'
+  from kargo.aralik import Aralik
+
+
+  class Kayit:
+      def __init__(self, plaka, araliklar):
+          self.plaka = plaka
+          self.araliklar = Aralik.birlestir(araliklar)
+
+      def toplam_mesafe(self):
+          return sum(a.uzunluk for a in self.araliklar)
+  KAYIT
+  cat > kargo/ozet.py <<'OZET'
+  from kargo.kayit import Kayit
+
+
+  def ozet_metni(kayitlar):
+      satirlar = []
+      for k in kayitlar:
+          satirlar.append(f"{k.plaka}:{k.toplam_mesafe()}")
+      return "\n".join(satirlar)
+  OZET
+
+outputs:
+  - {path: kargo/aralik.py, kind: program, run: 'python3 -c ''from kargo.aralik import Aralik; from kargo.kayit import Kayit; from kargo.ozet import ozet_metni; a=Aralik.birlestir([Aralik(0,5),Aralik(3,9),Aralik(20,25)]); assert [(x.bas,x.son) for x in a]==[(0,9),(20,25)], a; assert a[0].uzunluk==9; k=Kayit("34ABC",[Aralik(10,20),Aralik(15,30),Aralik(40,45)]); assert k.toplam_mesafe()==25, k.toplam_mesafe(); assert [(x.bas,x.son) for x in k.araliklar]==[(10,30),(40,45)]; k2=Kayit("06XYZ",[Aralik(0,3)]); assert ozet_metni([k,k2])=="34ABC:25\n06XYZ:3", repr(ozet_metni([k,k2])); assert Aralik.birlestir([])==[]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from kargo.aralik import Aralik; from kargo.kayit import Kayit; from kargo.ozet import ozet_metni; a=Aralik.birlestir([Aralik(0,5),Aralik(3,9),Aralik(20,25)]); assert [(x.bas,x.son) for x in a]==[(0,9),(20,25)], a; assert a[0].uzunluk==9; k=Kayit("34ABC",[Aralik(10,20),Aralik(15,30),Aralik(40,45)]); assert k.toplam_mesafe()==25, k.toplam_mesafe(); assert [(x.bas,x.son) for x in k.araliklar]==[(10,30),(40,45)]; k2=Kayit("06XYZ",[Aralik(0,3)]); assert ozet_metni([k,k2])=="34ABC:25\n06XYZ:3", repr(ozet_metni([k,k2])); assert Aralik.birlestir([])==[]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8018
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: kargo-takibi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: aralik-birlestirme
+      karmasiklik: duz
+      kalip: dekorator
+      akis: bellek-ici
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,75 @@
+id: gen-s-3159-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  siparisler dizin ağacındaki tüm .tsv dosyalarındaki başlık dışı veri satırlarını birleştir; boş dosyaları yok say ve toplam geçerli sipariş satırı sayısını tek sayı olarak sonuc.txt dosyasına yaz.
+
+setup: |
+  mkdir -p siparisler/ocak siparisler/subat siparisler/ozel
+  cat > siparisler/ocak/siparisler.tsv <<'TSV'
+  masa	yemek	adet	fiyat
+  1	mercimek	2	45
+  2	iskender	1	180
+  3	mercimek	1	45
+  TSV
+  cat > siparisler/subat/siparisler.tsv <<'TSV'
+  masa	yemek	adet	fiyat
+  1	adana	3	160
+  2	mercimek	2	45
+  TSV
+  : > siparisler/ozel/bos.tsv
+  cat > siparisler/ozel/notlar.txt <<'TXT'
+  bu bir tuzak dosyadir
+  TSV degildir
+  TXT
+
+goal_tr: >
+  siparisler dizin agacindaki .tsv uzantili tum dosyalardaki veri
+  satirlarini (baslik satiri haric) birlestirip, hic veri satiri olmayan
+  dosyalari yok sayarak, toplam gecerli siparis satiri sayisini tek sayi
+  olarak sonuc.txt dosyasina yaz
+
+reference_solution: |
+  find siparisler -type f -name '*.tsv' > /tmp/dosyalar.txt
+  python3 - <<'PY' > /tmp/sayilar.txt
+  for yol in open('/tmp/dosyalar.txt').read().split():
+      with open(yol) as f:
+          satirlar = f.read().splitlines()[1:]
+      print(sum(1 for s in satirlar if s.strip()))
+  PY
+  awk '{s += $1} END {print s}' /tmp/sayilar.txt > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '5'}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3159
+    bundle: python-veri
+    tools:
+    - python3
+    konu: restoran-siparisleri
+    hedef: dogrula
+    girdi: tsv
+    kaynak: dizin-agaci
+    cikti: tek-sayi
+    kesif: yok
+    uslup: terse
+    direnc: bos-dosya
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

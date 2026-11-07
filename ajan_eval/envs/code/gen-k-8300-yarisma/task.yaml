@@ -1,0 +1,132 @@
+id: gen-k-8300-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kargo/legs.py dosyasındaki LegBuilder.build metodunu düzelt. Şu an olayları yanlış eşleştiriyor. Yeni davranış şöyle olmalı: build, aynı takip numarasına ait olayları timestamp'e göre sıralı tutmalı ve her ardışık olay çiftinden bir bacak üretmeli; yani bir olayın konumu ile hemen sonraki olayın konumu eşleşmeli. Farklı takip numaralarına ait olaylar birbirine karıştırılmamalı; her takip numarası kendi içinde değerlendirilmeli. build sonucu takip numarasına göre gruplanmış bir sözlük döndürmeli; anahtarlar takip numaraları, değerler ise o takip numarası için üretilen bacakların listesi olmalı. kargo/events.py dosyasındaki Event ve parse_events tanımlarını olduğu gibi kullan.
+
+setup: |
+  mkdir -p kargo
+  cat > kargo/events.py <<'EVENTS'
+  from dataclasses import dataclass
+
+
+  @dataclass
+  class Event:
+      tracking: str
+      timestamp: int
+      location: str
+      kind: str
+
+
+  def parse_events(rows):
+      out = []
+      for row in rows:
+          tracking, ts, loc, kind = row.split("|")
+          out.append(Event(tracking, int(ts), loc, kind))
+      return out
+  EVENTS
+  cat > kargo/legs.py <<'LEGS'
+  from kargo.events import parse_events
+
+
+  class LegBuilder:
+      def __init__(self):
+          self._events = []
+
+      def add(self, row):
+          self._events.append(row)
+
+      def build(self):
+          events = parse_events(self._events)
+          events.sort(key=lambda e: e.timestamp)
+          legs = []
+          i = 0
+          j = len(events) - 1
+          while i < j:
+              legs.append((events[i].location, events[j].location))
+              i += 1
+              j -= 1
+          return legs
+  LEGS
+
+goal_tr: >
+  kargo/legs.py icindeki LegBuilder.build metodunu, ayni takip numarasina
+  ait olaylari timestamp'e gore sirali tutup her ardisik olay ciftinden
+  (onceki konum, sonraki konum) bacaklar uretecek ve farkli takip
+  numaralarini birbirine karistirmayacak sekilde duzelt; build ciktiyi takip
+  numarasina gore gruplanmis bir sozluk olarak dondursun.
+
+reference_solution: |
+  cat > kargo/legs.py <<'LEGS'
+  from kargo.events import parse_events
+
+
+  class LegBuilder:
+      def __init__(self):
+          self._events = []
+
+      def add(self, row):
+          self._events.append(row)
+
+      def build(self):
+          events = parse_events(self._events)
+          events.sort(key=lambda e: e.timestamp)
+          grouped = {}
+          for e in events:
+              grouped.setdefault(e.tracking, []).append(e)
+          legs = {}
+          for tracking, items in grouped.items():
+              pairs = []
+              i = 0
+              j = 1
+              while j < len(items):
+                  pairs.append((items[i].location, items[j].location))
+                  i += 1
+                  j += 1
+              legs[tracking] = pairs
+          return legs
+  LEGS
+
+outputs:
+  - {path: kargo/legs.py, kind: program, run: 'python3 -c ''from kargo.legs import LegBuilder; b=LegBuilder(); b.add("T1|10|A|pickup"); b.add("T2|5|X|pickup"); b.add("T1|30|C|scan"); b.add("T2|20|Y|scan"); b.add("T1|20|B|scan"); r=b.build(); assert r=={"T1":[("A","B"),("B","C")],"T2":[("X","Y")]}, r; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from kargo.legs import LegBuilder; b=LegBuilder(); b.add("T1|10|A|pickup"); b.add("T2|5|X|pickup"); b.add("T1|30|C|scan"); b.add("T2|20|Y|scan"); b.add("T1|20|B|scan"); r=b.build(); assert r=={"T1":[("A","B"),("B","C")],"T2":[("X","Y")]}, r; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8300
+    bundle: yarisma
+    tools:
+    - python3
+    konu: kargo-takibi
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: iki-isaretci
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: bellek-ici
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

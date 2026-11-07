@@ -1,0 +1,62 @@
+id: gen-s-3014-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  loglar.txt'teki 11-15. karakterler arası seviye alanını çıkar; tekrar edenleri ele ve her seviyeden bir kez içeren benzersiz listeyi seviyeler.txt'e yaz.
+
+setup: |
+  cat > loglar.txt <<'LOG'
+  2024-01-01 10:00:00 INFO  servis basladi
+  2024-01-01 10:00:05 WARN  yavas yanit
+  2024-01-01 10:00:10 ERROR disk dolu
+  2024-01-01 10:00:10 ERROR disk dolu
+  2024-01-01 10:00:15 INFO  istek alindi
+  2024-01-01 10:00:20 ERROR baglanti koptu
+  2024-01-01 10:00:25 WARN  bellek az
+  2024-01-01 10:00:30 ERROR zaman asimi
+  LOG
+
+goal_tr: >
+  loglar.txt dosyasindaki sabit genislikli satirlardan seviye alanini
+  (11-15. karakterler arasi) cikarip, tekrar eden kayitlari eleyerek, her
+  seviyeyi bir kez iceren benzersiz satir listesini seviyeler.txt dosyasina
+  yaz.
+
+reference_solution: |
+  cut -c11-15 loglar.txt | tee ham.txt | sort | uniq > seviyeler.txt
+
+outputs:
+  - {path: seviyeler.txt, kind: lines}
+
+checks:
+  - {op: file_content_eq, path: seviyeler.txt, value: '10:0'}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3014
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: sunucu-loglari
+    hedef: bol
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: terse
+    direnc: tekrar-eden-kayit
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

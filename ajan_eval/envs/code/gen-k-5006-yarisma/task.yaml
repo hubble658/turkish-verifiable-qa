@@ -1,0 +1,107 @@
+id: gen-k-5006-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  stock/moves/ledger.py dosyasındaki Ledger sınıfına `counted` adında bir metot ekle. Bu metot iki defteri birleştirip aynı sku'ya ait hareketleri toplasın ve sku'ların toplam mutlak hareket büyüklüğüne göre azalan sırada sayımını döndürsün; eşitlik durumunda sku adı alfabetik olarak artsın. Mevcut `__add__` ve `__len__` davranışı korunsun.
+
+setup: |
+  mkdir -p stock/moves
+  cat > stock/moves/ledger.py <<'LEDGER'
+  class Ledger:
+      def __init__(self, entries):
+          self.entries = entries
+
+      def __add__(self, other):
+          merged = dict(self.entries)
+          for sku, delta in other.entries.items():
+              merged[sku] = merged.get(sku, 0) + delta
+          return Ledger(merged)
+
+      def __len__(self):
+          return len(self.entries)
+  LEDGER
+  cat > stock/moves/audit.py <<'AUDIT'
+  from stock.moves.ledger import Ledger
+
+
+  def total_moves(ledgers):
+      acc = Ledger({})
+      for led in ledgers:
+          acc = acc + led
+      return acc
+  AUDIT
+  cat > stock/__init__.py <<'INIT'
+  INIT
+  cat > stock/moves/__init__.py <<'INIT'
+  INIT
+
+goal_tr: >
+  stock/moves/ledger.py icindeki Ledger sinifina, iki defteri birlestirip
+  ayni sku'nun hareketlerini toplayan ve sku'larin toplam mutlak hareket
+  buyuklugune gore azalan sirada sayimini veren bir `counted` metodu ekle;
+  esitlikte sku adi alfabetik artsin.
+
+reference_solution: |
+  cat > stock/moves/ledger.py <<'LEDGER'
+  class Ledger:
+      def __init__(self, entries):
+          self.entries = entries
+
+      def __add__(self, other):
+          merged = dict(self.entries)
+          for sku, delta in other.entries.items():
+              merged[sku] = merged.get(sku, 0) + delta
+          return Ledger(merged)
+
+      def __len__(self):
+          return len(self.entries)
+
+      def counted(self):
+          items = [(sku, delta) for sku, delta in self.entries.items() if delta != 0]
+          items.sort(key=lambda pair: (-abs(pair[1]), pair[0]))
+          return items
+  LEDGER
+
+outputs:
+  - {path: stock/moves/ledger.py, kind: program, run: 'python3 -c ''from stock.moves.ledger import Ledger; from stock.moves.audit import total_moves; a=Ledger({"bolt":3,"nut":-5}); b=Ledger({"bolt":-3,"washer":2}); c=total_moves([a,b]); assert c.counted()==[("nut",-5),("washer",2)], c.counted(); assert len(c)==3; assert c.counted()==[("nut",-5),("washer",2)]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from stock.moves.ledger import Ledger; from stock.moves.audit import total_moves; a=Ledger({"bolt":3,"nut":-5}); b=Ledger({"bolt":-3,"washer":2}); c=total_moves([a,b]); assert c.counted()==[("nut",-5),("washer",2)], c.counted(); assert len(c)==3; assert c.counted()==[("nut",-5),("washer",2)]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5006
+    bundle: yarisma
+    tools:
+    - python3
+    konu: stok-hareketleri
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sayma
+      karmasiklik: duz
+      kalip: operator-asiri-yukleme
+      akis: ic-ice-yapi
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

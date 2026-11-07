@@ -1,0 +1,146 @@
+id: gen-k-5120-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  harvest.py dosyasındaki HarvestCursor sınıfını tamamla. Sınıf, farms.py içindeki FARMS gibi iç içe sözlük yapılarındaki tüm plot'ları dolaşan bir iterator olsun. Üst düzey "plots" listesindeki plot'lar ile "sub" altındaki "plots" listesindeki plot'ların tamamı, derinlik-önce sırayla dolaşılsın. Her adımda (farm_name, plot_dict) çifti döndürülsün.
+
+  Şu şartlar sağlanmalı:
+  - harvest.py dosyası mevcut olsun ve içinde HarvestCursor sınıfı tanımlı olsun.
+  - HarvestCursor, __iter__ ve __next__ metotlarına sahip bir iterator olsun.
+  - Iterator, farms sözlüğündeki her farm için önce üst düzey "plots" listesindeki plot'ları, ardından "sub" anahtarı altındaki "plots" listesindeki plot'ları sırayla döndürsün.
+  - Her döndürülen değer (farm_name, plot_dict) biçiminde bir çift olsun; farm_name farm anahtarı, plot_dict ise ilgili plot sözlüğü olsun.
+  - Tüm plot'lar tükendiğinde StopIteration yükseltilsin.
+  - Dolaşım derinlik-önce sırada olsun: her farm için önce üst düzey plot'lar, sonra "sub" altındaki plot'lar; farm'lar sözlükteki sırayla işlensin.
+
+setup: |
+  cat > farms.py <<'PY'
+  FARMS = {
+      "north": {
+          "plots": [
+              {"crop": "wheat", "yields": [12, 15, 9, 14]},
+              {"crop": "barley", "yields": [7, 11, 10]},
+          ],
+          "sub": {
+              "plots": [
+                  {"crop": "wheat", "yields": [20, 18]},
+                  {"crop": "oats", "yields": [5, 6, 4]},
+              ]
+          },
+      },
+      "south": {
+          "plots": [
+              {"crop": "oats", "yields": [3, 8, 6, 7]},
+          ],
+          "sub": {
+              "plots": [
+                  {"crop": "barley", "yields": [9, 9, 12, 10, 11]},
+              ]
+          },
+      },
+  }
+  PY
+  cat > harvest.py <<'PY'
+  class HarvestCursor:
+      """Iterates over every plot in a nested farm structure."""
+
+      def __init__(self, farms):
+          self._farms = farms
+          self._outer = None
+          self._inner = None
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          raise NotImplementedError
+  PY
+
+goal_tr: >
+  harvest.py icindeki HarvestCursor sinifini, FARMS gibi ic ice
+  sozluklerdeki tum plot'lari (ust duzey ve "sub" altindaki) derinlik-once
+  sirayla dolasan bir iterator olacak sekilde tamamla; her adimda
+  (farm_name, plot_dict) cifti dondursun.
+
+reference_solution: |
+  cat > harvest.py <<'PY'
+  class HarvestCursor:
+      """Iterates over every plot in a nested farm structure."""
+
+      def __init__(self, farms):
+          self._farms = farms
+          self._farm_names = list(farms.keys())
+          self._farm_idx = 0
+          self._plot_idx = 0
+          self._section = 0
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          while self._farm_idx < len(self._farm_names):
+              name = self._farm_names[self._farm_idx]
+              farm = self._farms[name]
+              if self._section == 0:
+                  plots = farm.get("plots", [])
+                  if self._plot_idx < len(plots):
+                      plot = plots[self._plot_idx]
+                      self._plot_idx += 1
+                      return (name, plot)
+                  self._section = 1
+                  self._plot_idx = 0
+              elif self._section == 1:
+                  sub = farm.get("sub")
+                  plots = sub.get("plots", []) if sub else []
+                  if self._plot_idx < len(plots):
+                      plot = plots[self._plot_idx]
+                      self._plot_idx += 1
+                      return (name, plot)
+                  self._section = 0
+                  self._plot_idx = 0
+                  self._farm_idx += 1
+          raise StopIteration
+  PY
+
+outputs:
+  - {path: harvest.py, kind: program, run: 'python3 -c ''from harvest import HarvestCursor; from farms import FARMS; it=HarvestCursor(FARMS); got=[(n,p["crop"]) for n,p in it]; assert got==[("north","wheat"),("north","barley"),("north","wheat"),("north","oats"),("south","oats"),("south","barley")], got; it2=HarvestCursor(FARMS); assert iter(it2) is it2; assert next(it2)[0]=="north"; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from harvest import HarvestCursor; from farms import FARMS; it=HarvestCursor(FARMS); got=[(n,p["crop"]) for n,p in it]; assert got==[("north","wheat"),("north","barley"),("north","wheat"),("north","oats"),("south","oats"),("south","barley")], got; it2=HarvestCursor(FARMS); assert iter(it2) is it2; assert next(it2)[0]=="north"; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5120
+    bundle: yarisma
+    tools:
+    - python3
+    konu: tarim-verim-olcumleri
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: iki-isaretci
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: ic-ice-yapi
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

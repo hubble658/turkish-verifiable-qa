@@ -1,0 +1,60 @@
+id: gen-s-3101-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  "sensor verileri/olcumler.json" dosyasındaki her kaydı okuyup, her biri için "sensor=AD;sicaklik=DEGER;nem=DEGER" biçiminde bir satır oluştur ve bu satırları kayıtlarla aynı sırayı koruyarak "sensor verileri/satirlar.txt" dosyasına yaz.
+
+setup: |
+  mkdir -p "sensor verileri"
+  cat > "sensor verileri/olcumler.json" <<'JSON'
+  [
+    {"sensor":"A1","sicaklik":21.5,"nem":40},
+    {"sensor":"B2","sicaklik":19.0,"nem":55},
+    {"sensor":"C3","sicaklik":23.25,"nem":30},
+    {"sensor":"D4","sicaklik":18.5,"nem":60}
+  ]
+  JSON
+
+goal_tr: >
+  "sensor verileri/olcumler.json" dosyasindaki her kayit icin
+  "sensor=AD;sicaklik=DEGER;nem=DEGER" biciminde bir satir uretip ayni
+  sirayla "sensor verileri/satirlar.txt" dosyasina yaz.
+
+reference_solution: |
+  cd "sensor verileri"
+  awk -F'[:,{}]' '/"sensor"/ {gsub(/"/,"",$0); split($0,a,"\""); print "sensor=" a[4] ";sicaklik=" a[8] ";nem=" a[12]}' olcumler.json > satirlar.txt
+
+outputs:
+  - {path: sensor verileri/satirlar.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: sensor verileri/satirlar.txt, value: [sensor=;sicaklik=;nem=, sensor=;sicaklik=;nem=, sensor=;sicaklik=;nem=, sensor=;sicaklik=;nem=]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3101
+    bundle: awk
+    tools:
+    - awk
+    konu: sensor-olcumleri
+    hedef: donustur
+    girdi: json
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: bosluklu-ad
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,140 @@
+id: gen-k-8183-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  orders.py dosyasındaki OrderBook sınıfına shared_cuisines metodunu ekle. Metot, her tablo için o tablonun mutfak kümesini ve tüm tabloların ortak mutfak kesişimini hesaplayıp {table_id: set} biçiminde döndürsün. Hiçbir tabloda ortak mutfak yoksa her tablo için boş küme döndürsün; hiç sipariş yoksa boş sözlük döndürsün.
+
+  Şu şartlar sağlanmalı:
+  - orders.py içindeki OrderBook sınıfında shared_cuisines metodu tanımlı olmalı ve NotImplementedError fırlatmamalı.
+  - Metot, her tablo için o tablonun mutfak kümesini ve tüm tabloların ortak mutfak kesişimini hesaplamalı.
+  - Dönüş değeri {table_id: set} biçiminde olmalı.
+  - Hiçbir tabloda ortak mutfak yoksa her tablo için boş küme döndürmeli.
+  - Hiç sipariş yoksa boş sözlük döndürmeli.
+
+setup: |
+  cat > orders.py <<'ORDERS'
+  class OrderBook:
+      """Stateful order book. Orders are stored as nested dicts:
+      {table_id: {dish: qty}}. Every dish maps to a cuisine."""
+
+      def __init__(self, cuisines):
+          # cuisines: {dish: cuisine}
+          self.cuisines = dict(cuisines)
+          self.orders = {}
+
+      def add(self, table_id, dish, qty):
+          table = self.orders.setdefault(table_id, {})
+          table[dish] = table.get(dish, 0) + qty
+
+      def tables(self):
+          return set(self.orders)
+
+      def dishes(self, table_id):
+          return set(self.orders.get(table_id, {}))
+
+      def cuisine_set(self, table_id):
+          return set(self.cuisines[d] for d in self.dishes(table_id))
+
+      def shared_cuisines(self):
+          raise NotImplementedError
+  ORDERS
+  cat > menu.py <<'MENU'
+  CUISINES = {
+      "ramen": "japanese",
+      "sushi": "japanese",
+      "pizza": "italian",
+      "pasta": "italian",
+      "taco": "mexican",
+      "burrito": "mexican",
+      "curry": "indian",
+      "naan": "indian",
+  }
+  MENU
+
+goal_tr: >
+  orders.py icindeki OrderBook sinifinda shared_cuisines metodunu
+  gerceklestir; her tablo icin o tablonun mutfak kumesini ve tum tablolarin
+  ortak mutfak kesisimini hesaplayip {table_id: set} biciminde dondursun,
+  hicbir tabloda ortak mutfak yoksa her tablo icin bos kume dondursun ve hic
+  siparis yoksa bos sozluk dondursun.
+
+reference_solution: |
+  cat > orders.py <<'ORDERS'
+  class OrderBook:
+      """Stateful order book. Orders are stored as nested dicts:
+      {table_id: {dish: qty}}. Every dish maps to a cuisine."""
+
+      def __init__(self, cuisines):
+          # cuisines: {dish: cuisine}
+          self.cuisines = dict(cuisines)
+          self.orders = {}
+
+      def add(self, table_id, dish, qty):
+          table = self.orders.setdefault(table_id, {})
+          table[dish] = table.get(dish, 0) + qty
+
+      def tables(self):
+          return set(self.orders)
+
+      def dishes(self, table_id):
+          return set(self.orders.get(table_id, {}))
+
+      def cuisine_set(self, table_id):
+          return set(self.cuisines[d] for d in self.dishes(table_id))
+
+      def shared_cuisines(self):
+          if not self.orders:
+              return {}
+          common = None
+          for table_id in self.orders:
+              cs = self.cuisine_set(table_id)
+              if common is None:
+                  common = set(cs)
+              else:
+                  common = common & cs
+          return {table_id: set(common) for table_id in self.orders}
+  ORDERS
+
+outputs:
+  - {path: orders.py, kind: program, run: 'python3 -c ''from orders import OrderBook; from menu import CUISINES; b=OrderBook(CUISINES); assert b.shared_cuisines()=={}; b.add("t1","ramen",1); b.add("t1","pizza",1); b.add("t2","sushi",2); b.add("t2","pasta",1); r=b.shared_cuisines(); assert set(r)=={"t1","t2"}; assert r["t1"]=={"japanese","italian"}; assert r["t2"]=={"japanese","italian"}; b.add("t3","taco",1); r2=b.shared_cuisines(); assert set(r2)=={"t1","t2","t3"}; assert r2["t1"]==set(); assert r2["t2"]==set(); assert r2["t3"]==set(); b2=OrderBook(CUISINES); b2.add("a","curry",1); b2.add("b","naan",1); r3=b2.shared_cuisines(); assert r3["a"]=={"indian"}; assert r3["b"]=={"indian"}; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from orders import OrderBook; from menu import CUISINES; b=OrderBook(CUISINES); assert b.shared_cuisines()=={}; b.add("t1","ramen",1); b.add("t1","pizza",1); b.add("t2","sushi",2); b.add("t2","pasta",1); r=b.shared_cuisines(); assert set(r)=={"t1","t2"}; assert r["t1"]=={"japanese","italian"}; assert r["t2"]=={"japanese","italian"}; b.add("t3","taco",1); r2=b.shared_cuisines(); assert set(r2)=={"t1","t2","t3"}; assert r2["t1"]==set(); assert r2["t2"]==set(); assert r2["t3"]==set(); b2=OrderBook(CUISINES); b2.add("a","curry",1); b2.add("b","naan",1); r3=b2.shared_cuisines(); assert r3["a"]=={"indian"}; assert r3["b"]=={"indian"}; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8183
+    bundle: yarisma
+    tools:
+    - python3
+    konu: restoran-siparisleri
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kume-islemleri
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: ic-ice-yapi
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

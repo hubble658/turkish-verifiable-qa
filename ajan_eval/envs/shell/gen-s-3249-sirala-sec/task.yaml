@@ -1,0 +1,77 @@
+id: gen-s-3249-sirala-sec
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  vardiya/gun1.txt, vardiya/gun2.txt ve vardiya/gun3.txt içindeki personel adlarını alfabetik sırala, her gün için tekrarsız adları vardiya/gun1.adlar.txt, vardiya/gun2.adlar.txt ve vardiya/gun3.adlar.txt dosyalarına yaz.
+
+setup: |
+  mkdir -p vardiya
+  cat > vardiya/gun1.txt <<'TXT'
+  ayse 08:00 16:00
+  mehmet 16:00 00:00
+  zeynep 08:00 16:00
+  ali 16:00 00:00
+  TXT
+  cat > vardiya/gun2.txt <<'TXT'
+  mehmet 08:00 16:00
+  ayse 16:00 00:00
+  zeynep 08:00 16:00
+  ali 16:00 00:00
+  TXT
+  cat > vardiya/gun3.txt <<'TXT'
+  zeynep 08:00 16:00
+  ali 08:00 16:00
+  ayse 16:00 00:00
+  mehmet 16:00 00:00
+  TXT
+
+goal_tr: >
+  vardiya dizinindeki her gunN.txt dosyasindaki personel adlarini alfabetik
+  olarak sirala ve her gun icin tekrarsiz adlari gunN.adlar.txt dosyasina
+  yaz
+
+reference_solution: |
+  for f in vardiya/gun*.txt; do
+    b=$(basename "$f" .txt)
+    cut -d' ' -f1 "$f" | sort | uniq > "vardiya/$b.adlar.txt"
+  done
+
+outputs:
+  - {path: vardiya/gun1.adlar.txt, kind: file}
+  - {path: vardiya/gun2.adlar.txt, kind: file}
+  - {path: vardiya/gun3.adlar.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: vardiya/gun1.adlar.txt, value: [ali, ayse, mehmet, zeynep]}
+  - {op: file_lines_eq, path: vardiya/gun2.adlar.txt, value: [ali, ayse, mehmet, zeynep]}
+  - {op: file_lines_eq, path: vardiya/gun3.adlar.txt, value: [ali, ayse, mehmet, zeynep]}
+
+metadata:
+  domain: sirala-sec
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3249
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: personel-vardiyalari
+    hedef: sirala-sec
+    girdi: duz-metin
+    kaynak: cok-dosya
+    cikti: birden-cok-dosya
+    kesif: veriye-bak
+    uslup: terse
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

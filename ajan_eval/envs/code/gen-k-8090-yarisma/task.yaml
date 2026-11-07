@@ -1,0 +1,117 @@
+id: gen-k-8090-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  billing/counter.py dosyasını yaz. Bu dosyada SubscriptionCounter adında bir context manager sınıfı olsun. Sınıf __enter__ içinde plans.txt ve events.txt dosyalarını okuyup her abonenin toplam harcamasını plan fiyatları üzerinden saysın. __exit__ dosya tutamaçlarını kapatsın. totals() metodu ise abone adlarını toplam harcamaya göre azalan sırada döndürsün. Plan fiyatlarını okumak için billing/plans.py içindeki read_plans fonksiyonunu kullan.
+
+setup: |
+  mkdir -p billing
+  cat > billing/plans.py <<'PLANS'
+  def read_plans(path):
+      plans = {}
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              name, price = line.split(',')
+              plans[name] = float(price)
+      return plans
+  PLANS
+  cat > plans.txt <<'TXT'
+  basic,10.0
+  pro,25.0
+  team,40.0
+  TXT
+  cat > events.txt <<'TXT'
+  alice,basic
+  bob,pro
+  alice,pro
+  carol,team
+  bob,pro
+  TXT
+
+goal_tr: >
+  billing/counter.py dosyasini yaz; SubscriptionCounter sinifi context
+  manager olsun, __enter__ icinde plans.txt ve events.txt dosyalarini okuyup
+  her abonenin toplam harcamasini plan fiyatlari uzerinden saysin, __exit__
+  dosya tutamaclarini kapatsin ve totals() metodu abone adlarini toplam
+  harcamaya gore azalan sirada dondursun.
+
+reference_solution: |
+  cat > billing/counter.py <<'COUNTER'
+  from billing.plans import read_plans
+
+
+  class SubscriptionCounter:
+      def __init__(self, plans_path, events_path):
+          self.plans_path = plans_path
+          self.events_path = events_path
+          self._plans_fh = None
+          self._events_fh = None
+          self._totals = {}
+
+      def __enter__(self):
+          self._plans_fh = open(self.plans_path)
+          self._events_fh = open(self.events_path)
+          plans = read_plans(self.plans_path)
+          for line in self._events_fh:
+              line = line.strip()
+              if not line:
+                  continue
+              subscriber, plan = line.split(',')
+              self._totals[subscriber] = self._totals.get(subscriber, 0.0) + plans[plan]
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self._plans_fh.close()
+          self._events_fh.close()
+          return False
+
+      def totals(self):
+          return sorted(self._totals.items(), key=lambda kv: (-kv[1], kv[0]))
+  COUNTER
+
+outputs:
+  - {path: billing/counter.py, kind: program, run: 'python3 -c ''from billing.counter import SubscriptionCounter as C; c=C("plans.txt","events.txt"); c.__enter__(); r=c.totals(); c.__exit__(None,None,None); assert r==[("bob",50.0),("alice",35.0),("carol",40.0)] or r==[("bob",50.0),("carol",40.0),("alice",35.0)], r; assert c._plans_fh.closed and c._events_fh.closed; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from billing.counter import SubscriptionCounter as C; c=C("plans.txt","events.txt"); c.__enter__(); r=c.totals(); c.__exit__(None,None,None); assert r==[("bob",50.0),("alice",35.0),("carol",40.0)] or r==[("bob",50.0),("carol",40.0),("alice",35.0)], r; assert c._plans_fh.closed and c._events_fh.closed; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8090
+    bundle: yarisma
+    tools:
+    - python3
+    konu: abonelik-planlari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sayma
+      karmasiklik: duz
+      kalip: context-manager
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,150 @@
+id: gen-k-2027-veri-yapisi-v2
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  fleet/dispatch.py içindeki DispatchQueue sınıfını, enqueue, dequeue, __len__, __iter__ ve __next__ metotlarını FIFO kuyruk davranışıyla gerçekleyecek şekilde doldur. enqueue kuyruğun sonuna eklesin, dequeue kuyruğun başından çıkarsın; __len__ kuyruktaki eleman sayısını döndürsün ve iterator protokolü elemanları giriş sırasıyla versin. fleet/report.py içindeki dispatch_order fonksiyonu, verilen plaka ve kapasite çiftlerini kuyruğa ekleyip iterator üzerinden plakaları giriş sırasında döndürsün. fleet/vehicle.py ve fleet/__init__.py dosyalarına dokunma.
+
+setup: |
+  mkdir -p fleet
+  cat > fleet/__init__.py <<'INIT'
+  INIT
+  cat > fleet/vehicle.py <<'VEHICLE'
+  class Vehicle:
+      def __init__(self, plate, capacity):
+          self.plate = plate
+          self.capacity = capacity
+
+      def __repr__(self):
+          return "Vehicle(%s,%d)" % (self.plate, self.capacity)
+  VEHICLE
+  cat > fleet/dispatch.py <<'DISPATCH'
+  class DispatchQueue:
+      def __init__(self):
+          self._items = []
+
+      def enqueue(self, vehicle):
+          raise NotImplementedError
+
+      def dequeue(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+
+      def __iter__(self):
+          raise NotImplementedError
+  DISPATCH
+  cat > fleet/report.py <<'REPORT'
+  from fleet.dispatch import DispatchQueue
+
+
+  def dispatch_order(plates_caps):
+      q = DispatchQueue()
+      for plate, cap in plates_caps:
+          q.enqueue(plate)
+      return list(q)
+  REPORT
+
+goal_tr: >
+  fleet/dispatch.py icindeki DispatchQueue sinifini, enqueue/dequeue/__len__
+  ve iterator protokolunu (__iter__, __next__) FIFO kuyruk davranisiyla
+  gercekleyecek bicimde doldur; boylece fleet/report.py dispatch_order
+  plakalari giris sirasinda dondursun.
+
+reference_solution: |
+  cat > fleet/dispatch.py <<'DISPATCH'
+  class DispatchQueue:
+      def __init__(self):
+          self._items = []
+
+      def enqueue(self, vehicle):
+          self._items.append(vehicle)
+
+      def dequeue(self):
+          if not self._items:
+              raise IndexError("empty queue")
+          return self._items.pop(0)
+
+      def __len__(self):
+          return len(self._items)
+
+      def __iter__(self):
+          self._index = 0
+          return self
+
+      def __next__(self):
+          if self._index >= len(self._items):
+              raise StopIteration
+          value = self._items[self._index]
+          self._index += 1
+          return value
+  DISPATCH
+
+ara_adim: |
+  cat > fleet/dispatch.py <<'DISPATCH'
+  class DispatchQueue:
+      def __init__(self):
+          self._items = []
+
+      def enqueue(self, vehicle):
+          self._items.append(vehicle)
+
+      def dequeue(self):
+          if not self._items:
+              raise IndexError("empty queue")
+          return self._items.pop(0)
+
+      def __len__(self):
+          return len(self._items)
+
+      def __iter__(self):
+          raise NotImplementedError
+  DISPATCH
+
+outputs:
+  - {path: fleet/dispatch.py, kind: program, run: 'python3 -c ''from fleet.dispatch import DispatchQueue as Q; q=Q(); q.enqueue("A"); q.enqueue("B"); q.enqueue("C"); assert list(q)==["A","B","C"], list(q); assert len(q)==3; assert q.dequeue()=="A"; assert q.dequeue()=="B"; assert len(q)==1; print("TAMAM")'''}
+  - {path: fleet/dispatch.py, kind: program, run: 'python3 -c ''from fleet.dispatch import DispatchQueue as Q; q=Q(); q.enqueue("X"); q.enqueue("Y"); assert q.dequeue()=="X", "fifo"; assert q.dequeue()=="Y", "fifo"; assert len(q)==0; print("ILERLEME-TAMAM")'''}
+  - {path: fleet/report.py, kind: program, run: 'python3 -c ''from fleet.report import dispatch_order as f; assert f([("AA",3),("BB",1),("CC",2)])==["AA","BB","CC"], f([("AA",3),("BB",1),("CC",2)]); assert f([])==[]; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.dispatch import DispatchQueue as Q; q=Q(); q.enqueue("A"); q.enqueue("B"); q.enqueue("C"); assert list(q)==["A","B","C"], list(q); assert len(q)==3; assert q.dequeue()=="A"; assert q.dequeue()=="B"; assert len(q)==1; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.dispatch import DispatchQueue as Q; q=Q(); q.enqueue("X"); q.enqueue("Y"); assert q.dequeue()=="X", "fifo"; assert q.dequeue()=="Y", "fifo"; assert len(q)==0; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.report import dispatch_order as f; assert f([("AA",3),("BB",1),("CC",2)])==["AA","BB","CC"], f([("AA",3),("BB",1),("CC",2)]); assert f([])==[]; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-2027
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: arac-filosu
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kuyruk
+      karmasiklik: orta
+      kalip: iterator-protokolu
+      akis: cok-dosya-birlestirme
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

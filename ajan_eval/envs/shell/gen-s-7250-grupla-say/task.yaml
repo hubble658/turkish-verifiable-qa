@@ -1,0 +1,112 @@
+id: gen-s-7250-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi dizinindeki her .ini dosyasını köşeli parantezli bölüm başlıklarına göre gruplayıp her bölümün kaç anahtar içerdiğini saymanı istiyorum. Sayı, cikti dizini altında dosya adıyla aynı adlı bir alt dizinde, bölüm adıyla aynı adlı .say dosyasına sadece sayı olarak yazılsın: cikti/ocak/KASA.say, cikti/ocak/BORC.say, cikti/subat/KASA.say, cikti/subat/BORC.say, cikti/mart/KASA.say ve cikti/mart/BORC.say.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/ocak.ini <<'INI'
+  [KASA]
+  nakit=1200
+  banka=800
+
+  [BORC]
+  tedarikci=450
+  kira=700
+  INI
+  cat > girdi/subat.ini <<'INI'
+  [KASA]
+  nakit=900
+  banka=1100
+
+  [BORC]
+  tedarikci=300
+  vergi=250
+  INI
+  cat > girdi/mart.ini <<'INI'
+  [KASA]
+  nakit=1500
+  banka=600
+
+  [BORC]
+  kira=700
+  vergi=250
+  INI
+
+goal_tr: >
+  girdi dizinindeki her .ini dosyasini bolum basliklarina (kose parantezli
+  satirlar) gore gruplayip her bolumun kac anahtar icerdigini, cikti dizini
+  altinda dosya adiyla ayni adli bir alt dizinde bolum adiyla ayni adli .say
+  dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  mkdir -p cikti
+  for f in girdi/*.ini; do
+    b=$(basename "$f" .ini)
+    mkdir -p "cikti/$b"
+    python3 - "$f" "$b" <<'PY'
+  import sys
+  kaynak, hedef = sys.argv[1], sys.argv[2]
+  bolum = None
+  sayi = {}
+  with open(kaynak) as fh:
+      for satir in fh:
+          satir = satir.strip()
+          if satir.startswith('[') and satir.endswith(']'):
+              bolum = satir[1:-1]
+              sayi.setdefault(bolum, 0)
+          elif '=' in satir and bolum is not None:
+              sayi[bolum] += 1
+  for ad in sorted(sayi):
+      with open('cikti/%s/%s.say' % (hedef, ad), 'w') as out:
+          out.write('%d\n' % sayi[ad])
+  PY
+  done
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/ocak/KASA.say, kind: file}
+  - {path: cikti/ocak/BORC.say, kind: file}
+  - {path: cikti/subat/KASA.say, kind: file}
+  - {path: cikti/subat/BORC.say, kind: file}
+  - {path: cikti/mart/KASA.say, kind: file}
+  - {path: cikti/mart/BORC.say, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [mart, ocak, subat]}
+  - {op: file_content_eq, path: cikti/mart/BORC.say, value: '2'}
+  - {op: file_content_eq, path: cikti/mart/KASA.say, value: '2'}
+  - {op: file_content_eq, path: cikti/ocak/BORC.say, value: '2'}
+  - {op: file_content_eq, path: cikti/ocak/KASA.say, value: '2'}
+  - {op: file_content_eq, path: cikti/subat/BORC.say, value: '2'}
+  - {op: file_content_eq, path: cikti/subat/KASA.say, value: '2'}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7250
+    bundle: python-veri
+    tools:
+    - python3
+    konu: muhasebe-kalemleri
+    hedef: grupla-say
+    girdi: ini
+    kaynak: cok-dosya
+    cikti: dizin-yapisi
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: baslik-yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

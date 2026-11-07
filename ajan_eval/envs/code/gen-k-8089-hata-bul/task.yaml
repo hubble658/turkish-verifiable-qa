@@ -1,0 +1,135 @@
+id: gen-k-8089-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  planner/events/report.py içindeki build_report fonksiyonunu düzelt. Fonksiyon, kendisine verilen her satırdan bir Event oluşturup Registry'ye eklemeli ve sonunda dolu bir Registry döndürmeli. Boş satırlar atlanmalı, satırdaki isim, başlangıç ve bitiş değerleri ayrıştırılıp Event'e dönüştürülmeli ve Registry'ye eklenmeli. Fonksiyonun sonunda oluşturulan ve olaylarla doldurulmuş Registry döndürülmeli.
+
+setup: |
+  mkdir -p planner/events
+  cat > planner/__init__.py <<'PY'
+  PY
+  cat > planner/events/__init__.py <<'PY'
+  PY
+  cat > planner/events/model.py <<'PY'
+  from dataclasses import dataclass, field
+
+
+  @dataclass
+  class Event:
+      name: str
+      start: int
+      end: int
+      tags: list = field(default_factory=list)
+
+      def overlaps(self, other):
+          return self.start < other.end and other.start < self.end
+  PY
+  cat > planner/events/registry.py <<'PY'
+  from planner.events.model import Event
+
+
+  class Registry:
+      def __init__(self):
+          self._events = []
+          self._seen = set()
+
+      def add(self, event):
+          key = (event.name, event.start, event.end)
+          if key in self._seen:
+              return False
+          self._seen.add(key)
+          self._events.append(event)
+          return True
+
+      def conflicts(self):
+          result = []
+          for i in range(len(self._events)):
+              for j in range(i + 1, len(self._events)):
+                  a = self._events[i]
+                  b = self._events[j]
+                  if a.overlaps(b):
+                      result.append((a.name, b.name))
+          return result
+  PY
+  cat > planner/events/report.py <<'PY'
+  from planner.events.registry import Registry
+
+
+  def build_report(lines):
+      reg = Registry()
+      for line in lines:
+          line = line.strip()
+          if not line:
+              continue
+          name, start, end = line.split(",")
+          event = make_event(name, int(start), int(end))
+          reg.add(event)
+      return reg
+  PY
+
+goal_tr: >
+  planner/events/report.py icindeki build_report fonksiyonunu, her satirdan
+  Event olusturup Registry'ye ekleyecek ve dolu Registry dondurecek bicimde
+  duzelt.
+
+reference_solution: |
+  cat > planner/events/report.py <<'PY'
+  from planner.events.model import Event
+  from planner.events.registry import Registry
+
+
+  def build_report(lines):
+      reg = Registry()
+      for line in lines:
+          line = line.strip()
+          if not line:
+              continue
+          name, start, end = line.split(",")
+          event = Event(name, int(start), int(end))
+          reg.add(event)
+      return reg
+  PY
+
+outputs:
+  - {path: planner/events/report.py, kind: program, run: 'python3 -c ''from planner.events.report import build_report; r=build_report(["a,1,5","b,3,8","c,10,12"]); assert len(r._events)==3, len(r._events); assert r.conflicts()==[("a","b")], r.conflicts(); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from planner.events.report import build_report; r=build_report(["a,1,5","b,3,8","c,10,12"]); assert len(r._events)==3, len(r._events); assert r.conflicts()==[("a","b")], r.conflicts(); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8089
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: takvim-etkinlikleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-durum-sifirlama
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: cok-dosya-birlestirme
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

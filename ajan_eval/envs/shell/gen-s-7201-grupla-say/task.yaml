@@ -1,0 +1,70 @@
+id: gen-s-7201-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sevkiyat klasöründeki her .txt dosyasını ele al. Bu dosyaların her birinde satırlar sütunlara ayrılmış durumda; ikinci sütunda varış şehri, son sütunda ise bir sayı yer alıyor. Her .txt dosyasındaki satırlar için son sütundaki sayıları, o satırdaki ikinci sütunda yazan varış şehrine göre ayrı ayrı topla; yani tüm dosyalar birlikte değil, her dosyanın kendi içindeki satırlar üzerinden şehir bazında toplamlar elde et. Elde ettiğin bu toplamları şehir adına göre artan sıralı olacak biçimde, her satırda şehir ve toplam değeri virgülle ayrılmış olarak duracak şekilde ozet.csv dosyasına yaz.
+
+setup: |
+  mkdir -p sevkiyat
+  cat > sevkiyat/istanbul.txt <<'EOT'
+  IST001 Ankara   3
+  IST002 Izmir    5
+  IST003 Ankara   2
+  IST004 Bursa    4
+  EOT
+  cat > sevkiyat/ankara.txt <<'EOT'
+  ANK001 Bursa    7
+  ANK002 Izmir    1
+  ANK003 Bursa    6
+  EOT
+  cat > sevkiyat/izmir.txt <<'EOT'
+  IZM001 Ankara   8
+  IZM002 Bursa    3
+  IZM003 Izmir    2
+  EOT
+
+goal_tr: >
+  sevkiyat klasorundeki her .txt dosyasinin son sutunundaki sayilari,
+  dosyadaki ikinci sutunda yazan varis sehri bazinda toplayip, sehir adina
+  gore artan sirali olarak sehir,toplam biciminde ozet.csv dosyasina yaz.
+
+reference_solution: |
+  cat sevkiyat/*.txt | awk '{toplam[$2]+=$3} END {for (s in toplam) print s","toplam[s]}' | sort > ozet.csv
+  wc -l ozet.csv
+  find sevkiyat -name '*.txt' -type f | wc -l
+
+outputs:
+  - {path: ozet.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: ozet.csv, value: ['Ankara,13', 'Bursa,20', 'Izmir,8']}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7201
+    bundle: dizin-istatistik
+    tools:
+    - wc
+    - find
+    konu: kargo-takibi
+    hedef: grupla-say
+    girdi: sabit-genislik
+    kaynak: cok-dosya
+    cikti: csv
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

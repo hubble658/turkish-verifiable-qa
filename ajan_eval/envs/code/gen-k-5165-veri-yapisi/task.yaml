@@ -1,0 +1,125 @@
+id: gen-k-5165-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) depo/envanter.py dosyasındaki Envanter sınıfını, veri ve kapasite parametreleriyle kurulacak şekilde gerçekleştir.
+
+  2) sorgu metodu, verilen depo, raf ve ürün üçgeni için adedi döndürsün; böyle bir üçgen yoksa 0 döndürsün.
+
+  3) Aynı sorgu çağrıldığında sonuç önbellekten verilsin ve o üçgen önbellekte en yeni konuma taşınsın.
+
+  4) Önbelleğe yeni bir üçgen eklenecekken kapasite aşılırsa, en uzun süredir kullanılmayan üçgen önbellekten atılsın.
+
+  5) önbellek_durumu metodu, önbellekteki anahtarları en yeniden en eskiye doğru bir liste olarak döndürsün.
+
+setup: |
+  mkdir -p depo
+  cat > depo/__init__.py <<'INIT'
+  INIT
+  cat > depo/envanter.py <<'ENV'
+  class Envanter:
+      """Ic ice sozlukten (depo -> raf -> urun -> adet) beslenen LRU onbellekli
+      envanter gorunumu."""
+
+      def __init__(self, veri, kapasite):
+          raise NotImplementedError
+
+      def sorgu(self, depo_adi, raf_adi, urun_adi):
+          """(depo, raf, urun) icin adet dondurur; yoksa 0."""
+          raise NotImplementedError
+
+      def onbellek_durumu(self):
+          """Onbellekteki anahtarlari en yeniden en eskiye dogru liste olarak dondurur."""
+          raise NotImplementedError
+  ENV
+  cat > veri.py <<'DATA'
+  STOK = {
+      "merkez": {
+          "A1": {"vida": 120, "somun": 80},
+          "A2": {"pul": 40, "vida": 15},
+      },
+      "sube": {
+          "B1": {"kablo": 7},
+          "B2": {"somun": 3, "kablo": 9},
+      },
+  }
+  DATA
+
+goal_tr: >
+  depo/envanter.py icindeki Envanter sinifini; sorgu ile erisilen (depo,
+  raf, urun) ucgenleri icin adedi dondurecek, kapasite asildiginda en uzun
+  suredir kullanilmayan ucgeni onbellekten atacak ve onbellek_durumu ile
+  anahtarlari en yeniden en eskiye dogru verecek bicimde gerceklestir.
+
+reference_solution: |
+  cat > depo/envanter.py <<'ENV'
+  class Envanter:
+      """Ic ice sozlukten (depo -> raf -> urun -> adet) beslenen LRU onbellekli
+      envanter gorunumu."""
+
+      def __init__(self, veri, kapasite):
+          self._veri = veri
+          self._kapasite = kapasite
+          self._onbellek = {}
+
+      def sorgu(self, depo_adi, raf_adi, urun_adi):
+          anahtar = (depo_adi, raf_adi, urun_adi)
+          if anahtar in self._onbellek:
+              deger = self._onbellek.pop(anahtar)
+              self._onbellek[anahtar] = deger
+              return deger
+          raf = self._veri.get(depo_adi, {}).get(raf_adi, {})
+          deger = raf.get(urun_adi, 0)
+          self._onbellek[anahtar] = deger
+          if len(self._onbellek) > self._kapasite:
+              en_eski = next(iter(self._onbellek))
+              del self._onbellek[en_eski]
+          return deger
+
+      def onbellek_durumu(self):
+          return list(reversed(list(self._onbellek.keys())))
+  ENV
+
+outputs:
+  - {path: depo/envanter.py, kind: program, run: 'python3 -c ''from depo.envanter import Envanter; from veri import STOK; e=Envanter(STOK,2); assert e.sorgu("merkez","A1","vida")==120; assert e.sorgu("sube","B2","kablo")==9; assert e.onbellek_durumu()==[("sube","B2","kablo"),("merkez","A1","vida")]; assert e.sorgu("merkez","A1","vida")==120; assert e.onbellek_durumu()==[("merkez","A1","vida"),("sube","B2","kablo")]; assert e.sorgu("merkez","A2","pul")==40; assert e.onbellek_durumu()==[("merkez","A2","pul"),("merkez","A1","vida")]; assert e.sorgu("sube","B2","kablo")==9; assert e.onbellek_durumu()==[("sube","B2","kablo"),("merkez","A2","pul")]; assert e.sorgu("yok","X","y")==0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.envanter import Envanter; from veri import STOK; e=Envanter(STOK,2); assert e.sorgu("merkez","A1","vida")==120; assert e.sorgu("sube","B2","kablo")==9; assert e.onbellek_durumu()==[("sube","B2","kablo"),("merkez","A1","vida")]; assert e.sorgu("merkez","A1","vida")==120; assert e.onbellek_durumu()==[("merkez","A1","vida"),("sube","B2","kablo")]; assert e.sorgu("merkez","A2","pul")==40; assert e.onbellek_durumu()==[("merkez","A2","pul"),("merkez","A1","vida")]; assert e.sorgu("sube","B2","kablo")==9; assert e.onbellek_durumu()==[("sube","B2","kablo"),("merkez","A2","pul")]; assert e.sorgu("yok","X","y")==0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5165
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: depo-envanteri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: lru-onbellek
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: ic-ice-yapi
+      topoloji: tek-modul
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

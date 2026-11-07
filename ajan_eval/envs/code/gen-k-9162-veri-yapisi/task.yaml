@@ -1,0 +1,199 @@
+id: gen-k-9162-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 18
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  plans/trie/node.py, plans/trie/store.py, plans/validate/rules.py ve plans/registry.py içindeki iskeletleri doldur; iç içe Node yapısıyla plan kodlarını kaydedip çözen tam çalışan bir trie olsun ve her metod NotImplementedError yerine gerçek gövdeye sahip olsun.
+
+setup: |
+  mkdir -p plans/trie plans/validate
+  cat > plans/trie/node.py <<'NODE'
+  from dataclasses import dataclass, field
+
+
+  @dataclass
+  class Node:
+      children: dict = field(default_factory=dict)
+      plan_id: str = ""
+
+      def insert(self, segment, pid):
+          raise NotImplementedError
+
+      def lookup(self, segment):
+          raise NotImplementedError
+  NODE
+  cat > plans/trie/store.py <<'STORE'
+  from plans.trie.node import Node
+
+
+  class PlanTrie:
+      def __init__(self):
+          self.root = Node()
+
+      def add(self, code, pid):
+          raise NotImplementedError
+
+      def find(self, code):
+          raise NotImplementedError
+  STORE
+  cat > plans/validate/rules.py <<'RULES'
+  def normalize(code):
+      raise NotImplementedError
+
+
+  def is_valid(code):
+      raise NotImplementedError
+  RULES
+  cat > plans/registry.py <<'REG'
+  from plans.trie.store import PlanTrie
+  from plans.validate.rules import normalize, is_valid
+
+
+  class Registry:
+      def __init__(self):
+          self.trie = PlanTrie()
+
+      def register(self, code, pid):
+          raise NotImplementedError
+
+      def resolve(self, code):
+          raise NotImplementedError
+  REG
+  cat > plans/__init__.py <<'INIT'
+  INIT
+  cat > plans/trie/__init__.py <<'TRIE'
+  TRIE
+  cat > plans/validate/__init__.py <<'VAL'
+  VAL
+
+goal_tr: >
+  plans/trie/node.py, plans/trie/store.py, plans/validate/rules.py ve
+  plans/registry.py dosyalarindaki iskeleti, ic ice Node yapisi uzerinden
+  abonelik plan kodlarini kaydedip cozen tam calisan bir trie
+  gerceklestirmesiyle doldur; her metod NotImplementedError yerine dogru
+  govdeye sahip olsun.
+
+reference_solution: |
+  cat > plans/trie/node.py <<'NODE'
+  from dataclasses import dataclass, field
+
+
+  @dataclass
+  class Node:
+      children: dict = field(default_factory=dict)
+      plan_id: str = ""
+
+      def insert(self, segment, pid):
+          if segment == "":
+              self.plan_id = pid
+              return
+          head, rest = segment[0], segment[1:]
+          if head not in self.children:
+              self.children[head] = Node()
+          self.children[head].insert(rest, pid)
+
+      def lookup(self, segment):
+          if segment == "":
+              return self.plan_id
+          head, rest = segment[0], segment[1:]
+          if head not in self.children:
+              return ""
+          return self.children[head].lookup(rest)
+  NODE
+  cat > plans/trie/store.py <<'STORE'
+  from plans.trie.node import Node
+
+
+  class PlanTrie:
+      def __init__(self):
+          self.root = Node()
+
+      def add(self, code, pid):
+          self.root.insert(code, pid)
+
+      def find(self, code):
+          return self.root.lookup(code)
+  STORE
+  cat > plans/validate/rules.py <<'RULES'
+  def normalize(code):
+      return code.strip().lower()
+
+
+  def is_valid(code):
+      return len(code) > 0 and code.isalpha()
+  RULES
+  cat > plans/registry.py <<'REG'
+  from plans.trie.store import PlanTrie
+  from plans.validate.rules import normalize, is_valid
+
+
+  class Registry:
+      def __init__(self):
+          self.trie = PlanTrie()
+
+      def register(self, code, pid):
+          c = normalize(code)
+          if not is_valid(c):
+              raise ValueError("bad code: " + code)
+          self.trie.add(c, pid)
+
+      def resolve(self, code):
+          return self.trie.find(normalize(code))
+  REG
+
+ara_adim: |
+  cat > plans/validate/rules.py <<'RULES'
+  def normalize(code):
+      return code.strip().lower()
+
+
+  def is_valid(code):
+      return len(code) > 0 and code.isalpha()
+  RULES
+
+outputs:
+  - {path: plans/registry.py, kind: program, run: 'python3 -c ''from plans.registry import Registry as R; r=R(); r.register("PRO","p1"); r.register("PROPLUS","p2"); assert r.resolve(" pro ")== "p1", r.resolve(" pro "); assert r.resolve("PROPLUS")=="p2", r.resolve("PROPLUS"); assert r.resolve("proplus")=="p2", r.resolve("proplus"); assert r.resolve("nope")=="", r.resolve("nope"); print("TAMAM")'''}
+  - {path: plans/trie/store.py, kind: program, run: 'python3 -c ''from plans.trie.store import PlanTrie as T; t=T(); t.add("ab","x1"); t.add("abc","x2"); assert t.find("ab")=="x1", t.find("ab"); assert t.find("abc")=="x2", t.find("abc"); assert t.find("a")=="", t.find("a"); assert t.find("abcd")=="", t.find("abcd"); print("ILERLEME-TAMAM")'''}
+  - {path: plans/validate/rules.py, kind: program, run: 'python3 -c ''from plans.validate.rules import normalize as n, is_valid as v; assert n("  AbC ") == "abc", n("  AbC "); assert v("abc") is True; assert v("") is False; assert v("a1") is False; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from plans.registry import Registry as R; r=R(); r.register("PRO","p1"); r.register("PROPLUS","p2"); assert r.resolve(" pro ")== "p1", r.resolve(" pro "); assert r.resolve("PROPLUS")=="p2", r.resolve("PROPLUS"); assert r.resolve("proplus")=="p2", r.resolve("proplus"); assert r.resolve("nope")=="", r.resolve("nope"); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from plans.trie.store import PlanTrie as T; t=T(); t.add("ab","x1"); t.add("abc","x2"); assert t.find("ab")=="x1", t.find("ab"); assert t.find("abc")=="x2", t.find("abc"); assert t.find("a")=="", t.find("a"); assert t.find("abcd")=="", t.find("abcd"); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from plans.validate.rules import normalize as n, is_valid as v; assert n("  AbC ") == "abc", n("  AbC "); assert v("abc") is True; assert v("") is False; assert v("a1") is False; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9162
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: abonelik-planlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: kolay
+    adim: 6
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: trie
+      karmasiklik: orta
+      kalip: dataclass-dogrulama
+      akis: ic-ice-yapi
+      topoloji: elmas
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

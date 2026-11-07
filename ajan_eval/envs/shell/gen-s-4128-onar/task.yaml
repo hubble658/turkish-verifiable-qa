@@ -1,0 +1,59 @@
+id: gen-s-4128-onar
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  yorumlar.txt dosyasındaki her satırı işle. Her satırda dikey çizgiyle ayrılmış ikinci alanı, o alandaki sayı kadar yıldız içeren yıldız gösterimine çevir; beş yıldızdan az olan satırlarda yıldız sayısı o sayı kadar olsun. Sonucu her satırda ürün adı, bir sekme karakteri ve yıldızlar olacak biçimde puanlar.txt dosyasına yaz.
+
+setup: |
+  cat > yorumlar.txt <<'EOF'
+  urun1|5|harika bir urun
+  urun2|4|guzel ama pahali
+  urun3|1|berbat
+  urun4|5|mukemmel
+  urun5|3|idare eder
+  EOF
+
+goal_tr: >
+  yorumlar.txt dosyasindaki her satirda ikinci alani (| ile ayrilmis) bes
+  yildizli gosterime cevirip her satiri "urun<TAB>*****" biciminde
+  puanlar.txt dosyasina yaz; bes yildizdan az olan satirlar ayni bicimde
+  yildiz sayisi kadar yildizla yazilsin.
+
+reference_solution: |
+  tr '|' ' ' < yorumlar.txt | sed 's/\([^ ]*\) \([0-9]*\).*/\1 \2/' | awk '{n=$2; s=""; for(i=0;i<n;i++) s=s"*"; print $1"\t"s}' > puanlar.txt
+
+outputs:
+  - {path: puanlar.txt, kind: lines, note: her satir "urun<TAB>yildizlar" biciminde}
+
+checks:
+  - {op: file_lines_eq, path: puanlar.txt, value: ["urun1\t*****", "urun2\t****", "urun3\t*", "urun4\t*****", "urun5\t***"]}
+
+metadata:
+  domain: onar
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4128
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: urun-yorumlari
+    hedef: onar
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: bos-dosya
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,221 @@
+id: gen-k-9532-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Çağrı merkezi kayıtlarından en yoğun temsilciyi ve ilk k temsilciyi seçen raporu düzelt. callcenter/report.py, callcenter/ledger.py ve callcenter/events.py dosyaları üzerinde çalış.
+
+  Şu şartlar sağlanmalı:
+  - Eşit süreli temsilcilerde en yoğun temsilci seçimi yanlış temsilciyi öne alıyor; bu davranış kabul kriterlerine uygun hale gelmeli.
+  - Bir kayıt türü toplamlara hiç yansımıyor; bu davranış da kabul kriterlerine uygun hale gelmeli.
+  - callcenter/report.py içindeki busiest_agent ve top_agents fonksiyonları doğru sonuç vermeli.
+  - callcenter/ledger.py toplamları doğru tutmalı.
+  - callcenter/events.py kayıtları doğru normalize etmeli.
+
+setup: |
+  mkdir -p callcenter
+  cat > callcenter/events.py <<'EVENTS'
+  def normalize(event):
+      kind, agent, duration = event
+      return (kind.strip().lower(), agent.strip(), int(duration))
+
+
+  class Duration:
+      def __init__(self, seconds):
+          self.seconds = seconds
+
+      def __add__(self, other):
+          return Duration(self.seconds + other.seconds)
+
+      def __eq__(self, other):
+          return self.seconds == other.seconds
+
+      def __hash__(self):
+          return hash(self.seconds)
+
+      def __repr__(self):
+          return "Duration(%d)" % self.seconds
+  EVENTS
+  cat > callcenter/ledger.py <<'LEDGER'
+  from callcenter.events import normalize, Duration
+
+
+  class Ledger:
+      def __init__(self):
+          self._totals = {}
+
+      def add(self, event):
+          kind, agent, duration = normalize(event)
+          if kind == "talk":
+              current = self._totals.get(agent, Duration(0))
+              self._totals[agent] = current + Duration(duration)
+
+      def totals(self):
+          return dict(self._totals)
+  LEDGER
+  cat > callcenter/report.py <<'REPORT'
+  from callcenter.ledger import Ledger
+
+
+  def busiest_agent(events):
+      ledger = Ledger()
+      for event in events:
+          ledger.add(event)
+      totals = ledger.totals()
+      if not totals:
+          return None
+      best = None
+      for agent, total in totals.items():
+          if best is None or total >= totals[best]:
+              best = agent
+      return best
+
+
+  def top_agents(events, k):
+      ledger = Ledger()
+      for event in events:
+          ledger.add(event)
+      totals = ledger.totals()
+      ordered = sorted(totals, key=lambda a: -totals[a].seconds)
+      return ordered[:k]
+  REPORT
+
+goal_tr: >
+  Cagri merkezi kayitlarindan en yogun temsilciyi ve ilk k temsilciyi secen
+  rapor, esit surelerde yanlis temsilciyi one aliyor ve bir kayit turu
+  toplamlara hic yansimiyor; bu iki davranisi kabul kriterlerine uygun hale
+  getir.
+
+reference_solution: |
+  cat > callcenter/events.py <<'EVENTS'
+  def normalize(event):
+      kind, agent, duration = event
+      return (kind.strip().lower(), agent.strip(), int(duration))
+
+
+  class Duration:
+      def __init__(self, seconds):
+          self.seconds = seconds
+
+      def __add__(self, other):
+          return Duration(self.seconds + other.seconds)
+
+      def __eq__(self, other):
+          return self.seconds == other.seconds
+
+      def __hash__(self):
+          return hash(self.seconds)
+
+      def __repr__(self):
+          return "Duration(%d)" % self.seconds
+  EVENTS
+  cat > callcenter/ledger.py <<'LEDGER'
+  from callcenter.events import normalize, Duration
+
+
+  class Ledger:
+      def __init__(self):
+          self._totals = {}
+
+      def add(self, event):
+          kind, agent, duration = normalize(event)
+          if kind in ("talk", "hold"):
+              current = self._totals.get(agent, Duration(0))
+              self._totals[agent] = current + Duration(duration)
+
+      def totals(self):
+          return dict(self._totals)
+  LEDGER
+  cat > callcenter/report.py <<'REPORT'
+  from callcenter.ledger import Ledger
+
+
+  def busiest_agent(events):
+      ledger = Ledger()
+      for event in events:
+          ledger.add(event)
+      totals = ledger.totals()
+      if not totals:
+          return None
+      best = None
+      for agent, total in totals.items():
+          if best is None or total.seconds > totals[best].seconds:
+              best = agent
+      return best
+
+
+  def top_agents(events, k):
+      ledger = Ledger()
+      for event in events:
+          ledger.add(event)
+      totals = ledger.totals()
+      order = list(totals)
+      order.sort(key=lambda a: -totals[a].seconds)
+      return order[:k]
+  REPORT
+
+ara_adim: |
+  cat > callcenter/ledger.py <<'LEDGER'
+  from callcenter.events import normalize, Duration
+
+
+  class Ledger:
+      def __init__(self):
+          self._totals = {}
+
+      def add(self, event):
+          kind, agent, duration = normalize(event)
+          if kind in ("talk", "hold"):
+              current = self._totals.get(agent, Duration(0))
+              self._totals[agent] = current + Duration(duration)
+
+      def totals(self):
+          return dict(self._totals)
+  LEDGER
+
+outputs:
+  - {path: callcenter/report.py, kind: program, run: 'python3 -c ''from callcenter.report import busiest_agent as f; e=[("talk","ann",10),("talk","bob",10)]; assert f(e)=="ann", f(e); e2=[("talk","bob",5),("talk","ann",5),("talk","bob",4)]; assert f(e2)=="bob", f(e2); assert f([]) is None; print("ZINCIR-TAMAM")'''}
+  - {path: callcenter/ledger.py, kind: program, run: 'python3 -c ''from callcenter.ledger import Ledger as L; l=L(); l.add(("talk","ann",10)); l.add(("hold","ann",5)); assert l.totals()["ann"].seconds==15, l.totals(); print("ILERLEME-TAMAM")'''}
+  - {path: callcenter/events.py, kind: program, run: 'python3 -c ''from callcenter.events import normalize as f, Duration as D; assert f((" Talk "," ann ",7))==("talk","ann",7), f((" Talk "," ann ",7)); a=D(3); b=D(4); assert (a+b).seconds==7, (a+b).seconds; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from callcenter.ledger import Ledger as L; l=L(); l.add(("talk","ann",10)); l.add(("hold","ann",5)); assert l.totals()["ann"].seconds==15, l.totals(); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from callcenter.report import busiest_agent as f; e=[("talk","ann",10),("talk","bob",10)]; assert f(e)=="ann", f(e); e2=[("talk","bob",5),("talk","ann",5),("talk","bob",4)]; assert f(e2)=="bob", f(e2); assert f([]) is None; print("ZINCIR-TAMAM")''', value: ZINCIR-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from callcenter.events import normalize as f, Duration as D; assert f((" Talk "," ann ",7))==("talk","ann",7), f((" Talk "," ann ",7)); a=D(3); b=D(4); assert (a+b).seconds==7, (a+b).seconds; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9532
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: cagri-merkezi-kayitlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: zor
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kenar-durum
+      karmasiklik: derin
+      kalip: operator-asiri-yukleme
+      akis: bellek-ici
+      topoloji: yildiz
+      zincir: 3
+      regresyon: true
+      bagimli: true
+      kesif_zor: true

@@ -1,0 +1,74 @@
+id: gen-s-7313-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi klasöründeki tüm .ini dosyalarındaki yorum değerlerini topla; her yorumu küçük harfe çevirip boşluklarını alt çizgi yap ve bu değerleri alfabetik olarak sıralı, geçerli bir JSON dizisi halinde cikti/yorumlar.json dosyasına yaz.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/urun1.ini <<'INI'
+  [urun]
+  ad=Klavye
+  yorum=harika urun
+  puan=5
+  INI
+  cat > girdi/urun2.ini <<'INI'
+  [urun]
+  ad=Mouse
+  yorum=berbat degil
+  puan=4
+  INI
+  cat > girdi/urun3.ini <<'INI'
+  [urun]
+  ad=Monitor
+  yorum=cok iyi
+  puan=5
+  INI
+
+goal_tr: >
+  girdi klasorundeki tum .ini dosyalarindaki yorum degerlerini toplayip, her
+  yorumu kucuk harfe cevirip, bosluklarini alt cizgi yapip, alfabetik sirali
+  ve gecerli bir JSON dizisi olarak cikti/yorumlar.json dosyasina yaz
+
+reference_solution: |
+  mkdir -p cikti
+  grep -h '^yorum=' girdi/*.ini | sed 's/^yorum=//' > /tmp/yorumlar.txt
+  tr 'A-Z ' 'a-z_' < /tmp/yorumlar.txt | sort > /tmp/sirali.txt
+  sed 's/.*/"&"/' /tmp/sirali.txt > /tmp/json_satirlar.txt
+  { printf '[\n'; paste -sd, /tmp/json_satirlar.txt; printf '\n]\n'; } > cikti/yorumlar.json
+
+outputs:
+  - {path: cikti/yorumlar.json, kind: json}
+
+checks:
+  - {op: json_eq, path: cikti/yorumlar.json, value: [berbat_degil, cok_iyi, harika_urun]}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7313
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: urun-yorumlari
+    hedef: ayikla
+    girdi: ini
+    kaynak: cok-dosya
+    cikti: json
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

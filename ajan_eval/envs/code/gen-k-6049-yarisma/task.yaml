@@ -1,0 +1,199 @@
+id: gen-k-6049-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 18
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  bakim/uygulama.py içindeki BakimRaporu sınıfının gunluk metodunu, verilen güne ait kayıtları gün ve saat değerine göre ARTAN sırada döndürecek şekilde düzelt ve aynı sınıfa bul(gun, saat) metodu ekle; bu metot gunluk(gun) ile elde edilen sıralı liste üzerinde ikili arama yaparak saat değeri tam eşleşen kaydı bulmalı. Girdi stdin'den borulanıp context manager ile okunmalı. Ayrıca bakim/cekirdek/sirala.py ve bakim/rapor/ozet.py dosyalarını, gunluk metodunun artan sıralamayı doğru almasını sağlayacak şekilde uyumlu hale getir.
+
+  Su sartlar saglanmali:
+  - bakim/uygulama.py, bakim/cekirdek/sirala.py ve bakim/rapor/ozet.py dosyaları güncellenmiş olmalı.
+  - BakimRaporu.gunluk(gun) yalnızca verilen güne ait kayıtları döndürmeli ve bu kayıtlar gün ile saat değerine göre ARTAN sırada olmalı.
+  - BakimRaporu.bul(gun, saat) metodu, gunluk(gun) sonucundaki sıralı liste üzerinde ikili arama kullanarak saat değeri tam eşleşen kaydı bulmalı; eşleşme yoksa bunu açıkça belli eden bir sonuç döndürmeli.
+  - Girdi stdin'den borulanarak context manager (with) ile okunmalı.
+  - bakim/cekirdek/veri.py içindeki satirlari_oku ve kayit_uret fonksiyonlarının sözleşmesi korunmalı; kayıtlar makine, gun ve saat alanlarını içermeli.
+  - girdi.txt içeriğiyle çalıştırıldığında gunluk(12) çağrısı kaynak|12|0.5, torna|12|1.25, pres|12|3.5 sırasını vermeli ve bul(12, 1.25) torna kaydını bulmalı.
+
+setup: |
+  mkdir -p bakim/cekirdek bakim/rapor
+  cat > bakim/cekirdek/veri.py <<'PY'
+  import sys
+
+
+  def satirlari_oku(stream):
+      for raw in stream:
+          line = raw.strip()
+          if not line:
+              continue
+          yield line.split("|")
+
+
+  def kayit_uret(satirlar):
+      for parca in satirlar:
+          makine = parca[0]
+          gun = int(parca[1])
+          saat = float(parca[2])
+          yield {"makine": makine, "gun": gun, "saat": saat}
+  PY
+  cat > bakim/cekirdek/sirala.py <<'PY'
+  def gun_saat_anahtari(kayit):
+      return (kayit["gun"], kayit["saat"])
+
+
+  def sirala(kayitlar):
+      return sorted(kayitlar, key=gun_saat_anahtari, reverse=True)
+  PY
+  cat > bakim/rapor/ozet.py <<'PY'
+  from bakim.cekirdek.sirala import sirala
+
+
+  def ozet(kayitlar):
+      return sirala(kayitlar)
+  PY
+  cat > bakim/uygulama.py <<'PY'
+  from bakim.cekirdek.veri import satirlari_oku, kayit_uret
+  from bakim.rapor.ozet import ozet
+
+
+  class BakimRaporu:
+      def __init__(self, stream):
+          self.stream = stream
+
+      def __enter__(self):
+          self.kayitlar = list(kayit_uret(satirlari_oku(self.stream)))
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self.stream.close()
+          return False
+
+      def gunluk(self, gun):
+          return [k for k in ozet(self.kayitlar) if k["gun"] == gun]
+  PY
+  cat > girdi.txt <<'TXT'
+  pres|12|3.5
+  torna|12|1.25
+  pres|10|7.0
+  kaynak|12|0.5
+  torna|14|2.0
+  TXT
+
+goal_tr: >
+  bakim/uygulama.py icindeki BakimRaporu.gunluk metodunu, verilen gune ait
+  kayitlari gun ve saat degerine gore ARTAN sirada dondurecek ve ikili arama
+  ile bu sirali listede tam saat eslesmesini bulan bir `bul(gun, saat)`
+  metodu ekleyecek bicimde tamamla; girdi stdin'den borulanip context
+  manager ile okunmali.
+
+reference_solution: |
+  cat > bakim/cekirdek/sirala.py <<'PY'
+  def gun_saat_anahtari(kayit):
+      return (kayit["gun"], kayit["saat"])
+
+
+  def sirala(kayitlar):
+      return sorted(kayitlar, key=gun_saat_anahtari)
+  PY
+  cat > bakim/rapor/ozet.py <<'PY'
+  from bakim.cekirdek.sirala import sirala
+
+
+  def ozet(kayitlar):
+      return sirala(kayitlar)
+  PY
+  cat > bakim/uygulama.py <<'PY'
+  from bakim.cekirdek.veri import satirlari_oku, kayit_uret
+  from bakim.rapor.ozet import ozet
+
+
+  class BakimRaporu:
+      def __init__(self, stream):
+          self.stream = stream
+
+      def __enter__(self):
+          self.kayitlar = list(kayit_uret(satirlari_oku(self.stream)))
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self.stream.close()
+          return False
+
+      def gunluk(self, gun):
+          return [k for k in ozet(self.kayitlar) if k["gun"] == gun]
+
+      def bul(self, gun, saat):
+          sirali = self.gunluk(gun)
+          lo, hi = 0, len(sirali) - 1
+          while lo <= hi:
+              mid = (lo + hi) // 2
+              if sirali[mid]["saat"] == saat:
+                  return sirali[mid]
+              if sirali[mid]["saat"] < saat:
+                  lo = mid + 1
+              else:
+                  hi = mid - 1
+          return None
+  PY
+
+ara_adim: |
+  cat > bakim/cekirdek/sirala.py <<'PY'
+  def gun_saat_anahtari(kayit):
+      return (kayit["gun"], kayit["saat"])
+
+
+  def sirala(kayitlar):
+      return sorted(kayitlar, key=gun_saat_anahtari)
+  PY
+  cat > bakim/rapor/ozet.py <<'PY'
+  from bakim.cekirdek.sirala import sirala
+
+
+  def ozet(kayitlar):
+      return sirala(kayitlar)
+  PY
+
+outputs:
+  - {path: bakim/uygulama.py, kind: program, run: 'python3 -c ''import io; from bakim.uygulama import BakimRaporu as B; s=io.StringIO("pres|12|3.5\ntorna|12|1.25\npres|10|7.0\nkaynak|12|0.5\ntorna|14|2.0\n"); r=B(s); r.__enter__(); g=r.gunluk(12); assert [k["saat"] for k in g]==[0.5,1.25,3.5], g; assert r.bul(12,1.25)["makine"]=="torna"; assert r.bul(12,9.9) is None; print("TAMAM")'''}
+  - {path: bakim/cekirdek/sirala.py, kind: program, run: 'python3 -c ''from bakim.cekirdek.sirala import sirala as f; ks=[{"makine":"a","gun":12,"saat":3.5},{"makine":"b","gun":12,"saat":1.25},{"makine":"c","gun":10,"saat":7.0}]; r=f(ks); assert [k["saat"] for k in r]==[7.0,1.25,3.5], r; print("SIRALAMA-TAMAM")'''}
+  - {path: bakim/rapor/ozet.py, kind: program, run: 'python3 -c ''from bakim.rapor.ozet import ozet as f; ks=[{"makine":"a","gun":12,"saat":3.5},{"makine":"b","gun":12,"saat":1.25}]; r=f(ks); assert [k["saat"] for k in r]==[1.25,3.5], r; print("OZET-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from bakim.cekirdek.sirala import sirala as f; ks=[{"makine":"a","gun":12,"saat":3.5},{"makine":"b","gun":12,"saat":1.25},{"makine":"c","gun":10,"saat":7.0}]; r=f(ks); assert [k["saat"] for k in r]==[7.0,1.25,3.5], r; print("SIRALAMA-TAMAM")''', value: SIRALAMA-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import io; from bakim.uygulama import BakimRaporu as B; s=io.StringIO("pres|12|3.5\ntorna|12|1.25\npres|10|7.0\nkaynak|12|0.5\ntorna|14|2.0\n"); r=B(s); r.__enter__(); g=r.gunluk(12); assert [k["saat"] for k in g]==[0.5,1.25,3.5], g; assert r.bul(12,1.25)["makine"]=="torna"; assert r.bul(12,9.9) is None; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from bakim.rapor.ozet import ozet as f; ks=[{"makine":"a","gun":12,"saat":3.5},{"makine":"b","gun":12,"saat":1.25}]; r=f(ks); assert [k["saat"] for k in r]==[1.25,3.5], r; print("OZET-TAMAM")''', value: OZET-TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-6049
+    bundle: yarisma
+    tools:
+    - python3
+    konu: makine-bakim-kayitlari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: zor
+    adim: 6
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-ikili-arama
+      karmasiklik: orta
+      kalip: context-manager
+      akis: stdin-boru
+      topoloji: yildiz
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

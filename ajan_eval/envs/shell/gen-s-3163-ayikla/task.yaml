@@ -1,0 +1,80 @@
+id: gen-s-3163-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kutuphane/oduncler.json dosyasındaki her ödünç kaydını kutuphane/uyeler.csv dosyasındaki üye_id eşleşmesiyle birleştirip, üye_id, ad, sehir, kitap, gun sütunlarından oluşan ve üye_id'ye göre artan sırada dizilmiş CSV çıktısını kutuphane/rapor.csv dosyasına yaz. Girdi olarak .bak uzantılı dosyaları ve uyeler.csv başlık satırını kullanma.
+
+setup: |
+  mkdir -p kutuphane
+  cat > kutuphane/uyeler.csv <<'CSV'
+  uye_id,ad,sehir
+  1,Ayse,Ankara
+  2,Mehmet,Izmir
+  3,Zeynep,Istanbul
+  4,Can,Ankara
+  CSV
+  cat > kutuphane/oduncler.json <<'JSON'
+  {"oduncler":[
+  {"uye_id":1,"kitap":"Kirmizi","gun":7},
+  {"uye_id":2,"kitap":"Mavi","gun":3},
+  {"uye_id":3,"kitap":"Yesil","gun":14},
+  {"uye_id":4,"kitap":"Sari","gun":5},
+  {"uye_id":1,"kitap":"Beyaz","gun":2}
+  ]}
+  JSON
+  cat > kutuphane/oduncler.json.bak <<'JSON'
+  {"oduncler":[
+  {"uye_id":99,"kitap":"Tuzak","gun":1}
+  ]}
+  JSON
+
+goal_tr: >
+  kutuphane/oduncler.json dosyasindaki her odunc kaydini
+  kutuphane/uyeler.csv dosyasindaki uye_id eslesmesiyle birlestirip,
+  uye_id,ad,sehir,kitap,gun sutunlarindan olusan ve uye_id'ye gore artan
+  sirada dizilmis CSV ciktisini kutuphane/rapor.csv dosyasina yaz; .bak
+  uzantili dosyalari ve uyeler.csv basligini girdi olarak kullanma.
+
+reference_solution: |
+  cut -d, -f1 kutuphane/uyeler.csv | tail -n +2 > /tmp/uyeler_id.txt
+  cut -d, -f2- kutuphane/uyeler.csv | tail -n +2 > /tmp/uyeler_geri.txt
+  grep -o '{"uye_id":[0-9]*,"kitap":"[^"]*","gun":[0-9]*}' kutuphane/oduncler.json > /tmp/oduncler.txt
+  sed 's/{"uye_id"://; s/,"kitap":"/,/; s/","gun":/,/; s/}//' /tmp/oduncler.txt > /tmp/oduncler.csv
+  printf 'uye_id,ad,sehir,kitap,gun\n' > kutuphane/rapor.csv
+  paste -d, /tmp/oduncler.csv /tmp/uyeler_geri.txt | sort -t, -k1,1n | awk -F, '{print $1","$4","$5","$2","$3}' >> kutuphane/rapor.csv
+
+outputs:
+  - {path: kutuphane/rapor.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: kutuphane/rapor.csv, value: ['uye_id,ad,sehir,kitap,gun', '1,,,Beyaz,2', '1,Ayse,Ankara,Kirmizi,7', '2,Mehmet,Izmir,Mavi,3', '3,Zeynep,Istanbul,Yesil,14', '4,Can,Ankara,Sari,5']}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3163
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: kutuphane-kayitlari
+    hedef: ayikla
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: csv
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

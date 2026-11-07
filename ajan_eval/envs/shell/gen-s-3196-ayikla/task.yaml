@@ -1,0 +1,71 @@
+id: gen-s-3196-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kaynak/kalemler.txt dosyasındaki her satırı boru karakteriyle ayrılmış alanlarına göre parçala. Her satır için ilk alanı ters çevir ve ikinci alanla birleştirerek adı "<ters-ilkal>-<ikincialan>" biçiminde olan bir dosyayı cikti dizini altında oluştur. Oluşacak dosyalar cikti/0021-satis, cikti/0540-alis, cikti/9999-satis ve cikti/0010-alis adlarını taşımalı; her birinin içeriğine ilgili satırın üçüncü alanını yaz.
+
+setup: |
+  mkdir -p kaynak
+  cat > kaynak/kalemler.txt <<'TXT'
+  1200|satis|urun-a|3
+  0450|alis|urun-b|7
+  9999|satis|urun-c|1
+  0100|alis|urun-d|2
+  TXT
+
+goal_tr: >
+  kaynak/kalemler.txt icindeki her satiri boru ile ayrilmis alanlara gore
+  ayir; ilk alani ters cevirip ikinci alanla birlestirerek her satir icin
+  adi "<ters-ilkal>-<ikincialan>" olan bir dosyayi cikti dizini altinda
+  olustur ve dosya icerigine satirin ucuncu alanini yaz.
+
+reference_solution: |
+  mkdir -p cikti
+  while IFS='|' read -r a b c d; do
+    ad="$(printf '%s' "$a" | rev)-$(printf '%s' "$b" | cut -d'|' -f1)"
+    printf '%s\n' "$c" > "cikti/$ad"
+  done < kaynak/kalemler.txt
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/0021-satis, kind: file}
+  - {path: cikti/0540-alis, kind: file}
+  - {path: cikti/9999-satis, kind: file}
+  - {path: cikti/0010-alis, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [0010-alis, 0021-satis, 0540-alis, 9999-satis]}
+  - {op: file_content_eq, path: cikti/0010-alis, value: urun-d}
+  - {op: file_content_eq, path: cikti/0021-satis, value: urun-a}
+  - {op: file_content_eq, path: cikti/0540-alis, value: urun-b}
+  - {op: file_content_eq, path: cikti/9999-satis, value: urun-c}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3196
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: muhasebe-kalemleri
+    hedef: ayikla
+    girdi: duz-metin
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,71 @@
+id: gen-s-7299-ozetle
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  "veri kumesi/urun yorumlari" dizinindeki ini dosyalarında her ürünün ad ve puan satırları var. Bunları kullanarak ürün adına göre puanları sıralamanı, her ürün için kaç yorum olduğunu ve puanların benzersiz değerlerini virgülle birleştirip urun,yorum_sayisi,benzersiz_puanlar biçiminde urun.csv dosyasına yazmanı istiyorum.
+
+setup: |
+  mkdir -p "veri kumesi/urun yorumlari"
+  cat > "veri kumesi/urun yorumlari/ayarlar.ini" <<'INI'
+  [urun]
+  ad=Kalem
+  puan=5
+  [urun]
+  ad=Defter
+  puan=3
+  [urun]
+  ad=Kalem
+  puan=4
+  [urun]
+  ad=Silgi
+  puan=5
+  [urun]
+  ad=Defter
+  puan=3
+  INI
+
+goal_tr: >
+  "veri kumesi/urun yorumlari" dizinindeki ini dosyalarindaki her urunun ad
+  ve puan satirlarini kullanarak urun adina gore puanlari sirala ve her urun
+  icin kac yorum oldugunu ve puanlarin benzersiz degerlerini virgulle
+  birlestirip urun.csv dosyasina urun,yorum_sayisi,benzersiz_puanlar
+  biciminde yaz
+
+reference_solution: |
+  grep -h '^ad=\|^puan=' "veri kumesi/urun yorumlari"/*.ini | paste - - | sed 's/^ad=//; s/\tpuan=/ /' | sort | uniq -c | awk '{printf "%s,%s,", $2, $1; for (i=3; i<=NF; i++) printf "%s%s", $i, (i<NF ? "," : ""); print ""}' > urun.csv
+
+outputs:
+  - {path: urun.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: urun.csv, value: ['Defter,2,3', 'Kalem,1,4', 'Kalem,1,5', 'Silgi,1,5']}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7299
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: urun-yorumlari
+    hedef: ozetle
+    girdi: ini
+    kaynak: dizin-agaci
+    cikti: csv
+    kesif: yok
+    uslup: duz-hedef
+    direnc: bosluklu-ad
+    bukulme: yok
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

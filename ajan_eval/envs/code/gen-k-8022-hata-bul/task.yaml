@@ -1,0 +1,141 @@
+id: gen-k-8022-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  pricing/ledger.py dosyasındaki Ledger.total metodu, ledger'a eklenen tutarların doğru toplamını döndürmüyor; bu yüzden PriceStream.process yanlış sonuç üretiyor. pricing/ledger.py içindeki Ledger.total metodunu, eklenen tutarların doğru toplamını döndürecek biçimde düzelt; böylece PriceStream.process doğru sonucu üretsin.
+
+  Şu şartlar sağlanmalı:
+  - pricing/ledger.py dosyası mevcut olmalı ve Ledger.total metodu eklenen tutarların doğru (işaretli) toplamını döndürmeli.
+  - Ledger.total, Ledger.add ile eklenen her bir delta değerini toplama dahil etmeli; hiçbir değeri ters işaretle işleme sokmamalı.
+  - pricing/ledger.py içindeki Ledger, build_ledger ve diğer mevcut yapı korunmalı; dosya adı ve sınıf/metot adları değişmemeli.
+  - pricing/stream.py içindeki PriceStream.process, pricing/ledger.py üzerinden doğru toplam sonucunu üretmeli.
+  - Çözüm yalnızca pricing/ledger.py içinde yapılmalı; pricing/discount.py ve pricing/stream.py değiştirilmemeli.
+
+setup: |
+  mkdir -p pricing
+  cat > pricing/ledger.py <<'LEDGER'
+  class Ledger:
+      def __init__(self):
+          self.entries = []
+
+      def add(self, delta):
+          self.entries.append(delta)
+
+      def total(self):
+          result = 0
+          for e in self.entries:
+              result = result - e
+          return result
+
+
+  def build_ledger(chunks):
+      led = Ledger()
+      for chunk in chunks:
+          for delta in chunk:
+              led.add(delta)
+      return led
+  LEDGER
+  cat > pricing/discount.py <<'DISCOUNT'
+  def apply_discounts(chunks, rate):
+      out = []
+      for chunk in chunks:
+          adjusted = []
+          for item in chunk:
+              adjusted.append(item - item * rate)
+          out.append(adjusted)
+      return out
+  DISCOUNT
+  cat > pricing/stream.py <<'STREAM'
+  from pricing.ledger import build_ledger
+  from pricing.discount import apply_discounts
+
+
+  class PriceStream:
+      def __init__(self, chunks, rate):
+          self.chunks = chunks
+          self.rate = rate
+          self.ledger = None
+
+      def process(self):
+          discounted = apply_discounts(self.chunks, self.rate)
+          self.ledger = build_ledger(discounted)
+          return self.ledger.total()
+  STREAM
+  cat > prices.txt <<'PRICES'
+  100,50
+  200,25
+  10,5
+  PRICES
+
+goal_tr: >
+  pricing/ledger.py icindeki Ledger.total metodunu, eklenen tutarlarin dogru
+  toplamini dondurecek bicimde duzelt; boylece PriceStream.process dogru
+  sonucu uretir.
+
+reference_solution: |
+  cat > pricing/ledger.py <<'LEDGER'
+  class Ledger:
+      def __init__(self):
+          self.entries = []
+
+      def add(self, delta):
+          self.entries.append(delta)
+
+      def total(self):
+          result = 0
+          for e in self.entries:
+              result = result + e
+          return result
+
+
+  def build_ledger(chunks):
+      led = Ledger()
+      for chunk in chunks:
+          for delta in chunk:
+              led.add(delta)
+      return led
+  LEDGER
+
+outputs:
+  - {path: pricing/ledger.py, kind: program, run: 'python3 -c ''from pricing.stream import PriceStream; chunks=[[100.0,50.0],[200.0,25.0],[10.0,5.0]]; s=PriceStream(chunks,0.0); assert s.process()==390.0, s.process(); s2=PriceStream(chunks,0.5); assert s2.process()==195.0, s2.process(); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from pricing.stream import PriceStream; chunks=[[100.0,50.0],[200.0,25.0],[10.0,5.0]]; s=PriceStream(chunks,0.0); assert s.process()==390.0, s.process(); s2=PriceStream(chunks,0.5); assert s2.process()==195.0, s2.process(); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8022
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: urun-fiyatlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: zor
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-toplama-sirasi
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: parcali-akis
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

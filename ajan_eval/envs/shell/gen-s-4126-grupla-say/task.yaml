@@ -1,0 +1,71 @@
+id: gen-s-4126-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  siparisler/adisyon.txt dosyasındaki her menü kodunu siparisler/menu.txt dosyasındaki karşılıklarıyla eşleştir. Kod başına toplam adetleri büyükten küçüğe sırala ve sonucu siparisler/toplam.txt dosyasına her satırda bir kayıt olacak şekilde "adet kod ad" biçiminde yaz.
+
+setup: |
+  mkdir -p siparisler
+  cat > siparisler/menu.txt <<'MENU'
+  K1 corba
+  K2 kebap
+  K3 salata
+  K4 pide
+  K5 tatli
+  MENU
+  cat > siparisler/adisyon.txt <<'AD'
+  K2 3
+  K1 1
+  K2 2
+  K5 4
+  K3 5
+  K2 1
+  K4 2
+  K1 6
+  K5 1
+  K3 2
+  AD
+
+goal_tr: >
+  siparisler/adisyon.txt icindeki her menu kodunu siparisler/menu.txt ile
+  eslestirip kod basina toplam adetleri buyukten kucuge sirala ve
+  siparisler/toplam.txt dosyasina "adet kod ad" biciminde yaz
+
+reference_solution: |
+  grep -F -f <(cut -d' ' -f1 siparisler/menu.txt) siparisler/adisyon.txt | awk '{print $2, $1}' | xargs -n2 | awk '{s[$2]+=$1} END {for (k in s) print s[k], k}' | sort -k2,2 | join -1 2 -2 1 -o 1.1,1.2,2.2 - <(sort -k1,1 siparisler/menu.txt) | sort -rn > siparisler/toplam.txt
+
+outputs:
+  - {path: siparisler/toplam.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: siparisler/toplam.txt, value: [7 K3 salata, 7 K1 corba, 6 K2 kebap, 5 K5 tatli, 2 K4 pide]}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4126
+    bundle: cok-dosya-ara
+    tools:
+    - xargs
+    - grep
+    konu: restoran-siparisleri
+    hedef: grupla-say
+    girdi: duz-metin
+    kaynak: iki-dosya-capraz
+    cikti: yeniden-adlandirilmis
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

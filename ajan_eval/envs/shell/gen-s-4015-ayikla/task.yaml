@@ -1,0 +1,82 @@
+id: gen-s-4015-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) girdi/ogrenciler.tsv ve girdi/notlar.tsv dosyalarını öğrenci numarası üzerinden birleştir.
+
+  2) Her öğrenci için cikti dizini altında "<ogrenci_no>-<ad>-<soyad>" biçiminde adlandırılmış ayrı bir dizin oluştur.
+
+  3) Her öğrenci dizininin içine, o öğrencinin ders notlarını "ders<TAB>not" satırları halinde ve ders adına göre alfabetik sıralı olarak tutan notlar.tsv dosyasını yerleştir.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/ogrenciler.tsv <<'TSV'
+  101	Ali	Yilmaz
+  102	Ayse	Demir
+  103	Can	Kaya
+  104	Deniz	Arslan
+  105	Ece	Yildiz
+  TSV
+  cat > girdi/notlar.tsv <<'TSV'
+  101	Matematik	85
+  101	Fizik	90
+  102	Matematik	70
+  102	Fizik	60
+  103	Matematik	95
+  103	Fizik	88
+  104	Matematik	55
+  104	Fizik	65
+  105	Matematik	100
+  105	Fizik	45
+  TSV
+
+goal_tr: >
+  girdi/ogrenciler.tsv ve girdi/notlar.tsv dosyalarini ogrenci numarasi
+  uzerinden birlestirip her ogrenci icin ayri bir dizin olustur; dizin adi
+  "<ogrenci_no>-<ad>-<soyad>" biciminde olsun ve her dizinin icinde o
+  ogrencinin ders notlarini "ders<TAB>not" satirlari halinde ders adina gore
+  alfabetik sirali tutan notlar.tsv dosyasi bulunsun.
+
+reference_solution: |
+  mkdir -p cikti
+  cut -f1,2,3 girdi/ogrenciler.tsv | while IFS=$'\t' read -r no ad soyad; do
+    d="cikti/${no}-${ad}-${soyad}"
+    mkdir -p "$d"
+    grep -P "^${no}\t" girdi/notlar.tsv | cut -f2,3 | sort -k1,1 | paste -d'\t' - - > "$d/notlar.tsv"
+  done
+
+outputs:
+  - {path: cikti, kind: dir}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [101-Ali-Yilmaz, 102-Ayse-Demir, 103-Can-Kaya, 104-Deniz-Arslan, 105-Ece-Yildiz]}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4015
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: ogrenci-notlari
+    hedef: ayikla
+    girdi: tsv
+    kaynak: iki-dosya-capraz
+    cikti: dizin-yapisi
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,133 @@
+id: gen-k-9033-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) resto/parser.py dosyasındaki parse_line fonksiyonunu, 'ad;adet;birim' biçimindeki satırları doğru şekilde ayrıştıracak ve (ad, adet, birim-kuruş) demeti döndürecek şekilde düzelt.
+
+  2) resto/rapor.py dosyasını oluştur; içinde bir toplam fonksiyonunu sararak çağrı sayısını sayan `@hesapla` adlı bir dekoratör tanımla.
+
+  3) Aynı resto/rapor.py dosyasında, resto/pipeline.py içindeki load_orders çıktısını alıp her sipariş için adet ile birim-kuruş çarpımını toplayan ve toplam tutarı döndüren bir `toplam_tutar(stream)` fonksiyonu sun.
+
+setup: |
+  mkdir -p resto
+  cat > resto/parser.py <<'PY'
+  def parse_line(line):
+      """Parse one order line: 'name;qty;unit' -> (name, qty, unit_cents)."""
+      parts = line.split(',')
+      name = parts[0].strip()
+      qty = int(parts[1])
+      unit = int(round(float(parts[2]) * 100))
+      return (name, qty, unit)
+  PY
+  cat > resto/pipeline.py <<'PY'
+  from resto.parser import parse_line
+
+
+  def load_orders(stream):
+      """Yield (name, qty, unit_cents) tuples from an iterable of lines."""
+      for raw in stream:
+          line = raw.strip()
+          if not line or line.startswith('#'):
+              continue
+          yield parse_line(line)
+  PY
+  cat > resto/__init__.py <<'PY'
+  PY
+  printf 'margherita;2;8.50\n# comment\ncalzone;1;12.00\nmarinara;3;7.25\n' > orders.txt
+
+goal_tr: >
+  resto/parser.py icindeki parse_line fonksiyonunu 'ad;adet;birim' bicimini
+  dogru ayristirip (ad, adet, birim-kurus) demeti dondurecek sekilde duzelt;
+  ardindan resto/rapor.py dosyasini yaz: bir dekorator `@hesapla`
+  tanimlasin, bu dekorator bir toplam fonksiyonunu sararak cagri sayisini
+  saysin ve `load_orders` cikisini alip adet*birim-kurus toplamini donduren
+  bir `toplam_tutar(stream)` fonksiyonu sunsun.
+
+reference_solution: |
+  cat > resto/parser.py <<'PY'
+  def parse_line(line):
+      """Parse one order line: 'name;qty;unit' -> (name, qty, unit_cents)."""
+      parts = line.split(';')
+      name = parts[0].strip()
+      qty = int(parts[1])
+      unit = int(round(float(parts[2]) * 100))
+      return (name, qty, unit)
+  PY
+  cat > resto/rapor.py <<'PY'
+  from resto.pipeline import load_orders
+
+
+  def hesapla(fn):
+      def wrapper(stream):
+          total = 0
+          for name, qty, unit in load_orders(stream):
+              total += qty * unit
+          wrapper.calls += 1
+          return total
+      wrapper.calls = 0
+      return wrapper
+
+
+  @hesapla
+  def toplam_tutar(stream):
+      return 0
+  PY
+
+ara_adim: |
+  cat > resto/parser.py <<'PY'
+  def parse_line(line):
+      """Parse one order line: 'name;qty;unit' -> (name, qty, unit_cents)."""
+      parts = line.split(';')
+      name = parts[0].strip()
+      qty = int(parts[1])
+      unit = int(round(float(parts[2]) * 100))
+      return (name, qty, unit)
+  PY
+
+outputs:
+  - {path: resto/rapor.py, kind: program, run: 'python3 -c ''from resto.rapor import toplam_tutar as f; assert f(open("orders.txt"))==2*850+1*1200+3*725, f(open("orders.txt")); print("TAMAM")'''}
+  - {path: resto/parser.py, kind: program, run: 'python3 -c ''from resto.parser import parse_line as f; assert f("margherita;2;8.50")==("margherita",2,850), f("margherita;2;8.50"); print("ILERLEME-TAMAM")'''}
+  - {path: resto/pipeline.py, kind: program, run: 'python3 -c ''from resto.pipeline import load_orders as f; rows=list(f(["# x","a;1;2.00","","b;2;3.00\n"])); assert rows==[("a",1,200),("b",2,300)], rows; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from resto.rapor import toplam_tutar as f; assert f(open("orders.txt"))==2*850+1*1200+3*725, f(open("orders.txt")); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from resto.parser import parse_line as f; assert f("margherita;2;8.50")==("margherita",2,850), f("margherita;2;8.50"); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from resto.pipeline import load_orders as f; rows=list(f(["# x","a;1;2.00","","b;2;3.00\n"])); assert rows==[("a",1,200),("b",2,300)], rows; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9033
+    bundle: yarisma
+    tools:
+    - python3
+    konu: restoran-siparisleri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: metin-ayristirma
+      karmasiklik: orta
+      kalip: dekorator
+      akis: stdin-boru
+      topoloji: iki-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

@@ -1,0 +1,180 @@
+id: gen-k-8363-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  docpipe/stream.py dosyasındaki StreamReader sınıfını, read_chunks fonksiyonuna verilen tüm satırları eksiksiz okuyacak şekilde düzelt; son satır atlanmasın. Böylece run_query, corpus.txt içindeki d1, d2 ve d3 belgelerinin tamamını indeksleyip doğru sonucu döndürsün.
+
+setup: |
+  mkdir -p docpipe
+  cat > docpipe/tokens.py <<'TOKENS'
+  def tokenize(text):
+      return [w.strip(".,;:!?").lower() for w in text.split() if w.strip(".,;:!?")]
+
+
+  def normalize(token):
+      return token
+  TOKENS
+  cat > docpipe/index.py <<'INDEX'
+  from docpipe.tokens import tokenize, normalize
+
+
+  class InvertedIndex:
+      def __init__(self):
+          self.postings = {}
+
+      def add(self, doc_id, text):
+          for tok in tokenize(text):
+              key = normalize(tok)
+              self.postings.setdefault(key, []).append(doc_id)
+
+      def docs_for(self, term):
+          return self.postings.get(normalize(term), [])
+
+
+  def build(chunks):
+      idx = InvertedIndex()
+      for doc_id, text in chunks:
+          idx.add(doc_id, text)
+      return idx
+  INDEX
+  cat > docpipe/query.py <<'QUERY'
+  from docpipe.index import build
+
+
+  class QueryEngine:
+      def __init__(self, chunks):
+          self.index = build(chunks)
+
+      def search(self, phrase):
+          terms = phrase.split()
+          if not terms:
+              return []
+          result = set(self.index.docs_for(terms[0]))
+          for term in terms[1:]:
+              result &= set(self.index.docs_for(term))
+          return sorted(result)
+  QUERY
+  cat > docpipe/stream.py <<'STREAM'
+  from docpipe.query import QueryEngine
+
+
+  class StreamReader:
+      def __init__(self, lines):
+          self.lines = list(lines)
+          self.pos = 0
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          if self.pos > len(self.lines):
+              raise StopIteration
+          line = self.lines[self.pos]
+          self.pos += 1
+          return line
+
+
+  def read_chunks(lines):
+      reader = StreamReader(lines)
+      chunks = []
+      for line in reader:
+          doc_id, text = line.split("|", 1)
+          chunks.append((doc_id, text))
+      return chunks
+
+
+  def run_query(lines, phrase):
+      chunks = read_chunks(lines)
+      engine = QueryEngine(chunks)
+      return engine.search(phrase)
+  STREAM
+  cat > corpus.txt <<'CORPUS'
+  d1|the quick brown fox
+  d2|the lazy brown dog
+  d3|quick brown bear
+  CORPUS
+
+goal_tr: >
+  docpipe/stream.py icindeki StreamReader'i, read_chunks ile verilen tum
+  satirlari eksiksiz okuyacak (son satiri atlamayacak) bicimde duzelt;
+  boylece run_query tum belgeleri indeksleyip dogru sonucu dondursun.
+
+reference_solution: |
+  cat > docpipe/stream.py <<'STREAM'
+  from docpipe.query import QueryEngine
+
+
+  class StreamReader:
+      def __init__(self, lines):
+          self.lines = list(lines)
+          self.pos = 0
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          if self.pos >= len(self.lines):
+              raise StopIteration
+          line = self.lines[self.pos]
+          self.pos += 1
+          return line
+
+
+  def read_chunks(lines):
+      reader = StreamReader(lines)
+      chunks = []
+      for line in reader:
+          doc_id, text = line.split("|", 1)
+          chunks.append((doc_id, text))
+      return chunks
+
+
+  def run_query(lines, phrase):
+      chunks = read_chunks(lines)
+      engine = QueryEngine(chunks)
+      return engine.search(phrase)
+  STREAM
+
+outputs:
+  - {path: docpipe/stream.py, kind: program, run: 'python3 -c ''from docpipe.stream import run_query as f; lines=open("corpus.txt").read().splitlines(); assert f(lines,"quick brown")==["d1","d3"], f(lines,"quick brown"); assert f(lines,"brown")==["d1","d2","d3"], f(lines,"brown"); assert f(lines,"lazy brown")==["d2"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from docpipe.stream import run_query as f; lines=open("corpus.txt").read().splitlines(); assert f(lines,"quick brown")==["d1","d3"], f(lines,"quick brown"); assert f(lines,"brown")==["d1","d2","d3"], f(lines,"brown"); assert f(lines,"lazy brown")==["d2"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8363
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: metin-belgeleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: off-by-one
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: parcali-akis
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

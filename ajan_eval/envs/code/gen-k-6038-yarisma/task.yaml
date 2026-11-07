@@ -1,0 +1,252 @@
+id: gen-k-6038-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 20
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  maint/parse/records.py dosyasındaki satır ayrıştırmasını, her satırı makine adı, bakım türü, saat ve maliyet olmak üzere dört ayrı alana doğru şekilde ayıracak biçimde düzelt. Ayrıca maint/report/summary.py dosyasındaki MaintenanceLedger.total_cost metodunu, verilen bir makinenin tüm kayıtlarının maliyetini toplayacak şekilde düzelt. Bu düzeltmelerden sonra log.txt üzerinde machines, total_cost ve busiest doğru sonuç vermeli.
+
+setup: |
+  mkdir -p maint/parse maint/report
+  cat > maint/parse/records.py <<'RECORDS'
+  """Parsing of raw maintenance log lines."""
+
+
+  def split_line(line):
+      # BUG 1: rsplit(..., 2) splits from the right, so the FIRST field
+      # (machine name) absorbs everything before the last two commas.
+      parts = line.strip().rsplit(",", 2)
+      if len(parts) != 3:
+          raise ValueError("bad line: %r" % line)
+      return parts
+
+
+  def parse_line(line):
+      machine, kind, tail = split_line(line)
+      hours, cost = tail.split(",")
+      return {
+          "machine": machine.strip(),
+          "kind": kind.strip(),
+          "hours": float(hours),
+          "cost": float(cost),
+      }
+
+
+  def parse_log(text):
+      out = []
+      for line in text.splitlines():
+          line = line.strip()
+          if not line or line.startswith("#"):
+              continue
+          out.append(parse_line(line))
+      return out
+  RECORDS
+  cat > maint/report/summary.py <<'SUMMARY'
+  """Aggregation of parsed maintenance records."""
+
+  from maint.parse.records import parse_log
+
+
+  class MaintenanceLedger:
+      def __init__(self):
+          self._records = []
+
+      def load(self, text):
+          self._records.extend(parse_log(text))
+          return self
+
+      def machines(self):
+          seen = []
+          for rec in self._records:
+              if rec["machine"] not in seen:
+                  seen.append(rec["machine"])
+          return sorted(seen)
+
+      def total_cost(self, machine):
+          total = 0.0
+          for rec in self._records:
+              if rec["machine"] == machine:
+                  # BUG 2: returns after the first matching record instead
+                  # of accumulating all of them.
+                  return total + rec["cost"]
+          return total
+
+      def busiest(self):
+          best = None
+          best_hours = -1.0
+          for rec in self._records:
+              if rec["hours"] > best_hours:
+                  best_hours = rec["hours"]
+                  best = rec["machine"]
+          return best
+  SUMMARY
+  cat > maint/__init__.py <<'INIT'
+  INIT
+  cat > maint/parse/__init__.py <<'INIT'
+  INIT
+  cat > maint/report/__init__.py <<'INIT'
+  INIT
+  cat > log.txt <<'LOG'
+  # maintenance log
+  press-A,oil,2.5,120.0
+  press-A,filter,1.0,40.0
+  lathe-B,belt,3.25,90.5
+  press-A,oil,0.5,15.0
+  lathe-B,oil,2.0,60.0
+  LOG
+
+goal_tr: >
+  maint/parse/records.py icindeki satir ayristirmasini makine adi, bakim
+  turu, saat ve maliyeti dogru alan dort alana ayiracak sekilde duzelt ve
+  maint/report/summary.py icindeki MaintenanceLedger.total_cost metodunu bir
+  makinenin tum kayitlarinin maliyetini toplayacak bicimde duzelt; boylece
+  log.txt uzerinde machines, total_cost ve busiest dogru sonuc versin.
+
+reference_solution: |
+  cat > maint/parse/records.py <<'RECORDS'
+  """Parsing of raw maintenance log lines."""
+
+
+  def split_line(line):
+      parts = line.strip().split(",", 2)
+      if len(parts) != 3:
+          raise ValueError("bad line: %r" % line)
+      return parts
+
+
+  def parse_line(line):
+      machine, kind, tail = split_line(line)
+      hours, cost = tail.split(",")
+      return {
+          "machine": machine.strip(),
+          "kind": kind.strip(),
+          "hours": float(hours),
+          "cost": float(cost),
+      }
+
+
+  def parse_log(text):
+      out = []
+      for line in text.splitlines():
+          line = line.strip()
+          if not line or line.startswith("#"):
+              continue
+          out.append(parse_line(line))
+      return out
+  RECORDS
+  cat > maint/report/summary.py <<'SUMMARY'
+  """Aggregation of parsed maintenance records."""
+
+  from maint.parse.records import parse_log
+
+
+  class MaintenanceLedger:
+      def __init__(self):
+          self._records = []
+
+      def load(self, text):
+          self._records.extend(parse_log(text))
+          return self
+
+      def machines(self):
+          seen = []
+          for rec in self._records:
+              if rec["machine"] not in seen:
+                  seen.append(rec["machine"])
+          return sorted(seen)
+
+      def total_cost(self, machine):
+          total = 0.0
+          for rec in self._records:
+              if rec["machine"] == machine:
+                  total += rec["cost"]
+          return total
+
+      def busiest(self):
+          best = None
+          best_hours = -1.0
+          for rec in self._records:
+              if rec["hours"] > best_hours:
+                  best_hours = rec["hours"]
+                  best = rec["machine"]
+          return best
+  SUMMARY
+
+ara_adim: |
+  cat > maint/parse/records.py <<'RECORDS'
+  """Parsing of raw maintenance log lines."""
+
+
+  def split_line(line):
+      parts = line.strip().split(",", 2)
+      if len(parts) != 3:
+          raise ValueError("bad line: %r" % line)
+      return parts
+
+
+  def parse_line(line):
+      machine, kind, tail = split_line(line)
+      hours, cost = tail.split(",")
+      return {
+          "machine": machine.strip(),
+          "kind": kind.strip(),
+          "hours": float(hours),
+          "cost": float(cost),
+      }
+
+
+  def parse_log(text):
+      out = []
+      for line in text.splitlines():
+          line = line.strip()
+          if not line or line.startswith("#"):
+              continue
+          out.append(parse_line(line))
+      return out
+  RECORDS
+
+outputs:
+  - {path: maint/report/summary.py, kind: program, run: 'python3 -c ''from maint.report.summary import MaintenanceLedger as L; t=open("log.txt").read(); led=L().load(t); assert led.machines()==["lathe-B","press-A"], led.machines(); assert led.total_cost("press-A")==175.0, led.total_cost("press-A"); assert led.total_cost("lathe-B")==150.5, led.total_cost("lathe-B"); assert led.busiest()=="lathe-B", led.busiest(); print("TAMAM")'''}
+  - {path: maint/parse/records.py, kind: program, run: 'python3 -c ''from maint.parse.records import parse_log as f; r=f(open("log.txt").read()); assert len(r)==5, len(r); assert r[0]=={"machine":"press-A","kind":"oil","hours":2.5,"cost":120.0}, r[0]; assert r[2]=={"machine":"lathe-B","kind":"belt","hours":3.25,"cost":90.5}, r[2]; print("ILERLEME-TAMAM")'''}
+  - {path: maint/report/summary.py, kind: program, run: 'python3 -c ''from maint.report.summary import MaintenanceLedger as L; led=L().load("press-A,oil,1.0,10.0\nlathe-B,belt,2.0,20.0\n"); assert led.machines()==["lathe-B","press-A"], led.machines(); assert led.busiest()=="lathe-B", led.busiest(); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from maint.parse.records import parse_log as f; r=f(open("log.txt").read()); assert len(r)==5, len(r); assert r[0]=={"machine":"press-A","kind":"oil","hours":2.5,"cost":120.0}, r[0]; assert r[2]=={"machine":"lathe-B","kind":"belt","hours":3.25,"cost":90.5}, r[2]; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from maint.report.summary import MaintenanceLedger as L; t=open("log.txt").read(); led=L().load(t); assert led.machines()==["lathe-B","press-A"], led.machines(); assert led.total_cost("press-A")==175.0, led.total_cost("press-A"); assert led.total_cost("lathe-B")==150.5, led.total_cost("lathe-B"); assert led.busiest()=="lathe-B", led.busiest(); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from maint.report.summary import MaintenanceLedger as L; led=L().load("press-A,oil,1.0,10.0\nlathe-B,belt,2.0,20.0\n"); assert led.machines()==["lathe-B","press-A"], led.machines(); assert led.busiest()=="lathe-B", led.busiest(); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-6038
+    bundle: yarisma
+    tools:
+    - python3
+    konu: makine-bakim-kayitlari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 7
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: metin-ayristirma
+      karmasiklik: orta
+      kalip: durumlu-sinif
+      akis: bellek-ici
+      topoloji: paket-alt-paket
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

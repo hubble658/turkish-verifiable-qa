@@ -1,0 +1,116 @@
+id: gen-k-5064-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) weblog/summary.py dosyasındaki count_errors fonksiyonunu düzelt: fonksiyon artık bozuk satırları değil, yalnızca HTTP durum kodu 400 ve üzeri olan satırların sayısını döndürsün.
+
+  2) Sayısal olmayan durum kodu içeren satırlar da hata olarak sayılmasın; bu satırlar sonuçta hiç sayılmasın.
+
+setup: |
+  mkdir -p weblog
+  cat > weblog/parser.py <<'PARSER'
+  class LogFormatError(ValueError):
+      pass
+
+
+  def parse_line(line):
+      parts = line.rstrip("\n").split(" ")
+      if len(parts) != 3:
+          raise LogFormatError("bad field count")
+      ip, path, status = parts
+      return ip, path, int(status)
+  PARSER
+  cat > weblog/summary.py <<'SUMMARY'
+  from weblog.parser import parse_line, LogFormatError
+
+
+  def count_errors(lines):
+      total = 0
+      for line in lines:
+          try:
+              ip, path, status = parse_line(line)
+              if status >= 400:
+                  total += 1
+          except LogFormatError:
+              total += 1
+          except ValueError:
+              pass
+      return total
+  SUMMARY
+  cat > access.log <<'LOG'
+  10.0.0.1 /index 200
+  10.0.0.2 /admin 403
+  10.0.0.3 /x 500
+  malformed-line
+  10.0.0.4 /y abc
+  10.0.0.5 /z 404
+  LOG
+
+goal_tr: >
+  weblog/summary.py icindeki count_errors fonksiyonunu, bozuk satir sayisini
+  degil yalnizca HTTP durum kodu 400 ve uzeri olan satirlarin sayisini
+  dondurecek bicimde duzelt; sayisal olmayan durum kodu iceren satirlar da
+  hata sayilmasin.
+
+reference_solution: |
+  cat > weblog/summary.py <<'SUMMARY'
+  from weblog.parser import parse_line, LogFormatError
+
+
+  def count_errors(lines):
+      total = 0
+      for line in lines:
+          try:
+              ip, path, status = parse_line(line)
+          except LogFormatError:
+              continue
+          except ValueError:
+              continue
+          if status >= 400:
+              total += 1
+      return total
+  SUMMARY
+
+outputs:
+  - {path: weblog/summary.py, kind: program, run: 'python3 -c ''from weblog.summary import count_errors as f; lines=open("access.log").readlines(); assert f(lines)==3, f(lines); assert f([])==0; assert f(["a /b 200\n"])==0; assert f(["a /b 500\n","bad\n","c /d xyz\n"])==1; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from weblog.summary import count_errors as f; lines=open("access.log").readlines(); assert f(lines)==3, f(lines); assert f([])==0; assert f(["a /b 200\n"])==0; assert f(["a /b 500\n","bad\n","c /d xyz\n"])==1; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5064
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: web-erisim-loglari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kapsam-hatasi
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: cok-dosya-birlestirme
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

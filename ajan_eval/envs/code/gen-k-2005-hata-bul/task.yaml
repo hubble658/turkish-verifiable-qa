@@ -1,0 +1,127 @@
+id: gen-k-2005-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kargo/izleme/kayit.py dosyasındaki total_distance fonksiyonu şu an durakların yalnızca son değerini döndürüyor; bu fonksiyonu tüm durakları toplayacak şekilde düzelt. Ardından kargo/izleme/ozet.py dosyasındaki summary fonksiyonunu, kargo/izleme/fiyat.py içindeki label fonksiyonunu kullanarak "KOD:XXkm:YYkg" biçiminde bir metin döndürecek şekilde düzelt.
+
+setup: |
+  mkdir -p kargo/izleme
+  cat > kargo/__init__.py <<'A'
+  A
+  cat > kargo/izleme/__init__.py <<'A'
+  A
+  cat > kargo/izleme/kayit.py <<'KAYIT'
+  def make_shipment(code, weight, stops):
+      return {"code": code, "weight": weight, "stops": list(stops)}
+
+
+  def total_distance(shipment):
+      total = 0
+      for km in shipment["stops"]:
+          total = km
+      return total
+  KAYIT
+  cat > kargo/izleme/ozet.py <<'OZET'
+  from kargo.izleme.kayit import total_distance
+
+
+  def summary(shipment):
+      return total_distance(shipment)
+  OZET
+  cat > kargo/izleme/fiyat.py <<'FIYAT'
+  def base_price(weight):
+      return round(weight * 2.5, 2)
+
+
+  def label(shipment, dist):
+      return "{}:{}km:{}kg".format(shipment["code"], dist, shipment["weight"])
+  FIYAT
+
+goal_tr: >
+  kargo/izleme/kayit.py icindeki total_distance fonksiyonunun tum duraklari
+  toplamasini sagla, ardindan kargo/izleme/ozet.py icindeki summary
+  fonksiyonunu kargo/izleme/fiyat.py icindeki label fonksiyonunu kullanarak
+  "KOD:XXkm:YYkg" biciminde metin dondurecek sekilde duzelt.
+
+reference_solution: |
+  cat > kargo/izleme/kayit.py <<'KAYIT'
+  def make_shipment(code, weight, stops):
+      return {"code": code, "weight": weight, "stops": list(stops)}
+
+
+  def total_distance(shipment):
+      total = 0
+      for km in shipment["stops"]:
+          total += km
+      return total
+  KAYIT
+  cat > kargo/izleme/ozet.py <<'OZET'
+  from kargo.izleme.kayit import total_distance
+  from kargo.izleme.fiyat import label
+
+
+  def summary(shipment):
+      dist = total_distance(shipment)
+      return label(shipment, dist)
+  OZET
+
+ara_adim: |
+  cat > kargo/izleme/kayit.py <<'KAYIT'
+  def make_shipment(code, weight, stops):
+      return {"code": code, "weight": weight, "stops": list(stops)}
+
+
+  def total_distance(shipment):
+      total = 0
+      for km in shipment["stops"]:
+          total += km
+      return total
+  KAYIT
+
+outputs:
+  - {path: kargo/izleme/kayit.py, kind: program, run: 'python3 -c ''from kargo.izleme.kayit import make_shipment as m, total_distance as d; s=m("TR1",3.0,[10,20,30]); assert d(s)==60, d(s); t=m("TR2",1.0,[5]); assert d(t)==5; u=m("TR3",2.0,[]); assert d(u)==0; print("TAMAM")'''}
+  - {path: kargo/izleme/ozet.py, kind: program, run: 'python3 -c ''from kargo.izleme.kayit import make_shipment as m; from kargo.izleme.ozet import summary as s; sh=m("TR9",4.0,[7,8]); assert s(sh)=="TR9:15km:4.0kg", s(sh); print("OZET-TAMAM")'''}
+  - {path: kargo/izleme/kayit.py, kind: program, run: python3 -c 'from kargo.izleme.kayit import make_shipment as m; from kargo.izleme.fiyat import base_price as b; assert b(4.0)==10.0; assert b(0.0)==0.0; print("REGRESYON-TAMAM")'}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from kargo.izleme.kayit import make_shipment as m, total_distance as d; s=m("TR1",3.0,[10,20,30]); assert d(s)==60, d(s); t=m("TR2",1.0,[5]); assert d(t)==5; u=m("TR3",2.0,[]); assert d(u)==0; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: python3 -c 'from kargo.izleme.kayit import make_shipment as m; from kargo.izleme.fiyat import base_price as b; assert b(4.0)==10.0; assert b(0.0)==0.0; print("REGRESYON-TAMAM")', value: REGRESYON-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from kargo.izleme.kayit import make_shipment as m; from kargo.izleme.ozet import summary as s; sh=m("TR9",4.0,[7,8]); assert s(sh)=="TR9:15km:4.0kg", s(sh); print("OZET-TAMAM")''', value: OZET-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-2005
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kargo-takibi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-toplama-sirasi
+      karmasiklik: orta
+      kalip: duz-fonksiyon
+      akis: bellek-ici
+      topoloji: paket-alt-paket
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

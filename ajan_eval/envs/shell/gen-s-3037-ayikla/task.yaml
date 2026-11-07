@@ -1,0 +1,78 @@
+id: gen-s-3037-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Dün akşam kafede otururken eski defterleri karıştırıyordum, bizim küçük lokantanın sipariş kayıtları iyice karışmış. Yeni sistemdeki siparişler bir yerde, geçen aylardan kalan eski kayıtlar başka bir yerde duruyor; hangi yemekten toplam kaç tane satıldığını bir türlü net göremiyorum. Artık yemek bazında toplu bir özet çıkarmamın zamanı geldi.
+
+  siparisler klasöründeki siparis.log dosyasında geçen her YEMEK değeri için ADET toplamlarını, arşiv klasöründeki eski.log dosyasındaki aynı YEMEK değerleriyle birleştirip yemek başına tek bir toplam olacak şekilde toplam.txt dosyasına "YEMEK TOPLAM" biçiminde sıralı olarak yaz. Ayrıca her YEMEK için, siparisler klasöründe bulunan log dosyalarındaki o yemekle ilgili satırları içeren ayrı bir dosya oluştur; bunlar pizza.txt, corba.txt ve salata.txt olsun.
+
+setup: |
+  mkdir -p siparisler arsiv
+  cat > siparisler/siparis.log <<'LOG'
+  MASA=1 YEMEK=pizza ADET=2
+  MASA=2 YEMEK=corba ADET=1
+  MASA=1 YEMEK=salata ADET=3
+  MASA=3 YEMEK=pizza ADET=1
+  MASA=2 YEMEK=pizza ADET=2
+  MASA=4 YEMEK=corba ADET=4
+  MASA=3 YEMEK=salata ADET=2
+  LOG
+  cat > arsiv/eski.log <<'LOG'
+  MASA=9 YEMEK=pizza ADET=5
+  MASA=8 YEMEK=corba ADET=1
+  LOG
+
+goal_tr: >
+  siparisler klasorundeki siparis.log dosyasinda gecen her YEMEK degeri icin
+  ADET toplamlarini, arsiv klasorundeki eski.log dosyasindaki ayni YEMEK
+  degerleriyle birlestirip yemek basina tek toplam olacak sekilde toplam.txt
+  dosyasina "YEMEK TOPLAM" biciminde sirali yaz ve her YEMEK icin ayrica
+  siparisler klasorunde bulunan log dosyalarindaki o yemekle ilgili
+  satirlari iceren YEMEK.txt adli dosyalari olustur
+
+reference_solution: |
+  find siparisler arsiv -name '*.log' | xargs grep -h 'YEMEK=' > /tmp/hepsi.log
+  awk '{for(i=1;i<=NF;i++){if($i ~ /^YEMEK=/){y=substr($i,7)} if($i ~ /^ADET=/){a=substr($i,6)}}} {t[y]+=a} END{for(k in t) print k, t[k]}' /tmp/hepsi.log | sort > toplam.txt
+  cut -d' ' -f1 toplam.txt | while read y; do grep "YEMEK=$y " /tmp/hepsi.log > "$y.txt"; done
+
+outputs:
+  - {path: toplam.txt, kind: lines}
+  - {path: pizza.txt, kind: file}
+  - {path: corba.txt, kind: file}
+  - {path: salata.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: corba.txt, value: [MASA=2 YEMEK=corba ADET=1, MASA=4 YEMEK=corba ADET=4, MASA=8 YEMEK=corba ADET=1]}
+  - {op: file_lines_eq, path: pizza.txt, value: [MASA=1 YEMEK=pizza ADET=2, MASA=3 YEMEK=pizza ADET=1, MASA=2 YEMEK=pizza ADET=2, MASA=9 YEMEK=pizza ADET=5]}
+  - {op: file_lines_eq, path: salata.txt, value: [MASA=1 YEMEK=salata ADET=3, MASA=3 YEMEK=salata ADET=2]}
+  - {op: file_lines_eq, path: toplam.txt, value: [corba 6, pizza 10, salata 5]}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3037
+    bundle: cok-dosya-ara
+    tools:
+    - xargs
+    - grep
+    konu: restoran-siparisleri
+    hedef: ayikla
+    girdi: log-satiri
+    kaynak: iki-dosya-capraz
+    cikti: birden-cok-dosya
+    kesif: dosyayi-bul
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

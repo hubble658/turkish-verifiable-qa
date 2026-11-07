@@ -1,0 +1,130 @@
+id: gen-k-8135-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) route/paths.py dosyasını aç ve incele; dosyadaki reachable fonksiyonunun, başlangıç düğümünden ulaşılabilen tüm düğümleri (başlangıç düğümü dahil) eksiksiz döndürmediğini doğrula.
+
+  2) route/paths.py içindeki reachable fonksiyonunu, verilen bir başlangıç düğümünden ulaşılabilen tüm düğümleri başlangıç düğümü dahil olacak şekilde eksiksiz döndürecek biçimde düzelt.
+
+  3) Düzeltmenin ardından route/paths.py dosyasının aynı konumda ve aynı adla durduğundan emin ol.
+
+setup: |
+  mkdir -p route
+  cat > route/loader.py <<'LOADER'
+  def load_edges(path):
+      edges = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              src, dst, cost = line.split()
+              edges.append((src, dst, int(cost)))
+      return edges
+  LOADER
+  cat > route/graph.py <<'GRAPH'
+  from route.loader import load_edges
+
+
+  def build_graph(path):
+      graph = {}
+      for src, dst, cost in load_edges(path):
+          graph.setdefault(src, []).append((dst, cost))
+          graph.setdefault(dst, [])
+      return graph
+  GRAPH
+  cat > route/paths.py <<'PATHS'
+  from route.graph import build_graph
+
+
+  def reachable(path, start):
+      graph = build_graph(path)
+      seen = set()
+      stack = [start]
+      while stack:
+          node = stack.pop()
+          if node in seen:
+              continue
+          seen.add(node)
+          for nxt, _cost in graph.get(node, []):
+              if nxt not in seen:
+                  stack.append(nxt)
+          return sorted(seen)
+      return sorted(seen)
+  PATHS
+  cat > network.txt <<'NET'
+  A B 1
+  B C 2
+  A C 5
+  C D 3
+  E F 1
+  NET
+
+goal_tr: >
+  route/paths.py icindeki reachable fonksiyonunu, baslangic dugumunden
+  ulasilabilen tum dugumleri (baslangic dahil) eksiksiz dondurecek bicimde
+  duzelt.
+
+reference_solution: |
+  cat > route/paths.py <<'PATHS'
+  from route.graph import build_graph
+
+
+  def reachable(path, start):
+      graph = build_graph(path)
+      seen = set()
+      stack = [start]
+      while stack:
+          node = stack.pop()
+          if node in seen:
+              continue
+          seen.add(node)
+          for nxt, _cost in graph.get(node, []):
+              if nxt not in seen:
+                  stack.append(nxt)
+      return sorted(seen)
+  PATHS
+
+outputs:
+  - {path: route/paths.py, kind: program, run: 'python3 -c ''from route.paths import reachable as r; assert r("network.txt","A")==["A","B","C","D"], r("network.txt","A"); assert r("network.txt","C")==["C","D"], r("network.txt","C"); assert r("network.txt","E")==["E","F"], r("network.txt","E"); assert r("network.txt","D")==["D"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from route.paths import reachable as r; assert r("network.txt","A")==["A","B","C","D"], r("network.txt","A"); assert r("network.txt","C")==["C","D"], r("network.txt","C"); assert r("network.txt","E")==["E","F"], r("network.txt","E"); assert r("network.txt","D")==["D"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8135
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: yol-tarifi-agi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: erken-donus
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

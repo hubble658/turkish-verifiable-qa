@@ -1,0 +1,125 @@
+id: gen-k-8160-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) lib/catalog.py dosyasındaki Catalog.total_copies metodunu, katalogdaki toplam nüshayı doğru döndürecek biçimde düzelt.
+
+setup: |
+  mkdir -p lib
+  cat > lib/records.py <<'RECORDS'
+  def load_records(path):
+      rows = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              parts = line.split(";")
+              rows.append((parts[0], parts[1], parts[2]))
+      return rows
+  RECORDS
+  cat > lib/catalog.py <<'CATALOG'
+  from lib.records import load_records
+
+
+  class Catalog:
+      def __init__(self, path):
+          self.path = path
+          self._items = load_records(path)
+
+      def titles(self):
+          return [title for _id, title, _copies in self._items]
+
+      def total_copies(self):
+          total = 0
+          for _id, _title, copies in self._items:
+              total += copies
+          return total
+  CATALOG
+  cat > lib/summary.py <<'SUMMARY'
+  from lib.catalog import Catalog
+
+
+  class Summary:
+      def __init__(self, path):
+          self.catalog = Catalog(path)
+
+      def report(self):
+          return {
+              "titles": self.catalog.titles(),
+              "total": self.catalog.total_copies(),
+          }
+  SUMMARY
+  cat > holdings.txt <<'HOLD'
+  b001;Dune;3
+  b002;Neuromancer;2
+  b003;Solaris;4
+  HOLD
+
+goal_tr: >
+  lib/catalog.py icindeki Catalog.total_copies metodunu, katalogdaki toplam
+  nushayı dogru dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > lib/catalog.py <<'CATALOG'
+  from lib.records import load_records
+
+
+  class Catalog:
+      def __init__(self, path):
+          self.path = path
+          self._items = load_records(path)
+
+      def titles(self):
+          return [title for _id, title, _copies in self._items]
+
+      def total_copies(self):
+          total = 0
+          for _id, _title, copies in self._items:
+              total += int(copies)
+          return total
+  CATALOG
+
+outputs:
+  - {path: lib/catalog.py, kind: program, run: 'python3 -c ''from lib.summary import Summary; s=Summary("holdings.txt"); r=s.report(); assert r["titles"]==["Dune","Neuromancer","Solaris"], r; assert r["total"]==9, r; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from lib.summary import Summary; s=Summary("holdings.txt"); r=s.report(); assert r["titles"]==["Dune","Neuromancer","Solaris"], r; assert r["total"]==9, r; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8160
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kutuphane-oduncleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: tip-karismasi
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

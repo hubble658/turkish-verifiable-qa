@@ -1,0 +1,81 @@
+id: gen-s-0579-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+prompt: 'gelen/kargo.csv ile sevk/adres.csv''yi takip_no üzerinden birleştir; sadece iki dosyada da olan kayıtları takip_no
+  ve sevk edilecek adet sütunlarıyla, CRLF satır sonuyla cikti.csv''ye yaz. sevk/iptal.csv''dekileri dahil etme.
+
+
+  İlk satır takip_no,adet başlığı olsun.
+
+  '
+setup: 'mkdir -p gelen sevk
+
+  printf ''takip_no,adet\r\nK001,12\r\nK002,5\r\nK003,7\r\nK004,9\r\nK005,3\r\n'' > gelen/kargo.csv
+
+  printf ''K001,Istanbul\r\nK002,Ankara\r\nK003,Izmir\r\nK005,Bursa\r\n'' > sevk/adres.csv
+
+  printf ''K999,99\r\nK000,1\r\n'' > sevk/iptal.csv
+
+  '
+goal_tr: 'gelen/kargo.csv ile sevk/adres.csv dosyalarini takip_no uzerinden birlestirip yalnizca her iki dosyada da bulunan
+  kayitlari, takip_no ve sevk edilecek adet sutunlariyla, CRLF satir sonu kullanarak cikti.csv dosyasina yaz; sevk/iptal.csv
+  dosyasindaki kayitlari dahil etme.
+
+  '
+reference_solution: 'python3 - <<''PY''
+
+  import csv
+
+  k = list(csv.DictReader(open("gelen/kargo.csv", newline="")))
+
+  a = {r[0] for r in csv.reader(open("sevk/adres.csv", newline=""))}
+
+  s = "takip_no,adet\r\n" + "".join(f"{r[''takip_no'']},{r[''adet'']}\r\n" for r in k if r["takip_no"] in a)
+
+  open("cikti.csv", "w", newline="").write(s)
+
+  PY
+
+  '
+outputs: []
+checks:
+- op: file_lines_eq
+  path: cikti.csv
+  value:
+  - takip_no,adet
+  - K001,12
+  - K002,5
+  - K003,7
+  - K005,3
+- op: run_stdout_eq
+  cmd: python3 -c 'print(open("cikti.csv","rb").read().count(bytes([13,10])))'
+  value: '5'
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-0579
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: kargo-takibi
+    hedef: donustur
+    girdi: csv
+    kaynak: iki-dosya-capraz
+    cikti: csv
+    kesif: veriye-bak
+    uslup: terse
+    direnc: crlf
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}
+  duzeltme:
+    neden: altin_yanlis
+    not: Referans adet sütununu boş bırakıyordu ('K001,').

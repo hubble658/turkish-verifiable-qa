@@ -1,0 +1,64 @@
+id: gen-s-4031-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) randevular.txt dosyasındaki her satırı ters çevir.
+  2) Ters çevrilen her satırın ilk iki karakterini kes ve bu iki karakteri hasta kimliği olarak al.
+  3) Elde ettiğin hasta kimliklerini, her satırda bir kimlik olacak şekilde ters sırada cikti/kimlik.txt dosyasına yaz; cikti dizini yoksa oluştur.
+
+setup: |
+  cat > randevular.txt <<'TXT'
+  101 Ali Kardiyoloji 2024-03-01
+  102 Ayse Noroloji 2024-03-02
+  103 Mehmet Ortopedi 2024-03-03
+  104 Zeynep Kardiyoloji 2024-03-04
+  105 Can Noroloji 2024-03-05
+  106 Elif Ortopedi 2024-03-06
+  TXT
+
+goal_tr: >
+  randevular.txt dosyasindaki her satiri ters cevirip ilk iki karakteri
+  (tersten hasta kimligi) kesip cikti/ dizininde kimlik.txt dosyasina yaz,
+  boylece her hasta kimligi bir satir olarak ters sirada yer alsin
+
+reference_solution: |
+  mkdir -p cikti
+  rev randevular.txt | cut -c1-3 | rev > cikti/kimlik.txt
+
+outputs:
+  - {path: cikti/kimlik.txt, kind: file}
+  - {path: cikti, kind: dir}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [kimlik.txt]}
+  - {op: file_lines_eq, path: cikti/kimlik.txt, value: ['-01', '-02', '-03', '-04', '-05', '-06']}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4031
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: hastane-randevulari
+    hedef: donustur
+    girdi: duz-metin
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: bom
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,160 @@
+id: gen-k-8119-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  exam/results.py içindeki ResultStack sınıfını; push, pop, peek, __len__ ve last_of ile birlikte, yığın boşken EmptyResults hatası fırlatacak şekilde gerçekleştir. Ayrıca exam/gradebook.py içindeki latest_score ve rank_latest fonksiyonlarını, bir öğrenci hiç eklenmemişse MissingStudent hatası fırlatacak ve en son eklenen sonuçları doğru döndürecek biçimde gerçekleştir.
+
+setup: |
+  mkdir -p exam
+  cat > exam/results.py <<'RESULTS'
+  class ResultError(Exception):
+      pass
+
+
+  class EmptyResults(ResultError):
+      pass
+
+
+  class MissingStudent(ResultError):
+      pass
+
+
+  class ResultStack:
+      def __init__(self):
+          raise NotImplementedError
+
+      def push(self, student, score):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+
+      def last_of(self, student):
+          raise NotImplementedError
+  RESULTS
+  cat > exam/gradebook.py <<'GRADEBOOK'
+  from exam.results import ResultStack, EmptyResults, MissingStudent
+
+
+  def latest_score(stack, student):
+      raise NotImplementedError
+
+
+  def rank_latest(stack, students):
+      raise NotImplementedError
+  GRADEBOOK
+
+goal_tr: >
+  exam/results.py icindeki ResultStack sinifini
+  push/pop/peek/__len__/last_of ile ve exam/gradebook.py icindeki
+  latest_score ve rank_latest fonksiyonlarini, yigin bosken EmptyResults,
+  ogrenci hic eklenmemisse MissingStudent firlatacak ve en son eklenen
+  sonuclari dogru dondurecek sekilde gerceklestir.
+
+reference_solution: |
+  cat > exam/results.py <<'RESULTS'
+  class ResultError(Exception):
+      pass
+
+
+  class EmptyResults(ResultError):
+      pass
+
+
+  class MissingStudent(ResultError):
+      pass
+
+
+  class ResultStack:
+      def __init__(self):
+          self._items = []
+          self._seen = set()
+
+      def push(self, student, score):
+          self._items.append((student, score))
+          self._seen.add(student)
+
+      def pop(self):
+          if not self._items:
+              raise EmptyResults("stack is empty")
+          return self._items.pop()
+
+      def peek(self):
+          if not self._items:
+              raise EmptyResults("stack is empty")
+          return self._items[-1]
+
+      def __len__(self):
+          return len(self._items)
+
+      def last_of(self, student):
+          if student not in self._seen:
+              raise MissingStudent(student)
+          for name, score in reversed(self._items):
+              if name == student:
+                  return score
+          raise MissingStudent(student)
+  RESULTS
+  cat > exam/gradebook.py <<'GRADEBOOK'
+  from exam.results import ResultStack, EmptyResults, MissingStudent
+
+
+  def latest_score(stack, student):
+      return stack.last_of(student)
+
+
+  def rank_latest(stack, students):
+      scored = [(s, stack.last_of(s)) for s in students]
+      scored.sort(key=lambda pair: pair[1], reverse=True)
+      return [name for name, _ in scored]
+  GRADEBOOK
+
+outputs:
+  - {path: exam/results.py, kind: program, run: 'python3 -c ''from exam.results import ResultStack, EmptyResults, MissingStudent; from exam.gradebook import latest_score, rank_latest; s=ResultStack(); assert len(s)==0; s.push("ada",90); s.push("bora",75); s.push("can",88); assert len(s)==3; assert s.peek()==("can",88); assert latest_score(s,"ada")==90; assert rank_latest(s,["ada","bora","can"])==["ada","can","bora"]; s.push("ada",95); assert latest_score(s,"ada")==95; assert s.pop()==("ada",95); assert len(s)==3; assert s.pop()==("can",88); assert s.pop()==("bora",75); assert s.pop()==("ada",90); assert len(s)==0; ok1=False; exec("try:\n    s.pop()\nexcept EmptyResults:\n    ok1=True"); assert ok1; ok2=False; exec("try:\n    s.peek()\nexcept EmptyResults:\n    ok2=True"); assert ok2; ok3=False; exec("try:\n    latest_score(s,\"zeynep\")\nexcept MissingStudent:\n    ok3=True"); assert ok3; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from exam.results import ResultStack, EmptyResults, MissingStudent; from exam.gradebook import latest_score, rank_latest; s=ResultStack(); assert len(s)==0; s.push("ada",90); s.push("bora",75); s.push("can",88); assert len(s)==3; assert s.peek()==("can",88); assert latest_score(s,"ada")==90; assert rank_latest(s,["ada","bora","can"])==["ada","can","bora"]; s.push("ada",95); assert latest_score(s,"ada")==95; assert s.pop()==("ada",95); assert len(s)==3; assert s.pop()==("can",88); assert s.pop()==("bora",75); assert s.pop()==("ada",90); assert len(s)==0; ok1=False; exec("try:\n    s.pop()\nexcept EmptyResults:\n    ok1=True"); assert ok1; ok2=False; exec("try:\n    s.peek()\nexcept EmptyResults:\n    ok2=True"); assert ok2; ok3=False; exec("try:\n    latest_score(s,\"zeynep\")\nexcept MissingStudent:\n    ok3=True"); assert ok3; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8119
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: sinav-sonuclari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: bellek-ici
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

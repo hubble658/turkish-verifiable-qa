@@ -1,0 +1,65 @@
+id: gen-s-7050-toplu-yeniden-adlandir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) yorumlar/urunler.txt dosyasındaki her ürün kimliğini oku.
+  2) Her ürün kimliği için, yorumlar/yorumlar.txt dosyasında o kimlikle başlayan yorum satırlarını bul.
+  3) Bulunan her yorumu, ilgili ürünün adıyla birlikte "urun_adi: yorum_metni" biçiminde yaz.
+  4) Tüm satırları ürün kimliğine göre sıralı olarak sonuc.txt dosyasına kaydet.
+  5) sonuc.txt dosyasının sonunda newline olmasın.
+
+setup: |
+  mkdir -p yorumlar
+  cat > yorumlar/urunler.txt <<'TXT'
+  p101|Kirmizi Kulaklik
+  p102|Mavi Klavye
+  p103|Yesil Mouse
+  p104|Siyah Monitor
+  TXT
+  printf 'p101: harika urun, cok memnunum\np102: tuslar cok sesli\np103: fiyatina gore iyi\np104: ekran parlakligi dusuk\np101: tekrar alirim\np102: kablosu kisa\np103: renk soluk\np104: kurulumu kolay\np101: kargo hizli\np102: isiklar guzel\np103: kaymaz taban\np104: kenarlar ince' > yorumlar/yorumlar.txt
+
+goal_tr: >
+  yorumlar/urunler.txt icindeki her urun kimligi icin, yorumlar/yorumlar.txt
+  dosyasinda o kimlikle baslayan yorum satirlarini, urun adiyla birlikte
+  "urun_adi: yorum_metni" biciminde urun kimligine gore sirali olarak
+  sonuc.txt dosyasina yaz; dosya sonunda newline olmasin.
+
+reference_solution: |
+  find yorumlar -name 'yorumlar.txt' -print0 | xargs -0 awk -F'[:|]' 'NR==FNR{a[$1]=$2;next}{print a[$1] ": " substr($0,index($0,":")+2)}' yorumlar/urunler.txt | sort -t: -k1,1 > sonuc.txt
+  truncate -s -1 sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: sonuc.txt, value: ['Kirmizi Kulaklik: harika urun, cok memnunum', 'Kirmizi Kulaklik: kargo hizli', 'Kirmizi Kulaklik: tekrar alirim', 'Mavi Klavye: isiklar guzel', 'Mavi Klavye: kablosu kisa', 'Mavi Klavye: tuslar cok sesli', 'Siyah Monitor: ekran parlakligi dusuk', 'Siyah Monitor: kenarlar ince', 'Siyah Monitor: kurulumu kolay', 'Yesil Mouse: fiyatina gore iyi', 'Yesil Mouse: kaymaz taban', 'Yesil Mouse: renk soluk']}
+
+metadata:
+  domain: toplu-yeniden-adlandir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7050
+    bundle: bul-tasi
+    tools:
+    - find
+    - xargs
+    konu: urun-yorumlari
+    hedef: toplu-yeniden-adlandir
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: son-newline-yok
+    bukulme: olcek
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,80 @@
+id: gen-s-3198-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) restoran dizin ağacındaki siparisler.ini dosyalarını bul.
+  2) Bu dosyalardaki yemek değerlerini topla ve her yemekten kaçar adet olduğunu hesapla.
+  3) Sonucu büyükten küçüğe sıralı, geçerli bir JSON nesnesi olarak ozet.json dosyasına yaz.
+
+setup: |
+  mkdir -p restoran/sube_a restoran/sube_b restoran/sube_c
+  cat > restoran/sube_a/siparisler.ini <<'INI'
+  [masa_1]
+  yemek=pizza
+  adet=2
+  [masa_2]
+  yemek=salata
+  adet=1
+  [masa_3]
+  yemek=pizza
+  adet=1
+  INI
+  cat > restoran/sube_b/siparisler.ini <<'INI'
+  [masa_1]
+  yemek=corba
+  adet=3
+  [masa_2]
+  yemek=pizza
+  adet=2
+  INI
+  cat > restoran/sube_c/menu.ini <<'INI'
+  [menu]
+  yemek=pizza
+  adet=9
+  INI
+
+goal_tr: >
+  restoran dizin agacindaki siparisler.ini dosyalarindaki yemek degerlerini
+  toplayip her yemekten kacar adet oldugunu buyukten kucuge sirali olarak
+  ozet.json dosyasina gecerli JSON nesnesi olarak yaz
+
+reference_solution: |
+  find restoran -name 'siparisler.ini' -exec grep '^yemek=' {} + | cut -d= -f2 | sort | uniq -c | sort -rn > gecici.txt
+  awk '{printf "%s\"%s\": %s", (NR==1?"{":", "), $2, $1} END{print "}"}' gecici.txt > ozet.json
+  rm -f gecici.txt
+
+outputs:
+  - {path: ozet.json, kind: json}
+
+checks:
+  - {op: json_eq, path: ozet.json, value: {pizza: 3, salata: 1, corba: 1}}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3198
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: restoran-siparisleri
+    hedef: ozetle
+    girdi: ini
+    kaynak: dizin-agaci
+    cikti: json
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,146 @@
+id: gen-k-8425-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) billing/catalog.py dosyasını aç ve PlanCatalog sınıfının annual metodunu, with_tier dekoratörünün davranışını bozmadan, plans.txt dosyasındaki yıllık fiyatı (tier, tutar) çifti olarak doğru döndürecek şekilde düzelt.
+
+  2) PlanCatalog sınıfının diğer metotlarının (names ve monthly) ve with_tier dekoratörünün çalışmasını değiştirme.
+
+setup: |
+  mkdir -p billing/plans
+  cat > billing/plans/loader.py <<'LOADER'
+  def parse_plan_lines(lines):
+      plans = {}
+      for line in lines:
+          line = line.strip()
+          if not line or line.startswith("#"):
+              continue
+          name, tier, monthly, annual = line.split(";")
+          plans[name] = {
+              "tier": tier,
+              "monthly": float(monthly),
+              "annual": float(annual),
+          }
+      return plans
+
+
+  def load_plans(path):
+      with open(path) as fh:
+          return parse_plan_lines(fh)
+  LOADER
+  cat > billing/plans/__init__.py <<'INIT'
+  INIT
+  cat > billing/__init__.py <<'INIT'
+  INIT
+  cat > billing/catalog.py <<'CATALOG'
+  from billing.plans.loader import load_plans
+
+
+  def with_tier(field):
+      def wrap(fn):
+          def inner(self, name):
+              value = fn(self, name)
+              return (self._plans[name]["tier"], value)
+          return inner
+      return wrap
+
+
+  class PlanCatalog:
+      def __init__(self, path):
+          self._plans = load_plans(path)
+
+      def names(self):
+          return sorted(self._plans)
+
+      @with_tier("monthly")
+      def monthly(self, name):
+          return self._plans[name]["monthly"]
+
+      @with_tier("annual")
+      def annual(self, name):
+          return self._plans[name]["yearly"]
+  CATALOG
+  cat > plans.txt <<'PLANS'
+  basic;bronze;9.99;99.90
+  pro;silver;29.99;299.90
+  enterprise;gold;99.99;999.90
+  PLANS
+
+goal_tr: >
+  billing/catalog.py icindeki PlanCatalog.annual metodunu, with_tier
+  dekoratorunun davranisini ve diger metotlarini bozmadan, plans.txt'teki
+  yillik fiyati (tier, tutar) cifti olarak dogru dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > billing/catalog.py <<'CATALOG'
+  from billing.plans.loader import load_plans
+
+
+  def with_tier(field):
+      def wrap(fn):
+          def inner(self, name):
+              value = fn(self, name)
+              return (self._plans[name]["tier"], value)
+          return inner
+      return wrap
+
+
+  class PlanCatalog:
+      def __init__(self, path):
+          self._plans = load_plans(path)
+
+      def names(self):
+          return sorted(self._plans)
+
+      @with_tier("monthly")
+      def monthly(self, name):
+          return self._plans[name]["monthly"]
+
+      @with_tier("annual")
+      def annual(self, name):
+          return self._plans[name]["annual"]
+  CATALOG
+
+outputs:
+  - {path: billing/catalog.py, kind: program, run: 'python3 -c ''from billing.catalog import PlanCatalog as C; c=C("plans.txt"); assert c.names()==["basic","enterprise","pro"]; assert c.monthly("pro")==("silver",29.99); assert c.annual("basic")==("bronze",99.90); assert c.annual("pro")==("silver",299.90); assert c.annual("enterprise")==("gold",999.90); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from billing.catalog import PlanCatalog as C; c=C("plans.txt"); assert c.names()==["basic","enterprise","pro"]; assert c.monthly("pro")==("silver",29.99); assert c.annual("basic")==("bronze",99.90); assert c.annual("pro")==("silver",299.90); assert c.annual("enterprise")==("gold",999.90); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8425
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: abonelik-planlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sozluk-anahtar-hatasi
+      karmasiklik: duz
+      kalip: dekorator
+      akis: parcali-akis
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

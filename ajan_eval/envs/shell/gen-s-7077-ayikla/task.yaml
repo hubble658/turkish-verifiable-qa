@@ -1,0 +1,78 @@
+id: gen-s-7077-ayikla
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) sevkiyat/2024/kayitlar.txt dosyasını oku; her satırda TR ile başlayan 16 haneli takip numarasını ve o satırdaki şehir bilgisini çıkar.
+
+  2) Çıkardığın her takip numarası için sevkiyat/2024 dizininde ayrı bir dosya oluştur; dosya adı takip numarası olsun.
+
+  3) Her dosyanın içeriğine yalnızca o takip numarasına karşılık gelen şehri yaz; böylece sevkiyat/2024 dizininde TR12345678901234, TR98765432109876, TR11112222333344, TR55556666777788 ve TR99990000111122 adlı dosyalar oluşsun.
+
+setup: |
+  mkdir -p sevkiyat/2024
+  cat > sevkiyat/2024/kayitlar.txt <<'KAYIT'
+  K001TR12345678901234Ankara
+  K002TR98765432109876Izmir
+  K003TR11112222333344Bursa
+  K004TR55556666777788Adana
+  K005TR99990000111122Konya
+  KAYIT
+
+goal_tr: >
+  sevkiyat/2024 dizinindeki kayitlar.txt dosyasindaki her satirdan takip
+  numarasini (TR ile baslayan 16 haneli alan) ve sehri cikarip, takip
+  numarasini dosya adi sehri dosya icerigi olacak sekilde sevkiyat/2024
+  dizinine ayri dosyalar olarak yaz.
+
+reference_solution: |
+  cut -c5-20 sevkiyat/2024/kayitlar.txt > /tmp/takip.txt
+  cut -c21- sevkiyat/2024/kayitlar.txt > /tmp/sehir.txt
+  paste -d' ' /tmp/takip.txt /tmp/sehir.txt > /tmp/eslesme.txt
+  while read -r takip sehir; do
+    printf '%s\n' "$sehir" > "sevkiyat/2024/$takip"
+  done < /tmp/eslesme.txt
+  rm -f /tmp/takip.txt /tmp/sehir.txt /tmp/eslesme.txt
+
+outputs:
+  - {path: sevkiyat/2024/TR12345678901234, kind: file}
+  - {path: sevkiyat/2024/TR98765432109876, kind: file}
+  - {path: sevkiyat/2024/TR11112222333344, kind: file}
+  - {path: sevkiyat/2024/TR55556666777788, kind: file}
+  - {path: sevkiyat/2024/TR99990000111122, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sevkiyat/2024/TR11112222333344, value: Bursa}
+  - {op: file_content_eq, path: sevkiyat/2024/TR12345678901234, value: Ankara}
+  - {op: file_content_eq, path: sevkiyat/2024/TR55556666777788, value: Adana}
+  - {op: file_content_eq, path: sevkiyat/2024/TR98765432109876, value: Izmir}
+  - {op: file_content_eq, path: sevkiyat/2024/TR99990000111122, value: Konya}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7077
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: kargo-takibi
+    hedef: ayikla
+    girdi: sabit-genislik
+    kaynak: dizin-agaci
+    cikti: yeniden-adlandirilmis
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

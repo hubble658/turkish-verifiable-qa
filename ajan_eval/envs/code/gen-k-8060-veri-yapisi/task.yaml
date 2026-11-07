@@ -1,0 +1,131 @@
+id: gen-k-8060-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  clinic/registry.py dosyasındaki AppointmentTrie sınıfını tamamla. add metodu verilen ismi trie'ye eklemeli, count metodu verilen önekle başlayan kayıt sayısını döndürmeli ve sınıf bir context manager olarak çalışmalı; yani __enter__ ve __exit__ metotları tanımlı olmalı. Bu sayede clinic/summary.py içindeki summarize fonksiyonu doğru sayıyı döndürebilsin.
+
+setup: |
+  mkdir -p clinic
+  cat > clinic/registry.py <<'REGISTRY'
+  class TrieNode:
+      def __init__(self):
+          self.children = {}
+          self.visits = 0
+
+
+  class AppointmentTrie:
+      def __init__(self):
+          self.root = TrieNode()
+
+      def add(self, name):
+          raise NotImplementedError
+
+      def count(self, prefix):
+          raise NotImplementedError
+
+      def __enter__(self):
+          raise NotImplementedError
+
+      def __exit__(self, exc_type, exc, tb):
+          raise NotImplementedError
+  REGISTRY
+  cat > clinic/summary.py <<'SUMMARY'
+  from clinic.registry import AppointmentTrie
+
+
+  def summarize(entries, prefix):
+      with AppointmentTrie() as trie:
+          for name in entries:
+              trie.add(name)
+          return trie.count(prefix)
+  SUMMARY
+
+goal_tr: >
+  clinic/registry.py icindeki AppointmentTrie sinifini, isimleri trie'ye
+  ekleyen add, verilen onekle baslayan kayit sayisini donduren count ve
+  trie'yi temizleyen bir context manager (__enter__/__exit__) ile tamamla;
+  boylece clinic/summary.py icindeki summarize dogru sayi dondursun.
+
+reference_solution: |
+  cat > clinic/registry.py <<'REGISTRY'
+  class TrieNode:
+      def __init__(self):
+          self.children = {}
+          self.visits = 0
+
+
+  class AppointmentTrie:
+      def __init__(self):
+          self.root = TrieNode()
+
+      def add(self, name):
+          node = self.root
+          for ch in name:
+              node = node.children.setdefault(ch, TrieNode())
+          node.visits += 1
+
+      def count(self, prefix):
+          node = self.root
+          for ch in prefix:
+              if ch not in node.children:
+                  return 0
+              node = node.children[ch]
+          return self._total(node)
+
+      def _total(self, node):
+          total = node.visits
+          for child in node.children.values():
+              total += self._total(child)
+          return total
+
+      def __enter__(self):
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self.root = TrieNode()
+          return False
+  REGISTRY
+
+outputs:
+  - {path: clinic/registry.py, kind: program, run: 'python3 -c ''from clinic.summary import summarize as s; e=["ali","ayse","ahmet","mehmet","merve","ali"]; assert s(e,"a")==4, s(e,"a"); assert s(e,"al")==2, s(e,"al"); assert s(e,"m")==2, s(e,"m"); assert s(e,"z")==0; assert s(e,"")==6; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from clinic.summary import summarize as s; e=["ali","ayse","ahmet","mehmet","merve","ali"]; assert s(e,"a")==4, s(e,"a"); assert s(e,"al")==2, s(e,"al"); assert s(e,"m")==2, s(e,"m"); assert s(e,"z")==0; assert s(e,"")==6; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8060
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: hastane-randevulari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: trie
+      karmasiklik: duz
+      kalip: context-manager
+      akis: ic-ice-yapi
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,73 @@
+id: gen-s-3083-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  siparisler dizini ağacındaki tüm csv dosyalarından ürün sütunundaki her ürünün toplam adetini hesapla ve sonucu urunler.txt dosyasına yaz. urunler.txt içinde her satırda bir ürün olsun; her satır "urun<TAB>adet" biçiminde olsun ve ürün adına göre artan sırada sıralansın. Sıralama büyük/küçük harf duyarlı olsun.
+
+  Şu şartlar sağlanmalı:
+  - Çalışma dizini /workspace altındaki siparisler dizini ağacında bulunan tüm csv dosyaları (siparisler/2024/ocak/a.csv, siparisler/2024/ocak/b.csv, siparisler/2024/subat/c.csv, siparisler/2024/subat/d.csv, siparisler/2024/mart/e.csv) taranmalı.
+  - Her csv dosyasındaki urun ve adet sütunları kullanılmalı; aynı ürünün tüm dosyalardaki adetleri toplanmalı.
+  - Sonuç yalnızca urunler.txt dosyasına yazılmalı.
+  - urunler.txt içindeki her satır "urun<TAB>adet" biçiminde olmalı; ürün ile adet arasında sekme karakteri bulunmalı.
+  - Her satırda yalnızca bir ürün ve onun toplam adedi yer almalı.
+  - Satırlar ürün adına göre artan sırada sıralanmalı ve sıralama büyük/küçük harf duyarlı olmalı.
+  - Adet değerleri yalnızca sayı olmalı, başka karakter içermemeli.
+
+setup: |
+  mkdir -p siparisler/2024/ocak siparisler/2024/subat siparisler/2024/mart
+
+  printf '\xef\xbb\xbfmasa,urun,adet\n1,corba,2\n2,pizza,1\n1,salata,3\n' > siparisler/2024/ocak/a.csv
+  printf '\xef\xbb\xbfmasa,urun,adet\n3,corba,1\n3,pizza,2\n4,salata,1\n' > siparisler/2024/ocak/b.csv
+  printf '\xef\xbb\xbfmasa,urun,adet\n5,pizza,3\n5,kola,2\n6,corba,1\n' > siparisler/2024/subat/c.csv
+  printf '\xef\xbb\xbfmasa,urun,adet\n7,salata,2\n7,kola,1\n8,pizza,1\n' > siparisler/2024/subat/d.csv
+  printf '\xef\xbb\xbfmasa,urun,adet\n9,corba,3\n9,salata,1\n10,kola,2\n' > siparisler/2024/mart/e.csv
+
+goal_tr: >
+  siparisler dizini agacindaki tum csv dosyalarindan urun sutunundaki her
+  urunun toplam adetini hesaplayip urun ve toplam adedi "urun<TAB>adet"
+  biciminde buyuk/kucuk harf duyarli olarak urun adina gore artan sirada
+  urunler.txt dosyasina yaz
+
+reference_solution: |
+  find siparisler -type f -name '*.csv' -print0 | xargs -0 sed '1d; s/^\xef\xbb\xbf//' | cut -d, -f2,3 > /tmp/satirlar.txt
+  sed 's/,/\t/' /tmp/satirlar.txt | sort > /tmp/sirali.txt
+  awk -F'\t' '{toplam[$1]+=$2} END {for (u in toplam) printf "%s\t%d\n", u, toplam[u]}' /tmp/sirali.txt | sort > /tmp/urunler_ham.txt
+  uniq -w0 /tmp/urunler_ham.txt > /dev/null
+  cut -f1 /tmp/urunler_ham.txt | uniq > /tmp/urunler.txt
+  join -t"$(printf '\t')" /tmp/urunler.txt /tmp/urunler_ham.txt > urunler.txt
+
+outputs:
+  - {path: urunler.txt, kind: lines, run: cat urunler.txt}
+
+checks:
+  - {op: file_lines_eq, path: urunler.txt, value: ["corba\t7", "kola\t5", "pizza\t7", "salata\t7", "urun\t0"]}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3083
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: restoran-siparisleri
+    hedef: denetle
+    girdi: csv
+    kaynak: dizin-agaci
+    cikti: satir-listesi
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: bom
+    bukulme: olcek
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

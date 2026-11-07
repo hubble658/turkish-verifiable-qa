@@ -1,0 +1,124 @@
+id: gen-k-8168-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  callcenter/queue.py dosyasındaki order_by_priority fonksiyonu şu an sadece öncelik değerine göre büyükten küçüğe sıralama yapıyor; eşit öncelikli çağrılar arasında bir sıra garantisi yok. Bu fonksiyonu, öncelik değeri büyük olan çağrı önce gelecek ve aynı öncelik değerine sahip çağrılarda başlangıç zamanı küçük olan önce gelecek şekilde kararlı bir sıralama yapacak biçimde düzelt. Sıralama kararlı olmalı; yani eşit öncelik ve eşit başlangıç zamanına sahip kayıtlar girdideki göreli sıralarını korumalı. queue.py içindeki load_calls fonksiyonu ve core modülleri olduğu gibi kalmalı, yalnızca order_by_priority fonksiyonunun davranışı değişmeli.
+
+setup: |
+  mkdir -p callcenter/core
+  cat > callcenter/core/errors.py <<'ERR'
+  class CallCenterError(Exception):
+      pass
+
+
+  class BadRecordError(CallCenterError):
+      pass
+  ERR
+  cat > callcenter/core/parser.py <<'PAR'
+  from callcenter.core.errors import BadRecordError
+
+
+  def parse_line(line):
+      parts = line.split('|')
+      if len(parts) != 4:
+          raise BadRecordError('expected 4 fields')
+      agent, start, duration, priority = parts
+      try:
+          return (agent, int(start), int(duration), int(priority))
+      except ValueError:
+          raise BadRecordError('bad number')
+  PAR
+  cat > callcenter/queue.py <<'QUE'
+  from callcenter.core.parser import parse_line
+
+
+  def load_calls(path):
+      calls = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if line:
+                  calls.append(parse_line(line))
+      return calls
+
+
+  def order_by_priority(calls):
+      ordered = sorted(calls, key=lambda c: c[3], reverse=True)
+      return ordered
+  QUE
+  cat > calls.txt <<'TXT'
+  ayse|100|30|2
+  bora|200|10|5
+  cem|150|20|2
+  deniz|300|15|5
+  TXT
+
+goal_tr: >
+  callcenter/queue.py icindeki order_by_priority fonksiyonunu, oncelik
+  degeri buyuk olan once gelecek ve esit oncelikli cagrilarda baslangic
+  zamani kucuk olan once gelecek bicimde kararli bir siralama yapacak
+  sekilde duzelt.
+
+reference_solution: |
+  cat > callcenter/queue.py <<'QUE'
+  from callcenter.core.parser import parse_line
+
+
+  def load_calls(path):
+      calls = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if line:
+                  calls.append(parse_line(line))
+      return calls
+
+
+  def order_by_priority(calls):
+      ordered = sorted(calls, key=lambda c: (-c[3], c[1]))
+      return ordered
+  QUE
+
+outputs:
+  - {path: callcenter/queue.py, kind: program, run: 'python3 -c ''from callcenter.queue import load_calls, order_by_priority; c=load_calls("calls.txt"); r=order_by_priority(c); names=[x[0] for x in r]; assert names==["bora","deniz","ayse","cem"], names; assert [(x[3],x[1]) for x in r]==[(5,200),(5,300),(2,100),(2,150)]; c2=[("z",9,1,1),("y",3,1,1),("x",7,1,1)]; r2=order_by_priority(c2); assert [t[0] for t in r2]==["y","x","z"], [t[0] for t in r2]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from callcenter.queue import load_calls, order_by_priority; c=load_calls("calls.txt"); r=order_by_priority(c); names=[x[0] for x in r]; assert names==["bora","deniz","ayse","cem"], names; assert [(x[3],x[1]) for x in r]==[(5,200),(5,300),(2,100),(2,150)]; c2=[("z",9,1,1),("y",3,1,1),("x",7,1,1)]; r2=order_by_priority(c2); assert [t[0] for t in r2]==["y","x","z"], [t[0] for t in r2]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8168
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: cagri-merkezi-kayitlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-kararsizligi
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: dosya-okuma
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

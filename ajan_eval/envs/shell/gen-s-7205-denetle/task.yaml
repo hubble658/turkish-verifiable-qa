@@ -1,0 +1,53 @@
+id: gen-s-7205-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sensor.log dosyasındaki CRLF satır sonlarını temizleyip geçerli sayısal sıcaklık ölçümü içeren satır sayısını sonuc.txt dosyasına sadece sayı olarak yaz.
+
+setup: |
+  printf 'zaman,sicaklik\n2024-01-01T00:00,21\r\n2024-01-01T01:00,22\r\n2024-01-01T02:00,ERR\r\n2024-01-01T03:00,24\r\n2024-01-01T04:00,25\r\n2024-01-01T05:00,HATA\r\n2024-01-01T06:00,27\r\n' > sensor.log
+
+goal_tr: >
+  sensor.log dosyasindaki CRLF satir sonlarini temizleyip gecerli sayisal
+  sicaklik olcumu iceren satir sayisini sonuc.txt'ye sadece sayi olarak yaz
+
+reference_solution: |
+  tr -d '\r' < sensor.log > sensor_clean.log
+  grep -c '^[0-9-]*T[0-9:]*,[0-9][0-9]*$' sensor_clean.log > sonuc.txt
+  wc -l < sonuc.txt > /dev/null
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '5'}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7205
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: sensor-olcumleri
+    hedef: denetle
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: crlf
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

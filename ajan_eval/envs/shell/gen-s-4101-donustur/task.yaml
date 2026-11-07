@@ -1,0 +1,85 @@
+id: gen-s-4101-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi/personel.txt ve girdi/vardiya.txt dosyalarını ilk 4 karakterdeki personel numarasına göre birleştir; her personel için numara;ad;birim;vardiya biçiminde tek satır üretip cikti/0001.txt, cikti/0002.txt, cikti/0003.txt, cikti/0004.txt ve cikti/0005.txt dosyalarına yaz. girdi/notlar.txt dosyasını işleme katma.
+
+setup: |
+  mkdir -p girdi cikti
+  cat > girdi/personel.txt <<'TXT'
+  0001Ali Yilmaz       URETIM
+  0002Ayse Kaya        SATIS 
+  0003Mehmet Demir     URETIM
+  0004Zeynep Arslan    MUHASEBE
+  0005Can Ozturk       SATIS 
+  TXT
+  cat > girdi/vardiya.txt <<'TXT'
+  0001GECE 
+  0002GUNDUZ
+  0003GECE 
+  0004GUNDUZ
+  0005GECE 
+  TXT
+  cat > girdi/notlar.txt <<'TXT'
+  Bu dosya sadece tuzak, islenmemeli.
+  0006Hayali Kisi     URETIM
+  TXT
+
+goal_tr: >
+  girdi/personel.txt ve girdi/vardiya.txt dosyalarini ilk 4 karakterdeki
+  personel numarasina gore birlestirip, her personel icin
+  "numara;ad;birim;vardiya" biciminde tek satir ureterek cikti/ altinda
+  personel numarasina gore adlandirilmis birer .txt dosyaya yaz;
+  girdi/notlar.txt dosyasini isleme katma.
+
+reference_solution: |
+  sed -n 's/^\(....\)\(.\{16\}\)\(.*\)$/\1;\2;\3/p' girdi/personel.txt | sed 's/ *;/;/g; s/; */;/g' > /tmp/p.txt
+  sed -n 's/^\(....\)\(.*\)$/\1;\2/p' girdi/vardiya.txt | sed 's/ *$//' > /tmp/v.txt
+  join -t';' /tmp/p.txt /tmp/v.txt | tr -d ' ' > /tmp/birlesik.txt
+  while IFS=';' read -r no ad birim vardiya; do printf '%s;%s;%s;%s\n' "$no" "$ad" "$birim" "$vardiya" > "cikti/$no.txt"; done < /tmp/birlesik.txt
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/0001.txt, kind: file}
+  - {path: cikti/0002.txt, kind: file}
+  - {path: cikti/0003.txt, kind: file}
+  - {path: cikti/0004.txt, kind: file}
+  - {path: cikti/0005.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [0001.txt, 0002.txt, 0003.txt, 0004.txt, 0005.txt]}
+  - {op: file_content_eq, path: cikti/0001.txt, value: 0001;AliYilmaz;URETIM;GECE}
+  - {op: file_content_eq, path: cikti/0002.txt, value: 0002;AyseKaya;SATIS;GUNDUZ}
+  - {op: file_content_eq, path: cikti/0003.txt, value: 0003;MehmetDemir;URETIM;GECE}
+  - {op: file_content_eq, path: cikti/0004.txt, value: 0004;ZeynepArslan;MUHASEBE;GUNDUZ}
+  - {op: file_content_eq, path: cikti/0005.txt, value: 0005;CanOzturk;SATIS;GECE}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4101
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: personel-vardiyalari
+    hedef: donustur
+    girdi: sabit-genislik
+    kaynak: iki-dosya-capraz
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

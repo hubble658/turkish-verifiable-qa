@@ -1,0 +1,79 @@
+id: gen-s-3051-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  "log arsivi/sunucu kayitlari.log" dosyasındaki her satırı tarih, saat, seviye ve mesaj alanlarına ayırmanı istiyorum. Sonuçta hem her seviyeden kaç kayıt olduğunu hem de ayrıştırılmış bütün kayıtları içeren geçerli bir JSON nesnesi "log arsivi/ozet.json" dosyasına yazılmalı. Klasördeki tuzak dosya işleme katılmasın.
+
+setup: |
+  mkdir -p "log arsivi"
+  cat > "log arsivi/sunucu kayitlari.log" <<'LOG'
+  2024-01-01 10:00:01 BILGI sistem basladi
+  2024-01-01 10:00:05 HATA disk dolu
+  2024-01-01 10:00:09 BILGI kullanici giris yapti
+  2024-01-01 10:00:12 UYARI bellek az
+  2024-01-01 10:00:20 HATA baglanti koptu
+  2024-01-01 10:00:31 BILGI islem tamamlandi
+  LOG
+  cat > "log arsivi/notlar.txt" <<'TXT'
+  bu dosya tuzaktir, log degildir
+  HATA gibi gorunen satir icerir
+  TXT
+
+goal_tr: >
+  "log arsivi/sunucu kayitlari.log" dosyasindaki her satiri tarih, saat,
+  seviye ve mesaj alanlarina ayirip seviye bazinda sayilari ve tum kayitlari
+  iceren gecerli bir JSON nesnesini "log arsivi/ozet.json" dosyasina yaz;
+  tuzak dosyayi isleme katma.
+
+reference_solution: |
+  python3 - <<'PY'
+  import json
+  kayitlar = []
+  with open("log arsivi/sunucu kayitlari.log") as f:
+      for satir in f:
+          satir = satir.rstrip("\n")
+          if not satir:
+              continue
+          tarih, saat, seviye, mesaj = satir.split(" ", 3)
+          kayitlar.append({"tarih": tarih, "saat": saat, "seviye": seviye, "mesaj": mesaj})
+  sayilar = {}
+  for k in kayitlar:
+      sayilar[k["seviye"]] = sayilar.get(k["seviye"], 0) + 1
+  with open("log arsivi/ozet.json", "w") as out:
+      json.dump({"sayilar": sayilar, "kayitlar": kayitlar}, out, ensure_ascii=True, indent=2)
+  PY
+
+outputs:
+  - {path: log arsivi/ozet.json, kind: json}
+
+checks:
+  - {op: json_eq, path: log arsivi/ozet.json, value: {sayilar: {BILGI: 3, HATA: 2, UYARI: 1}, kayitlar: [{tarih: '2024-01-01', saat: '10:00:01', seviye: BILGI, mesaj: sistem basladi}, {tarih: '2024-01-01', saat: '10:00:05', seviye: HATA, mesaj: disk dolu}, {tarih: '2024-01-01', saat: '10:00:09', seviye: BILGI, mesaj: kullanici giris yapti}, {tarih: '2024-01-01', saat: '10:00:12', seviye: UYARI, mesaj: bellek az}, {tarih: '2024-01-01', saat: '10:00:20', seviye: HATA, mesaj: baglanti koptu}, {tarih: '2024-01-01', saat: '10:00:31', seviye: BILGI, mesaj: islem tamamlandi}]}}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3051
+    bundle: python-veri
+    tools:
+    - python3
+    konu: sunucu-loglari
+    hedef: donustur
+    girdi: duz-metin
+    kaynak: tek-dosya
+    cikti: json
+    kesif: yok
+    uslup: duz-hedef
+    direnc: bosluklu-ad
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,76 @@
+id: gen-s-7031-sirala-sec
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Öğrenci işlerindeki not dökümü işi yine karıştı; iki ayrı dosyada tutulan kayıtları birleştirmem gerekiyor. notlar.txt içinde öğrenci adları ve notları, ogrenciler.txt içinde ise öğrenci adları var. Her iki dosyada da geçen öğrencileri alıp notlarına göre büyükten küçüğe sıralamam lazım. Sıralı öğrenci adlarını gecenler.txt dosyasına, sıralı notları ise puanlar.txt dosyasına yaz; geçme notu 60 ve üzeri olanlar sadece gecenler.txt'ye girsin.
+
+setup: |
+  cat > notlar.txt <<'DATA'
+  ali 90
+  ayse 75
+  mehmet 60
+  zeynep 85
+  can 45
+  elif 95
+  burak 70
+  deniz 55
+  DATA
+
+  cat > ogrenciler.txt <<'DATA'
+  ali
+  ayse
+  can
+  deniz
+  elif
+  mehmet
+  zeynep
+  burak
+  DATA
+
+goal_tr: >
+  notlar.txt ve ogrenciler.txt dosyalarindaki ogrenci adlarini karsilastirip
+  her iki dosyada da bulunan ogrencileri notlarina gore buyukten kucuge
+  sirala; sirali ogrenci adlarini gecenler.txt dosyasina, sirali notlari ise
+  puanlar.txt dosyasina yaz; gecme notu 60 ve uzeri olanlar gecenler.txt'ye
+  girsin.
+
+reference_solution: |
+  join <(sort ogrenciler.txt) <(sort notlar.txt) | awk '$2 >= 60 {print $1}' | sort -k2,2nr > gecenler.txt
+  join <(sort ogrenciler.txt) <(sort notlar.txt) | awk '$2 >= 60 {print $2}' | sort -nr > puanlar.txt
+
+outputs:
+  - {path: gecenler.txt, kind: lines}
+  - {path: puanlar.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: gecenler.txt, value: [ali, ayse, burak, elif, mehmet, zeynep]}
+  - {op: file_lines_eq, path: puanlar.txt, value: ['95', '90', '85', '75', '70', '60']}
+
+metadata:
+  domain: sirala-sec
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7031
+    bundle: awk
+    tools:
+    - awk
+    konu: ogrenci-notlari
+    hedef: sirala-sec
+    girdi: log-satiri
+    kaynak: iki-dosya-capraz
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

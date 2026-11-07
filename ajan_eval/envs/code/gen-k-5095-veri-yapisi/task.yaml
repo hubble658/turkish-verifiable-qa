@@ -1,0 +1,163 @@
+id: gen-k-5095-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  app/merge.py içindeki OrderList sınıfını, kayıtları bağlı liste düğümleriyle tutacak ve iki listeyi birleştirip toplam birim sayısını doğru hesaplayacak biçimde gerçekleştir. OrderList'in __init__, append, to_list, total_units ve merge metotları düzgün çalışsın; app/records.py içindeki OrderRecord ve app/parse.py içindeki parse_line ile uyumlu olsun. merge metodu başka bir OrderList alıp iki listedeki kayıtları tek bir bağlı listede birleştirsin, to_list kayıtları sırayla döndürsün ve total_units tüm kayıtların birim toplamını versin.
+
+setup: |
+  mkdir -p app
+  cat > app/records.py <<'RECORDS'
+  from dataclasses import dataclass, field
+
+
+  @dataclass
+  class OrderRecord:
+      order_id: str
+      customer: str
+      items: list = field(default_factory=list)
+
+      def total_units(self):
+          return sum(qty for _, qty in self.items)
+  RECORDS
+  cat > app/parse.py <<'PARSE'
+  from app.records import OrderRecord
+
+
+  def parse_line(line):
+      raw = line.strip()
+      if not raw:
+          return None
+      oid, customer, rest = raw.split('|', 2)
+      items = []
+      for chunk in rest.split(';'):
+          name, qty = chunk.split(':')
+          items.append((name, int(qty)))
+      return OrderRecord(order_id=oid, customer=customer, items=items)
+  PARSE
+  cat > app/merge.py <<'MERGE'
+  from app.records import OrderRecord
+
+
+  class OrderList:
+      def __init__(self):
+          raise NotImplementedError
+
+      def append(self, record):
+          raise NotImplementedError
+
+      def to_list(self):
+          raise NotImplementedError
+
+      def total_units(self):
+          raise NotImplementedError
+
+      def merge(self, other):
+          raise NotImplementedError
+  MERGE
+  cat > orders.txt <<'TXT'
+  o1|ada|bolt:2;nut:3
+  o2|bora|gear:1
+  o3|ada|cable:4;plug:1
+  TXT
+
+goal_tr: >
+  app/merge.py icindeki OrderList sinifini, kayitlari bagli liste
+  dugumleriyle tutan ve iki listeyi birlestirip toplam birim sayisini dogru
+  hesaplayan bicimde gerceklestir.
+
+reference_solution: |
+  cat > app/merge.py <<'MERGE'
+  from app.records import OrderRecord
+
+
+  class _Node:
+      __slots__ = ("record", "next")
+
+      def __init__(self, record):
+          self.record = record
+          self.next = None
+
+
+  class OrderList:
+      def __init__(self):
+          self._head = None
+          self._tail = None
+          self._size = 0
+
+      def append(self, record):
+          node = _Node(record)
+          if self._head is None:
+              self._head = node
+          else:
+              self._tail.next = node
+          self._tail = node
+          self._size += 1
+          return self
+
+      def to_list(self):
+          out = []
+          node = self._head
+          while node is not None:
+              out.append(node.record)
+              node = node.next
+          return out
+
+      def total_units(self):
+          total = 0
+          node = self._head
+          while node is not None:
+              total += node.record.total_units()
+              node = node.next
+          return total
+
+      def merge(self, other):
+          node = other._head
+          while node is not None:
+              self.append(node.record)
+              node = node.next
+          return self
+  MERGE
+
+outputs:
+  - {path: app/merge.py, kind: program, run: 'python3 -c ''from app.merge import OrderList; from app.parse import parse_line; from app.records import OrderRecord; a=OrderList(); b=OrderList(); [a.append(parse_line(l)) for l in open("orders.txt")]; assert a.to_list()[0].order_id=="o1"; assert [r.order_id for r in a.to_list()]==["o1","o2","o3"]; assert a.total_units()==11; b.append(OrderRecord(order_id="o9", customer="cem", items=[("clip",5)])); a.merge(b); assert [r.order_id for r in a.to_list()]==["o1","o2","o3","o9"]; assert a.total_units()==16; assert b.total_units()==5; assert isinstance(a.to_list()[0], OrderRecord); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from app.merge import OrderList; from app.parse import parse_line; from app.records import OrderRecord; a=OrderList(); b=OrderList(); [a.append(parse_line(l)) for l in open("orders.txt")]; assert a.to_list()[0].order_id=="o1"; assert [r.order_id for r in a.to_list()]==["o1","o2","o3"]; assert a.total_units()==11; b.append(OrderRecord(order_id="o9", customer="cem", items=[("clip",5)])); a.merge(b); assert [r.order_id for r in a.to_list()]==["o1","o2","o3","o9"]; assert a.total_units()==16; assert b.total_units()==5; assert isinstance(a.to_list()[0], OrderRecord); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5095
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: siparis-kayitlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: bagli-liste
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: cok-dosya-birlestirme
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

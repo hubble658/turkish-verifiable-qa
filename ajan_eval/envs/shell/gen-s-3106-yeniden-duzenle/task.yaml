@@ -1,0 +1,73 @@
+id: gen-s-3106-yeniden-duzenle
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  vardiya altındaki tüm dosyaları, alt dizin adını taşıyan yeni bir üst dizin altına taşı; vardiyalar/gunduz içinde ekip lideri.txt ile operator.txt, vardiyalar/gece içinde guvenlik gorevlisi.txt ile teknik servis.txt olsun.
+
+setup: |
+  mkdir -p vardiya/gece vardiya/gunduz
+  printf 'Ayse 08:00-16:00\n' > "vardiya/gunduz/ekip lideri.txt"
+  printf 'Mehmet 16:00-00:00\n' > "vardiya/gunduz/operator.txt"
+  printf 'Zeynep 00:00-08:00\n' > "vardiya/gece/guvenlik gorevlisi.txt"
+  printf 'Ali 00:00-08:00\n' > "vardiya/gece/teknik servis.txt"
+
+goal_tr: >
+  vardiya dizin agacindaki her dosyayi, dosyanin bulundugu alt dizinin adini
+  tasiyan yeni bir ust dizin altina tasi: vardiya/gece/guvenlik
+  gorevlisi.txt dosyasi vardiyalar/gece/guvenlik gorevlisi.txt yoluna,
+  vardiya/gece/teknik servis.txt dosyasi vardiyalar/gece/teknik servis.txt
+  yoluna, vardiya/gunduz/ekip lideri.txt dosyasi vardiyalar/gunduz/ekip
+  lideri.txt yoluna ve vardiya/gunduz/operator.txt dosyasi
+  vardiyalar/gunduz/operator.txt yoluna gelsin.
+
+reference_solution: |
+  mkdir -p vardiyalar
+  find vardiya -mindepth 2 -type f | while IFS= read -r f; do d=$(basename "$(dirname "$f")"); mkdir -p "vardiyalar/$d"; mv "$f" "vardiyalar/$d/$(basename "$f")"; done
+
+outputs:
+  - {path: vardiyalar, kind: dir}
+  - {path: vardiyalar/gunduz/ekip lideri.txt, kind: file}
+  - {path: vardiyalar/gunduz/operator.txt, kind: file}
+  - {path: vardiyalar/gece/guvenlik gorevlisi.txt, kind: file}
+  - {path: vardiyalar/gece/teknik servis.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: vardiyalar, value: [gece, gunduz]}
+  - {op: file_content_eq, path: vardiyalar/gece/guvenlik gorevlisi.txt, value: 'Zeynep 00:00-08:00'}
+  - {op: file_content_eq, path: vardiyalar/gece/teknik servis.txt, value: 'Ali 00:00-08:00'}
+  - {op: file_content_eq, path: vardiyalar/gunduz/ekip lideri.txt, value: 'Ayse 08:00-16:00'}
+  - {op: file_content_eq, path: vardiyalar/gunduz/operator.txt, value: 'Mehmet 16:00-00:00'}
+  - {op: not_exists, path: vardiya/gece/guvenlik gorevlisi.txt}
+  - {op: not_exists, path: vardiya/gece/teknik servis.txt}
+  - {op: not_exists, path: vardiya/gunduz/ekip lideri.txt}
+  - {op: not_exists, path: vardiya/gunduz/operator.txt}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3106
+    bundle: yol-parcala
+    tools:
+    - basename
+    - dirname
+    konu: personel-vardiyalari
+    hedef: yeniden-duzenle
+    girdi: log-satiri
+    kaynak: dizin-agaci
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: terse
+    direnc: bosluklu-ad
+    bukulme: yok
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

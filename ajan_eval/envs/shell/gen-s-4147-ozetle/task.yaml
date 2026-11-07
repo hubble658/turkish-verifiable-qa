@@ -1,0 +1,75 @@
+id: gen-s-4147-ozetle
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) siparisler/siparisler.csv ve siparisler/menu.csv dosyalarını yemek adına göre birleştirerek her yemeğin toplam adedini ve toplam tutarını hesapla.
+
+  2) cikti adında bir dizin oluştur.
+
+  3) cikti dizini altında her yemek için ayrı bir alt dizin oluştur; kebap için cikti/kebap, pizza için cikti/pizza, salata için cikti/salata.
+
+  4) Her yemek alt dizininde ozet.txt adında bir dosya oluştur; cikti/kebap/ozet.txt, cikti/pizza/ozet.txt ve cikti/salata/ozet.txt dosyalarında o yemeğin toplam adedi ve toplam tutarı yer alsın.
+
+  5) cikti/satir_sayisi.txt dosyasını oluştur ve içinde toplam satır sayısını sadece sayı olarak yaz.
+
+setup: |
+  mkdir -p siparisler
+  printf 'siparis_id,masa,yemek,adet\r\n1,5,kebap,2\r\n2,3,pizza,1\r\n3,5,salata,3\r\n' > siparisler/siparisler.csv
+  printf 'yemek,fiyat\r\nkebap,90\r\npizza,70\r\nsalata,40\r\ncorba,30\r\n' > siparisler/menu.csv
+
+goal_tr: >
+  siparisler/siparisler.csv ve siparisler/menu.csv dosyalarini yemek adina
+  gore birlestirip her yemek icin toplam adedi ve toplam tutari hesaplayarak
+  cikti/ dizininde her yemek icin adet ve tutar satirlarini iceren bir dosya
+  olustur
+
+reference_solution: |
+  find siparisler -type f -name '*.csv' | sort | while read dosya; do tr -d '\r' < "$dosya" | tail -n +2; done | awk -F, 'NR==FNR {fiyat[$1]=$2; next} {adet[$3]+=$4} END {for (y in adet) print y, adet[y], adet[y]*fiyat[y]}' siparisler/menu.csv - | sort > gecici_toplam.txt
+  mkdir -p cikti
+  while read yemek adet tutar; do mkdir -p "cikti/$yemek"; printf '%s\n%s\n' "$adet" "$tutar" > "cikti/$yemek/ozet.txt"; done < gecici_toplam.txt
+  wc -l gecici_toplam.txt > cikti/satir_sayisi.txt
+  rm gecici_toplam.txt
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/kebap/ozet.txt, kind: file}
+  - {path: cikti/pizza/ozet.txt, kind: file}
+  - {path: cikti/salata/ozet.txt, kind: file}
+  - {path: cikti/satir_sayisi.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: ['0', kebap, pizza, salata, satir_sayisi.txt]}
+  - {op: file_lines_eq, path: cikti/kebap/ozet.txt, value: ['2', '180']}
+  - {op: file_lines_eq, path: cikti/pizza/ozet.txt, value: ['1', '70']}
+  - {op: file_lines_eq, path: cikti/salata/ozet.txt, value: ['3', '120']}
+  - {op: file_content_eq, path: cikti/satir_sayisi.txt, value: 4 gecici_toplam.txt}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4147
+    bundle: dizin-istatistik
+    tools:
+    - wc
+    - find
+    konu: restoran-siparisleri
+    hedef: ozetle
+    girdi: duz-metin
+    kaynak: iki-dosya-capraz
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: crlf
+    bukulme: yok
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

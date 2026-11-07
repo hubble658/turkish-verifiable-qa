@@ -1,0 +1,79 @@
+id: gen-s-7221-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  siparisler dizin ağacındaki .log ile biten tüm dosyaları, gizli tuzak dosyaları dahil, satır satır incele. Her satırın MASA=, URUN=, ADET= ve FIYAT= alanlarını içeren geçerli bir sipariş olup olmadığını doğrula. Sonucu geçerli_satir ve gecersiz_satir sayılarıyla birlikte dogrulama.json dosyasına JSON olarak yaz.
+
+setup: |
+  mkdir -p siparisler/arsiv "siparisler/eski kayitlar"
+  cat > siparisler/2024-01-01.log <<'LOG'
+  MASA=1|URUN=corba|ADET=2|FIYAT=45
+  MASA=2|URUN=salata|ADET=1|FIYAT=60
+  MASA=1|URUN=kebap|ADET=1|FIYAT=150
+  LOG
+  cat > siparisler/2024-01-02.log <<'LOG'
+  MASA=3|URUN=ayran|ADET=3|FIYAT=15
+  MASA=2|URUN=kebap|ADET=2|FIYAT=150
+  BOZUK SATIR BURADA
+  MASA=4|URUN=corba|ADET=1|FIYAT=45
+  LOG
+  cat > "siparisler/eski kayitlar/2023-12-31.log" <<'LOG'
+  MASA=1|URUN=salata|ADET=2|FIYAT=60
+  MASA=5|URUN=kebap|ADET=1|FIYAT=150
+  LOG
+  cat > siparisler/arsiv/.tuzak.log <<'LOG'
+  MASA=9|URUN=hayalet|ADET=99|FIYAT=999
+  LOG
+
+goal_tr: >
+  siparisler dizin agacindaki .log ile biten tum dosyalari (gizli tuzak
+  dosyalari dahil) satir satir inceleyip her satirin MASA=, URUN=, ADET= ve
+  FIYAT= alanlarini iceren gecerli bir siparis olup olmadigini dogrula ve
+  sonucu gecerli_satir ile gecersiz_satir sayilariyla birlikte
+  dogrulama.json dosyasina JSON olarak yaz
+
+reference_solution: |
+  find siparisler -type f -name '*.log' | sort > /tmp/dosyalar.txt
+  cat $(cat /tmp/dosyalar.txt) | tr '|' '\n' > /tmp/alanlar.txt
+  sed -n 's/^MASA=[0-9][0-9]*$/OK/p; s/^URUN=[A-Za-z][A-Za-z]*$/OK/p; s/^ADET=[0-9][0-9]*$/OK/p; s/^FIYAT=[0-9][0-9]*$/OK/p' /tmp/alanlar.txt | wc -l > /tmp/gecerli_alan.txt
+  cat /tmp/dosyalar.txt | xargs cat | wc -l > /tmp/toplam.txt
+  GECERLI=$(cat /tmp/gecerli_alan.txt)
+  TOPLAM=$(cat /tmp/toplam.txt)
+  GECERSIZ=$((TOPLAM * 4 - GECERLI))
+  printf '{"gecerli_satir": %d, "gecersiz_satir": %d}\n' "$((GECERLI / 4))" "$((GECERSIZ / 4))" > dogrulama.json
+
+outputs:
+  - {path: dogrulama.json, kind: json}
+
+checks:
+  - {op: json_eq, path: dogrulama.json, value: {gecerli_satir: 7, gecersiz_satir: 1}}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7221
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: restoran-siparisleri
+    hedef: dogrula
+    girdi: log-satiri
+    kaynak: dizin-agaci
+    cikti: json
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: bosluklu-ad
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

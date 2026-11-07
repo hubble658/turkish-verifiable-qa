@@ -1,0 +1,77 @@
+id: gen-s-4022-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) siparisler.txt dosyasındaki her MASA satırını, başlığından bağımsız olarak sırayla işle ve her birini bolumler/ klasörüne masaN.txt adıyla yaz; burada N o satırın 1-tabanlı satır numarası olsun (bolumler/masa1.txt, bolumler/masa2.txt, bolumler/masa3.txt, bolumler/masa4.txt, bolumler/masa5.txt, bolumler/masa6.txt).
+
+  2) Her masaN.txt dosyasının içinde, ilgili satırdaki "MASA X: " önekini çıkar ve virgülle ayrılmış her siparişi kendi satırında yaz.
+
+setup: |
+  cat > siparisler.txt <<'TXT'
+  MASA 1: corba, kebap, ayran
+  MASA 2: pizza, salata, kola, baklava
+  MASA 3: corba, pilav
+  MASA 4: kebap, ayran, baklava, cay
+  MASA 5: pizza, kola
+  MASA 6: corba, salata, pilav, ayran
+  TXT
+  mkdir -p bolumler
+
+goal_tr: >
+  siparisler.txt dosyasindaki her MASA satirini, basligindan bagimsiz olarak
+  sirayla bolumler/ klasorune masaN.txt adiyla (N o satirin 1-tabanli satir
+  numarasi) yaz; her masaN.txt icinde satirin "MASA X: " oneki cikarilmis ve
+  virgulle ayrilmis her siparis kendi satirinda olsun
+
+reference_solution: |
+  head -n 6 siparisler.txt > gecici.txt
+  tail -n +1 gecici.txt | nl -ba | while read -r n rest; do printf '%s\n' "$rest" | sed 's/^MASA [0-9]*: //' | tr ',' '\n' | sed 's/^ *//' > "bolumler/masa${n}.txt"; done
+  rm -f gecici.txt
+
+outputs:
+  - {path: bolumler, kind: dir}
+  - {path: bolumler/masa1.txt, kind: lines}
+  - {path: bolumler/masa2.txt, kind: lines}
+  - {path: bolumler/masa3.txt, kind: lines}
+  - {path: bolumler/masa4.txt, kind: lines}
+  - {path: bolumler/masa5.txt, kind: lines}
+  - {path: bolumler/masa6.txt, kind: lines}
+
+checks:
+  - {op: dir_entries_eq, path: bolumler, value: [masa1.txt, masa2.txt, masa3.txt, masa4.txt, masa5.txt, masa6.txt]}
+  - {op: file_lines_eq, path: bolumler/masa1.txt, value: [corba, kebap, ayran]}
+  - {op: file_lines_eq, path: bolumler/masa2.txt, value: [pizza, salata, kola, baklava]}
+  - {op: file_lines_eq, path: bolumler/masa3.txt, value: [corba, pilav]}
+  - {op: file_lines_eq, path: bolumler/masa4.txt, value: [kebap, ayran, baklava, cay]}
+  - {op: file_lines_eq, path: bolumler/masa5.txt, value: [pizza, kola]}
+  - {op: file_lines_eq, path: bolumler/masa6.txt, value: [corba, salata, pilav, ayran]}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4022
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: restoran-siparisleri
+    hedef: bol
+    girdi: duz-metin
+    kaynak: tek-dosya
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: olcek
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

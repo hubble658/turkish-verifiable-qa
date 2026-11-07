@@ -1,0 +1,80 @@
+id: gen-s-3080-ayikla
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+prompt: 'siparisler dizinindeki doğrudan alt dizinde bulunan .csv dosyalarını (arsiv alt dizinindekiler hariç) işle. Bu dosyalardaki
+  CRLF satır sonlarını temizle ve tüm satırları birleştirerek geçerli bir JSON dizisi olarak siparisler.json dosyasına yaz.
+  Her kayıt id, urun, adet ve fiyat alanlarını içermeli; id, adet ve fiyat sayı olmalı.
+
+
+  Çıktıyı çalışma dizininin kökünde (siparisler.json) oluştur, alt dizine yazma.
+
+  '
+setup: 'mkdir -p siparisler/arsiv
+
+  printf ''id,urun,adet,fiyat\r\n1,kebap,2,120\r\n2,ayran,1,25\r\n'' > siparisler/2024-01.csv
+
+  printf ''id,urun,adet,fiyat\r\n3,pide,3,90\r\n4,salata,1,45\r\n'' > siparisler/2024-02.csv
+
+  printf ''bu bir tuzak dosyadir\r\n'' > siparisler/arsiv/eski.csv
+
+  printf ''id,urun,adet,fiyat\r\n9,cay,5,15\r\n'' > siparisler/arsiv/yedek.csv
+
+  '
+goal_tr: 'siparisler dizinindeki dogrudan alt dizinde bulunan .csv dosyalarindaki (arsiv alt dizinindekiler haric) CRLF satir
+  sonlarini temizleyip tum satirlari birlestirerek gecerli bir JSON dizisi olarak siparisler.json dosyasina yaz; her kayit
+  id, urun, adet ve fiyat alanlarini icermeli ve adet ile fiyat sayi olmali
+
+  '
+reference_solution: "python3 - <<'PY'\nimport csv, glob, json\no = []\nfor f in sorted(glob.glob(\"siparisler/*.csv\")):\n\
+  \    for r in csv.DictReader(open(f, newline=\"\")):\n        o.append({\"id\": int(r[\"id\"]), \"urun\": r[\"urun\"], \"\
+  adet\": int(r[\"adet\"]), \"fiyat\": int(r[\"fiyat\"])})\njson.dump(o, open(\"siparisler.json\", \"w\"))\nPY\n"
+outputs: []
+checks:
+- op: json_eq
+  path: siparisler.json
+  value:
+  - id: 1
+    urun: kebap
+    adet: 2
+    fiyat: 120
+  - id: 2
+    urun: ayran
+    adet: 1
+    fiyat: 25
+  - id: 3
+    urun: pide
+    adet: 3
+    fiyat: 90
+  - id: 4
+    urun: salata
+    adet: 1
+    fiyat: 45
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3080
+    bundle: bul-tasi
+    tools:
+    - find
+    - xargs
+    konu: restoran-siparisleri
+    hedef: ayikla
+    girdi: csv
+    kaynak: dizin-agaci
+    cikti: json
+    kesif: yok
+    uslup: duz-hedef
+    direnc: crlf
+    bukulme: tuzak-dosya
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}
+  duzeltme:
+    neden: altin_yanlis
+    not: İkinci dosyanın başlığından sahte kayıt (id 0) türemişti; ayrıca çıktı yeri yazmıyordu.

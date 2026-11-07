@@ -1,0 +1,57 @@
+id: gen-s-7030-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  envanter dizin ağacındaki her .txt dosyasından ad ve stok alanlarını okuyup, dosya yoluna göre artan sırada kayıtları içeren geçerli bir JSON dizisini envanter.json dosyasına yaz. Her kayıt yol, ad ve stok alanlarını taşımalı ve stok sayı olmalı.
+
+setup: |
+  mkdir -p envanter/raf_a envanter/raf_b envanter/raf_c
+  printf 'ad=filtre\nstok=12\n' > envanter/raf_a/filtre.txt
+  printf 'ad=pompa\nstok=3\n' > envanter/raf_a/pompa.txt
+  printf 'ad=valf\nstok=27\n' > envanter/raf_b/valf.txt
+  printf 'ad=conta\nstok=8\n' > envanter/raf_b/conta.txt
+  printf 'ad=rulman\nstok=41\n' > envanter/raf_c/rulman.txt
+
+goal_tr: >
+  envanter dizin agacindaki her .txt dosyasindan ad ve stok alanlarini
+  okuyup, dosya yoluna gore artan sirada kayitlari iceren gecerli bir JSON
+  dizisini envanter.json dosyasina yaz; her kayit yol, ad ve stok alanlarini
+  tasisin ve stok sayi olsun.
+
+reference_solution: |
+  find envanter -type f -name '*.txt' | sort | while read -r f; do awk -v yol="$f" 'BEGIN{FS="="} $1=="ad"{ad=$2} $1=="stok"{stok=$2} END{printf "{\"yol\":\"%s\",\"ad\":\"%s\",\"stok\":%d}\n", yol, ad, stok}' "$f"; done | awk 'BEGIN{print "["} {printf "%s%s\n", (NR>1 ? "," : ""), $0} END{print "]"}' > envanter.json
+
+outputs:
+  - {path: envanter.json, kind: json}
+
+checks:
+  - {op: json_eq, path: envanter.json, value: [{yol: envanter/raf_a/filtre.txt, ad: filtre, stok: 12}, {yol: envanter/raf_a/pompa.txt, ad: pompa, stok: 3}, {yol: envanter/raf_b/conta.txt, ad: conta, stok: 8}, {yol: envanter/raf_b/valf.txt, ad: valf, stok: 27}, {yol: envanter/raf_c/rulman.txt, ad: rulman, stok: 41}]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7030
+    bundle: awk
+    tools:
+    - awk
+    konu: envanter
+    hedef: donustur
+    girdi: duz-metin
+    kaynak: dizin-agaci
+    cikti: json
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

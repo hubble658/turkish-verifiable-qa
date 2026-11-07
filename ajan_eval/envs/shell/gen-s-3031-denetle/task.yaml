@@ -1,0 +1,76 @@
+id: gen-s-3031-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Müşteri yorumlarını derlediğimiz bir dosya var, geçen haftadan beri üzerinde çalışıyoruz. Pazarlama ekibi "urun harika" diyenlerin sayısını ayrıca görmek istiyor, ona göre bir kampanya planlayacaklar. Yedek dosyalar falan da var ortalıkta, onlar kafamızı karıştırmasın.
+
+  yorumlar.txt dosyasında "urun harika" ifadesinin kaç kez geçtiğini bulup, sonucu sonuc.txt dosyasına sadece sayı olarak yazar mısın? Yedek dosyaları sayma.
+
+setup: |
+  cat > yorumlar.txt <<'TXT'
+  urun harika
+  kargo hizli
+  fiyat pahali
+  urun harika
+  urun berbat
+  yorumlar.txt yedek
+  kargo hizli
+  fiyat pahali
+  urun harika
+  TXT
+  cat > yorumlar.txt.bak <<'TXT'
+  urun harika
+  urun harika
+  urun harika
+  urun harika
+  urun harika
+  urun harika
+  urun harika
+  urun harika
+  urun harika
+  urun harika
+  TXT
+
+goal_tr: >
+  yorumlar.txt dosyasinda "urun harika" ifadesinin kac kez gectigini bulan
+  sayiyi sonuc.txt dosyasina sadece sayi olarak yaz; yedek dosyalari sayma.
+
+reference_solution: |
+  grep -c 'urun harika' yorumlar.txt > sonuc.txt
+  wc -l < sonuc.txt > /dev/null
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '3'}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3031
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: urun-yorumlari
+    hedef: denetle
+    girdi: duz-metin
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: veriye-bak
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

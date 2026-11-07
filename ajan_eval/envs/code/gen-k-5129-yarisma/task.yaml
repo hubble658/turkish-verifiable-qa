@@ -1,0 +1,136 @@
+id: gen-k-5129-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  `farm/report.py` dosyasını yaz. Bu dosya, `farm/` paketindeki `records.py`, `sortkey.py` ve `search.py` modüllerini kullanarak `data.csv` içindeki tarım verim ölçümlerini işlesin. Dosyada, verim değerine göre sıralı tutan ve verim değerine göre ikili arama yapan özyinelemeli bir `field_report` fonksiyonu bulunsun. `field_report(text, target)` çağrıldığında, tam eşleşme varsa tam eşleşen kaydın alan adını döndürsün; tam eşleşme yoksa hedefe en yakın verim değerine sahip kaydın alan adını döndürsün.
+
+  Şu şartlar sağlanmalı:
+  - `farm/report.py` dosyası oluşturulmalı.
+  - `farm/report.py`, `farm/records.py`, `farm/sortkey.py` ve `farm/search.py` modüllerini kullanmalı.
+  - `field_report(text, target)` fonksiyonu özyinelemeli olmalı.
+  - Kayıtlar verim değerine göre sıralı tutulmalı.
+  - Arama verim değerine göre ikili arama ile yapılmalı.
+  - Tam eşleşme varsa tam eşleşen kaydın alan adı döndürülmeli.
+  - Tam eşleşme yoksa hedefe en yakın verim değerine sahip kaydın alan adı döndürülmeli.
+  - `data.csv` içindeki `north`, `south`, `east`, `west` alan adları doğru şekilde işlenmeli.
+
+setup: |
+  mkdir -p farm
+  cat > farm/records.py <<'RECORDS'
+  def parse_readings(text):
+      rows = []
+      for line in text.strip().splitlines():
+          field, crop, yield_kg = line.split(',')
+          rows.append((field.strip(), crop.strip(), float(yield_kg)))
+      return rows
+  RECORDS
+  cat > farm/sortkey.py <<'SORTKEY'
+  def by_yield(rows):
+      return sorted(rows, key=lambda r: r[2])
+  SORTKEY
+  cat > farm/search.py <<'SEARCH'
+  def find_index(sorted_rows, target):
+      lo, hi = 0, len(sorted_rows) - 1
+      while lo <= hi:
+          mid = (lo + hi) // 2
+          if sorted_rows[mid][2] == target:
+              return mid
+          if sorted_rows[mid][2] < target:
+              lo = mid + 1
+          else:
+              hi = mid - 1
+      return -1
+  SEARCH
+  cat > data.csv <<'CSV'
+  north,wheat,3200.0
+  south,barley,1850.5
+  east,maize,4100.0
+  west,rye,2700.0
+  CSV
+
+goal_tr: >
+  farm/ paketindeki modulleri kullanarak, data.csv icindeki tarim verim
+  olcumlerini verim degerine gore sirali tutan ve verim degerine gore ikili
+  arama yapan, ozyinelemeli bir field_report fonksiyonu iceren
+  farm/report.py dosyasini yaz; field_report(text, target) cagrildiginda
+  hedefe en yakin verim degerine sahip kaydin alan adini dondursun, tam
+  eslesme varsa tam eslesen kaydin alan adini dondursun.
+
+reference_solution: |
+  cat > farm/report.py <<'REPORT'
+  from farm.records import parse_readings
+  from farm.sortkey import by_yield
+  from farm.search import find_index
+
+
+  def _nearest(sorted_rows, target, lo, hi):
+      if lo > hi:
+          return lo
+      mid = (lo + hi) // 2
+      if sorted_rows[mid][2] == target:
+          return mid
+      if sorted_rows[mid][2] < target:
+          return _nearest(sorted_rows, target, mid + 1, hi)
+      return _nearest(sorted_rows, target, lo, mid - 1)
+
+
+  def field_report(text, target):
+      rows = by_yield(parse_readings(text))
+      idx = find_index(rows, target)
+      if idx != -1:
+          return rows[idx][0]
+      pos = _nearest(rows, target, 0, len(rows) - 1)
+      if pos <= 0:
+          return rows[0][0]
+      if pos >= len(rows):
+          return rows[-1][0]
+      before = rows[pos - 1][2]
+      after = rows[pos][2]
+      if abs(target - before) <= abs(after - target):
+          return rows[pos - 1][0]
+      return rows[pos][0]
+  REPORT
+
+outputs:
+  - {path: farm/report.py, kind: program, run: 'python3 -c ''from farm.report import field_report as f; t=open("data.csv").read(); assert f(t,1850.5)=="south"; assert f(t,4100.0)=="east"; assert f(t,2000.0)=="south"; assert f(t,3900.0)=="east"; assert f(t,2600.0)=="west"; assert f(t,100.0)=="south"; assert f(t,9999.0)=="east"; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from farm.report import field_report as f; t=open("data.csv").read(); assert f(t,1850.5)=="south"; assert f(t,4100.0)=="east"; assert f(t,2000.0)=="south"; assert f(t,3900.0)=="east"; assert f(t,2600.0)=="west"; assert f(t,100.0)=="south"; assert f(t,9999.0)=="east"; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5129
+    bundle: yarisma
+    tools:
+    - python3
+    konu: tarim-verim-olcumleri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-ikili-arama
+      karmasiklik: duz
+      kalip: ozyineleme
+      akis: cok-dosya-birlestirme
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

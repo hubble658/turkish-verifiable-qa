@@ -1,0 +1,68 @@
+id: gen-s-7256-grupla-say
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) /workspace dizinindeki yorumlar.txt dosyasını oku; her satırda ilk alan ürün adıdır.
+  2) Satırları ürün adına göre grupla ve her ürün için kaç satır olduğunu say.
+  3) Sonuçları "ürün adı: satır sayısı" biçiminde, ürün adına göre artan sırada /workspace dizinindeki sonuc.txt dosyasına yaz.
+
+setup: |
+  cat > yorumlar.txt <<'EOF'
+  urunA|5|harika urun
+  urunB|3|idare eder
+  urunA|4|tekrar alirim
+  urunC|1|berbat
+  urunB|5|cok iyi
+  urunA|2|beklentimin altinda
+  urunC|4|fiyatina gore iyi
+  urunB|3|normal
+  urunA|5|mukemmel
+  urunC|2|pisman oldum
+  EOF
+
+goal_tr: >
+  yorumlar.txt icindeki her satirda ilk alan urun adidir; satirlari urun
+  adina gore gruplayip her urun icin "urun adi: satir sayisi" biciminde,
+  urun adina gore artan sirada sonuc.txt dosyasina yaz.
+
+reference_solution: |
+  cut -d'|' -f1 yorumlar.txt | sort | uniq -c | awk '{print $2": "$1}' > gecici.txt
+  grep -c '.' gecici.txt > sayi.txt
+  wc -l < gecici.txt > satir.txt
+  cp gecici.txt sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: sonuc.txt, value: ['urunA: 4', 'urunB: 3', 'urunC: 3']}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7256
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: urun-yorumlari
+    hedef: grupla-say
+    girdi: duz-metin
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: olcek
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

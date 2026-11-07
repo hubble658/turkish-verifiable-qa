@@ -1,0 +1,84 @@
+id: gen-s-4078-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  loglar klasöründeki her ini dosyasında geçen seviye=HATA satırlarının sayısını bul ve her birini, ilgili ini dosyasıyla aynı ada sahip bir dosyaya yalnızca sayı olarak cikti klasörüne yaz. Yani loglar/sunucu1.ini için cikti/sunucu1.txt, loglar/sunucu2.ini için cikti/sunucu2.txt ve loglar/sunucu3.ini için cikti/sunucu3.txt oluşturulsun; her dosyada sadece o ini dosyasındaki seviye=HATA satırlarının sayısı yer alsın.
+
+setup: |
+  mkdir -p loglar cikti
+  cat > loglar/sunucu1.ini <<'INI'
+  [log]
+  seviye=HATA
+  mesaj=disk dolu
+  seviye=HATA
+  mesaj=baglanti koptu
+  seviye=UYARI
+  mesaj=bellek az
+  INI
+  cat > loglar/sunucu2.ini <<'INI'
+  [log]
+  seviye=HATA
+  mesaj=zaman asimi
+  seviye=UYARI
+  mesaj=cpu yuksek
+  seviye=HATA
+  mesaj=disk dolu
+  INI
+  cat > loglar/sunucu3.ini <<'INI'
+  [log]
+  seviye=UYARI
+  mesaj=gecici hata
+  seviye=HATA
+  mesaj=baglanti koptu
+  INI
+
+goal_tr: >
+  loglar klasorundeki her ini dosyasindaki seviye=HATA satirlarinin sayisini
+  o dosyayla ayni adi tasiyan bir dosyaya sadece sayi olarak cikti klasorune
+  yaz
+
+reference_solution: |
+  for f in loglar/*.ini; do
+    b=$(basename "$f" .ini)
+    grep '^seviye=HATA$' "$f" | wc -l > "cikti/$b.txt"
+  done
+
+outputs:
+  - {path: cikti/sunucu1.txt, kind: file}
+  - {path: cikti/sunucu2.txt, kind: file}
+  - {path: cikti/sunucu3.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: cikti/sunucu1.txt, value: '2'}
+  - {op: file_content_eq, path: cikti/sunucu2.txt, value: '2'}
+  - {op: file_content_eq, path: cikti/sunucu3.txt, value: '1'}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4078
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: sunucu-loglari
+    hedef: ayikla
+    girdi: ini
+    kaynak: cok-dosya
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

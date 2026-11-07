@@ -1,0 +1,84 @@
+id: gen-s-7044-birlestir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Girdi dizinindeki sabit genişlikli dosyaları okuyup her masa için cikti dizini altında M01.txt, M02.txt ve M03.txt dosyalarını oluştur. Her dosyada ilgili masanın kapasitesi, adisyon tutarı ve adisyon satır sayısı iki nokta ile ayrılmış tek satır olarak yer alsın; notu olan masalarda not da bu satırın son alanı olarak eklensin.
+
+setup: |
+  mkdir -p girdi cikti
+  cat > girdi/masalar.txt <<'TXT'
+  M01 4 120
+  M02 2 80
+  M03 6 200
+  TXT
+  cat > girdi/adisyonlar.txt <<'TXT'
+  M01 12.50 2
+  M02 8.00 1
+  M03 15.75 3
+  TXT
+  cat > girdi/notlar.log <<'TXT'
+  M01 nakit
+  M02 kart
+  TXT
+
+goal_tr: >
+  girdi dizinindeki sabit genislikli dosyalari okuyup her masa icin
+  cikti/MASA_ID.txt dosyasini olustur; dosyada masanin kapasitesi, adisyon
+  tutari ve adisyon satir sayisi iki nokta ile ayrilmis tek satir olarak
+  yazilsin, notu olan masalarda not da son alan olarak eklensin
+
+reference_solution: |
+  mkdir -p cikti
+  find girdi -type f -name '*.txt' -exec cat {} + | cut -c1-3,5-6,8-11 | sort -u > /tmp/birlesik.txt
+  paste -d: /tmp/birlesik.txt /tmp/notlar.txt 2>/dev/null | head -3 > /tmp/gecici.txt
+  while read -r satir; do
+    id=$(printf '%s' "$satir" | cut -c1-3)
+    kap=$(printf '%s' "$satir" | cut -c5-6)
+    tut=$(printf '%s' "$satir" | cut -c8-11)
+    printf '%s:%s:%s\n' "$id" "$kap" "$tut" > "cikti/$id.txt"
+  done < /tmp/birlesik.txt
+  cut -d' ' -f1,3 girdi/notlar.log | while read -r mid not; do
+    printf '%s\n' "$not" >> "cikti/$mid.txt"
+  done
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/M01.txt, kind: file}
+  - {path: cikti/M02.txt, kind: file}
+  - {path: cikti/M03.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [M01.txt, M02.txt, M03.txt]}
+  - {op: file_content_eq, path: cikti/M01.txt, value: 'M01: 2:'}
+  - {op: file_content_eq, path: cikti/M02.txt, value: 'M02:.0:1'}
+  - {op: file_content_eq, path: cikti/M03.txt, value: 'M03: 0:'}
+
+metadata:
+  domain: birlestir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7044
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: restoran-siparisleri
+    hedef: birlestir
+    girdi: sabit-genislik
+    kaynak: cok-dosya
+    cikti: dizin-yapisi
+    kesif: dosyayi-bul
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

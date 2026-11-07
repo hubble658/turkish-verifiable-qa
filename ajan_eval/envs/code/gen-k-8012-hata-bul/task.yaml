@@ -1,0 +1,126 @@
+id: gen-k-8012-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  flights/booking.py dosyasındaki Booking sınıfını, kapasitenin üstünde rezervasyona izin vermeyecek ve kalan koltuk sayısını doğru tutacak biçimde düzelt.
+
+setup: |
+  mkdir -p flights
+  cat > flights/catalog.py <<'CAT'
+  def load_schedule(path):
+      rows = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              code, seats = line.split(',')
+              rows.append((code, int(seats)))
+      return rows
+  CAT
+  cat > flights/booking.py <<'BOOK'
+  class Booking:
+      def __init__(self, code, seats):
+          self.code = code
+          self.seats = seats
+
+      def reserve(self, n):
+          self.seats -= n
+          return True
+
+      def remaining(self):
+          return self.seats
+  BOOK
+  cat > flights/agent.py <<'AGENT'
+  from flights.booking import Booking
+
+
+  class Agent:
+      def __init__(self, schedule):
+          self.schedule = schedule
+          self.bookings = {}
+
+      def booking_for(self, code):
+          if code not in self.bookings:
+              seats = dict(self.schedule)[code]
+              self.bookings[code] = Booking(code, seats)
+          return self.bookings[code]
+
+      def book(self, code, n):
+          return self.booking_for(code).reserve(n)
+
+      def remaining(self, code):
+          return self.booking_for(code).remaining()
+  AGENT
+  cat > schedule.txt <<'SCHED'
+  TK100,3
+  TK200,1
+  TK300,5
+  SCHED
+
+goal_tr: >
+  flights/booking.py icindeki Booking sinifini, kapasitenin ustunde
+  rezervasyona izin vermeyecek ve kalan koltuk sayisini dogru tutacak
+  bicimde duzelt.
+
+reference_solution: |
+  cat > flights/booking.py <<'BOOK'
+  class Booking:
+      def __init__(self, code, seats):
+          self.code = code
+          self.seats = seats
+          self.taken = 0
+
+      def reserve(self, n):
+          if self.taken + n > self.seats:
+              return False
+          self.taken += n
+          return True
+
+      def remaining(self):
+          return self.seats - self.taken
+  BOOK
+
+outputs:
+  - {path: flights/booking.py, kind: program, run: 'python3 -c ''from flights.catalog import load_schedule; from flights.agent import Agent; s=load_schedule("schedule.txt"); a=Agent(s); assert a.book("TK100",2) is True; assert a.remaining("TK100")==1; assert a.book("TK100",2) is False; assert a.remaining("TK100")==1; assert a.book("TK200",1) is True; assert a.remaining("TK200")==0; assert a.book("TK200",1) is False; assert a.remaining("TK300")==5; assert a.book("TK300",5) is True; assert a.remaining("TK300")==0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from flights.catalog import load_schedule; from flights.agent import Agent; s=load_schedule("schedule.txt"); a=Agent(s); assert a.book("TK100",2) is True; assert a.remaining("TK100")==1; assert a.book("TK100",2) is False; assert a.remaining("TK100")==1; assert a.book("TK200",1) is True; assert a.remaining("TK200")==0; assert a.book("TK200",1) is False; assert a.remaining("TK300")==5; assert a.book("TK300",5) is True; assert a.remaining("TK300")==0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8012
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: ucus-rezervasyonlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-durum-sifirlama
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

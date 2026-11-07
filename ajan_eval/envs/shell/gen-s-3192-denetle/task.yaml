@@ -1,0 +1,76 @@
+id: gen-s-3192-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Şehir bazlı hava durumu kayıtlarını tuttuğumuz bir arşivimiz var; gün içinde farklı kaynaklardan gelen sıcaklık ölçümlerini şehir şehir jsonl dosyalarına ekleyip duruyoruz. Artık bu ham kayıtların üzerinden şehir bazında bir özet çıkarmamız gerekiyor, çünkü hangi sıcaklık değerlerinin ne sıklıkta tekrarlandığını görmek istiyoruz.
+
+  kayitlar dizinindeki tüm jsonl dosyalarını ele alarak her şehir için sıcaklık değerlerinin kaç kez tekrarlandığını bul; her şehir için en çok tekrarlanan sıcaklık değerini, o değerin kaç kez geçtiğini ve o şehirde kaç farklı sıcaklık değeri olduğunu "sehir<TAB>en_cok_sicaklik<TAB>adet<TAB>farkli_adet" biçiminde, her şehir için bir satır olacak şekilde ve şehir adına göre alfabetik sıralı olarak denetim.txt dosyasına yaz.
+
+setup: |
+  mkdir -p kayitlar
+  cat > kayitlar/istanbul.jsonl <<'J'
+  {"sehir":"istanbul","gun":"2024-01-01","sicaklik":12}
+  {"sehir":"istanbul","gun":"2024-01-02","sicaklik":9}
+  {"sehir":"istanbul","gun":"2024-01-03","sicaklik":9}
+  J
+  cat > kayitlar/ankara.jsonl <<'J'
+  {"sehir":"ankara","gun":"2024-01-01","sicaklik":3}
+  {"sehir":"ankara","gun":"2024-01-02","sicaklik":7}
+  {"sehir":"ankara","gun":"2024-01-03","sicaklik":7}
+  {"sehir":"ankara","gun":"2024-01-04","sicaklik":7}
+  J
+  cat > kayitlar/izmir.jsonl <<'J'
+  {"sehir":"izmir","gun":"2024-01-01","sicaklik":18}
+  {"sehir":"izmir","gun":"2024-01-02","sicaklik":18}
+  {"sehir":"izmir","gun":"2024-01-03","sicaklik":15}
+  {"sehir":"izmir","gun":"2024-01-04","sicaklik":15}
+  {"sehir":"izmir","gun":"2024-01-05","sicaklik":18}
+  J
+
+goal_tr: >
+  kayitlar dizinindeki tum jsonl dosyalarindan her sehir icin sicaklik
+  degerlerinin kac kez tekrarlandigini bul ve en cok tekrarlanan sicaklik
+  degerini, o degerin kac kez gectigini ve kac farkli sicaklik degeri
+  oldugunu "sehir<TAB>en_cok_sicaklik<TAB>adet<TAB>farkli_adet" biciminde
+  her sehir icin bir satir olacak sekilde sehir adina gore alfabetik sirali
+  olarak denetim.txt dosyasina yaz
+
+reference_solution: |
+  grep -h '"sicaklik"' kayitlar/*.jsonl | sed 's/.*"sehir":"\([^"]*\)".*"sicaklik":\([0-9-]*\).*/\1 \2/' > /tmp/hk.txt
+  sort /tmp/hk.txt | uniq -c | sort -k2,2 -k1,1nr | awk '{if($2!=p){if(p!="")print p"\t"v"\t"c"\t"n; p=$2; v=$3; c=$1; n=1} else {n++}} END{print p"\t"v"\t"c"\t"n}' > denetim.txt
+
+outputs:
+  - {path: denetim.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: denetim.txt, value: ["ankara\t7\t3\t2", "istanbul\t9\t2\t2", "izmir\t18\t3\t2"]}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3192
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: hava-durumu-kayitlari
+    hedef: denetle
+    girdi: json
+    kaynak: cok-dosya
+    cikti: satir-listesi
+    kesif: veriye-bak
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

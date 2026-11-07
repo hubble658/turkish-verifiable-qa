@@ -1,0 +1,89 @@
+id: gen-k-8350-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  stock.py içindeki running_balance fonksiyonunu, data.txt'deki her satırı iki işaretçiyle okuyup "in" satırlarını ekleyen, "out" satırlarını çıkaran ve net stok bakiyesini döndüren hale getir; girişler pozitif, çıkışlar negatif sayılsın.
+
+setup: |
+  cat > stock.py <<'PY'
+  def running_balance(events):
+      # events: list of (delta, kind) where kind is "in" or "out"
+      total = 0
+      for delta, kind in events:
+          total += delta
+      return total
+  PY
+  cat > data.txt <<'TXT'
+  in 5
+  out 3
+  in 2
+  out 4
+  in 1
+  TXT
+
+goal_tr: >
+  stock.py icindeki running_balance fonksiyonunu, data.txt icindeki her
+  satiri iki-isaretci ile okuyup "in" satirlarini ekleyen "out" satirlarini
+  cikan ve net stok bakiyesini donduren bicimde duzelt; girisler pozitif
+  cikislar negatif sayilsin.
+
+reference_solution: |
+  cat > stock.py <<'PY'
+  def running_balance(path):
+      total = 0
+      with open(path) as f:
+          for line in f:
+              parts = line.split()
+              if len(parts) != 2:
+                  continue
+              kind, amount = parts
+              if kind == "in":
+                  total += int(amount)
+              elif kind == "out":
+                  total -= int(amount)
+      return total
+  PY
+
+outputs:
+  - {path: stock.py, kind: program, run: 'python3 -c ''from stock import running_balance as f; assert f("data.txt")==1, f("data.txt"); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from stock import running_balance as f; assert f("data.txt")==1, f("data.txt"); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8350
+    bundle: yarisma
+    tools:
+    - python3
+    konu: stok-hareketleri
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: iki-isaretci
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: parcali-akis
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

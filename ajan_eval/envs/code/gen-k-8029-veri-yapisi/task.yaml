@@ -1,0 +1,132 @@
+id: gen-k-8029-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  alarms/grouping.py içindeki UnionFind sınıfını tam olarak gerçekleştir: find yol sıkıştırması yapsın, union küçük kökü büyük köke bağlasın, groups her kökü kendi üye indekslerinin artan listesiyle eşleştirsin.
+
+setup: |
+  mkdir -p alarms
+  cat > alarms/thresholds.py <<'THRESH'
+  def classify(reading, low, high):
+      if reading < low:
+          return "low"
+      if reading > high:
+          return "high"
+      return "ok"
+  THRESH
+  cat > alarms/grouping.py <<'GROUP'
+  class UnionFind:
+      def __init__(self, n):
+          raise NotImplementedError
+
+      def find(self, x):
+          raise NotImplementedError
+
+      def union(self, a, b):
+          raise NotImplementedError
+
+      def groups(self):
+          raise NotImplementedError
+  GROUP
+  cat > alarms/pipeline.py <<'PIPE'
+  from alarms.thresholds import classify
+  from alarms.grouping import UnionFind
+
+
+  def make_analyzer(low, high):
+      def analyze(readings):
+          uf = UnionFind(len(readings))
+          for i in range(len(readings) - 1):
+              if classify(readings[i], low, high) == classify(readings[i + 1], low, high):
+                  uf.union(i, i + 1)
+          return uf.groups()
+      return analyze
+  PIPE
+  cat > readings.txt <<'DATA'
+  5
+  12
+  40
+  41
+  3
+  DATA
+
+goal_tr: >
+  alarms/grouping.py icindeki UnionFind sinifini tam olarak gerceklestir;
+  find yol sikistirmasi yapsin, union kucuk koku buyuk koke baglasin, groups
+  her koku kendi uye indekslerinin artan listesiyle eslestirsin.
+
+reference_solution: |
+  cat > alarms/grouping.py <<'GROUP'
+  class UnionFind:
+      def __init__(self, n):
+          self.parent = list(range(n))
+          self.rank = [0] * n
+
+      def find(self, x):
+          root = x
+          while self.parent[root] != root:
+              root = self.parent[root]
+          while self.parent[x] != root:
+              self.parent[x], x = root, self.parent[x]
+          return root
+
+      def union(self, a, b):
+          ra, rb = self.find(a), self.find(b)
+          if ra == rb:
+              return
+          if self.rank[ra] < self.rank[rb]:
+              ra, rb = rb, ra
+          self.parent[rb] = ra
+          if self.rank[ra] == self.rank[rb]:
+              self.rank[ra] += 1
+
+      def groups(self):
+          buckets = {}
+          for i in range(len(self.parent)):
+              buckets.setdefault(self.find(i), []).append(i)
+          return [sorted(v) for _, v in sorted(buckets.items())]
+  GROUP
+
+outputs:
+  - {path: alarms/grouping.py, kind: program, run: 'python3 -c ''from alarms.grouping import UnionFind as U; u=U(5); u.union(0,1); u.union(3,4); assert u.find(1)==u.find(0); assert u.find(2)==2; assert u.groups()==[[0,1],[2],[3,4]], u.groups(); v=U(4); v.union(2,3); v.union(1,2); v.union(0,1); assert v.groups()==[[0,1,2,3]], v.groups(); from alarms.pipeline import make_analyzer; a=make_analyzer(10,20); assert a([5,12,40,41,3])==[[0],[1],[2,3],[4]], a([5,12,40,41,3]); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from alarms.grouping import UnionFind as U; u=U(5); u.union(0,1); u.union(3,4); assert u.find(1)==u.find(0); assert u.find(2)==2; assert u.groups()==[[0,1],[2],[3,4]], u.groups(); v=U(4); v.union(2,3); v.union(1,2); v.union(0,1); assert v.groups()==[[0,1,2,3]], v.groups(); from alarms.pipeline import make_analyzer; a=make_analyzer(10,20); assert a([5,12,40,41,3])==[[0],[1],[2,3],[4]], a([5,12,40,41,3]); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8029
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: sensor-alarm-kurallari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: birlesim-bulma
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: bellek-ici
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

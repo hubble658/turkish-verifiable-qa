@@ -1,6 +1,6 @@
 # Doğrulanabilir Türkçe Soru Veri Seti: Yöntem
 
-Son güncelleme: 28 Ekim 2026. Bu belge her alt setin nereden geldiğini, nasıl üretildiğini, cevabın nasıl doğrulandığını, hangi süzgeçlerden geçtiğini ve ne kadara mal olduğunu anlatır. Sayılar dosyalardan sayılarak doğrulandı. Makinece okunabilir özet: `setler.json`. Kullanılan kodların kopyası: `kodlar/`. Veri setini kullanacak/paylaşacak kişi için soru sorma, puanlama ve paket içeriği: `KULLANIM.md`.
+Son güncelleme: 4 Kasım 2026. Bu belge her alt setin nereden geldiğini, nasıl üretildiğini, cevabın nasıl doğrulandığını, hangi süzgeçlerden geçtiğini ve ne kadara mal olduğunu anlatır. Sayılar dosyalardan sayılarak doğrulandı. Makinece okunabilir özet: `setler.json`. Kullanılan kodların kopyası: `kodlar/`. Veri setini kullanacak/paylaşacak kişi için soru sorma, puanlama ve paket içeriği: `KULLANIM.md`.
 
 ## Genel bakış
 
@@ -8,23 +8,31 @@ Son güncelleme: 28 Ekim 2026. Bu belge her alt setin nereden geldiğini, nasıl
 |---|---|---|---|---|
 | Bulmaca | 3.000 | Program (çözücü + tek çözüm kontrolü) | Yok | `bulmaca/bulmaca_dataset.jsonl`, `bulmaca/yeni_tipler_dataset.jsonl` |
 | Hesaplama | 14.613 | Program (formül, sympy, datetime, şema) | Yok | `hesaplama/cikti/*.jsonl` (birleşikte 3 tekrar atılır, §11) |
-| MEB tekli konu | 2.914 | Üretici LLM + kitap pasajı; LLM tutarlılık kontrolü | Soru ve cevabı yazar, kontrol eder | `korpus/verifiable_dataset_v6_son.jsonl` |
-| MEB çapraz konu | 3.993 | Üretici LLM + kitap pasajları; LLM hakem | Soru ve cevabı yazar, hakem süzer | `korpus/uretim3k/capraz_son.jsonl` |
+| MEB tekli konu | 2.809 (2.914'ten 105 soru 2 Kasım düzeltmesinde silindi, §13) | Üretici LLM + kitap pasajı; LLM tutarlılık kontrolü | Soru ve cevabı yazar, kontrol eder | `korpus/verifiable_dataset_v6_son.jsonl` |
+| MEB çapraz konu | 3.991 (2 soru silindi, §13) | Üretici LLM + kitap pasajları; LLM hakem | Soru ve cevabı yazar, hakem süzer | `korpus/uretim3k/capraz_son.jsonl` |
 | Solver (optimizasyon) | 4.986 | Program (OR-Tools CP-SAT, en iyi değer kanıtlı) | Yalnız meslek kostümü ve giriş paragrafı | `konu_agaci/agac_v2/sablon/uretim5k/sorular.jsonl` |
-| SQL: Türkiye açık veri (il/ilçe) | 17.895 (20.138'den 2.243 birebir tekrar atıldı, §11) | Program (gerçek SQLite'a karşı çalıştırılır) | Yok | `sql_arastirma/uretim/*_sorular.jsonl`, `*_zincir_sorular.jsonl` |
+| SQL: Türkiye açık veri (il/ilçe) | 17.785 (20.138'den 2.243 birebir tekrar ve 110 Manisa sorusu atıldı, §11) | Program (gerçek SQLite'a karşı çalıştırılır) | Yok | `sql_arastirma/uretim/*_sorular.jsonl`, `*_zincir_sorular.jsonl` |
 | SQL: belediye dışı açık veri (deprem, Eurostat, Dünya Bankası, Wikidata) | 9.234 | Program (gerçek SQLite'a karşı çalıştırılır) | Yok | `sql_arastirma/uretim/*_son.jsonl` (8 dosya) |
-| SQL çıktı-tahmini (model SQL yazmıyor, çıktı tahmin ediyor) | 3.424 (İstanbul dengelemesi, §11) | Program (§6/§7'den yeniden paketleme + gerçek SQLite'a karşı çalıştırma) | Yok | `sql_arastirma/uretim/cikti_tahmini/*.jsonl` |
+| SQL çıktı-tahmini (model SQL yazmıyor, çıktı tahmin ediyor) | 3.321 (İstanbul dengelemesi; 103 Manisa sorusu atıldı, §11) | Program (§6/§7'den yeniden paketleme + gerçek SQLite'a karşı çalıştırma) | Yok | `sql_arastirma/uretim/cikti_tahmini/*.jsonl` |
 | Excel formülü: veritabanından (zor-3) | 1.000 | Program (formülsüz Python + iki gold formül motorda + LibreOffice; 5 kitapta çalıştırarak puanlama) | Yok | `hesaplama/cikti_veritabani/excel_veritabani_zor3.jsonl` |
-| SQL: TURSpider (dış set, filtreli; `koken=turspider_filtreli`) | 7.904 | Gerçek SQLite'ta yeniden çalıştırma | Yok (insan çevirisi) | `sql_arastirma/hazir/turspider.jsonl` |
-| SQL: Cognipeer (dış set, filtreli; `koken=cognipeer_filtreli`) | 69.034 | Gömülü şemada yeniden çalıştırma | Kaynak set LLM üretimi | `sql_arastirma/hazir/cognipeer.jsonl` |
-| **Toplam** | **137.997** (özgün 61.059 + dış 76.938) | | | |
+| SQL: TURSpider (dış set, filtreli; `koken=turspider_filtreli`) | 7.902 (2 bozuk altın silindi, §13) | Gerçek SQLite'ta yeniden çalıştırma | Yok (insan çevirisi) | `sql_arastirma/hazir/turspider.jsonl` |
+| ~~SQL: Cognipeer~~ (3 Kasım 2026'da çıkarıldı, §16; toplama girmez) | ~~68.300~~ | Gömülü şemada yeniden çalıştırma | Kaynak set LLM üretimi | `sql_arastirma/hazir/cognipeer.jsonl` (birleştirmede kapalı) |
+| Satranç (ek set, `koken=hizli_uyarlama`) | 3.000 | Lichess çözümü + kendi zorlayıcı-mat çözücümüz (python-chess) | Yok | `ek_setler/satranc/veri/satranc.jsonl` (§15) |
+| Izgara ve graf bulmacaları (ek set, `koken=hizli_uretim`) | 2.000 | Program (tek çözüm denetimli çözücü, BFS, Dijkstra/Kruskal, Hayat Oyunu) | Yok | `ek_setler/izgara_bulmaca/veri/izgara_bulmaca.jsonl` (§15) |
+| Talimat takibi (ek set; IFEval_tr 350 `hizli_uyarlama` + 1.650 `hizli_uretim`) | 2.000 | Program (Türkçe IFEval denetleyicisi; cevap metni yok) | Yok | `ek_setler/talimat_takibi/veri/talimat_takibi.jsonl` (§15) |
+| Ajan terminal (kabuk 884, kod 706; `koken=ozgun`) | 1.590 | Örnek çözümden türetilen kontroller; kum havuzunda çalıştırılır | Görevi ve örnek çözümü yazar | `ek_setler/ajan_terminal/veri/ajan_terminal.jsonl` (§18) |
+| Regex (T1 1.695 + T3 33; `koken` 1.483 `hizli_uretim`, 245 `hizli_uyarlama`) | 1.728 | Program (DFA eşdeğerliği; altını otomata çevrilemeyen 20 öğede ve çevrilemeyen cevapta gizli testler) | Kaynakta tarif ve çeviri | `ek_setler/regex/veri/regex.jsonl` (§19) |
+| ~~PRBench finans~~ (5 Kasım 2026'da çıkarıldı, §24; toplama girmez) | ~~319~~ | Uzman rubriği + LLM jürisi | Çeviri; puanlamada jüri | `ek_setler/prbench_finans/reddedildi/prbench_finans.jsonl` |
+| Karakter işlemleri (ek set, `koken=hizli_uretim`) | 1.200 | Program (Türkçe alfabe ve harf kuralları) | Yok | `ek_setler/karakter_islemleri/veri/karakter_islemleri.jsonl` (§23) |
+| **Toplam** | **80.159** (özgün 62.329 + TURSpider 7.902 + ek setler 7.000 + regex 1.728 + karakter işlemleri 1.200; Cognipeer 68.300 çıkarıldı, §16; PRBench 319 çıkarıldı, §24) | | | |
 
 Pilotlar (toplama girmez): Excel formülü — veritabanından, 30 + 40 + 30 + 100 soru (`hesaplama/pilot/excel_veritabani_*pilot.jsonl`) (§9).
 
 Doğrulama gücüne göre iki grup var:
 
-- **Kesin doğrulanmış, özgün (54.152 soru):** bulmaca, hesaplama, solver, SQL (il/ilçe + belediye dışı + çıktı-tahmini), Excel veritabanı zor-3. Cevap kodla hesaplanır/gerçek veritabanına karşı çalıştırılır; LLM cevabın doğruluğuna karışmaz.
-- **Dış setlerden filtrelenmiş (76.938 soru):** TURSpider ve Cognipeer; altın sonuç yeniden çalıştırılarak hesaplandı, soru–SQL uyumu kaynak sete bağlı (§11).
+- **Kesin doğrulanmış, özgün (53.939 soru):** bulmaca, hesaplama, solver, SQL (il/ilçe + belediye dışı + çıktı-tahmini), Excel veritabanı zor-3. Cevap kodla hesaplanır/gerçek veritabanına karşı çalıştırılır; LLM cevabın doğruluğuna karışmaz.
+- **Dış setten filtrelenmiş (7.902 soru):** TURSpider; altın sonuç yeniden çalıştırılarak hesaplandı, soru–SQL uyumu kaynak sete bağlı (§11). Cognipeer 3 Kasım'da çıkarıldı (§16).
+- **LLM üretimi, kontrolleri örnek çözümden türetilmiş (1.590 görev):** Ajan terminal (§18). Altın, referans betiğinin çıktısıdır; test 200 elle gözden geçirildi, train denetlenmedi.
 - **LLM ile doğrulanmış (6.907 soru):** MEB tekli ve çapraz. Cevap kitap pasajına dayanır, doğruluğu LLM tutarlılık kontrolü ve hakem modelle sağlanır. Bu güvence kesin değil; örneklem denetimlerinde düşük oranlı etiket hataları görüldü.
 
 Ortak ilkeler:
@@ -1045,9 +1053,536 @@ TURSpider veritabanları (166 dosya, `futbol_1` 317 MB) GitHub sınırını aşt
 - **SQL yazma:** salt okunur bağlantı + 30 sn sınır (`set_progress_handler`).
 - **Excel:** `score_excel_db_batch.grade_sinirli` (süreç grubu, 60 sn) iki Excel kategorisinde varsayılan.
 
-**Bilinen ama düzeltilmeyen:** `sayac_takip` (bulmaca) 300 sorunun 116'sının cevabı 0 (hiç anılmayan kap soruluyor; "hep 0" diyen model %39 alır; bir kısmı belirsiz: "Burak valize üç yeşil boya ekledi … kaç yeşil boya aktarılmıştır?" → 0). Kullanıcı kararına bırakıldı.
+**Manisa açık verisi çıkarıldı (1 Kasım 2026, kullanıcı kararı: "lisans bulunamazsa çıkar"):** Portalın CKAN API'sine göre 1.363 veri setinin hepsi (kullandığımız 99'u dahil) `mbb-odl-1.0` lisanslı. Lisans URL'si (`/lisans/mbb-odl-1-0`) 404 veriyor ve Wayback Machine'de kopyası yok; `/en/license`, `/kullanim-kosullari` gibi adresler de yok. SSS "lisans bilgisini ve Kullanım Koşulları sayfasını inceleyin" diyor, iki sayfa da yayımlanmamış. Açık Veri Yönetmeliği md. 4 açık veriyi "telif hakkı… kısıtlamalarına tabi olmaksızın… yeniden kullanılabilen ve dağıtılabilen veri" diye tanımlıyor; Strateji belgesi "açık lisanslardan uygun olanı seçilir (örneğin Creative Commons)" diyor. Ancak fiilen verilmiş bir lisans yok, site altbilgisi "© Tüm hakları … aittir". `birlestir.py` → `manisa_mi()`: `sql_belediye` 110 + `sql_cikti_tahmini` 103 (agregasyon 100, basit 3) = **213 soru** → `verifiable_data_birlesik_manisa_cikarilan.jsonl`. Eşlik dosyası yalnız kullanılan dilimlerle yazılır (60 → 58). `manisa_acik_veri.sqlite` pakete girmez (14 → 13 veritabanı). Kalan dökümlerde geçen "Manisa" Eurostat il listesindeki il adı. Yeni toplam **137.784** (özgün 60.846, kesin özgün 53.939). Öz-sınama 137.784/137.784, ters sınamada 7 tesadüf. Belediyeden (iletisim@manisa.bel.tr) yazılı izin gelirse dosyadan geri eklenebilir.
+
+**`sayac_takip` dengelemesi (1 Kasım 2026, kullanıcı kararı):** 300 sorunun 128'inde cevap boştu (116 "0": hiç aktarılmamış renk, tamamen alınmış renk, boşalmış kap; 12 "hiçbiri"). Cevaplar doğruydu, ama hep "0" diyen model bu tipte %39 alıyordu. `bulmaca/dengele_sayac.py`: boş cevaplılar zorluk başına orantılı %15'e indirildi (kolay 96→32, zor 32→14; tutulacaklar sabit tohumla seçildi). 82 soru aynı id altında, aynı üreticiyle (`bulmaca_pkg/sayac_takip.generate`, main.py kolay/zor ayarı, tohum 900.001+) üretilmiş boş olmayan cevaplı sorularla değiştirildi. Yeni soru tipleri: hangi_renkler 29, toplam_kalan 26, kac_tasindi 19, kalan_renk 8. Hepsi `verify()` ile doğrulandı, metin tekrarı 0. Son dağılım: boş 46/300 (%15,3); en sık cevaplar 1 (45), 0 (43), 2 (37), 3 (34). Eski 82 kayıt `bulmaca/sayac_takip_dengeleme_eski.jsonl`. Toplam soru sayısı değişmedi.
+
+**Kategori adları (31 Ekim):** paket ve HF'de `sql_il_ilce` → **`sql_belediye`**, `sql_belediye_disi` → **`sql_istatistik`** (ulusal/uluslararası istatistik: deprem, Eurostat, Dünya Bankası, Wikidata; kullanıcı isteği). Kaynak dosya ve betik adları (`*_son.jsonl`, `bench_belediye_disi.py`) değişmedi; bu belgedeki eski bölümler eski adı kullanır.
 
 **Paket** (`paket/`, ayrı git deposu; `paket_kur.py` ile kurulur): `veri/<set>.jsonl.gz` (11 dosya, 54 MB), `veri/sql_cikti_tahmini_tablolar.json`, `veri/ozet.json`, `veritabanlari/` (14 SQLite, 110 MB; boş `kadikoy_tuzla_acik_veri.sqlite` girmez), `puanlama/` (tek giriş noktası `istem(satir)` / `puanla(satir, metin)`; hesaplama ve bulmaca modülleri `_hesaplama/`, `_bulmaca/` altında kopya), `araclar/`, `README.md`.
+
+## 12. Doğrulayıcı denetimi (31 Ekim 2026)
+
+Paket puanlayıcıları ve altın cevaplar bağımsız olarak yeniden sınandı. Altın cevaplar üretici kodu kullanılmadan, soru metninden ayrıştırılıp ayrı yazılmış hesap ve çözücülerle yeniden hesaplandı. Altın ve ters sınama (§11) bu hataları yakalamıyordu: ikisi de altın cevabı kendi puanlayıcısından geçirir, "yakın ama yanlış" cevabı denemez. Bu yüzden `altin_sinama.py`'ye `--yakin` kipi eklendi (tam sayı +1, ondalık %5, birimde %15 bozulmuş altın reddedilmeli).
+
+**Bağımsız yeniden hesap (altın doğru mu):**
+- Hesaplama: fizik 2.400/2.400, kimya 1.090/1.090 (pH 26 ayrıştırılmadı), tarih 2.100/2.100, matris 1.956/1.956 (`carpim_eleman`'ın 144'ü ayrıştırılmadı). Birim dönüşümünde hesap hatası yok; 63 altın 3 ondalığa aşırı yuvarlanmış (aşağıda).
+- Bulmaca: zebra 450, sıralama 400, doğrucu-yalancı 400 bulmacanın hepsinde tek çözüm var ve altınla aynı; sayaç 300/300, yön 400/400 simülasyonla doğru.
+- SQL: il/ilçe 17.895 ve istatistik 9.234 satırın hepsi yeniden çalıştırmada ve `PRAGMA reverse_unordered_selects` ile ters taramada aynı; TURSpider 7.885/7.904; Cognipeer'in 6.289 değiştirme görevinin hepsi durumu gerçekten değiştiriyor.
+- Solver `sirala`: kaba kuvvetle çözülebilen 55 örneğin 55'inde altın gerçek optimum.
+
+**Puanlayıcı düzeltmeleri** (`paket/puanlama/`; kaynak klasörlerdeki eski kopyalar, ör. `hesaplama/grade.py`, değiştirilmedi):
+
+| Puanlayıcı | Sorun | Kanıt | Düzeltme |
+|---|---|---|---|
+| Matris `dogrusal_sistem_2x2` | Regex tüm metindeki ilk "x =" ifadesini alıyordu (ara adım) | Kayıtlı 20 doğru cevabın 20'si yanlış sayılmış | Yalnız son `CEVAP:` satırı; kesir/ondalık x, y |
+| Matris tam sayı / kesir | Tam sayıda %1 tolerans; kesir metnin herhangi bir yerinden | 345 için 344 ve 347 doğru; "…-3/4 … CEVAP: 99" doğru | Tam sayı birebir; kesir yalnız `CEVAP:` parçasından |
+| Hesaplama sayısal | Tüm metnin son sayısı; birim üssü sayı sanılıyor | "17.67 m/s^2" → 2; CEVAP'tan sonraki not | Son `CEVAP:` satırı; `m/s^2`, `CO2` rakamları atılır; yalın `10^-5` okunur |
+| Birim dönüşümü | 63 altın aşırı yuvarlanmış; KB/galon/HP tanımı soruda yok | 102,51 Pa → 0,0010251 bar reddediliyordu (altın 0,001) | `birim_yeniden.py`: kesin değer ve ikinci tanım (KB=1000, İngiliz galonu, metrik beygir) de kabul; altınla tutarsızsa ek kabul yok |
+| Tarih | "bir önceki gün"de "bir" zorunlu; sayısal tarih reddediliyor; "iki tarih dahil değil" ifadesi | 10 + tüm `is_gunu_sonrasi` soruları; 146 gün farkı sorusu | "bir" isteğe bağlı; 21.03.2019 / 2019-03-21 kabul; ifadeli 146 soruda iki okuma da kabul; "ya da/veya" ile çoklu cevap yanlış |
+| JSON/XML | Sayılarda %1 tolerans | Fiyat 2.574,66 yerine 2.597,83 doğru sayılıyordu | Birebir |
+| Bulmaca (`puanla`) | Yalnız kesin eşleşme dönüyordu | Hakemin doğru saydığı 720 cevabın 114'ü reddediliyordu | Gevşek eşleşme (hakemle 714/720 uyumlu, yanlış pozitif 0) |
+| SQL `deger_esit` | Tam sayıda da göreli 1e-3 | 999 = 1000; tarih-int 19680831 = 19690101; 19 TURSpider altını kendini reddediyordu | Tam sayı birebir; ondalıkta tolerans altının basamağının yarım birimiyle sınırlı (taban 0,011) |
+| SQL eşit değer (tie) | Altın taramaya bağlıysa tek sonuç kabul | Cognipeer 77, çıktı tahmini 66 satır | Altın ters taramada farklıysa iki sonuç da kabul, sıra aranmaz (çıktı tahmininde tablo dökümünden SQLite kurulur) |
+| MEB `answers_match` | Yalnız ilk sayılar karşılaştırılıyordu; olumsuzluk yok | Gerçek ölçümlerde "3/4"~"3/1", "1/8"~"1/4", "atom no 84"~"88", "18-30"~"18-25" doğru | Bütün bağımsız sayılar sırasıyla ve işaretiyle; harfe bitişik rakam (CO2) sayı değil; olumsuzluk/seçenek sözcüğü hakeme |
+
+**Kayıtlı ölçümlerde etkisi:** hesaplama (`hesaplama/skor_sonuclari_deepinfra.jsonl`, 1.040 cevap, excel hariç 880): 27 karar değişti, hepsi yanlış→doğru (20 matris sistemi, 4 birim, 2 fizik; binlik virgüllü sayılar, KB=1000). Bulmaca (720 hakemli cevap): gevşek eşleşme 546 doğru, hakemle 6 fark (hakem "kardeşi" ~ "erkek kardeşi" gibi tartışmalıları doğru saymış). MEB (`korpus/zorluk_*.jsonl`, 18.975 tekil cevap): eski hızlı yolun kabul ettiği 363 cevap artık hakeme gider (bir kısmı gerçekten yanlıştı, bir kısmı birim yazım farkı: "220 Volt" ~ "220 V"), 1 yeni kabul ("Kuvvetin cos30° = √3/2 kadarı" ~ "√3/2", doğru). Hakemsiz MEB skoru bu yüzden düşer; hakemli skor etkilenmez ya da yanlış pozitif kadar düşer. **§11 ve öncesindeki matris ve bulmaca skorları puanlayıcı hatası yüzünden düşük ölçülmüştü** (matris `dogrusal_sistem_2x2` pratikte 0; bulmaca kesin eşleşmeyle).
+
+**Sınamalar:** altın sınama 137.997/137.997. Ters sınama: 7 kabul (§11'deki aynı 7 satır; altını 98.765,4321'e gerçekten yakın). Yakın-yanlış sınama: hesaplama 11.310/11.313 (3 kabul, bozulmuş değer tesadüfen İngiliz galonu / metrik beygirle hesaplanan geçerli değere denk geliyor), çıktı tahmini 3.225/3.225, MEB 1.289/1.289 (sayı içeren altınlar).
+
+**Yeniden hazırlanması gereken sorular** (2 Kasım'da düzeltildi, bkz. §13; puanlayıcı geçici olarak tolere ediyordu ya da veri düzeltilmeliydi; kimlik listesi `yontem/yeniden_hazirlanacak_2026-10-31.jsonl`, 2.984 kayıt / 2.710 soru):
+- Hesaplama: gün farkı ifadesi 146; aşırı yuvarlanmış birim altını 63; tanımı belirtilmeyen HP 174, KB/MB/GB 165, galon 128.
+- SQL: Cognipeer'de GROUP BY'sız HAVING'li yanlış altın 18; TURSpider'da GROUP BY'sız yanlış altın 2; çıktı tahmininde `soru` alanı eski eşlik dosyası adını taşıyan 1.276 (yalnız metin, `istem()` etkilenmiyor).
+- Bulmaca: zebra "solundadır" (herhangi bir yerde solunda kastediliyor, "hemen solunda" okuyan çözücü 450'nin 319'unda çözüm bulamıyor) 438, "mavi ev limonata içmektedir" 273, "Ben ile X aynı türdeniz" 147, yön sorusu dil hatası 37, sayaç cevabı 0 olan 116 (16'sında sorulan renk hiç geçmiyor).
+
+**MEB altın denetimi (1 Kasım 2026, `korpus/meb_altin_denetim_batch.py` + `meb_altin_denetim_pasajli_batch.py`, DeepInfra Batch, `deepseek-ai/DeepSeek-V4-Flash-0731`):**
+- 1. aşama, pasajsız: model önce soruyu kendisi çözüp sonra kayıtlı cevaba karar verir. Karar önce yazılınca model kendisiyle çelişiyordu; bu yüzden istemde önce çözüm, sonra karar isteniyor. 6.907 soru: 6.575 "altın doğru", 166 "altın yanlış olabilir", 166 "soru sorunlu"; $0,34.
+- 2. aşama: işaretlenen 332 soru, sorunun üretildiği ders kitabı pasajıyla yeniden incelendi. Sonuç: 102 altın yanlış, 140 soru sorunlu, 89 altın doğru (itiraz yersiz), 1 cevapsız; $0,08. Toplam maliyet $0,42.
+- Elle örneklem (12 "altın yanlış", 7 "soru sorunlu"): "altın yanlış"ların 6'sında altın gerçekten yanlış, 4'ünde soru belirsiz, 2'sinde model yanılmış (ör. akson üzerindeki manyetik alan: altın "batı" doğru). "Soru sorunlu"ların 7'si de gerçekten sorunlu, çoğu kitaptaki şekle ya da tabloya dayanıyor. Bu yüzden kararlar kesin değil, elle inceleme listesi olarak tutuluyor: `korpus/denetim_altin_2026-11-01/inceleme_listesi.jsonl` (242 soru, `yeniden_hazirlanacak_2026-10-31.jsonl`'a da eklendi).
+- Kaçırma da var: küre sorusu `fizik9-2115` (altın 1/4, soru kötü kurulmuş) tek çağrılı denemede işaretlenmişti, batch'te "doğru" geçti. 1. aşama yanlış altınların hepsini yakalamaz.
+
+## 13. Veri düzeltmeleri (2 Kasım 2026)
+
+§12'deki yeniden hazırlanacak sorular ve MEB altın denetiminde sorunlu çıkan sorular düzeltildi ya da silindi. Kaynak dosyalara dokunulmadı: düzeltmeler `duzeltmeler/*.jsonl` dosyalarında, `birlestir.py` bunları (Manisa çıkarımından sonra) satır kimliğiyle uygular. Her kayıt `{"id", "islem": "guncelle"|"sil", "neden", "alanlar", "orijinal_alanlar"}` biçiminde; silinenler nedeniyle birlikte `verifiable_data_birlesik_duzeltme_silinen.jsonl` dosyasına yazılır. **Toplam 137.784 → 137.657 (kod + MEB) → 136.941 (Cognipeer çevirisi, §13 sonu ve kalıntı sorunlar).**
+
+**Kodla yapılan düzeltmeler** (`duzeltmeler/olustur_kod_duzeltmeleri.py`, düzeltilmemiş paket verisinden bir kez üretilir):
+
+| Dosya | İşlem | Soru |
+|---|---|---:|
+| `hesaplama_2026-11-01.jsonl` | Birim tanımı soru sonuna eklendi: KB/MB/GB/TB = 1024 (165), ABD galonu (128), 1 HP = 745,7 W (174) | 467 |
+| | Kesin değerden %0,5'ten fazla sapan altın, sorudan yeniden hesaplanıp 4 anlamlı basamakla yazıldı (yuvarlama talimatı olmayan sorular) | 93 |
+| | Gün farkı: "(iki tarih dahil değil, aradaki gün sayısı) kaç gün geçer?" → "kaç gün vardır?" | 146 |
+| | Toplam güncellenen satır (bir satırda birden çok düzeltme olabilir) | 690 |
+| `bulmaca_2026-11-01.jsonl` | Zebra "X'in evi, Y evi solundadır" → "Y evinin solunda bir yerdedir"; "mavi ev limonata içmektedir" → "mavi evde oturan kişi …" | 446 |
+| | Doğrucu-yalancı "Ben ile X aynı türdeniz" → "X ile ben …" | 147 |
+| | Yön: ilgi eki ("Kerem başlangıç noktasına" → "Kerem'in …") | 37 |
+| `sql_2026-11-01.jsonl` | Silindi: Cognipeer'de GROUP BY'sız HAVING'li altın 18, TURSpider'da GROUP BY'sız "her hesabın işlem sayısı" 2 | 20 |
+
+Bulmaca cevapları değişmedi; ifadeler üreticinin kastettiği anlamı (zebra: "solunda herhangi bir yerde") açıkça yazıyor. Birim puanlayıcısı (`birim_yeniden.py`) tanımı yazılan soruda ikinci tanımı artık kabul etmiyor; düzeltilen 544 birim sorusunun hepsinde sorudan yeniden hesaplanan değer altınla tutarlı.
+
+**MEB düzeltmesi** (`korpus/meb_duzelt_batch.py`, DeepInfra Batch, ara dosyalar `korpus/duzeltme_meb_2026-11-01/`). Hedef: §12 MEB altın denetiminin inceleme listesi (242) + elle eklenen `fizik9-2115` ve `fizik11-1513` = 243 soru.
+1. **Düzelt:** `deepseek-ai/DeepSeek-V4-Pro-0813`, kaynak pasaj + eski soru/cevap + denetim gerekçesiyle; ya yeni soru/cevap/gerekçe ya da "sil" (pasajdan düzgün, tek cevaplı soru kurulamıyorsa).
+2. **Çöz:** düzeltilen soru `deepseek-ai/DeepSeek-V4-Flash-0731`'e paketteki MEB istemiyle kapalı kitap çözdürülür.
+3. **Hakem:** cevap yeni altınla `answers_match` kuralıyla eşleşmezse V4-Flash LLM hakem (`JUDGE_PROMPT`).
+4. Tutmayanlar bir tur daha düzeltilir; ikinci turda da tutmayan silinir.
+
+| Tur | Düzelt (Pro) | Çöz: kural eşleşti | Hakem | Tuttu | Sil | Tutmadı |
+|---|---|---:|---:|---:|---:|---:|
+| 1 | 243 → 152 düzelt, 91 sil | 81/152 | 71 | 123 | 91 | 29 |
+| 2 (tutmayan 29) | 29 → 23 düzelt, 6 sil | 9/23 | 14 | 13 | 6 | 10 |
+
+Sonuç: **136 güncellendi** (tek ders 119, çapraz 17), **107 silindi** (tek ders 105, çapraz 2; 97 model kararı, 10 iki turda tutmayan). Güncellenen satırda eski soru/cevap `orijinal.duzeltme` alanında (`eski_soru`, `eski_cevap`, `model`, `dogrulayan`, `tarih`). Silme gerekçelerinin çoğu: soru pasajda olmayan bir konuyu soruyor (ör. pasaj kaldıraç, soru eğik düzlem) ya da kimyasal/fiziksel olarak geçersiz (ör. sp hibritleşmeli XH₃). Elle örneklem: tutan 6 düzeltmenin 6'sı doğru ve tek cevaplı. Maliyet: düzelt $1,0435 + $0,1799, çöz $0,0020 + $0,0003, hakem $0,0024 + $0,0005 = **$1,23**.
+
+**Sınama (yeniden kurulan paket):** altın 137.657/137.657. Ters sınama 137.650/137.657 (7 kabul: §12'deki aynı 7 satır). Yakın-yanlış 15.715/15.715 (önceki 3 birim kabulü, ikinci tanım artık kabul edilmediği için kalktı).
+
+**Sınırlar:** Düzeltilen MEB soruları yine LLM üretimi; doğrulama tek model (V4-Flash) çözümü + hakem. Yeni bulmaca ifadeleri, bağımsız çözücüyle yeniden çözülmedi (anlam değişmediği için cevap aynı; eski kalıpların kalmadığı sayıldı).
+
+## 14. Son benchmark (2 Kasım 2026)
+
+**3 Kasım 2026 notu:** Cognipeer paketten çıkarıldı (§16); alt kümeden 100 Cognipeer sorusu çıkarıldı (`benchmark_2026-11-02/alt_kume_cognipeer_cikarilan.jsonl`), özet yeni ölçüm yapılmadan yeniden hesaplandı (`rapor` artık yalnız `alt_kume.jsonl`'daki soruları sayar; ham sonuç dosyaları değişmedi). Aşağıdaki tablo Cognipeer'siz; Cognipeer satırı kayıt için gözlemlerde.
+
+**Alt küme:** başlangıçta 27 türün her birinden 100 soru, 2.700 soru; Cognipeer çıkınca **26 tür, 2.600 soru** (`paket/benchmark/alt_kume.jsonl`, `paket/araclar/benchmark.py sec`, tohum 20261102). Tür = kategori; solver `orta` ve `kod` ayrı tür. Tür içindeki alt gruplar (hesaplamada alt tip, SQL'de veritabanı, Cognipeer'de görev, MEB'de ders, solver'da aile) sırayla dolaşılarak seçildi. 100 soruda 95% güven aralığı en kötü ±10 puan.
+
+**Ayar:** paketteki `istem()`, temperature 0, tek deneme, DeepInfra Batch. `mistralai/Mistral-Small-3.2-24B-Instruct-2506` ve `deepseek-ai/DeepSeek-V4-Flash-0731` 8.000 token; düşünen Flash `reasoning_effort=high`, 32.000 token (V4-Flash'ta düşünme varsayılan olarak kapalı; ilk koşu bu yüzden düşünmesiz çıktı ve ayrı sütun olarak tutuldu). Puanlama paketin `puanla()` fonksiyonu; MEB'de kural tutmazsa `deepseek-ai/DeepSeek-V4-Flash-0731` hakem. Ham çıktılar `benchmark_2026-11-02/`, özet `paket/benchmark/sonuclar.json`.
+
+| Tür | Mistral-Small-3.2-24B | V4-Flash (düşünmesiz) | V4-Flash (düşünen, high) |
+|---|---:|---:|---:|
+| akrabalik | 59 | 88 | 95 |
+| birim_donusumu | 82 | 100 | 99 |
+| dogrucu_yalanci | 51 | 92 | 98 |
+| excel_formulu | 97 | 98 | 98 |
+| excel_veritabani | 26 | 70 | 93 |
+| fizik_hesabi | 94 | 99 | 98 |
+| json_uretimi | 94 | 97 | 99 |
+| kimya_hesabi | 96 | 99 | 98 |
+| korpus_capraz_eslestirmeli | 69 | 86 | 93 |
+| korpus_tek_ders | 71 | 86 | 84 |
+| matris_islemleri | 85 | 100 | 100 |
+| nesne_takip | 78 | 100 | 100 |
+| sahiplik_zinciri | 84 | 100 | 100 |
+| sayac_takip | 76 | 93 | 96 |
+| siralama | 40 | 81 | 86 |
+| solver_kod | 0 | 7 | 41 |
+| solver_orta | 1 | 2 | 70 |
+| sql_belediye | 61 | 73 | 88 |
+| sql_cikti_tahmini | 4 | 18 | 97 |
+| sql_istatistik | 76 | 89 | 92 |
+| sql_turspider | 80 | 82 | 82 |
+| tarih_hesaplama | 60 | 91 | 98 |
+| xml_uretimi | 94 | 98 | 87 |
+| yon | 48 | 91 | 98 |
+| zaman_aritmetigi | 91 | 100 | 99 |
+| zebra | 30 | 74 | 100 |
+| **Makro (26 tür)** | **63,3** | **81,3** | **91,9** |
+| **Makro (10 set)** | **53,7** | **69,7** | **87,8** |
+
+Cognipeer'li ilk özet (27 tür / 11 set): makro tür 63,5 / 80,7 / 90,9, makro set 54,9 / 69,3 / 85,7.
+
+Makro (set) her seti eşit ağırlıklandırır (bulmaca ve hesaplama kendi türlerinin ortalaması). Kesilen (token sınırı): 24B 107 (çoğu zebra/sıralama döngüsü), Flash 56, düşünen Flash 40 (30'u solver `orta`). Maliyet (Cognipeer dahil ödenen): 24B $0,57, Flash $0,39, düşünen Flash $2,05; toplam **$3,01**.
+
+**Benchmark'ta bulunan puanlayıcı hataları (düzeltildi, `puanlama/_bulmaca/bulmaca_scoring.py`):** Düşünen Flash cevabı cümleyle yazıyor. (1) Akrabalık: "Erkek torunu", "Mehmet, Selin'in erkek yeğenidir.", "Yeğenidir." reddediliyordu (100'de 46). Artık cevapta tek akrabalık terimi varsa (ek-fiil ve cinsiyet niteleyicisi atılarak) o alınır; "değil" ya da ek almış kök ("annesinin babası") varsa karar verilmez. (2) Tipografik kesme işareti ("Aslı’dan") ad kuralına girmiyordu (6). (3) Sayaçta "2 top", "Sadece sarı" reddediliyordu (7). (4) Türkçe binlik ayırıcı: "374.000 L" 374,0 okunuyordu; artık tek noktalı 3 haneli yazımda iki okuma da deneniyor, "5.180.011.43" gibi çok noktalı yazımda son nokta ondalık sayılıyor (`grade.py`; 6 karar, hepsi yanlış→doğru, elle bakıldı; hesaplama altın 14.613/14.613, ters 7 kabul, yakın-yanlış 11.313/11.313). Bulmacada değişen 63 kararın hepsi elle bakıldı: hepsi yanlış→doğru, hepsi gerçekten doğru. Bulmaca altın 3.000/3.000, ters 3.000/3.000.
+
+**Gözlemler:** Düşünme, SQL çıktı tahmininde (%18 → %97), solver'da (%4,5 → %55,5), Excel veritabanında (%70 → %93) ve zebrada (%74 → %100) belirleyici. Hesaplama setleri doymuş (Flash %97–98). Solver en zor set (kod %41, orta %70). Cognipeer'de üç model ilk koşuda aynıydı (%57–59): çeviri tırnak içi değerleri de çevirmişti; düzeltmeden sonra (aşağıda; alt kümede 16 soru güncellendi, silinen 2 soru aynı görevden 2 soruyla değiştirildi, Cognipeer `--set` ile yeniden ölçüldü) %67 / %65 / %64. Üç modelin hâlâ yakın olması soru ve altın kaynaklı sorunlardan; set 3 Kasım'da çıkarıldı (§16). Tablo düzeltme sonrası. Düşünen Flash'ın düşünmesizden düşük olduğu XML (%87) gerçek model hatası (sayısal alana " TL" ekliyor).
+
+**Kalıntı sorunlar (2 Kasım 2026, benchmark sonrası elle okuma):**
+- MEB: düşünen V4-Flash'ın yanlış yaptığı 23 MEB sorusunun (200'den) ~20'si soru kaynaklı: birden çok doğru cevap, şekle dayalı (`fizik11-1518`), döngüsel (`biyoloji10-0089`), yanlış altın (`biyoloji12-0581`: CCU/CCC/CCA/CCG hepsi yalnız prolin, altın "AUG kodonu"; `korpus-001659`: altın "aerosol", doğrusu katı köpük). Denetimin kaçırdığı başka örnek: `korpus-002115` ("15 ton = 15 000 g"). Tahmin ~%10 (~700 soru).
+- Cognipeer çevirisi (düzeltildi): çevrilmiş tırnak içi değer içeren 5.179 satır (soruda değer, altın SQL'de yok; 5.098'inde bağlamda da yok). 24B / V4-Flash (düşünmesiz) ölçümü, $0,26: kontrol (1.000 sorunsuz satır) %71,3 / %71,9; sorunlu SELECT (3.419) %75,5 / %74,8 (model veriden eşleyebiliyor); **sorunlu değişiklik sorguları (1.679) %23,7 / %21,5** (yeni değer yalnız Türkçe verildiği için çözülemiyor).
+  **Düzeltme** (`duzeltmeler/cognipeer_duzelt_batch.py`, `deepseek-ai/DeepSeek-V4-Flash-0731`, Batch, $0,20): bağlamda da olmayan 5.098 satır; model İngilizce kaynak soru (`sql_prompt_en`) ve altın SQL'le değerleri birebir geri yazdı. Kod denetimi: yeni sorudaki her tırnak içi değer SQL'de ya da bağlamda geçmeli, tırnak dışı metin benzerliği ≥ 0,8. Sonuç: **4.382 güncellendi** (değişiklik 1.549, seçme 2.833), **716 silindi** (model "düzeltilemez" 449, değer hâlâ yok 208, metin fazla değişmiş 59). Pilot 20 satırda 18 düzgün. Eski çeviri `orijinal.soru_ceviri_eski`.
+  **Sonra** (aynı ölçüm, $0,22): değişiklik (1.549) %74,0 / %70,8, seçme (2.833) %81,7 / %82,2, kontrol %71,9 / %72,9. Cognipeer altın ve ters sınama 68.300/68.300; yeniden kurulan paketin tamamında altın sınama 136.941/136.941. Betikler `duzeltmeler/cognipeer_olcum.py` (+ `cognipeer_sorunlu.json`), sonuçlar `benchmark_2026-11-02/cognipeer_olcum{,_sonra}/`.
+
+## 15. Ek setler: çeşitlilik turu (2–3 Kasım 2026; 12.990 soru üretildi, 4 Kasım'da dil düzeltme ve metin işlemleri çıkınca 3 set, 7.000 soru)
+
+**Amaç:** `dataset fikirler.xlsx`'te boş kalan konular (satranç, string işlemleri, Türkçe dil düzeltme; sonuncusu 4 Kasım'da çıkarıldı) ve çeşitlilik için yeni görev türleri (ızgara bulmacaları, talimat takibi). Matematik kapsam dışı (kullanıcı kararı). Çalışma klasörü `ek_setler/` (plan ve kararlar: `ek_setler/PLAN.md`). Bu turun satırları `koken` alanında özgün setlerden ayrılır: **`hizli_uyarlama`** (dış kaynaktan hızlı uyarlama: Lichess, GECTurk, IFEval_tr) ve **`hizli_uretim`** (bu turda programla hızlı üretim). Kaynağın adı her satırın `orijinal` alanında.
+
+**Ortak:** Her sette `uret.py` (üretici) ve `puanla.py` (istem + puanlayıcı) var; pakette `paket/puanlama/_ek/`. Her sette altın sınama (altın → doğru) ve ters sınama (bozulmuş cevap → yanlış) yapıldı; paket araçlarıyla altın 10.990/10.990 (talimat takibi hariç: altın metin yok), ters 12.990/12.990. Pilot: alt tip × zorluk hücresi başına 3–15 soru, anlık DeepInfra çağrısı (`ek_setler/pilot.py`), temperature 0, tek deneme; modeller `mistralai/Mistral-Small-3.2-24B-Instruct-2506`, `deepseek-ai/DeepSeek-V4-Flash-0731` düşünmesiz ve düşünen (`reasoning_effort=high`, 32.000 token). Pilot küçük örneklemdir (±10 puan); son benchmark değildir.
+
+### 15.1 Satranç (3.000)
+
+- **Kaynak:** Lichess bulmaca veritabanı (`Lichess/chess-puzzles`, CC0-1.0), 3 parçadan ilki (2.052.447 bulmaca).
+- **Süzgeç:** puan sapması ≤ 80, popülerlik ≥ 85, oynanma ≥ 1.000 → 479.030. Alt tipler: `en_iyi_hamle` (mat olmayan crushing/advantage; havuz 194.804), `mat_1` (2.212), `mat_2` (18.420), `mat_3` (8.913). Puan < 2000 orta, ≥ 2000 zor; tohum 20261102 ile örneklem; aynı konum tekrarı atılır.
+- **Doğrulama:** Mat sorularında N hamlede zorlayıcı mat yapan **bütün** ilk hamleler kendi çözücümüzle (`satranc_ortak.zorlayici_mat`, kaba kuvvet) hesaplanıp kabul kümesine yazıldı; Lichess çözümünün kümede olduğu ve daha kısa mat olmadığı denetlendi (4.760 adayın hepsi geçti). `en_iyi_hamle`: Lichess üreticisi çözümün tek kazandıran hamle olduğunu Stockfish ile denetliyor; ayrıca anında mat eden her hamle kabul edilir. Stockfish'i yerelde çalıştırma izni verilmediği için ek motor süzgeci yapılmadı.
+- **Puanlama:** son CEVAP satırındaki ilk yasal hamle (SAN, UCI, uzun cebirsel ya da Türkçe harfli SAN) kabul kümesinde mi. Ters sınama: 14.785 yanlış yasal hamlenin hiçbiri kabul edilmedi.
+- **Son dağılım:** en_iyi_hamle 800/800 (orta/zor), mat_1 240/60, mat_2 350/350, mat_3 200/200.
+- **Pilot (80 soru):** 24B %6,2 · Flash %16,2 · düşünen Flash %47,5 (mat_1 %100, mat_2 %50, mat_3 %25, en_iyi_hamle %15). Düşünen modelin cevapsız 34 denemesi token sınırına dayandı; düşünmesiz yanlışların çoğu yasadışı hamle (tahtayı yanlış okuma).
+- **Bağımlılık:** `python-chess` (pip install chess).
+
+### 15.2 Metin işlemleri (4 Kasım'da paketten çıkarıldı, toplama girmez)
+
+**Karar (4 Kasım, kullanıcı):** Set çıkarıldı. Dosyalar `ek_setler/metin_islemleri/reddedildi/`; `metin_islemleri_tam.jsonl` test seçim tohumu için duruyor. Aşağısı kayıt içindir.
+
+
+- **Kaynak:** Cümleler GECTurk'ün (GGLab/GECTurk, Apache-2.0) hatasız (etiketsiz, kaynak = hedef) cümlelerinden; 6–22 kelime, rakam/şapka içermeyen 37.060 cümle. Görev fikirleri reasoning-gym (Apache-2.0); kod bizim.
+- **Alt tipler (her biri orta 200 + zor 200):** harf sayma (Türkçe I/ı, İ/i; zor: ince/kalın ünlü, yumuşak ünsüz sınıfı), ters yazma, Türk alfabesine göre sıralama (zor: Unicode sıralamasıyla farklı çıkan, ç/ğ/ı/ö/ş/ü tuzaklı), Sezar şifresi (29 harf), işlem zinciri (3/5 adım: büyük/küçük harf, ünlü silme, kaydırma…), ünlü uyumu (büyük/küçük ünlü uyumu kesin tanımla), kelime istatistiği.
+- **Doğrulama:** Cevap Python'la hesaplanır. Pilot öncesi iki tutarsızlık düzeltildi: kesme işaretli kelimeli cümleler kelime sayımı sorularından çıkarıldı; şapkalı harfli cümleler havuzdan çıkarıldı.
+- **Pilot (84 soru):** 24B %23,8 · Flash %79,8 · düşünen %95,2 (Sezar %75, işlem zinciri %91,7).
+
+### 15.3 Izgara ve graf bulmacaları (2.000)
+
+- **Alt tipler (orta 200 + zor 200):** sudoku (6×6 / 9×9), futoshiki (4×4 / 5×5), labirent (9×9 / 13×13, zor: ara noktadan geçen en kısa yol), Conway Hayat Oyunu (6×6 2 adım / 8×8 3 adım), graf (en kısa yol / en küçük yayılan ağaç; depo adları harf, gerçek şehir + uydurma mesafe kullanılmadı).
+- **Doğrulama:** Sudoku/futoshiki tek çözümlü (çözücü 2 çözüme kadar sayar); puanlayıcı altına bakmadan kuralları denetler. Labirent ve graf networkx ile, Hayat Oyunu ayrı yazılmış ikinci uygulamayla çapraz hesaplandı: 2.000/2.000 uyumlu.
+- **Pilot (80 soru):** 24B %10,0 · Flash %36,2 · düşünen %90,0 (hayat oyunu %62,5).
+
+### 15.4 Dil düzeltme (4 Kasım'da paketten çıkarıldı, toplama girmez)
+
+**Karar (4 Kasım, kullanıcı):** Önce üç kural çıkarıldı (aşağıda), ardından set tamamen çıkarıldı. Dosyalar `ek_setler/dil_duzeltme/reddedildi/`; `kaynak/` duruyor. Aşağısı kayıt içindir.
+
+
+- **Kaynak:** GECTurk (GGLab/GECTurk, Apache-2.0; 25 TDK yazım kuralıyla yapay hata eklenmiş 138.457 cümle). Düzeltilmiş hedef cümleler `mcemilg/GECTurk-generation`'dan (lisans etiketi yok; resmî depoya bağlanıyor). Satırlar birebir hizalı (kaynak cümleler 138.457/138.457 aynı).
+- **Süzgeç hunisi:** 138.457 → uzunluk (6–40 kelime) dışı 34.427 → hedefle kaynak arasındaki kelime farkının etiketli kelimelerle örtüşmediği 469 → atılan kurallar 42.915 → 16.747 aday; kural başına en çok 160, çok kurallı (zor) 600 → **3.190**.
+- **Atılan kurallar:** rule_24 şapka (sözlük "Elazığ" → "Elâzığ" gibi yanlış altın üretiyor); rule_1, rule_5, rule_6 de/da ayrı-bitişik ("hatalı" diye üretilen biçim bağlama göre doğru olabiliyor: "Bende böyle bir isim var" → altın "Ben de…"; 3 Kasım'da 935 soru çıkarıldı). Hatasız cümle tipi de çıkarıldı (derlem gürültüsü yüzünden doğru cevabı belirsiz).
+- **Puanlama:** Kural düzeltmelerinin hedefteki her kelimesi model cümlesinde birebir olmalı; geri kalan kelimelerde en çok max(3, %20) fark (derlemde etiketsiz gerçek yazım hataları var: "1833'de", "Birbuçuk"; bunları da düzelten model cezalandırılmaz). Hizalamada şapka ve kelime sonu `, ; :` farkı yok sayılır.
+- **Pilot (94 soru, de/da kuralları çıkarılmadan önceki 3.670 soruluk sürümde):** 24B %50,0 · Flash %89,4 · düşünen %93,6. Pilot yanlışları elle okunarak puanlayıcı iki kez düzeltildi (bkz. `ek_setler/dil_duzeltme/puanla.py` başı).
+- **4 Kasım çıkarması (kullanıcı kararı):** `bati_kokenli_cift_unsuz` (rule_9), `unsuz_degisimi_istisna` (rule_16), `etmek_olmak_birlesik` (rule_17) kuralları çıkarıldı: 3.190 → **2.650** (tek kurallı 375, bu kuralları içeren çok kurallı 165). Yeniden örnekleme yapılmadı, kimlikler korundu; süzülmemiş hâl `veri/dil_duzeltme_tam.jsonl`. Testten çıkan 16 soru kalan alt tiplerden tamamlandı (`neden: dil_tamamlama`), başka setin testi değişmedi. Pilotun kalan 69 sorusunda, güncel puanlayıcıyla: 24B 33/69 (%47,8), Flash 63/69 (%91,3), düşünen Flash 65/69 (%94,2). Altın sınaması 2.650/2.650. Model kullanılmadı, maliyet $0. Set artık 19 alt tiplidir.
+- **Sınır:** Hatalar kural tabanlı yapay; doğal kullanıcı hatalarını temsil etmez.
+
+### 15.5 Talimat takibi (2.000)
+
+- **Kaynak:** `bezir/IFEval_tr` (Apache-2.0, 350 insan çevirisi/yazımı istem; `koken=hizli_uyarlama`) + 100 elle yazılmış temel görev (`gorevler.py`) × 1–4 IFEval kısıtı (`koken=hizli_uretim`, orta 800 / zor 850). Çelişen kısıtlar birlikte seçilmez (JSON + virgülsüz, büyük + küçük harf, kısa cevap + çok paragraf…); "harf az geçsin" kısıtı yalnız nadir harflerle.
+- **Doğrulama:** Cevap metni yok; istemdeki talimatların hepsi `denetle.kontrol` ile sağlanmalı (IFEval prompt-level strict). Denetleyici Türkçe için yazıldı: Türkçe büyük/küçük harf, ek almaya açık anahtar kelime (4+ harf; kısa kelimede tam kelime), kısaltma/sıra sayısı ayıran cümle bölücü. 27 birim test.
+- **Pilot:** 24B %51,1 (90 soru). Flash ve düşünen Flash yalnız IFEval_tr'den 30 soruda (önceki koşu, düzeltilmiş denetleyiciyle yeniden puanlandı): %76,7 / %76,7; yeni koşuda bu iki modelin çağrıları bakiye bitince hata aldı.
+
+### 15.6 Reddedilen setler ve kaynaklar (toplama girmez)
+
+| Set | Neden | Dosya |
+|---|---|---|
+| Metin işlemleri (2.800; özgün üretici, GECTurk cümleleri) | Kullanıcı kararı (4 Kasım); §15.2 | `ek_setler/metin_islemleri/reddedildi/` |
+| Dil düzeltme (2.650; GECTurk) | Kullanıcı kararı (4 Kasım); önce üç kural, sonra set çıkarıldı; §15.4 | `ek_setler/dil_duzeltme/reddedildi/` |
+| CSV analizi (2.000; paketteki açık veri DB'lerinden) | `excel_veritabani` (aynı DB'ler, aynı soru kalıpları) ve `sql_cikti_tahmini` ile örtüşme; pilot Flash %90, düşünen %97,5 | `ek_setler/csv_analizi/reddedildi/` |
+| Eş/zıt anlam (847; Türkçe Vikisözlük, CC BY-SA 4.0 + `Qwen/Qwen3.5-397B-A17B` hakem) | süzgeçsiz ilişkiler gürültülü (çekim biçimleri, eş düzey terimler), süzgeçten sonra çok kolay: 24B %90,6, Flash %100 | `ek_setler/es_zit_anlam/reddedildi/` |
+| Fonksiyon çağırma (1.968; BFCL v3, Apache-2.0, V4-Flash ile çevrildi) | modeller zaten ~%90 (24B %89,6, Flash %90,6) | `ek_setler/fonksiyon_cagirma/reddedildi/` |
+| atasoglu/turkish-function-calling-20k | LLM üretimi altın: eksik/yanlış çağrılar (pilotta düşünen Flash yanlışlarının çoğu altın kaynaklı) | `ek_setler/fonksiyon_cagirma/pilot/atasoglu_reddedildi/` |
+| DataBench, KeNet | tablo tablo belirsiz lisans; GPL-3.0 | — |
+
+### 15.7 Maliyet
+
+Üretim: 5 sette LLM yok ($0). Pilot ölçümleri (kayıtlı `estimated_cost`): satranç $0,39, ızgara $0,28, dil düzeltme $0,11, talimat $0,09, metin $0,06. Reddedilen setler: hakem $5,79 (Qwen3.5-397B düşünme kapatılmadan; EVET/HAYIR için 1,9M çıktı token), BFCL çevirisi $0,08, pilotları $0,12. Silinen ilk pilot koşuları sayılmadı. Toplam ≈ **$6,9**.
+
+---
+
+## 16. Cognipeer çıkarıldı (3 Kasım 2026, kullanıcı kararı)
+
+**Karar:** `sql_cognipeer` (68.300 soru) paketten çıkarıldı. `birlestir.py` `HAZIR_SQL_FILES`'tan kaynak dosya kapatıldı; `duzeltmeler/` içindeki Cognipeer kayıtları yerinde, kimliği bulunamayınca uyarı vermemesi için `CIKARILAN_ON_EKLER`. Toplam 149.931 → **81.631**. Kaynak dosya (`sql_arastirma/hazir/cognipeer.jsonl`), puanlayıcı (`paket/puanlama/cognipeer_shim.py`, `sql_calistir_gomulu`) ve düzeltme betikleri yerinde duruyor.
+
+**Kaynak hakkında:** `Cognipeer/synthetic-text-to-sql-tr` (HF kartı), `gretelai/synthetic_text_to_sql`'in Türkçe çevirisi; kartta çevirinin nasıl yapıldığı, kalite denetimi ya da benchmark yok. Gretel seti eğitim verisi: Gretel Navigator (LLM) 100 sektör için şema, soru, altın SQL ve açıklama üretmiş; kalite 1.000 örnekte GPT-4 hakemle (standart uyumu, SQL doğruluğu, talimata uyum) ve sqlglot/sqlvalidator sözdizimi denetimiyle ölçülmüş. SQL çalıştırılıp sonuç karşılaştırılmamış, sorunun tek cevaplı olup olmadığına bakılmamış.
+
+**Neden:** Benchmark alt kümesindeki 100 sorunun (50 seçme, 50 değiştirme) 60'ını üç model de doğru, 30'unu üç model de yanlış yaptı. 30'un elle okuması: değeri verilmemiş değiştirme sorusu ~16 ("'CommunityHealthWorker' tablosuna kayıt ekle" → altın 'David Kim', 'Fatima Patel'; `cognipeer-89119`'da soru yalnız "Topluluk sağlık çalışanları", İngilizcesi "Insert records into the table…"), yanlış altın ~6 (`cognipeer-81921` "toplam misyon sayısı" → `SUM(mission_id)`; toplam yatak → `COUNT`), istenmeyen sütun ya da sıralama ~4 (`cognipeer-5004` `RANK()` sütunu), çeviri kalıntısı 2 ('F' → 'K', İstanbul/Istanbul), gerçek model hatası 1–2. İngilizce asıllarla karşılaştırmada hataların çoğu kaynak sette de var. Set geneli tarama: 6.159 değiştirme sorusunun **1.244**'ünde altın SQL'deki metin değeri ne Türkçe soruda ne İngilizce soruda ne bağlamda geçiyor (tarih/sayı değerleri sayılmadı); bunlarda düşünen Flash 1/10, diğer değiştirme sorularında 27/40. Altın SQL'in soruya göre doğruluğunu bağımsız denetlemenin ucuz yolu yok (yalnız çalıştığı doğrulanabiliyor); model uzlaşısıyla süzmek seti modelin zaten çözdüğü sorulara indirirdi.
+
+**Benchmark:** alt kümeden 100 soru çıkarıldı, özet yeniden hesaplandı (§14). Makro tür 63,3 / 81,3 / 91,9; makro set 53,7 / 69,7 / 87,8. Maliyet $0 (yeni ölçüm yok).
+
+**Sınama:** paket altın 79.631/79.631 (talimat takibi 2.000 hariç; cevap metni yok).
+
+## 17. Train / test bölmesi (4 Kasım 2026, kullanıcı kararı)
+
+**Neden:** Veriyi başkaları da kullanacak; çoğu kullanıcı doğrudan `train` ile eğitip `test` ile ölçecek. Varsayılan yol sızıntısız olmalı, her üretim başlığı testte temsil edilmeli.
+
+**Yöntem:** `test_kumesi_kur.py` (tohum 20261104) → `paket/benchmark/test_kumesi.jsonl`; `paket_kur.py` satırlara `bolum` yazar (`train`, `test`). Test 8.484 satırdır; dosyadaki `olcum: true` alanı 4.700 satırlık ölçüm alt kümesini gösterir. Soru sayısı değişmez (81.631). Model kullanılmadı, maliyet $0.
+
+**Ölçüm alt kümesi (`olcum: true`):**
+
+| Katman (`neden`) | Soru | Kural |
+|---|---|---|
+| `benchmark` | 2.329 | `alt_kume.jsonl`'dan; 22 türün 2 Kasım skoru geçerli |
+| `ek_set` | 300 | 3 ek setin her türünden 100, alt tipler sırayla; seçim tohumu için çıkarılan iki set de sayılır, sonra atılır |
+| `denge` | 58 | `sql_cikti_tahmini` için yeni: 29 `ROUND'lu`, 29 `hesapsiz` |
+| `sql_db` | 213 | Ayrılan veritabanlarından yeni soru: sql_turspider 85, sql_belediye 78, sql_istatistik 50 |
+| `baslik` | 800 | Başlık başına 100'e tamamlama: izgara_bulmaca 400, satranç 300, solver 100; eldeki sorular korundu, zorluk (solver'da tür) sırayla |
+| `ajan_split` | 200 | Ajan görevleri testi: kabuk 100, kod 100 (`paket/ajan_eval/data/split.json`, §18) |
+| `regex_split` | 100 | Kaynağın 100 öğelik alt kümesi (T1 95, T3 5); regex testinin kalan 201 satırı `olcum: false` (§19) |
+| `karakter_split` | 300 | Karakter işlemleri testinin tamamı: 3 alt tip × 100 (§23) |
+| **Ölçüm** | **4.300** | 43 üretim başlığı × 100 |
+
+**Bölüm boyutları:**
+
+| Set | Train | Test | Toplam |
+|---|---|---|---|
+| bulmaca | 2.100 | 900 | 3.000 |
+| excel_veritabani | 900 | 100 | 1.000 |
+| hesaplama | 13.813 | 800 | 14.613 |
+| izgara_bulmaca | 1.500 | 500 | 2.000 |
+| meb_capraz | 3.793 | 198 | 3.991 |
+| meb_tek_ders | 1.985 | 824 | 2.809 |
+| satranc | 2.600 | 400 | 3.000 |
+| solver | 4.686 | 300 | 4.986 |
+| sql_belediye | 17.449 | 336 | 17.785 |
+| sql_cikti_tahmini | 2.582 | 739 | 3.321 |
+| sql_istatistik | 7.944 | 1.290 | 9.234 |
+| sql_turspider | 6.905 | 997 | 7.902 |
+| talimat_takibi | 1.900 | 100 | 2.000 |
+| ajan_terminal | 1.390 | 200 | 1.590 |
+| regex | 1.427 | 301 | 1.728 |
+| karakter_islemleri | 900 | 300 | 1.200 |
+| **Toplam** | **71.874** | **8.285** | **80.159** |
+
+**Sızıntı düzeltmesi:**
+
+| Set | Ölçüm nereden | Teste ayrıca giren | Neden |
+|---|---|---|---|
+| sql_belediye | Sakarya 50 + Ankara 50 | 236 | Ayrılan veritabanının kalan soruları |
+| sql_istatistik | Deprem 50 + Wikidata 50 | 1.190 | Kalan 1.081 soru + bu veritabanlarını ATTACH eden 109 Eurostat sorusu |
+| sql_turspider | özgün `dev`, 20 veritabanına sırayla | 897 | `dev`in kalanı (train: özgün `train`, 146 veritabanı) |
+| sql_cikti_tahmini | değişmedi | 639 | Sakarya, Ankara, Deprem, Wikidata kaynaklı satırlar (SQL ve tablo istemde görünür) |
+| meb_tek_ders | değişmedi | 724 | Test sorusuyla aynı konu (ders, sınıf, ünite, konu) |
+| meb_capraz | değişmedi | 98 | Test sorusuyla aynı pasaj çifti |
+
+**Denetim (paketteki son dosyalardan):** sql_belediye, sql_istatistik, sql_turspider, meb_tek_ders ve meb_capraz'da train ile test arasında ortak grup 0. Train'de Deprem/Wikidata ATTACH sorusu 0. Birebir soru metni denetimi (boşluk ve büyük-küçük harf normalize): Ölçümün 3.100 soruluk önceki halinde 1 sorunun metni train'de de geçiyor (`turspider-dev-00687`, "Kaç tane eyalet var?"); veritabanı ve altını farklı olduğu için bırakıldı. Altın sınaması: sql_belediye, sql_istatistik, sql_cikti_tahmini, meb_tek_ders, meb_capraz 300'er ve sql_turspider 100 örneklem, 1.600/1.600; solver, satranç, izgara_bulmaca, metin_islemleri 200'er örneklem, 800/800.
+
+**Kararlar (kullanıcı):**
+- Başlık düzeyi `alt_tip` değil, üretim başlığıdır: hesaplamada 8 kategori, her biri 100 soru. Alt tip etiketleri (SQL'de sorgu kalıbı) ayrı skor için kullanılmaz.
+- Solver, izgara_bulmaca ve satranç başlık başına 100 teste çıkarıldı (kullanıcı kararı). Başlık: solver secim/atama/sirala; ızgara 5, satranç 4 alt tip. Talimat takibi, Excel veritabanı, MEB setleri tek başlık; sql_cikti_tahmini 100 soruda kaldı.
+- İlk kurulumdaki `alt_tip` katmanı (110 SQL sorusu, test 3.210) çıkarıldı.
+- MEB'in soru tipleri (tek ders 5, çapraz 4) alt küme sayılmaz: etiketleri üretici model koydu ve denetlenmedi. Seçim tek derste derslere, çaprazda ders çiftlerine sırayla, grup içinde rastgeledir.
+- `sql_cikti_tahmini` 3 türe dengelendi: `ROUND'lu` 33, `hesapsiz` 33, `agregasyon` 34 (22 veritabanına sırayla). Soru uzunlukları çok farklı (ortalama: `ROUND'lu` ~10,9 bin, `hesapsiz` ~33,8 bin, `agregasyon` ~2,4 bin karakter).
+- Sızıntı düzeltildi: veri başkalarınca da kullanılacağı için ek liste yerine varsayılan `bolum` düzeltildi. Üçüncü bir bölüm kullanılmadı: sızıntı yapacak 3.784 soru teste alındı, train'de kalsalardı aynı veritabanları iki tarafta bulunurdu.
+
+**Sınırlar:**
+- `sql_belediye`, `sql_istatistik`, `sql_turspider` ve `sql_cikti_tahmini`'nin 2 Kasım skorları eski testi ölçer, yeni testle karşılaştırılamaz. 271 yeni SQL sorusu (213 + 58) ve ek setlerle solver'ın 1.900 yeni sorusu ölçülmedi. Solver'ın 2 Kasım skoru 200 soruyu ölçer, 100 soru eklenince set skoru yeniden hesaplanmalı.
+- SQL test skoru artık daha az veritabanını temsil eder: sql_belediye iki şehir, sql_istatistik iki kaynak.
+- Şablon ayrımı yapılmadı: sql_belediye gibi şablon üretimi setlerde sorgu kalıpları train'de de vardır; `hesaplama`, `bulmaca`, `solver`, `talimat_takibi` gibi setlerde aynı şablon iki bölümde de bulunur. Test bu setlerde yeni parametreyi ölçer, yeni soru türünü değil. Bu, her alt kümenin testte temsil edilmesi kararının sonucudur.
+- `excel_veritabani` train'inde Deprem verisi var (setin toplam 330 satırı bu kaynaktan); veri satırları çalışma kitabında verilir ve SQL içermez, ayrılmadı.
+- `sql_cikti_tahmini` testinde 23 soru ayrılan veritabanlarından; diğer sorular train ile aynı veritabanlarından olabilir (SQL ve tablo zaten istemdedir).
+- Test tür başına eşit olduğu için set oranları çok farklıdır (bulmaca %30). Üç bulmaca türünde train ve test 100'er. Küçük başlıklarda test oranı yüksek: ızgarada başlık başına %25, mat_1'de %33. Talimat takibinde alt tür başına 20 soru kaldı.
+
+---
+
+## 18. Ajan terminal görevleri (4 Kasım 2026, 1.590 görev)
+
+**Kaynak:** Ekibin ürettiği `turkish-agentic-eval.zip` (`agentic_eval/turkish-agentic-eval/`, değiştirilmedi). `koken=ozgun`. Üretim modeli kullanıcı beyanıyla DeepSeek V4.1 Flash; tam model kimliği bilinmiyor. Benchmark'taki V4-Flash aynı aileden.
+
+**Üretim (kod ve `task.yaml`'lardan okundu):** Tohum → model `goal_tr`, `setup`, `reference_solution`, `outputs` yazar → `derive.py` setup + referansı çalıştırıp dosya farkından `checks` türetir → `prompt`, `uslup`a göre yeniden yazılır → varsa `alt_solutions` `equiv.py` ile sınanır (8 görevde dolu). README'nin andığı spec tamlığı, determinizm, ayırt edicilik ve hile önleme kapılarının hepsinin kodu ya da sonucu zipte yok; `kisit-sakli`, `dolayli-hedef` gibi ayarların tanımı da yok.
+
+**Doğrulama:** Kum havuzunda referans çözüm. Altın referansın çıktısı olduğu için bu sınama yanlış altını yakalamaz. Görev başına ikili ödül; `partial` teşhis içindir. Batch olamaz, `puanla()` çalışmaz.
+
+**Kurulum:** `ek_setler/ajan_terminal/uret.py` kaynağa `duzeltmeler.py`'yi uygular → `paket/ajan_eval/envs` + `veri/ajan_terminal.jsonl`; `kategori` = `ajan_terminal_kabuk` | `ajan_terminal_kod`, `alt_tip` = görev alanı. Pakette kum havuzu `--sandbox bwrap` eklendi (Docker'sız).
+
+| Alt küme | Train | Test | Toplam |
+|---|---|---|---|
+| ajan_terminal_kabuk | 784 | 100 | 884 |
+| ajan_terminal_kod | 606 | 100 | 706 |
+| **Toplam** | **1.390** | **200** | **1.590** |
+
+**Bölme:** Kaynak `split.json` test kabuk 110 / kod 90 idi; kullanıcı kararıyla 100 / 100 yapıldı (`uret.py`, tohum 20261104): düzeltilmemiş 10 kabuk görevi train'e, 10 kod görevi (görev türleri sırayla) teste geçti. Liste `paket/ajan_eval/data/split.json` `dengeleme` alanında.
+
+**Süzgeç hunisi:** Görev çıkarılmadı (1.590 → 1.590). Birleştirmede tekrar 0. Test 200'de 65 görev düzeltildi: 29 yanlış altın, 30 istemde yazmayan şart, 5 çıktı yolu, 1 kararsız sonuç. Önceki/sonraki hâl `paket/ajan_eval/duzeltme_raporu.md`. Referanslar düzeltmelerden sonra her turda 200/200.
+
+**Denetim (`deepseek-ai/DeepSeek-V4-Flash-0731`, düşünmesiz, sıcaklık 0, 8.000 token):** Dengelemeden önceki 200 görevde ilk denemede 136, düzeltmelerden sonra 183 çözüldü (kabuk 107/110, kod 76/90). Son testte: kabuk 97/100, kod 76/90; teste yeni giren 10 kod görevi denenmedi. **Bu benchmark değildir:** düzeltmeler bu modelin çözemediği görevler okunarak yapıldı, istem ipuçları skoru kendiliğinden artırır.
+
+**Maliyet:** $0,1130 (ilk tur $0,0796, ikinci $0,0275, üçüncü $0,0059).
+
+**Sınırlar:** Görevler kullanıcı denetimine bırakıldı. 30 "gizli şart" düzeltmesinin bir kısmı bilerek saklanmış bilgiyi açığa çıkarmış olabilir, 5 yol düzeltmesi gereksiz olabilir; test sabit olarak dağıtıldığı için bu sürüm `v2` sayılmalı. Çözülen görevler elle okunmadı. Train 1.390 görev modelle denetlenmedi; test oranına göre yaklaşık ~%15'inde yanlış altın beklenir. Referans sınamasında train'de 14 kararsız ve kalıp taramasında 45 aday işlenmedi. Lisans: paket lisansı altında yayımlanacak, kullanıcı onayı bekliyor.
+
+**Son dosya:** `paket/veri/ajan_terminal.jsonl.gz`, çalıştırma `paket/ajan_eval/`.
+
+---
+
+## 19. Regex ve PRBench finans (4 Kasım 2026; `new-set-2.zip`; PRBench 5 Kasım'da çıkarıldı, §24)
+
+Kullanıcı kararı: önce eklendi, denetim sonra. Kaynak dosyalar `ek_setler/regex/kaynak/` ve `ek_setler/prbench_finans/kaynak/`, kaynağın genel notu `ek_setler/GENEL_README_new_set_2.md`. Bu projede model ölçümü yapılmadı; aşağıdaki skorlar kaynağın beyanıdır.
+
+### 19.1 Regex (1.728)
+
+**Kaynak:** `regex-tr`. Sentetik 1.330, StructuredRegex çevirisi 212 (MIT), Türkçe biçim ve aile 123, müşteri mesajı 33 (`emreseyhan/Turkish-customer-service-conversations`, CC BY 4.0; HF kartında lisans doğrulandı; IBAN, kart, TCKN değerleri uydurma). `koken`: sentetik ve Türkçe biçimler `hizli_uretim`, StReg ve T3 `hizli_uyarlama`.
+
+**Satırlar (`uret.py`):** `regex_yazma` (T1, 1.695) ve `regex_cikarma` (T3, 33). T2 (regex → tarif) satır olarak girmez: sabit çözücü model gerektirir; altın tarif `orijinal` alanındadır. Kaynaktaki 5 denemeli karşı örnek protokolü pakette yok, `puanla` tek denemedir.
+
+**Doğrulama:** `paket/puanlama/_ek/regex.py`, `regex_cekirdek.py` (kaynağın `core.py` dosyasından türedi, 5 Kasım değişiklikleri §19.1.1). T1'de önce DFA eşdeğerliği (greenery 4.2.3 düz parçaları kurar), otomata çevrilemeyen altın ya da cevapta gizli testler; hangi yolun karar verdiği `puanla_ayrinti` içindeki `via` alanında. T3'te gizli mesajlarda `finditer` listesi. Altın sınama 1.728/1.728 (1.675 öğede DFA, 20 öğede testler, 33 T3), ters sınama 1.728/1.728 reddedildi.
+
+**Bölme:** kaynağın `split.json`'u: train 1.427, test 301; ölçüm 100 (kaynağın 100 alt kümesi).
+
+**Süzgeç hunisi:** 1.728 → 1.728; birleştirmede tekrar 0.
+
+**Kaynağın beyan ettiği skorlar (1.728 öğe, 5 denemeli protokol):** T1 ilk deneme qwen3.8:27b %60,8, DeepSeek-V4.1-Flash %87,4; 5 denemede %79,5 / %97,4. Öğe düzeyinde sonuç dosyası zip'te yok, bu sayılar doğrulanamadı.
+
+**Denetim bulguları (4–5 Kasım):**
+- Altın ile gizli ve geri bildirim metinleri tutarlı: yanlış etiket 0; T3 792 mesajda altın uyuşmazlığı 0. 155 soru elle okundu (122 örnek ve T3'ün tamamı), yanlış altın görülmedi; bu gözle kontrol, kanıt değil.
+- **Açık, T3 gevşek regex'i elemiyor:** `[\d.]+,\d{2} TL` gibi gevşek regex'ler 33 öğenin 12'sini geçiyor (testte 15'in 9'u). T3 testleri değiştirilmedi.
+- **Açık, tekrar:** DFA'ya göre 25 eşdeğer altın çifti (8 birebir, 17 farklı yazım), 7'si train/test arasında: `tr-06`/`fam-iban-bosluk`, `fam-vkn`/`tr-12`, `tr-05`/`fam-iban-bosluk-v1`, `fam-tel-parantez-v2`/`fam-tel-90-v2`, `fin-mcc`/`syn-1-00196`, `tr-01`/`fam-tckn`, `syn-2-00451`/`syn-1-00262`. `fam-tel` çiftinin tarifi birebir aynı. DFA'sız 15 çift karara bağlanamadı (5 Kasım öncesi çekirdekle). Testteki 14 öğenin train'de yakın eşi var (tarif Jaccard ≥ 0,8; 12'si sentetik seviye 5). Seviye 5 tekdüze: 280 soruda 95 farklı kalıp.
+- **Açık, cevap ayıklama katı:** `**REGEX:** ...` boş döner; `r"..."`, tırnak ve `/.../` harfi harfine alınır; `REGEX:` altındaki kod bloğundan yalnız `` ` `` çıkar. Etkisi model çıktısı görülmeden bilinmez.
+- **Açık, kenar boşluğu:** 26 altın regex boşlukla başlıyor ya da bitiyor (testte 4); `REGEX:` satırı kırpıldığı için model `[ ]` yazmak zorunda, istem bunu söylemiyor.
+- **Açık, küçük:** T3 `iban_bosluklu` tariflerinde "toplam 26 rakam" (doğrusu 24) ve "toplam 26 karakterlik" (boşluklarla 32) geçiyor; ikisi de train'de. Kaynak, seviye 4 tariflerinin belirsiz olduğunu kendisi yazıyor (çözücü 9/22). T3'te 33 soru 12 altın regex'in tarif varyantı. 11 öğede gizli ve geri bildirim metinleri kaynaktan ortak (tek denemede etkisiz).
+
+#### 19.1.1 Yanlış regex'lerin geçmesinin önlenmesi (5 Kasım 2026, kullanıcı onayı; maliyet $0, LLM yok)
+
+**Sorun:** Lookahead'li ve geri referanslı 362 öğe yalnız 20+20 gizli metinle puanlanıyordu; `\-`, `\/`, `a{,3}` içeren cevaplar DFA'lı öğede de testlere düşüyordu; 5 altın regex 5 sn sınırını aşıyordu. Metinler sınır uzunluklarını ve fazladan Türkçe harfi neredeyse hiç sınamıyordu. Ayrıca greenery içerideki `^` ve `$` işaretlerini harf sayıyordu: doğru `^a$|^b$` reddediliyor, yanlış `a$b` altın `a[$]b` karşısında kabul ediliyordu (altında böyle öğe yok).
+
+**Puanlayıcı (`regex_cekirdek.py`):**
+- Regex dış lookahead'lerle birlikte dil ağacına çevrilir; `(?!.*(.)\1)` kalıbı da dahil. Çarpım greenery ile değil tablo üzerinde yapılır (bir karşılaştırma ~27 sn → ~0,04 sn). Geri referans kısıtında her karakter hücresinden 2 temsilci yeter: kısıt yalnız komşuların eşitliğine baktığı için her metin bu harflerle üyeliği korunarak yazılabilir.
+- greenery'nin ayrı okuduğu yapılar çevrilmez, testlere gider: iç çapa, lookbehind, diğer geri referanslar, bayraklar.
+- Kaçışlar ve sınıf içi `^`, `-` greenery yazımına çevrilir, `a{,3}` → `a{0,3}`. Süre sınırı 30 sn.
+- Güvenlik: DFA "yanlış" derse karşı örnek regex motorunda doğrulanır; otomat öğenin metinlerinde motordan ayrılırsa karar testlere bırakılır. `altin_sinama.py` her `regex_yazma` altınında otomatı motorla karşılaştırır.
+- Tarifi "özel karakter" kümesini tanımlamayan, altını `[-,;.+:!@#_$%&*=^]` kullanan 18 öğe (testte 7) bilerek testlerde kaldı: genel ASCII noktalama okuması haksız yere düşmesin diye. Bu okuma 18/18 geçiyor. Kalan 2 öğe de testlerde: `fin-kart-gruplu` (geri referans) ve `syn-4-b0022` (30 sn sınırını aşıyor). Altını DFA'ya alınan 342 öğede `.` tüm evreni kapsar; altından dar yazılan cevap artık yanlıştır.
+
+**Gizli testler (`ek_setler/regex/guclendir.py`, `uret.py` çağırır):** T1 gizli metinleri 69.085 → 392.522 (öğe başına çoğunlukla 240). Kaynak metinler başta kalır, `gizli_ilk` kaynak sayısını tutar. Ek metinleri altın regex etiketler: otomatın her durum ve hücre geçişinden kapsama, pozitif metinleri bozma; bütçe öğe başına en çok 100+100, yarısı uzunluk ve Türkçe harf katmanlarından. Geri bildirim havuzundan metin alınmaz. Üretim hash tohumundan bağımsız, aynı sonucu verir.
+
+**Rapor:** `tam_test.py` `regex_yazma` satırlarına `via` yazar, raporda `regex_yol` doğru/soru sayılarını yol başına verir. DFA kanıttır; `tests` yolunda doğru sayılan cevap yalnız gizli metinleri geçmiştir.
+
+**Ölçüm (1.695 T1 öğesi, altından mutasyon: sınır ±1, tam sayı +1, koşul atma, Türkçe harf ekleme ya da çıkarma, sınıf daraltma; yanlışlığı DFA ya da motorla kanıtlanan 7.549 regex). Yapay mutasyonlardır, gerçek model cevabı değil:**
+
+| | Geçen | Etkilenen öğe | Testte geçen | Testte etkilenen |
+|---|---:|---:|---:|---:|
+| Eski 20+20 gizli metin | 2.149 | 956 | 320 / 1.327 | 154 |
+| Yeni gizli metinler tek başına (cevap otomata çevrilemezse) | 603 | 411 | 116 / 1.327 | |
+| Gerçek puanlama (DFA + yeni metinler) | **9** | **6** | **1 / 1.327** | **1** |
+
+Geçen 9 regex'in hepsi bilerek testlerde bırakılan 18 öğeden. Eşdeğer yazımlar (`^...$` ve `\d`) 2.134 denemede 0 haksız ret. Kalan sınır: yukarıdaki puanlama yolları yalnız yapay mutasyonla sınandı; model cevabında skor etkisi tam test olmadan bilinmez.
+
+**Veri zinciri:** Soru metni, altın, bölüm, istem değişmedi; `benchmark_tam_test/girdi_*.jsonl` geçerli kalır. `regex.jsonl`, `verifiable_data_birlesik.jsonl` ve `paket/veri/regex.jsonl.gz` güncellendi; birleşik dosyanın diğer satırları birebir aynı. Paket dosyası 1,14 MB → 2,34 MB.
+
+**Bağımlılık:** `regex`, `greenery==4.2.3`. **Maliyet:** bu projede 0; kaynak tam koşu ~$0,7 beyan ediyor.
+
+**Son dosya:** `paket/veri/regex.jsonl.gz`.
+
+### 19.2 PRBench finans (319; 5 Kasım'da paketten çıkarıldı, toplama girmez)
+
+**Karar (5 Kasım, kullanıcı):** Set çıkarıldı (§24). Aşağısı kayıt içindir.
+
+**Kaynak:** ScaleAI/PRBench finans, 600 görev (CC BY 4.0, HF kartında doğrulandı). Çeviri ve sınıflandırma `deepseek-ai/DeepSeek-V4.1-Flash-1017`, A (evrensel) 125 + B1 (ülke kuralı gerekmez) 194 çevrildi; B2 212 sonraya bırakıldı, C 69 çıkarıldı. Maliyet kaynağın beyanıyla $1,40.
+
+**Satırlar (`uret.py`):** `soru`: görev; çok turlu 99 görevde önceki turlarla konuşma; 7 ek belge çevrilmemiş hâliyle ilgili turun altında. `cevap`: uzman notu (`scratchpad`), altın değil. Rubrik `orijinal.rubric`.
+
+**Doğrulama:** Kodla doğrulanamaz. Ağırlıklı rubrik (5.075 kriter) ve LLM jürisi gerekir; `puanla()` `NotImplementedError` verir, `altin_sinama` atlar. Pakette jüri kodu yok.
+
+**Bölme:** kaynakta yok. Test 100 görev, 12 konu sırayla (tohum 20261104); çeviri uyarılı 8 görev teste alınmadı. Train 219. Testin tamamı ölçüm; 32'si çok turlu.
+
+**Süzgeç hunisi:** 600 → A+B1 319 → 319; birleştirmede tekrar 0.
+
+**Ön denetimin bulguları (İngilizce kaynakla karşılaştırma; düzeltilmedi):** Görev kimliği, tur sayısı, rubrik kimlikleri, ağırlıklar ve `title_en` kaynakla birebir. Çevrilmemiş soru ya da kriter 0. Sınıf hatası şüphesi: kritik kriteri ülkeye özgü kurala bağlı 9 görev var (A 3, B1 6), ör. `401fe6087be3ed8bce386d32` A sınıfında ama FRS 102'ye dayanıyor; kaynağın kuralına göre bunlar B2 olmalı. Çeviri uyarılı 8 görev duruyor. Kaynak rubrikte hesap hatası var (`643796de…`: `0.025 * 0.4 * 0.25 = %2.5`).
+
+**Dosya:** `ek_setler/prbench_finans/reddedildi/prbench_finans.jsonl` (pakette değil).
+
+## 20. Küçük GRPO eğitimi için soru listesi (4 Kasım 2026, kullanıcı kararı)
+
+**Dosya:** `paket/benchmark/grpo_kucuk.jsonl` (`rol`, `set`, `id`, `baslik`, `skorda`, `istem_karakter`); kod `grpo_liste_kur.py`, tohum 20261104. Veri dosyaları ve `bolum` değişmedi, model kullanılmadı, maliyet $0. Aynı tohumla iki kurulum bayt bayt aynı.
+
+| Rol | Satır | Kural |
+|---|---:|---|
+| `egitim` | 6.578 | Train'den, üretim başlığı başına %10; en az 100, en çok 500 (40 başlık). SQL payı %26,7 |
+| `dogrulama` | 740 | Eğitime girmeyen train'den başlık başına en çok 20. `nesne_takip`, `sahiplik_zinciri`, `zaman_aritmetigi` train'i tamamen eğitime girdiği için yok |
+| `test` | 7.985 | Test bölümü. `skorda: false` 109 satır (ATTACH'li Eurostat) train'deki veritabanlarını kullanır; skorlanan 7.876 |
+
+**Kapsam dışı:** `talimat_takibi` (sunumdan çıktı; pakette duruyor), `ajan_terminal` (çok turlu, kum havuzu). **Alt gruplar:** Başlık içinde sırayla dolaşılır (hesaplama, Excel alt tip; bulmaca, ızgara, satranç zorluk; solver `set`; SQL veritabanı; çıktı tahmini 3 tür; MEB ders ya da ders çifti; regex kaynak). Bu yüzden küçük gruplar doğal payından fazla temsil edilir (`sql_belediye`'de İstanbul %14; regex'te sentetik 28/143).
+
+**İstem uzunluğu (`istem_karakter` / 2,045, yaklaşık token):** Eğitim listesinde ~4.000 token üstü 1.200, ~8.000 üstü 511, ~16.000 üstü 84 satır; hepsi SQL. `sql_istatistik`'in 500 satırının tamamı ~4.000 üstü. Liste bu nedenle süzülmedi; süzgeç eğitim sırasında bu alanla uygulanır.
+
+**Sınırlar:** MEB'de (eğitim 577) hakemsiz `puanla` alt sınırdır, anlamca doğru cevabı reddedebilir. Solver kod ve Excel cevapları 60 sn'ye kadar sürebilir; regex puanlayıcısı SIGALRM kullanır, iş parçacığında çalıştırılmaz.
+
+## 21. Testin tamamı için ölçüm hazırlığı (4 Kasım 2026, henüz gönderilmedi)
+
+**Kapsam:** Test bölümü; talimat takibi yok. 7.985 metin isteği (skorlanan 7.876; ATTACH'li 109 Eurostat koşulur, skora girmez) + ajan 200 görev. Kod `paket/araclar/tam_test.py`, istek dosyaları `benchmark_tam_test/girdi_<model>.jsonl`, ajan `benchmark_tam_test/ajan_tam_test.sh`, sonuç `paket/benchmark/sonuclar_tam_test.json`. 2 Kasım dosyalarına dokunulmaz. Para harcayan komutlar `--onay` ya da `ONAY=1` olmadan çalışmaz.
+
+**Modeller:** `Qwen/Qwen3.5-9B` (`reasoning_effort: none`; `Qwen/Qwen3-8B` DeepInfra listesinde yok), `ytu-ce-cosmos/Turkish-Gemma-9b-v0.1` (kiralık GPU, vLLM), `mistralai/Mistral-Small-3.2-24B-Instruct-2506`, `deepseek-ai/DeepSeek-V4-Flash-0731` düşünmesiz ve düşünen (`high`, 32.000 token). Temperature 0, tek deneme, diğerleri 8.000 token.
+
+**Cosmos bağlamı:** Gemma 2 tabanı 8.192 token. 457 istek sığmaz (çıktı tahmini 348, istatistik 109), model başına 7.528 istek gönderilir; sığmayanlara `sigmadi` yazılır; karşılaştırma `makro_ortak_sorular` ile yapılır. Ajan görevlerinde metin protokolü.
+
+**Maliyet tahmini (5 Kasım'da yenilendi, PRBench çıkınca yeniden hesaplandı; liste fiyatı, gerçek istem uzunluğu, set başına ölçülen token; `benchmark_tam_test/maliyet_hesapla.py`, `maliyet_tahmini.json`):** Metin istekleri Qwen ~$2,55, 24B ~$2,56, Flash ~$2,00, düşünen Flash ~$9,23, toplam ~$16,34. MEB hakemi ~$0,10, ajan ~$0,7 (model başına en çok $1), Cosmos GPU ~$1–3. **Toplam ~$18–20; üst sınır ~$25.** Düşünen Flash'ın payı en çok satranç ~$1,81, SQL istatistik ~$1,94, solver ~$1,57, ızgara ~$1,08; soru başına çıktı solver ~28.500, satranç ~25.000, ızgara ~11.900 token. Önceki ~$14,16 tek ortalamaya (~4.000 token) dayanıyordu ve düşünen Flash'ı düşük gösteriyordu. Varsayım: regex çıktısı ölçülmedi; Qwen için ölçüm yok (düşünmesiz 24B ve Flash ortalaması); çıktı tahmini `hesapsiz` çıktısı 4 sorudan. Flash'ta istem önbelleği sayılmadı, gerçek biraz düşük çıkabilir. Risk: Qwen'de düşünme kapanmazsa ~$6 ek; ön deneme bunu gösterir.
+
+**Kuru deneme (ağsız, $0):** Altın cevaplarla kodla puanlanan 7.685 satırın 7.685'i doğru, puanlayıcı hatası 0, 10 sn. Yerel sahte sunucuyla `kos` ve `pilot` çalıştı, `kos` yarıda kalınca devam etti. Ajan referansları 200/200. DeepInfra Batch ve vLLM'e gerçek gönderim denenmedi. Karakter işlemleri eklenince (§23) `hazirla` yeniden çalıştırıldı; bu kuru deneme tekrarlanmadı, yeni setin altın ve ters sınaması ayrıca yapıldı.
+
+## 22. Çıkarılan iki setin alt tip ölçümü (4 Kasım 2026, pilot)
+
+**Amaç:** Paketten çıkarılan metin işlemleri ve dil düzeltmede kullanmaya değer alt tip var mı (kullanıcı isteği). Paket değişmedi.
+
+**Ayar:** `mistralai/Mistral-Small-3.2-24B-Instruct-2506` ve `meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo`, DeepInfra Batch API, temperature 0, 8.000 token, tek deneme. Örneklem: `_tam.jsonl` dosyalarından (alt tip, zorluk) hücresi başına %10, yukarı yuvarlanır: metin 280, dil 331 (275'i 2.650 soruluk son sürümde, 56'sı kullanıcının 4 Kasım'da çıkardığı üç kuralı içeren satırlar). 8B seçimi: DeepInfra'daki en düşük fiyatlı 8B metin modeli. Maliyet $0,0757 (24B $0,05, 8B $0,0257).
+
+**Sınama:** Altın 2.800/2.800 ve 3.190/3.190; düzeltilmemiş kaynak cümle 3.190/3.190 yanlış. Bağımsız yeniden hesap: Sezar 400/400, harf sayma tek harf kalıbı 200/200 (sınıf sayma kalıbı 200 ve diğer alt tipler bağımsız hesaplanmadı).
+
+**Metin işlemleri (doğru / 40; Flash ve düşünen sütunları §15 pilotu, alt tip başına 12 soru):**
+
+| Alt tip | 8B | 24B | Flash (pilot) | Düşünen Flash (pilot) |
+|---|---|---|---|---|
+| sezar | 0 | 0 | 6/12 | 9/12 |
+| islem_zinciri | 0 | 3 | 5/12 | 11/12 |
+| ters_yazma | 0 | 3 | 10/12 | 12/12 |
+| harf_sayma | 2 | 4 | 11/12 | 12/12 |
+| kelime_istatistigi | 0 | 15 | 11/12 | 12/12 |
+| alfabetik_siralama | 2 | 19 | 12/12 | 12/12 |
+| unlu_uyumu | 3 | 19 | 12/12 | 12/12 |
+| Toplam | 7/280 (%2,5) | 63/280 (%22,5) | 67/84 | 80/84 |
+
+8B'nin 184 cevabında `CEVAP:` satırı yok, 66'sı token sınırında kesildi; `CEVAP:` satırı olanlarda 7/96. Düşük skorda biçim hatası da var. 24B'de 7 cevap kesildi, hepsi `CEVAP:` satırsız.
+
+**Dil düzeltme (2.650 sürümüne denk gelen 275 soru; puanlayıcı / altınla birebir):** 24B 124 (%45,1) / 86 (%31,3); 8B 93 (%33,8) / 59 (%21,5). 331 sorunun tamamında puanlayıcı skoru 24B 162, 8B 109. 8B'nin 78 cevabında `CEVAP:` satırı yok; son satır cevap sayılırsa 27'si daha geçer.
+
+**Puanlayıcı ve altın sınırları (elle okuma):** Puanlayıcının kelime toleransı (en çok 3 kelime ya da %20) 24B'nin 331'deki 162 geçişinin 48'ini sağlıyor. Bu 48'den okunan 12 örneğin 5'inde model yeni hata ya da anlam değişikliği yapmış ama doğru sayılmış ("Tek ricam" → "Tek ricasım", "kisti" → "kist", "yaranmak" → "yaramak"). Aynı 12 örneğin 2'sinde altın bozuk (`Hastanesi'den`, `Mi-lady"i`), model daha doğru yazmış. Dil düzeltme skoru bu yüzden kesin ölçüm sayılmaz. 24B'nin `ya_da_ayri` yanlışlarından okunan 6'sı `ya da` → `veya` değişikliği; yönerge kelime değiştirmeyi yasakladığı için gerçek yanlış, 8B'nin bu alt tipte önde olması (7/16, 24B 3/16) buradan geliyor.
+
+**Bilinen sınırlar:** Dil alt tiplerinde hücreler küçük (çoğu 12–17, `hane_name_zade` 2, `birlesik_anlam_kaymasi` 1); alt tip sıralaması güvenilir değil. Flash sütunları eski pilottan, aynı sorular değil.
+
+**Dosyalar:** `ek_setler/reddedilen_olcum.py`, `ek_setler/reddedilen_olcum/` (`orneklem.jsonl`, `sonuc_24b.jsonl`, `sonuc_8b.jsonl`, `ozet_*.json`, `dil_2650_ozet.json`).
+
+**Sonuç:** Kullanıcı `sezar`, `islem_zinciri`, `ters_yazma` alt tiplerini `karakter_islemleri` adıyla pakete aldı (§23). Dil düzeltme dışarıda kaldı.
+
+## 23. Karakter işlemleri (4 Kasım 2026, kullanıcı kararı; 1.200 soru)
+
+**Kaynak:** Çıkarılan metin işlemleri setinin üç alt tipi: `sezar`, `islem_zinciri`, `ters_yazma` (her biri orta 200 + zor 200). Sorular `ek_setler/metin_islemleri/uret.py` ile programla üretilmişti, cümleler GGLab/GECTurk (Apache-2.0). `koken=hizli_uretim`. Yeniden üretim ve model yok; `ek_setler/karakter_islemleri/uret.py` süzer ve bölümü yazar. Kimlikte sıra numarası korunur (`metin_islemleri-000400` → `karakter_islemleri-000400`), eski kimlik `orijinal.eski_id`.
+
+**Süzgeç hunisi:** 2.800 → 3 alt tip 1.200 → tekrar ayıklama sonrası 1.200.
+
+**Bölme:** Kendi tohumu (20261104), (alt tip, zorluk) başına 50 test: train 900, test 300, ölçüm 300 (3 başlık × 100). `test_kumesi_kur.py` `KENDI_BOLMESI`; ana rastgele akışa girmez. `metin_islemleri_tam.jsonl` tohum akışı için okunmaya devam eder.
+
+**Doğrulama:** Program; kesin. Altın 1.200/1.200, ters sınama 1.200/1.200 (`altin_sinama.py`). Altınlar bağımsız kodla yeniden hesaplandı: Sezar 400/400 (şifreleme ve çözme), işlem zinciri 400/400, ters yazma 400/400. Soru metni ve kaynak cümle tekil; train ile test arasında ortak cümle 0. Puanlayıcı `paket/puanlama/_ek/karakter_islemleri.py`, eski puanlayıcıyla 240 kayıtlı cevapta (24B 120, 8B 120) fark 0.
+
+**Pakete etkisi (dosyadan sayıldı):** 79.278 → 80.478; train 72.093, test 8.385, ölçüm 4.400, 17 set, 44 başlık. Önceki 16 setin satır özetleri birebir aynı (değişen 0); eski 8.085 test satırı birebir duruyor. `grpo_kucuk.jsonl` yeniden kuruldu: eski 14.643 satır aynı, 660 yeni satır (eğitim 300, doğrulama 60, test 300). `benchmark_tam_test/` istekleri yeniden üretildi (model başına 8.085, Cosmos 7.612).
+
+**Zorluk ölçümü (ölçüm bölümü değil, §22 örneklemi):**
+
+| Alt tip | 8B | 24B | Flash (eski pilot) | Düşünen Flash (eski pilot) |
+|---|---|---|---|---|
+| sezar | 0/40 | 0/40 | 6/12 | 9/12 |
+| islem_zinciri | 0/40 | 3/40 | 5/12 | 11/12 |
+| ters_yazma | 0/40 | 3/40 | 10/12 | 12/12 |
+
+**Maliyet:** Üretim $0; ölçüm §22 ($0,0757, iki setin tamamı için).
+
+**Bilinen sınırlar:** Set Türkçe bilgisinden çok karakter düzeyinde işlem becerisini ölçer; düşük skorda tokenizasyonun payı olabilir. Türkçeye özgü kısım 29 harfli alfabe ve Türkçe büyük-küçük harf kuralları. Üst model verisi 12 soruluk eski pilottan; 300 test sorusu henüz ölçülmedi. `_sok` baştaki ya da sondaki `**`'ı kalın işaretleme sayar; `islem_zinciri`'nde yıldızla başlayan ya da biten cevapta bu yanlış sonuç verebilir (mevcut altınların hepsi geçiyor).
+
+**Son dosya:** `paket/veri/karakter_islemleri.jsonl.gz`.
+
+## 24. PRBench finans çıkarıldı (5 Kasım 2026, kullanıcı kararı; 319 görev)
+
+**Neden:** Set kodla doğrulanamıyor: uzman rubriği ve LLM jürisi gerekiyor, `puanla()` çalışmıyordu. Veri setinin kalanından farklı bir puanlama, ayrı jüri maliyeti ve GRPO dışı bir yol getiriyordu.
+
+**Yapılan:** `ek_setler/prbench_finans/veri/prbench_finans.jsonl` → `reddedildi/`; kaynak dosyalar `kaynak/` altında duruyor. `birlestir.py`, `test_kumesi_kur.py` (`KENDI_BOLMESI`), `paket_kur.py`, `grpo_liste_kur.py`, `puanlama/__init__.py`, `benchmark.py`, `altin_sinama.py`, `maliyet_hesapla.py` güncellendi. `tam_test.py`'den jüri adımı ve `*_prbench_haric` ölçütleri silindi; `mikro_prbench_haric` artık `mikro`.
+
+**Pakete etkisi (dosyadan sayıldı):** 80.478 → 80.159; train 72.093 → 71.874, test 8.385 → 8.285, ölçüm 4.400 → 4.300, 17 → 16 set, 44 → 43 başlık. Talimat takibi hariç (sunum): 78.159; train 69.974, test 8.185, ölçüm 4.200, 15 set, 42 başlık. `koken`: `hizli_uyarlama` 3.914 → 3.595.
+
+**Kalanın değişmediği:** Kalan 16 veri dosyasının açılmış içeriği birebir aynı (SHA-256). `test_kumesi.jsonl`'den yalnız 100 PRBench satırı düştü, sıra aynı. `grpo_kucuk.jsonl` ve `alt_kume.jsonl` birebir aynı. PRBench zaten kendi bölmesini kullandığı için ana rastgele akışa girmiyordu.
+
+**Sınama:** Altın 76.569/76.569, ters 78.562/78.569 (7 kabul, önceki turla aynı sayı; fizik ve birim). `tam_test.py` ağsız duman testi: `al` 7.985 satır, `rapor` 7.876 skorlanan, 40 başlık. Gerçek gönderim yok.
+
+**Ölçüm hazırlığı:** İstek dosyaları yeniden üretildi: model başına 7.985, Cosmos 7.528, sığmayan 457. Tahmin ~$18–20, üst sınır ~$25 (§21). Maliyet $0.
+
+**Yeniden eklenirse:** Silinen jüri kodunda hata vardı, ölçüm yapılmadığı için sonuca geçmedi. `agirlik()` ilk dolu ağırlığı alıyordu; doğrusu `weight_class`'ın gösterdiği ağırlık gibi görünüyor. Testte 1.574 ölçütün 310'unda ağırlık, 31'inde işaret yanlıştı; 100 görevin 76'sı etkileniyordu. Kaynak rubrikte de hesap hatası var (`prbench_finans-000000`: "0.025 × 0.4 × 0.25 = %2,5", çarpım %0,25). Eski kurma sırası da değişir: yeni kendi bölmeli setler önce `KENDI_BOLMESI`'ne girmeli; bu turda `test_kumesi_kur.py` eski paketi okuyunca 1.255 satır kaydı, paket temizlenip yeniden çalıştırılınca düzeldi.
+
+## 25. TURSpider denetimi ve LIMIT eşitliği kuralı (5 Kasım 2026, kullanıcı kararı)
+
+**Neden:** 2 Kasım'da TURSpider'da üç model neredeyse aynı skoru aldı (24B 80, Flash 82, düşünen Flash 82). 100 soru üç modelin cevaplarıyla okundu; yeni model çağrısı yok, maliyet $0.
+
+**Sızıntı denetimi:** Altın SQL istemde 0/100; train ile test arasında ortak veritabanı 0/166; test SQL metni train'de 6/997, soru metni 2/997 (veritabanları farklı); altındaki takma adı tutturma 0/40. WHERE silinmiş altın 3/56 geçiyor. Sızıntı bulunmadı. Spider herkese açık olduğu için ezber tamamen dışlanamaz.
+
+**Bulgu:** 68 soruyu üçü de doğru, 8 soruyu üçü de yanlış yaptı; ayrışan 24 sorunun 13'ü gerçek beceri farkı, 11'i puanlama ya da belirsizlik (tek kişilik elle okuma). Düşünen Flash'ın tek başına yanlış sayıldığı 7 sorunun 1'i gerçek hata. Altın `ORDER BY ... LIMIT n` iken n. satırda eşit değer varsa altın tek değildi; ters tarama sınaması bunu yakalamıyordu.
+
+**Eşitlik kuralı:** `paket/puanlama/sql.py` `limit_gruplari`, `limit_esitlik_kabul`; yalnız önceki karşılaştırmalar reddedince çalışır. Kabul: anahtarı kesin satırların tümü + eşit gruptan kalan sayıda herhangi satır, ya da eşit grubun tamamı. `sira_onemli` ise anahtar grupları sırayla gelmeli. Birleşimli, `OFFSET`'li, ayrıştırılamayan altında uygulanmaz.
+
+| Set | `LIMIT`'li altın | Kural uygulanan | Sınırda eşitlik |
+|---|---:|---:|---:|
+| sql_turspider | 1.250 | 1.206 | 289 |
+| sql_belediye | 14.322 | 13.198 | 108 |
+| sql_istatistik | 5.981 | 5.549 | 0 |
+
+TURSpider'da uygulanan 2 altın (`02337`, `02338`, `DISTINCT` + seçilmeyen sütunla sıralama) bu ayrıştırmayla yeniden üretilemez; onlarda kural çalışmaz.
+
+**Altın düzeltmeleri (`duzeltmeler/sql_turspider_2026-11-05.jsonl`, 4 güncelleme):** `dev-00687` "Kaç tane eyalet var?" 305 → `count(DISTINCT eyalet)` 51. `train-04146` soru "ve" → "veya" (altın `UNION`). `train-04695`, `04696`: Boston Red Stockings 1871–1875 arasında; 2000–2010 maçları `takım_no = 'BOS'` Boston Red Sox, altın JOIN toplamı 5 kez sayıyordu (156.651.355). Soru "Boston Red Sox", altın 31.330.271. Satır sayısı değişmedi. Altın hata oranı tüm set için ölçülmedi; bunlar 100 soruluk okumada bulunanlar ve ikizi.
+
+**2 Kasım cevaplarının yeniden puanı (kayıtlı sonuçlar değiştirilmedi; `benchmark_2026-11-02/tie_yeniden_puan.json`):**
+
+| Set | 24B | Flash | Düşünen Flash |
+|---|---|---|---|
+| sql_turspider | 80 → 82 | 82 → 83 | 82 → 87 |
+| sql_belediye | 61 | 73 | 88 |
+| sql_istatistik | 76 | 89 | 92 |
+
+**Sınama:** Altın ve ters 34.921/34.921 (üç set). Kuralın ters denemeleri (TURSpider 289 eşitlikli soru): tüm grup 287, ilk n satır 287, n = 1'de diğer eşit satır 253 kabul; yanlış değer, eksik ve fazla satır 0 kabul. WHERE silinmiş altın değişmedi (3/56, 7/78, 2/92). Paket: yalnız bu 4 satır değişti, `test_kumesi.jsonl` ve `grpo_kucuk.jsonl` birebir aynı. `benchmark_tam_test/` istekleri yeniden üretilmedi: değişen sorulardan testteki `00687`'nin istemi aynı.
+
+**Bilinen sınırlar:** LEFT/INNER ve tablo seçimi belirsizlikleri kuralla çözülmez. 100 soruda altın sonucu 0 olan 3 soru her cevabı kolayca doğru sayabilir. `test` bölümünde 997 soruda 552 farklı SQL var; ölçüm kümesi 100 soruda 99 farklı. Elle yapılan ayrım tek kişiliktir. Tüm set taranmadı (kullanıcı kararı, 5 Kasım): TURSpider dış set olarak olduğu gibi kalır; soru–SQL uyumu kaynak sete bağlıdır, yalnız burada sayılan düzeltmeler uygulandı.
 
 ## Rapora eklenmesi gerekenler
 

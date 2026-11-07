@@ -1,0 +1,76 @@
+id: gen-s-7268-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi/kargolar.json dosyasındaki her kaydı durum alanına göre ayır ve cikti dizininde durum adıyla bir alt dizin oluştur; yani cikti/yolda, cikti/teslim ve cikti/beklemede dizinleri ortaya çıksın. Her kaydın takip değerini kendi durum dizinindeki takipler.txt dosyasına bir satır olarak yaz; cikti/yolda/takipler.txt, cikti/teslim/takipler.txt ve cikti/beklemede/takipler.txt dosyalarının her birinde yalnızca o duruma ait takip değerleri, her satırda bir tane olacak şekilde yer alsın. girdi/kargolar.json.bak dosyası bozuk bir yedek olduğu için onu yok say ve işleme dahil etme.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/kargolar.json <<'JSON'
+  [
+    {"takip": "TR1001", "durum": "yolda", "sehir": "Ankara"},
+    {"takip": "TR1002", "durum": "teslim", "sehir": "Izmir"},
+    {"takip": "TR1003", "durum": "yolda", "sehir": "Ankara"},
+    {"takip": "TR1004", "durum": "beklemede", "sehir": "Bursa"},
+    {"takip": "TR1005", "durum": "teslim", "sehir": "Izmir"},
+    {"takip": "TR1006", "durum": "yolda", "sehir": "Bursa"},
+    {"takip": "TR1007", "durum": "beklemede", "sehir": "Ankara"},
+    {"takip": "TR1008", "durum": "teslim", "sehir": "Bursa"}
+  ]
+  JSON
+  # tuzak-dosya: JSON gibi gorunen ama bozuk, hesaba katilmamali
+  cat > girdi/kargolar.json.bak <<'BAK'
+  {"takip": "TR9999", "durum": "yolda", "sehir": "Ankara"}
+  BAK
+
+goal_tr: >
+  girdi/kargolar.json icindeki her kaydi durum alanina gore ayirip cikti/
+  dizininde durum adiyla bir alt dizin olustur ve her kaydin takip degerini
+  kendi durum dizinindeki takipler.txt dosyasina bir satir olarak yaz; bozuk
+  yedek dosyayi yok say.
+
+reference_solution: |
+  mkdir -p cikti
+  sed -n 's/.*"durum": "\([^"]*\)".*/\1/p' girdi/kargolar.json | sort -u | while read -r d; do mkdir -p "cikti/$d"; sed -n "s/.*\"takip\": \"\([^\"]*\)\", \"durum\": \"$d\".*/\1/p" girdi/kargolar.json | sort | uniq > "cikti/$d/takipler.txt"; done
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/yolda/takipler.txt, kind: lines}
+  - {path: cikti/teslim/takipler.txt, kind: lines}
+  - {path: cikti/beklemede/takipler.txt, kind: lines}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [beklemede, teslim, yolda]}
+  - {op: file_lines_eq, path: cikti/beklemede/takipler.txt, value: [TR1004, TR1007]}
+  - {op: file_lines_eq, path: cikti/teslim/takipler.txt, value: [TR1002, TR1005, TR1008]}
+  - {op: file_lines_eq, path: cikti/yolda/takipler.txt, value: [TR1001, TR1003, TR1006]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7268
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: kargo-takibi
+    hedef: donustur
+    girdi: json
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

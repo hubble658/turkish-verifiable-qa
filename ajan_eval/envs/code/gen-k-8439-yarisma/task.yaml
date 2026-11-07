@@ -1,0 +1,94 @@
+id: gen-k-8439-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+prompt: '1) depo/alt/stok.py dosyasını, Stok sınıfı durumlu olacak şekilde yaz; sınıf depo/siparisler.txt dosyasındaki her
+  sipariş satırını kalem adına göre toplayabilsin ve depo/alt/kasa.py içindeki Kasa sınıfını kullanarak her kalemin toplam
+  tutarını hesaplayabilsin.
+
+
+  2) Stok.oku(yol) metodunu ekle; bu metot verilen yoldaki depo/siparisler.txt dosyasını yükleyip satırları ayrıştırsın ve
+  her satırdaki kalem adı, adet ve fiyat bilgisini Stok nesnesinin durumuna işlesin.
+
+
+  3) Stok.toplam(kalem) metodunu ekle; bu metot verilen kalem adı için o kalemin toplam adedini döndürsün.
+
+
+  4) Stok.tutar(kalem) metodunu ekle; bu metot verilen kalem adı için Kasa sınıfını kullanarak adet ile fiyat çarpımından
+  oluşan toplam tutarı döndürsün.
+
+
+  oku nesnenin kendisini döndürsün (Stok().oku(yol)); bilinmeyen kalem için tutar 0.0 olsun; kalemler() kalem adlarını sıralı
+  liste döndürsün.
+
+  '
+setup: "mkdir -p depo/alt\ncat > depo/__init__.py <<'INIT'\nINIT\ncat > depo/alt/__init__.py <<'INIT'\nINIT\ncat > depo/alt/kasa.py\
+  \ <<'KASA'\nclass Kasa:\n    pass\nKASA\ncat > depo/alt/stok.py <<'STOK'\nclass Stok:\n    pass\nSTOK\ncat > depo/siparisler.txt\
+  \ <<'TXT'\nkalem: kalem_a, adet: 3, fiyat: 10\nkalem: kalem_b, adet: 1, fiyat: 100\nkalem: kalem_a, adet: 2, fiyat: 10\n\
+  kalem: kalem_c, adet: 5, fiyat: 4\nTXT\n"
+goal_tr: 'depo/alt/stok.py icindeki Stok sinifini, depo/siparisler.txt dosyasini okuyup her siparis satirini kalem adina gore
+  toplayan ve depo/alt/kasa.py icindeki Kasa sinifini kullanarak her kalemin toplam tutarini (adet*fiyat) hesaplayan durumlu
+  bir sinif olarak yaz; Stok.oku(yol) dosyayi yukleyip satirlari ayristirsin, Stok.toplam(kalem) o kalemin toplam adedini,
+  Stok.tutar(kalem) ise Kasa ile hesaplanan toplam tutarini dondursun.
+
+  '
+reference_solution: "cat > depo/alt/kasa.py <<'KASA'\nclass Kasa:\n    def __init__(self):\n        self._toplam = 0.0\n\n\
+  \    def ekle(self, adet, fiyat):\n        self._toplam += adet * fiyat\n        return self._toplam\n\n    def sifirla(self):\n\
+  \        self._toplam = 0.0\nKASA\ncat > depo/alt/stok.py <<'STOK'\nfrom depo.alt.kasa import Kasa\n\n\nclass Stok:\n  \
+  \  def __init__(self):\n        self._adetler = {}\n        self._fiyatlar = {}\n        self._kasa = Kasa()\n\n    def\
+  \ oku(self, yol):\n        with open(yol, encoding=\"utf-8\") as f:\n            for satir in f:\n                satir\
+  \ = satir.strip()\n                if not satir:\n                    continue\n                parcalar = satir.split(\"\
+  , \")\n                ad = parcalar[0].split(\": \")[1]\n                adet = int(parcalar[1].split(\": \")[1])\n   \
+  \             fiyat = float(parcalar[2].split(\": \")[1])\n                self._adetler[ad] = self._adetler.get(ad, 0)\
+  \ + adet\n                self._fiyatlar[ad] = fiyat\n        return self\n\n    def toplam(self, kalem):\n        return\
+  \ self._adetler.get(kalem, 0)\n\n    def tutar(self, kalem):\n        self._kasa.sifirla()\n        adet = self._adetler.get(kalem,\
+  \ 0)\n        fiyat = self._fiyatlar.get(kalem, 0.0)\n        return self._kasa.ekle(adet, fiyat)\n\n    def kalemler(self):\n\
+  \        return sorted(self._adetler)\nSTOK\n"
+outputs:
+- path: depo/alt/stok.py
+  kind: program
+  run: python3 -c 'from depo.alt.stok import Stok; s=Stok().oku("depo/siparisler.txt"); assert s.toplam("kalem_a")==5; assert
+    s.toplam("kalem_c")==5; assert s.tutar("kalem_a")==50.0; assert s.tutar("kalem_b")==100.0; assert s.tutar("kalem_c")==20.0;
+    assert s.tutar("yok")==0.0; assert s.kalemler()==["kalem_a","kalem_b","kalem_c"]; print("TAMAM")'
+checks:
+- op: run_stdout_eq
+  cmd: python3 -c 'from depo.alt.stok import Stok; s=Stok().oku("depo/siparisler.txt"); assert s.toplam("kalem_a")==5; assert
+    s.toplam("kalem_c")==5; assert s.tutar("kalem_a")==50.0; assert s.tutar("kalem_b")==100.0; assert s.tutar("kalem_c")==20.0;
+    assert s.tutar("yok")==0.0; assert s.kalemler()==["kalem_a","kalem_b","kalem_c"]; print("TAMAM")'
+  value: TAMAM
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8439
+    bundle: yarisma
+    tools:
+    - python3
+    konu: siparis-kayitlari
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: benzetim
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: dosya-okuma
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false
+  duzeltme:
+    neden: gizli_sart
+    not: oku dönüşü ve kalemler() yazmıyordu.

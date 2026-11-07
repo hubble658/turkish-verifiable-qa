@@ -1,0 +1,64 @@
+id: gen-s-4135-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  envanter.txt dosyasındaki her geçerli satırı işleyerek envanter.csv dosyasını oluştur. Geçerli bir satırda ilk alan U ile başlayan 7 karakterlik ürün kodu, ikinci alan tam sayı olan adet ve üçüncü alan ondalık sayı olan fiyat olmalı. Her geçerli satır için ürün kodu, adet ve fiyat alanlarını virgülle birleştir. envanter.csv dosyasının ilk satırı "kod,adet,fiyat" başlığı olsun ve geçersiz satırları atla.
+
+setup: |
+  cat > envanter.txt <<'EOF'
+  URUN001 12 3.50
+  URUN002 0 9.99
+  URUN003 7 1.25
+  BOZUK 5 2.00
+  URUN004 3 0.75
+  EOF
+
+goal_tr: >
+  envanter.txt icindeki her gecerli satir icin (ilk alan U ile baslayan 7
+  karakter, ikinci alan tam sayi, ucuncu alan ondalik) urun kodu, adet ve
+  fiyat alanlarini virgulle birlestirip ilk satiri "kod,adet,fiyat" olan
+  envanter.csv dosyasini uret; gecersiz satirlari atla.
+
+reference_solution: |
+  grep -E '^[A-Z]{4}[0-9]{3} [0-9]+ [0-9]+\.[0-9]{2}$' envanter.txt > gecerli.txt
+  awk '{print $1","$2","$3}' gecerli.txt > govde.csv
+  printf 'kod,adet,fiyat\n' > envanter.csv
+  cat govde.csv >> envanter.csv
+  wc -l envanter.csv
+  rm gecerli.txt govde.csv
+
+outputs:
+  - {path: envanter.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: envanter.csv, value: ['kod,adet,fiyat', 'URUN001,12,3.50', 'URUN002,0,9.99', 'URUN003,7,1.25', 'URUN004,3,0.75']}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4135
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: envanter
+    hedef: dogrula
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: csv
+    kesif: yok
+    uslup: duz-hedef
+    direnc: bom
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

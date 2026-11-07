@@ -1,0 +1,72 @@
+id: gen-s-4122-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  logs dizinindeki sunucu_a.log ve sunucu_b.log dosyalarında geçen her HATA satırındaki mesaj metnini çıkar; aynı mesajın kaç kez geçtiğini say ve sonucu mesaj sayısına göre büyükten küçüğe doğru sıralayarak, her satırda önce sayı sonra mesaj olacak şekilde sonuc.txt dosyasına yaz.
+
+setup: |
+  mkdir -p logs
+  cat > logs/sunucu_a.log <<'LOG'
+  2024-03-01 10:00:00 BILGI sistem basladi
+  2024-03-01 10:01:00 HATA disk dolu
+  2024-03-01 10:02:00 UYARI bellek az
+  2024-03-01 10:03:00 HATA baglanti koptu
+  2024-03-01 10:04:00 BILGI kullanici giris yapti
+  2024-03-01 10:05:00 HATA zaman asimi
+  LOG
+  cat > logs/sunucu_b.log <<'LOG'
+  2024-03-01 11:00:00 HATA disk dolu
+  2024-03-01 11:01:00 BILGI yedekleme tamamlandi
+  2024-03-01 11:02:00 HATA disk dolu
+  2024-03-01 11:03:00 UYARI bellek az
+  2024-03-01 11:04:00 HATA zaman asimi
+  2024-03-01 11:05:00 HATA baglanti koptu
+  LOG
+
+goal_tr: >
+  logs dizinindeki sunucu_a.log ve sunucu_b.log dosyalarinda gecen her HATA
+  satirindaki mesaj metnini cikarip, ayni mesajdan kac kez gectigini say ve
+  sonucu mesaj sayisina gore buyukten kucuge dogru sirala; her satirda once
+  sayi sonra mesaj olacak sekilde sonuc.txt dosyasina yaz.
+
+reference_solution: |
+  grep -h 'HATA' logs/sunucu_a.log logs/sunucu_b.log | sed 's/^[0-9-]* [0-9:]* //' | sort | uniq -c | sort -rn | awk '{print $1, substr($0, index($0,$2))}' > gecici.txt
+  wc -l gecici.txt | awk '{print $1}' > satir_sayisi.txt
+  cat gecici.txt > sonuc.txt
+  rm -f gecici.txt satir_sayisi.txt
+
+outputs:
+  - {path: sonuc.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: sonuc.txt, value: [3 HATA disk dolu, 2 HATA zaman asimi, 2 HATA baglanti koptu]}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4122
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: sunucu-loglari
+    hedef: grupla-say
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

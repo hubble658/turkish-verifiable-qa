@@ -1,0 +1,66 @@
+id: gen-s-3033-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) siparisler klasöründeki tüm .txt dosyalarındaki satırlarda geçen adet değerlerinin toplamını hesapla.
+  2) Bu toplamı toplam.txt dosyasına sadece sayı olarak yaz; dosyada başka hiçbir şey bulunmasın.
+
+setup: |
+  mkdir -p siparisler
+  cat > "siparisler/gunluk kayit.txt" <<'LOG'
+  masa=1 urun=corba adet=2
+  masa=2 urun=kebap adet=1
+  masa=1 urun=kebap adet=3
+  masa=3 urun=corba adet=1
+  masa=2 urun=salata adet=4
+  masa=4 urun=kebap adet=2
+  LOG
+  cat > "siparisler/arsiv kayit.txt" <<'LOG'
+  masa=9 urun=corba adet=100
+  masa=9 urun=kebap adet=100
+  LOG
+
+goal_tr: >
+  siparisler klasorundeki tum .txt dosyalarindaki satirlarda gecen toplam
+  adet degerlerinin toplamini toplam.txt dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  tar czf siparisler.tgz siparisler
+  tar xzf siparisler.tgz -C /tmp
+  grep -h 'adet=' /tmp/siparisler/*.txt | sed 's/.*adet=//' | awk '{s+=$1} END {print s}' | gzip -c | gzip -dc > toplam.txt
+
+outputs:
+  - {path: toplam.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: toplam.txt, value: '213'}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3033
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: restoran-siparisleri
+    hedef: donustur
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: dolayli-hedef
+    uslup: numarali-emir
+    direnc: bosluklu-ad
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

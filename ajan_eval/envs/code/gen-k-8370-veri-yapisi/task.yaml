@@ -1,0 +1,96 @@
+id: gen-k-8370-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  readings.txt dosyasını okuyup her satırı "ad, başlangıç, bitiş" biçiminde yorumlayan merge_intervals(text) adlı düz bir fonksiyonu solution.py içinde yaz. Fonksiyon, aynı sensörün kesişen veya bitişik aralıklarını birleştirsin ve her sensör için sıralı (başlangıç, bitiş) demetlerinden oluşan bir liste döndürsün.
+
+  Şu şartlar sağlanmalı:
+  - solution.py dosyası oluşturulmalı.
+  - merge_intervals adlı düz bir fonksiyon tanımlanmalı ve bu fonksiyon tek bir text parametresi almalı.
+  - Fonksiyon, readings.txt içeriğindeki her satırı "ad, başlangıç, bitiş" biçiminde okumalı.
+  - Aynı sensöre ait kesişen veya bitişik aralıklar birleştirilmeli.
+  - Bitişik aralıklar da birleştirilmeli; örneğin bir aralığın bitişi diğerinin başlangıcına eşitse bunlar tek aralık olmalı.
+  - Dönen değer, her sensör için sıralı (başlangıç, bitiş) demetlerinden oluşan bir liste olmalı.
+  - readings.txt dosyasındaki tüm sensörler sonuçta yer almalı.
+  - Başlangıç değerleri ve bitiş değerleri sayı olarak ele alınmalı.
+
+setup: |
+  cat > readings.txt <<'DATA'
+  sensorA,10,25
+  sensorA,25,40
+  sensorA,50,70
+  sensorB,5,15
+  sensorB,15,30
+  sensorB,100,120
+  DATA
+
+goal_tr: >
+  readings.txt dosyasindaki her satiri "ad, baslangic, bitis" biciminde
+  okuyup ayni sensorun kesisen veya bitisik araliklarini birlestirerek her
+  sensor icin sirali (baslangic, bitis) demetlerinden olusun liste donduren
+  merge_intervals(text) duz fonksiyonunu yaz.
+
+reference_solution: |
+  cat > solution.py <<'PY'
+  def merge_intervals(text):
+      by_sensor = {}
+      for line in text.strip().splitlines():
+          name, start, end = line.split(',')
+          by_sensor.setdefault(name, []).append((int(start), int(end)))
+      result = {}
+      for name, spans in by_sensor.items():
+          spans.sort()
+          merged = []
+          for start, end in spans:
+              if merged and start <= merged[-1][1]:
+                  if end > merged[-1][1]:
+                      merged[-1] = (merged[-1][0], end)
+              else:
+                  merged.append((start, end))
+          result[name] = merged
+      return result
+  PY
+
+outputs:
+  - {path: solution.py, kind: program, run: 'python3 -c ''from solution import merge_intervals as f; t=open("readings.txt").read(); r=f(t); assert r["sensorA"]==[(10,40),(50,70)], r; assert r["sensorB"]==[(5,30),(100,120)], r; assert f("s,1,2\ns,3,4\n")=={"s":[(1,2),(3,4)]}; assert f("s,1,5\ns,2,3\n")=={"s":[(1,5)]}; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from solution import merge_intervals as f; t=open("readings.txt").read(); r=f(t); assert r["sensorA"]==[(10,40),(50,70)], r; assert r["sensorB"]==[(5,30),(100,120)], r; assert f("s,1,2\ns,3,4\n")=={"s":[(1,2),(3,4)]}; assert f("s,1,5\ns,2,3\n")=={"s":[(1,5)]}; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8370
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: sensor-serisi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: aralik-birlestirme
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: parcali-akis
+      topoloji: tek-modul
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

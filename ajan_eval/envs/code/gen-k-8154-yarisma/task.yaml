@@ -1,0 +1,115 @@
+id: gen-k-8154-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  arena/board.py içindeki load_scores'un yanına with_scores dekoratörünü ekle; sardığı fonksiyonlara skorları en yüksekten en düşüğe, eşitlikte isim alfabetik olacak şekilde (name, pts) listesi olarak versin.
+
+  Aynı dosyaya top_spread fonksiyonunu da with_scores ile sarılı ekle; skor listesini iki işaretçiyle tek geçişte tarayıp en yüksek ve en düşük skor farkını döndürsün.
+
+setup: |
+  mkdir -p arena
+  cat > arena/board.py <<'BOARD'
+  def load_scores(path):
+      rows = []
+      with open(path, "r") as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              name, pts = line.split(":")
+              rows.append((name, int(pts)))
+      return rows
+  BOARD
+  cat > scores.txt <<'DATA'
+  ada:12
+  bo:7
+  cy:19
+  di:7
+  em:25
+  fy:3
+  DATA
+
+goal_tr: >
+  arena/board.py icindeki load_scores fonksiyonunun yanina, bir dosya yolunu
+  alip icindeki skorlari okuyan ve @with_scores dekoratoru ile sarilmis
+  fonksiyonlara (name, pts) ikililerinden olusan listeyi en yuksek skordan
+  en dusuge dogru, esit skorlarda isim alfabetik sirasiyla duzenlenmis halde
+  aktaran bir with_scores dekoratoru ekle; ardindan ayni dosyaya, dosya
+  yolunu alip bu skor listesini iki isaretci ile tek gecisde tarayarak en
+  yuksek skor ile en dusuk skorun farkini donduren top_spread fonksiyonunu
+  @with_scores ile sarili bicimde ekle.
+
+reference_solution: |
+  cat > arena/board.py <<'BOARD'
+  def load_scores(path):
+      rows = []
+      with open(path, "r") as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              name, pts = line.split(":")
+              rows.append((name, int(pts)))
+      return rows
+
+
+  def with_scores(fn):
+      def wrapper(path, *args, **kwargs):
+          rows = load_scores(path)
+          rows.sort(key=lambda r: (-r[1], r[0]))
+          return fn(rows, *args, **kwargs)
+      return wrapper
+
+
+  @with_scores
+  def top_spread(rows):
+      lo = 0
+      hi = len(rows) - 1
+      if hi <= 0:
+          return 0
+      return rows[lo][1] - rows[hi][1]
+  BOARD
+
+outputs:
+  - {path: arena/board.py, kind: program, run: 'python3 -c ''from arena.board import top_spread, with_scores; s=top_spread("scores.txt"); assert s==22, s; assert top_spread("scores.txt")==22; import arena.board as b; names=[n for n,p in b.load_scores("scores.txt")]; assert names==["ada","bo","cy","di","em","fy"], names; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from arena.board import top_spread, with_scores; s=top_spread("scores.txt"); assert s==22, s; assert top_spread("scores.txt")==22; import arena.board as b; names=[n for n,p in b.load_scores("scores.txt")]; assert names==["ada","bo","cy","di","em","fy"], names; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8154
+    bundle: yarisma
+    tools:
+    - python3
+    konu: oyun-skor-tablosu
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: iki-isaretci
+      karmasiklik: duz
+      kalip: dekorator
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

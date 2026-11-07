@@ -1,0 +1,145 @@
+id: gen-k-5070-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) records/nodes.py dosyasındaki OrderChain sınıfını, OrderStore soyut protokolünü uygulayacak biçimde tamamla.
+
+  2) push metodu, eklenen siparişi zincirin sonuna koymalı.
+
+  3) to_list metodu, siparişleri eklenme sırasında (order_id, total) ikilileri olarak döndürmeli.
+
+setup: |
+  mkdir -p records
+  cat > records/nodes.py <<'NODES'
+  from abc import ABC, abstractmethod
+
+
+  class Node:
+      def __init__(self, order_id, total):
+          self.order_id = order_id
+          self.total = total
+          self.next = None
+
+
+  class OrderStore(ABC):
+      @abstractmethod
+      def push(self, order_id, total):
+          ...
+
+      @abstractmethod
+      def to_list(self):
+          ...
+
+
+  class OrderChain(OrderStore):
+      def push(self, order_id, total):
+          raise NotImplementedError
+
+      def to_list(self):
+          raise NotImplementedError
+  NODES
+  cat > records/summary.py <<'SUMMARY'
+  from records.nodes import OrderChain
+
+
+  def summarize(orders):
+      chain = OrderChain()
+      for order_id, total in orders:
+          chain.push(order_id, total)
+      return [order_id for order_id, _ in chain.to_list()]
+  SUMMARY
+
+goal_tr: >
+  records/nodes.py icindeki OrderChain sinifini, OrderStore soyut
+  protokolunu uygulayacak bicimde tamamla: push eklenen siparisi zincirin
+  sonuna koymali, to_list ise siparisleri eklenme sirasinda (order_id,
+  total) ikilileri olarak dondurmeli.
+
+reference_solution: |
+  cat > records/nodes.py <<'NODES'
+  from abc import ABC, abstractmethod
+
+
+  class Node:
+      def __init__(self, order_id, total):
+          self.order_id = order_id
+          self.total = total
+          self.next = None
+
+
+  class OrderStore(ABC):
+      @abstractmethod
+      def push(self, order_id, total):
+          ...
+
+      @abstractmethod
+      def to_list(self):
+          ...
+
+
+  class OrderChain(OrderStore):
+      def __init__(self):
+          self.head = None
+          self.tail = None
+
+      def push(self, order_id, total):
+          node = Node(order_id, total)
+          if self.head is None:
+              self.head = node
+              self.tail = node
+          else:
+              self.tail.next = node
+              self.tail = node
+
+      def to_list(self):
+          out = []
+          cur = self.head
+          while cur is not None:
+              out.append((cur.order_id, cur.total))
+              cur = cur.next
+          return out
+  NODES
+
+outputs:
+  - {path: records/nodes.py, kind: program, run: 'python3 -c ''from records.summary import summarize; assert summarize([("a",1),("b",2),("c",3)])==["a","b","c"]; assert summarize([])==[]; assert summarize([("x",9)])==["x"]; from records.nodes import OrderChain, OrderStore; assert issubclass(OrderChain, OrderStore); c=OrderChain(); c.push("p",5); c.push("q",6); assert c.to_list()==[("p",5),("q",6)]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from records.summary import summarize; assert summarize([("a",1),("b",2),("c",3)])==["a","b","c"]; assert summarize([])==[]; assert summarize([("x",9)])==["x"]; from records.nodes import OrderChain, OrderStore; assert issubclass(OrderChain, OrderStore); c=OrderChain(); c.push("p",5); c.push("q",6); assert c.to_list()==[("p",5),("q",6)]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5070
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: siparis-kayitlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: bagli-liste
+      karmasiklik: duz
+      kalip: abc-protokol
+      akis: bellek-ici
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

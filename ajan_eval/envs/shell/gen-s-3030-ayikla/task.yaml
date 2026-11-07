@@ -1,0 +1,74 @@
+id: gen-s-3030-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  defter dizini altındaki 2024 ile başlayan alt dizinlerde bulunan .txt dosyalarını tara; ilk alanı dört haneli rakam olan satırları, ait oldukları dosya adını önek olarak ekleyerek sıralı biçimde kalemler.txt dosyasına yaz.
+
+setup: |
+  mkdir -p defter/2024 defter/arsiv
+  cat > defter/2024/ocak.txt <<'TXT'
+  1001 alis 250.00
+  1002 satis 480.50
+  1003 iade -120.00
+  TXT
+  cat > defter/2024/subat.txt <<'TXT'
+  2001 alis 300.00
+  2002 satis 150.75
+  TXT
+  cat > defter/arsiv/2019.txt <<'TXT'
+  9001 alis 90.00
+  9002 satis 45.00
+  TXT
+  cat > defter/notlar.txt <<'TXT'
+  bu dosya kalem degil
+  1000 gibi gorunur ama degil
+  TXT
+
+goal_tr: >
+  defter dizini altindaki 2024 ile baslayan alt dizinlerdeki .txt
+  dosyalarindan, ilk alani dort haneli rakam olan satirlari, dosya adi
+  onekleriyle birlikte sirali olarak kalemler.txt dosyasina yaz
+
+reference_solution: |
+  find defter -mindepth 2 -path '*/2024/*' -name '*.txt' | sort > /tmp/dosyalar.txt
+  while read -r f; do
+    awk -v d="$(dirname "$f")" '$1 ~ /^[0-9][0-9][0-9][0-9]$/ {print d "/" $0}' "$f"
+  done < /tmp/dosyalar.txt | sort > /tmp/tum.txt
+  comm -12 /tmp/tum.txt /tmp/tum.txt > kalemler.txt
+  sort -o kalemler.txt kalemler.txt
+
+outputs:
+  - {path: kalemler.txt, kind: lines, run: wc -l < kalemler.txt}
+
+checks:
+  - {op: file_lines_eq, path: kalemler.txt, value: [defter/2024/1001 alis 250.00, defter/2024/1002 satis 480.50, defter/2024/1003 iade -120.00, defter/2024/2001 alis 300.00, defter/2024/2002 satis 150.75]}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3030
+    bundle: kume-farki
+    tools:
+    - comm
+    - sort
+    konu: muhasebe-kalemleri
+    hedef: ayikla
+    girdi: duz-metin
+    kaynak: dizin-agaci
+    cikti: satir-listesi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

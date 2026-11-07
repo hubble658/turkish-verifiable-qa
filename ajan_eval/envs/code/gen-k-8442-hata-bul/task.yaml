@@ -1,0 +1,149 @@
+id: gen-k-8442-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) diner/receipt.py dosyasını aç ve Receipt sınıfının average metodunu, boş bir sipariş için sıfıra bölme hatası vermeden 0.0 döndürecek şekilde düzelt.
+
+setup: |
+  mkdir -p diner
+  cat > diner/__init__.py <<'PY'
+  PY
+  cat > diner/items.py <<'ITEMS'
+  def parse_items(text):
+      rows = []
+      for line in text.strip().splitlines():
+          if not line.strip():
+              continue
+          name, qty, price = line.split(',')
+          rows.append((name, int(qty), float(price)))
+      return rows
+
+
+  def line_total(row):
+      return row[1] * row[2]
+  ITEMS
+  cat > diner/totals.py <<'TOTALS'
+  from diner.items import parse_items, line_total
+
+
+  def total_for(text):
+      rows = parse_items(text)
+      return sum(line_total(r) for r in rows)
+
+
+  def count_for(text):
+      rows = parse_items(text)
+      return len(rows)
+  TOTALS
+  cat > diner/receipt.py <<'RECEIPT'
+  from diner.items import parse_items, line_total
+  from diner.totals import total_for, count_for
+
+
+  class Receipt:
+      def __init__(self, text):
+          self.text = text
+
+      def __enter__(self):
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          return False
+
+      def lines(self):
+          return parse_items(self.text)
+
+      def total(self):
+          return total_for(self.text)
+
+      def count(self):
+          return count_for(self.text)
+
+      def average(self):
+          return self.total() / self.count()
+  RECEIPT
+  cat > order.txt <<'TXT'
+  soup,2,6.5
+  salad,1,4.0
+  steak,3,12.0
+  TXT
+
+goal_tr: >
+  diner/receipt.py icindeki Receipt sinifinin average metodunu, bos bir
+  siparis icin sifira bolme hatasi vermeden 0.0 dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > diner/receipt.py <<'RECEIPT'
+  from diner.items import parse_items, line_total
+  from diner.totals import total_for, count_for
+
+
+  class Receipt:
+      def __init__(self, text):
+          self.text = text
+
+      def __enter__(self):
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          return False
+
+      def lines(self):
+          return parse_items(self.text)
+
+      def total(self):
+          return total_for(self.text)
+
+      def count(self):
+          return count_for(self.text)
+
+      def average(self):
+          n = self.count()
+          if n == 0:
+              return 0.0
+          return self.total() / n
+  RECEIPT
+
+outputs:
+  - {path: diner/receipt.py, kind: program, run: 'python3 -c ''from diner.receipt import Receipt; t=open("order.txt").read(); r=Receipt(t); assert r.count()==3, r.count(); assert abs(r.total()-53.0)<1e-9, r.total(); assert abs(r.average()-(53.0/3))<1e-9, r.average(); e=Receipt(""); assert e.count()==0, e.count(); assert abs(e.total()-0.0)<1e-9, e.total(); assert abs(e.average()-0.0)<1e-9, e.average(); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from diner.receipt import Receipt; t=open("order.txt").read(); r=Receipt(t); assert r.count()==3, r.count(); assert abs(r.total()-53.0)<1e-9, r.total(); assert abs(r.average()-(53.0/3))<1e-9, r.average(); e=Receipt(""); assert e.count()==0, e.count(); assert abs(e.total()-0.0)<1e-9, e.total(); assert abs(e.average()-0.0)<1e-9, e.average(); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8442
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: restoran-siparisleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kenar-durum
+      karmasiklik: duz
+      kalip: context-manager
+      akis: cok-dosya-birlestirme
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

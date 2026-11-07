@@ -1,0 +1,74 @@
+id: gen-s-3028-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kayitlar dizin ağacındaki .json dosyalarında durum alanı "onaylandı" olan satırların toplam sayısını sonuc.txt dosyasına sadece sayı olarak yaz.
+
+setup: |
+  mkdir -p kayitlar/2024 kayitlar/2023 kayitlar/arsiv
+  cat > kayitlar/2024/ocak.json <<'J'
+  {"kalem":"kira","tutar":1200,"durum":"onaylandi"}
+  {"kalem":"kira","tutar":1200,"durum":"onaylandi"}
+  {"kalem":"kira","tutar":1200,"durum":"beklemede"}
+  {"kalem":"kira","tutar":1200,"durum":"onaylandi"}
+  {"kalem":"kira","tutar":1200,"durum":"onaylandi"}
+  J
+  cat > kayitlar/2024/subat.json <<'J'
+  {"kalem":"kira","tutar":1200,"durum":"onaylandi"}
+  {"kalem":"kira","tutar":1200,"durum":"onaylandi"}
+  {"kalem":"kira","tutar":1200,"durum":"onaylandi"}
+  {"kalem":"kira","tutar":1200,"durum":"onaylandi"}
+  J
+  cat > kayitlar/2023/ocak.json <<'J'
+  {"kalem":"kira","tutar":1200,"durum":"onaylandi"}
+  {"kalem":"kira","tutar":1200,"durum":"onaylandi"}
+  {"kalem":"kira","tutar":1200,"durum":"iptal"}
+  {"kalem":"kira","tutar":1200,"durum":"onaylandi"}
+  J
+  cat > kayitlar/2023/notlar.txt <<'T'
+  bu dosya json degil
+  onaylandi onaylandi onaylandi
+  T
+
+goal_tr: >
+  kayitlar dizin agacindaki .json dosyalarinda durum alani "onaylandi" olan
+  satirlarin toplam sayisini sonuc.txt dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  find kayitlar -type f -name '*.json' | xargs grep -h '"durum":"onaylandi"' | wc -l > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '11'}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3028
+    bundle: cok-dosya-ara
+    tools:
+    - xargs
+    - grep
+    konu: muhasebe-kalemleri
+    hedef: ayikla
+    girdi: json
+    kaynak: dizin-agaci
+    cikti: tek-sayi
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

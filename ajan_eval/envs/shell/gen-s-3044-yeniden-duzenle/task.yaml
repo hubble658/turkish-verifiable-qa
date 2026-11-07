@@ -1,0 +1,68 @@
+id: gen-s-3044-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  siparisler.tar arşivindeki restoran/siparisler.txt dosyasında ikinci alanı AdanaKebap olan ve üçüncü alanı yalnızca rakamlardan oluşan satırların üçüncü alanlarının toplamını toplam.txt dosyasına sadece sayı olarak yaz.
+
+setup: |
+  mkdir -p restoran
+  cat > restoran/siparisler.txt <<'DATA'
+  0001  AdanaKebap   12
+  0002  Lahmacun     07
+  0003  AdanaKebap   XX
+  0004  Ayran        03
+  0005  Lahmacun     19
+  0006  AdanaKebap   25
+  0007  Ayran        ZZ
+  0008  Kunefe       04
+  0009  Lahmacun     11
+  0010  Kunefe       YY
+  DATA
+  tar -cf siparisler.tar restoran
+
+goal_tr: >
+  siparisler.tar arsivindeki restoran/siparisler.txt dosyasinda ikinci alani
+  AdanaKebap olan ve ucuncu alani yalnizca rakamlardan olusan satirlarin
+  ucuncu alanlarinin toplamini toplam.txt dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  mkdir -p cozum
+  tar -xf siparisler.tar -C cozum
+  find cozum -type f -name siparisler.txt > bulunan.txt
+  awk '$2=="AdanaKebap" && $3 ~ /^[0-9]+$/ {t+=$3} END {print t+0}' $(cat bulunan.txt) > toplam.txt
+
+outputs:
+  - {path: toplam.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: toplam.txt, value: '37'}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3044
+    bundle: secerek-arsivle
+    tools:
+    - tar
+    - find
+    konu: restoran-siparisleri
+    hedef: yeniden-duzenle
+    girdi: sabit-genislik
+    kaynak: tarball
+    cikti: tek-sayi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

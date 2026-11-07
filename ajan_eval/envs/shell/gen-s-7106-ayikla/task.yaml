@@ -1,0 +1,65 @@
+id: gen-s-7106-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  ölcumler dizinindeki tüm dosyalardan sensor ve deger alanlarini cekip sensor,deger biciminde basliksiz bir CSV olarak cikti.csv dosyasina yaz.
+
+setup: |
+  mkdir -p olcumler
+  cat > olcumler/s1.txt <<'EOF'
+  {"sensor":"sicaklik","deger":21.5}
+  {"sensor":"nem","deger":48}
+  {"sensor":"sicaklik","deger":22.0}
+  EOF
+  cat > olcumler/s2.txt <<'EOF'
+  {"sensor":"basinc","deger":1013}
+  {"sensor":"nem","deger":51}
+  {"sensor":"sicaklik","deger":19.5}
+  EOF
+  cat > olcumler/s3.txt <<'EOF'
+  {"sensor":"basinc","deger":1009}
+  {"sensor":"nem","deger":47}
+  EOF
+
+goal_tr: >
+  olcumler dizinindeki tum dosyalardan sensor ve deger alanlarini cekip
+  sensor,deger biciminde basliksiz bir CSV olarak cikti.csv dosyasina yaz
+
+reference_solution: |
+  find olcumler -type f | sort | xargs cat | grep -o '"sensor":"[a-z]*","deger":[0-9.]*' | sed 's/"sensor":"//; s/","deger":/,/' > cikti.csv
+
+outputs:
+  - {path: cikti.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: cikti.csv, value: ['sicaklik,21.5', 'nem,48', 'sicaklik,22.0', 'basinc,1013', 'nem,51', 'sicaklik,19.5', 'basinc,1009', 'nem,47']}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7106
+    bundle: cok-dosya-ara
+    tools:
+    - xargs
+    - grep
+    konu: sensor-olcumleri
+    hedef: ayikla
+    girdi: json
+    kaynak: cok-dosya
+    cikti: csv
+    kesif: dosyayi-bul
+    uslup: terse
+    direnc: baslik-yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

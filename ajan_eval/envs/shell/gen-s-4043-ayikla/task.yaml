@@ -1,0 +1,68 @@
+id: gen-s-4043-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kutuphane dizini altındaki tüm .tsv dosyalarını, yani kutuphane/arsiv/2024_01.tsv ve kutuphane/arsiv/2024_02.tsv dosyalarını tarayıp odunc değeri 0 olan satırları bul; bu satırlardaki baslik ve yazar alanlarını birleştirerek books.json adlı geçerli bir JSON dosyası oluştur.
+
+setup: |
+  mkdir -p kutuphane/arsiv
+  cat > kutuphane/arsiv/2024_01.tsv <<'TSV'
+  kitap_id	baslik	yazar	yil	odunc
+  101	Kirmizi Kitap	Ali Veli	1999	3
+  102	Mavi Deniz	Ayse Kaya	2005	0
+  103	Yesil Orman	Mehmet Demir	1987	7
+  TSV
+  cat > kutuphane/arsiv/2024_02.tsv <<'TSV'
+  kitap_id	baslik	yazar	yil	odunc
+  104	Sari Gunes	Zeynep Ak	2010	5
+  105	Beyaz Gece	Can Yilmaz	1975	1
+  106	Siyah Tas	Eda Su	2020	9
+  TSV
+
+goal_tr: >
+  kutuphane dizini altindaki tum .tsv dosyalarindaki odunc degeri 0 olan
+  satirlari bulup, baslik ve yazar alanlarini birlestirip books.json adli
+  gecerli bir JSON dosyasina yaz
+
+reference_solution: |
+  cat kutuphane/arsiv/*.tsv | grep -v '^kitap_id' | awk -F'\t' '$5==0 {print $2"\t"$3}' | cut -f2 > /tmp/sec
+  paste <(cat kutuphane/arsiv/*.tsv | grep -v '^kitap_id' | awk -F'\t' '$5==0 {print $2}') /tmp/sec | tee /tmp/books.tsv >/dev/null
+  awk -F'\t' 'BEGIN{print "["} {if(NR>1)printf ",\n"; printf "  {\"baslik\": \"%s\", \"yazar\": \"%s\"}", $1, $2} END{print "\n]"}' /tmp/books.tsv > books.json
+
+outputs:
+  - {path: books.json, kind: json}
+  - {path: kutuphane/arsiv/2024_01.tsv, kind: file}
+  - {path: kutuphane/arsiv/2024_02.tsv, kind: file}
+
+checks:
+  - {op: json_eq, path: books.json, value: [{baslik: Mavi Deniz, yazar: Ayse Kaya}]}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4043
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: kutuphane-kayitlari
+    hedef: ayikla
+    girdi: tsv
+    kaynak: cok-dosya
+    cikti: json
+    kesif: dosyayi-bul
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,136 @@
+id: gen-k-5044-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  lib/store.py, lib/borrow.py ve lib/audit.py içindeki ödünç/kayıt akışını düzelt. borrow ve repay çağrılarından sonra ledger bakiyesi başlangıç değerinden ödünç miktarı çıkarılıp geri ödeme miktarı eklendiğinde elde edilecek sonucu vermeli. Bu düzeltmeyi lib/audit.py dosyasına yansıt.
+
+setup: |
+  mkdir -p lib
+  cat > lib/store.py <<'STORE'
+  class Ledger:
+      def __init__(self):
+          self.balance = 0
+
+      def __iadd__(self, amount):
+          self.balance = self.balance + amount
+
+      def __isub__(self, amount):
+          self.balance = self.balance - amount
+
+      def __repr__(self):
+          return f"Ledger({self.balance})"
+  STORE
+  cat > lib/borrow.py <<'BORROW'
+  def borrow(lender, amount):
+      lender -= amount
+
+
+  def repay(borrower, amount):
+      borrower += amount
+  BORROW
+  cat > lib/audit.py <<'AUDIT'
+  from lib.store import Ledger
+  from lib.borrow import borrow, repay
+
+
+  def run_audit(start, borrow_amt, repay_amt):
+      ledger = Ledger()
+      ledger += start
+      borrow(ledger, borrow_amt)
+      repay(ledger, repay_amt)
+      return ledger.balance
+  AUDIT
+  cat > audit_input.txt <<'TXT'
+  start=100
+  borrow=40
+  repay=25
+  TXT
+
+goal_tr: >
+  lib/store.py, lib/borrow.py ve lib/audit.py icindeki odunc/kayit akisini,
+  borrow ve repay cagrilarindan sonra ledger bakiyesinin baslangic - odunc +
+  geri odeme olacak sekilde duzelt.
+
+reference_solution: |
+  cat > lib/store.py <<'STORE'
+  class Ledger:
+      def __init__(self):
+          self.balance = 0
+
+      def __iadd__(self, amount):
+          self.balance = self.balance + amount
+          return self
+
+      def __isub__(self, amount):
+          self.balance = self.balance - amount
+          return self
+
+      def __repr__(self):
+          return f"Ledger({self.balance})"
+  STORE
+  cat > lib/borrow.py <<'BORROW'
+  def borrow(lender, amount):
+      lender -= amount
+      return lender
+
+
+  def repay(borrower, amount):
+      borrower += amount
+      return borrower
+  BORROW
+  cat > lib/audit.py <<'AUDIT'
+  from lib.store import Ledger
+  from lib.borrow import borrow, repay
+
+
+  def run_audit(start, borrow_amt, repay_amt):
+      ledger = Ledger()
+      ledger += start
+      ledger = borrow(ledger, borrow_amt)
+      ledger = repay(ledger, repay_amt)
+      return ledger.balance
+  AUDIT
+
+outputs:
+  - {path: lib/audit.py, kind: program, run: 'python3 -c ''from lib.audit import run_audit as f; assert f(100,40,25)==85, f(100,40,25); assert f(0,10,3)==-7, f(0,10,3); assert f(50,50,50)==50, f(50,50,50); assert f(7,0,0)==7, f(7,0,0); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from lib.audit import run_audit as f; assert f(100,40,25)==85, f(100,40,25); assert f(0,10,3)==-7, f(0,10,3); assert f(50,50,50)==50, f(50,50,50); assert f(7,0,0)==7, f(7,0,0); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5044
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kutuphane-oduncleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-durum-sifirlama
+      karmasiklik: duz
+      kalip: operator-asiri-yukleme
+      akis: dosya-okuma
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

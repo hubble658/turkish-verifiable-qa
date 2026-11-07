@@ -1,0 +1,92 @@
+id: gen-s-3234-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Klinikte randevu kayıtlarını tuttuğumuz birkaç poliklinik dosyası var ve bugün sekreterlikten gelen yoğunluk yüzünden bunları tek tek elden geçirmeye vaktim olmadı. Her polikliniğin kendi tsv dosyası ayrı ayrı duruyor, ben de hepsinin özetini tek seferde çıkarmak istiyorum. randevular klasöründeki .tsv uzantılı dosyaların her biri için, başlık satırı hariç durum sütunundaki değerleri toplayıp cikti klasörüne aynı dosya adında birer .ozet dosyası üret: poliklinik_a.ozet, poliklinik_b.ozet ve poliklinik_c.ozet. Her .ozet dosyasının ilk satırında o dosyadaki toplam randevu satır sayısı, ikinci satırından itibaren ise benzersiz durum değerleri alfabetik sırayla her satırda bir tane olacak şekilde yer alsın. Klasördeki tsv olmayan dosyalar bu işe dahil edilmesin.
+
+setup: |
+  mkdir -p randevular
+  cat > randevular/poliklinik_a.tsv <<'TSV'
+  hasta_id	tarih	durum
+  1001	2024-03-01	onaylandi
+  1002	2024-03-01	iptal
+  1003	2024-03-02	onaylandi
+  1004	2024-03-02	onaylandi
+  1005	2024-03-03	iptal
+  TSV
+  cat > randevular/poliklinik_b.tsv <<'TSV'
+  hasta_id	tarih	durum
+  2001	2024-03-01	onaylandi
+  2002	2024-03-02	iptal
+  2003	2024-03-02	onaylandi
+  2004	2024-03-03	onaylandi
+  2005	2024-03-03	onaylandi
+  TSV
+  cat > randevular/poliklinik_c.tsv <<'TSV'
+  hasta_id	tarih	durum
+  3001	2024-03-01	iptal
+  3002	2024-03-01	onaylandi
+  3003	2024-03-02	onaylandi
+  3004	2024-03-03	iptal
+  3005	2024-03-03	onaylandi
+  TSV
+  cat > randevular/notlar.txt <<'TXT'
+  bu dosya tsv degildir, ozete dahil edilmemelidir
+  TXT
+
+goal_tr: >
+  randevular klasorundeki .tsv uzantili dosyalarin her birinden baslik
+  satiri haric durum sutunundaki degerleri toplayip, her dosya icin ayni
+  dosya adinda bir .ozet dosyasi uret: ilk satirda dosyadaki toplam randevu
+  satir sayisi, ikinci satirda benzersiz durum degerleri alfabetik sirada
+  birer satir halinde olsun.
+
+reference_solution: |
+  mkdir -p cikti
+  for f in randevular/*.tsv; do
+    ad=$(basename "$f" .tsv)
+    tail -n +2 "$f" | cut -f3 | sort > "cikti/$ad.durumlar"
+    wc -l < "cikti/$ad.durumlar" | tr -d ' ' > "cikti/$ad.ozet"
+    uniq "cikti/$ad.durumlar" >> "cikti/$ad.ozet"
+    rm "cikti/$ad.durumlar"
+  done
+
+outputs:
+  - {path: cikti/poliklinik_a.ozet, kind: file}
+  - {path: cikti/poliklinik_b.ozet, kind: file}
+  - {path: cikti/poliklinik_c.ozet, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: cikti/poliklinik_a.ozet, value: ['5', iptal, onaylandi]}
+  - {op: file_lines_eq, path: cikti/poliklinik_b.ozet, value: ['5', iptal, onaylandi]}
+  - {op: file_lines_eq, path: cikti/poliklinik_c.ozet, value: ['5', iptal, onaylandi]}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3234
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: hastane-randevulari
+    hedef: ozetle
+    girdi: tsv
+    kaynak: cok-dosya
+    cikti: birden-cok-dosya
+    kesif: veriye-bak
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

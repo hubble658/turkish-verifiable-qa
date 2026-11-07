@@ -1,0 +1,70 @@
+id: gen-s-3112-donustur
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  gonderiler.ini dosyasındaki her bölüm için o bölümün sehir değerini alıp ters çevir ve takip.txt dosyasına her satırda bir tane olacak şekilde yaz. takip.txt içindeki satırların sırası gonderiler.ini içindeki bölümlerin sırasıyla aynı olsun.
+
+setup: |
+  cat > gonderiler.ini <<'INI'
+  [A101]
+  alici=AYSE DEMIR
+  sehir=Ankara
+  durum=yolda
+  [B202]
+  alici=MEHMET KAYA
+  sehir=Izmir
+  durum=teslim
+  [C303]
+  alici=ZEYNEP ARSLAN
+  sehir=Bursa
+  durum=yolda
+  [D404]
+  alici=ALI OZTURK
+  sehir=Antalya
+  durum=iade
+  INI
+  sed -i 's/$/\r/' gonderiler.ini
+
+goal_tr: >
+  gonderiler.ini dosyasindaki her bolum icin sehir degerini alip ters
+  cevirip takip.txt dosyasina bir satir olarak yaz; satir sirasi bolum
+  sirasiyla ayni olsun
+
+reference_solution: |
+  grep '^sehir=' gonderiler.ini | cut -d= -f2 | tr -d '\r' | rev > takip.txt
+
+outputs:
+  - {path: takip.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: takip.txt, value: [araknA, rimzI, asruB, aylatnA]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3112
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: kargo-takibi
+    hedef: donustur
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: crlf
+    bukulme: yok
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,66 @@
+id: gen-s-3091-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  randevular.log dosyasındaki her satırı tarih, saat, bölüm ve hasta alanlarına ayırıp bu alanları virgülle birleştirerek randevular.csv dosyasına yaz. Aynı tarih, saat, bölüm ve hasta kombinasyonundan birden fazla varsa yalnızca bir tanesini al ve kayıtları tarih ile saate göre sırala. Dosyanın ilk satırı tarih,saat,bolum,hasta başlığı olsun; her satırda bu dört alan virgülle ayrılmış şekilde yer alsın.
+
+setup: |
+  cat > randevular.log <<'LOG'
+  2024-03-01 09:00 KARDiyoloji AYSE YILMAZ
+  2024-03-01 09:30 NOROLOJI MEHMET DEMIR
+  2024-03-01 10:00 KARDiyoloji AYSE YILMAZ
+  2024-03-02 11:15 ORTOPEDI ZEYNEP KAYA
+  2024-03-02 11:45 NOROLOJI MEHMET DEMIR
+  2024-03-03 08:30 ORTOPEDI ZEYNEP KAYA
+  2024-03-03 14:00 KARDiyoloji ALI OZTURK
+  2024-03-04 15:30 NOROLOJI AYSE YILMAZ
+  2024-03-04 16:00 ORTOPEDI ZEYNEP KAYA
+  LOG
+
+goal_tr: >
+  randevular.log dosyasindaki her satiri "tarih,saat,bolum,hasta" biciminde
+  virgulle ayrilmis alanlara donusturup, ayni tarih-saat-bolum-hasta
+  kombinasyonundan tekrar edenleri atarak benzersiz kayitlari tarih ve saat
+  sirasina gore sirali olarak randevular.csv dosyasina yaz; ilk satir
+  "tarih,saat,bolum,hasta" basligi olsun.
+
+reference_solution: |
+  sed 's/ /,/;s/ /,/;s/ /,/' randevular.log | sort | uniq | sort > govde.txt
+  { echo 'tarih,saat,bolum,hasta'; cat govde.txt; } > randevular.csv
+  rm govde.txt
+
+outputs:
+  - {path: randevular.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: randevular.csv, value: ['tarih,saat,bolum,hasta', '2024-03-01,09:00,KARDiyoloji,AYSE YILMAZ', '2024-03-01,09:30,NOROLOJI,MEHMET DEMIR', '2024-03-01,10:00,KARDiyoloji,AYSE YILMAZ', '2024-03-02,11:15,ORTOPEDI,ZEYNEP KAYA', '2024-03-02,11:45,NOROLOJI,MEHMET DEMIR', '2024-03-03,08:30,ORTOPEDI,ZEYNEP KAYA', '2024-03-03,14:00,KARDiyoloji,ALI OZTURK', '2024-03-04,15:30,NOROLOJI,AYSE YILMAZ', '2024-03-04,16:00,ORTOPEDI,ZEYNEP KAYA']}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3091
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: hastane-randevulari
+    hedef: donustur
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: csv
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

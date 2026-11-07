@@ -1,0 +1,175 @@
+id: gen-k-8305-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  fleet/planner.py dosyasındaki FleetPlanner sınıfını gerçek olarak çalışacak şekilde tamamla. Sınıf, fleet/network.py içindeki build_network fonksiyonunun ürettiği komşuluk yapısını ve hub listesini alsın. cheapest(start, goal) en düşük maliyetli yolu hesaplayıp (maliyet, yol) ikilisi döndürsün. min_hops(start, goal) en az durak içeren yolu hesaplayıp (duraklama_sayısı, yol) ikilisi döndürsün. reachable_hubs(start) ise start noktasından ulaşılabilen hub kümesini döndürsün. Sınıfın mevcut __init__ imzası ve dispatch.py içindeki plan_trip çağrısı bozulmasın.
+
+setup: |
+  mkdir -p fleet
+  cat > fleet/__init__.py <<'EOF'
+  EOF
+  cat > fleet/network.py <<'EOF'
+  def build_network(legs):
+      """legs: list of (src, dst, cost, capacity). Returns adjacency dict."""
+      net = {}
+      for src, dst, cost, cap in legs:
+          net.setdefault(src, []).append({"to": dst, "cost": cost, "cap": cap})
+      return net
+  EOF
+  cat > fleet/planner.py <<'EOF'
+  class FleetPlanner:
+      def __init__(self, network, hubs):
+          self.network = network
+          self.hubs = hubs
+
+      def cheapest(self, start, goal):
+          raise NotImplementedError
+
+      def min_hops(self, start, goal):
+          raise NotImplementedError
+
+      def reachable_hubs(self, start):
+          raise NotImplementedError
+  EOF
+  cat > fleet/dispatch.py <<'EOF'
+  from fleet.planner import FleetPlanner
+
+
+  def plan_trip(network, hubs, start, goal):
+      planner = FleetPlanner(network, hubs)
+      return planner.cheapest(start, goal)
+  EOF
+  cat > routes.txt <<'EOF'
+  A B 4 2
+  A C 2 1
+  C B 1 3
+  B D 5 1
+  C D 8 1
+  D E 3 2
+  B E 10 1
+  EOF
+
+goal_tr: >
+  fleet/planner.py icindeki FleetPlanner sinifini, agdaki en dusuk maliyetli
+  yolu ve en az durakli yolu hesaplayacak sekilde gerceklestir;
+  cheapest(start, goal) (maliyet, yol) dondursun, min_hops(start, goal)
+  (duraklama_sayisi, yol) dondursun, reachable_hubs(start) start'tan
+  ulasilabilen hub kumesini dondursun.
+
+reference_solution: |
+  cat > fleet/planner.py <<'EOF'
+  import heapq
+
+
+  class FleetPlanner:
+      def __init__(self, network, hubs):
+          self.network = network
+          self.hubs = set(hubs)
+
+      def cheapest(self, start, goal):
+          dist = {start: 0}
+          prev = {}
+          seen = set()
+          heap = [(0, start)]
+          while heap:
+              cost, node = heapq.heappop(heap)
+              if node in seen:
+                  continue
+              seen.add(node)
+              if node == goal:
+                  break
+              for edge in self.network.get(node, []):
+                  nxt = edge["to"]
+                  nc = cost + edge["cost"]
+                  if nxt not in dist or nc < dist[nxt]:
+                      dist[nxt] = nc
+                      prev[nxt] = node
+                      heapq.heappush(heap, (nc, nxt))
+          if goal not in dist:
+              return (None, [])
+          path = [goal]
+          while path[-1] != start:
+              path.append(prev[path[-1]])
+          path.reverse()
+          return (dist[goal], path)
+
+      def min_hops(self, start, goal):
+          if start == goal:
+              return (0, [start])
+          dist = {start: 0}
+          prev = {}
+          queue = [start]
+          head = 0
+          while head < len(queue):
+              node = queue[head]
+              head += 1
+              for edge in self.network.get(node, []):
+                  nxt = edge["to"]
+                  if nxt not in dist:
+                      dist[nxt] = dist[node] + 1
+                      prev[nxt] = node
+                      queue.append(nxt)
+                      if nxt == goal:
+                          path = [goal]
+                          while path[-1] != start:
+                              path.append(prev[path[-1]])
+                          path.reverse()
+                          return (dist[goal], path)
+          return (None, [])
+
+      def reachable_hubs(self, start):
+          seen = {start}
+          stack = [start]
+          while stack:
+              node = stack.pop()
+              for edge in self.network.get(node, []):
+                  nxt = edge["to"]
+                  if nxt not in seen:
+                      seen.add(nxt)
+                      stack.append(nxt)
+          return seen & self.hubs
+  EOF
+
+outputs:
+  - {path: fleet/planner.py, kind: program, run: 'python3 -c ''from fleet.network import build_network; from fleet.planner import FleetPlanner; legs=[("A","B",4,2),("A","C",2,1),("C","B",1,3),("B","D",5,1),("C","D",8,1),("D","E",3,2),("B","E",10,1)]; net=build_network(legs); p=FleetPlanner(net,{"B","D","E"}); assert p.cheapest("A","D")==(8,["A","C","B","D"]), p.cheapest("A","D"); assert p.cheapest("A","E")==(11,["A","C","B","D","E"]), p.cheapest("A","E"); assert p.min_hops("A","D")==(2,["A","B","D"]), p.min_hops("A","D"); assert p.min_hops("A","E")==(2,["A","B","E"]), p.min_hops("A","E"); assert p.reachable_hubs("A")=={"B","D","E"}; assert p.reachable_hubs("E")=={"E"}; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.network import build_network; from fleet.planner import FleetPlanner; legs=[("A","B",4,2),("A","C",2,1),("C","B",1,3),("B","D",5,1),("C","D",8,1),("D","E",3,2),("B","E",10,1)]; net=build_network(legs); p=FleetPlanner(net,{"B","D","E"}); assert p.cheapest("A","D")==(8,["A","C","B","D"]), p.cheapest("A","D"); assert p.cheapest("A","E")==(11,["A","C","B","D","E"]), p.cheapest("A","E"); assert p.min_hops("A","D")==(2,["A","B","D"]), p.min_hops("A","D"); assert p.min_hops("A","E")==(2,["A","B","E"]), p.min_hops("A","E"); assert p.reachable_hubs("A")=={"B","D","E"}; assert p.reachable_hubs("E")=={"E"}; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8305
+    bundle: yarisma
+    tools:
+    - python3
+    konu: arac-filosu
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: dinamik-programlama
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: ic-ice-yapi
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

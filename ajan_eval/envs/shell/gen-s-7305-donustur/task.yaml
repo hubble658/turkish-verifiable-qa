@@ -1,0 +1,75 @@
+id: gen-s-7305-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) "hava kayitlari/istasyonlar.txt" ve "hava kayitlari/olcumler.txt" dosyalarını istasyon koduna göre birleştir.
+  2) Birleştirilen her ölçüm satırını "sehir sicaklik durum" biçiminde oluştur.
+  3) Tüm satırları şehir adına göre artan sıralı olarak rapor.txt dosyasına yaz.
+
+setup: |
+  mkdir -p "hava kayitlari"
+  cat > "hava kayitlari/istasyonlar.txt" <<'TXT'
+  IST01 Ankara
+  IST02 Izmir
+  IST03 Bursa
+  IST04 Antalya
+  TXT
+  cat > "hava kayitlari/olcumler.txt" <<'TXT'
+  IST03 21 sicak
+  IST01 14 yagmur
+  IST04 30 gunes
+  IST02 25 acik
+  IST01 16 bulut
+  IST03 19 yagmur
+  IST04 33 gunes
+  IST02 27 acik
+  IST01 15 yagmur
+  IST03 22 acik
+  TXT
+
+goal_tr: >
+  "hava kayitlari/istasyonlar.txt" ve "hava kayitlari/olcumler.txt"
+  dosyalarini istasyon koduna gore birlestirip her olcum satirini "sehir
+  sicaklik durum" biciminde sehir adina gore artan sirali olarak rapor.txt
+  dosyasina yaz
+
+reference_solution: |
+  sort -k1,1 "hava kayitlari/olcumler.txt" > /tmp/olcum_sirali.txt
+  sort -k1,1 "hava kayitlari/istasyonlar.txt" > /tmp/ist_sirali.txt
+  join -1 1 -2 1 /tmp/olcum_sirali.txt /tmp/ist_sirali.txt | awk '{print $2, $3, $4}' | sort -k1,1 > rapor.txt
+
+outputs:
+  - {path: rapor.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: rapor.txt, value: [14 yagmur Ankara, 15 yagmur Ankara, 16 bulut Ankara, 19 yagmur Bursa, 21 sicak Bursa, 22 acik Bursa, 25 acik Izmir, 27 acik Izmir, 30 gunes Antalya, 33 gunes Antalya]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7305
+    bundle: birlestir
+    tools:
+    - join
+    - sort
+    konu: hava-durumu-kayitlari
+    hedef: donustur
+    girdi: duz-metin
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: bosluklu-ad
+    bukulme: olcek
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

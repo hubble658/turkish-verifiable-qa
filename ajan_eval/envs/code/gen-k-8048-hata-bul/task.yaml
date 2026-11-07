@@ -1,0 +1,129 @@
+id: gen-k-8048-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  restoran/siparis.py dosyasındaki total_for fonksiyonunu düzelt. Fonksiyona menüde bulunmayan bir kod verildiğinde None döndürmeli; menüde bulunan kodlar için ise tüm kodların toplam fiyatını doğru hesaplamalı.
+
+  Şu şartlar sağlanmalı:
+  - restoran/siparis.py dosyası düzeltilmiş total_for fonksiyonunu içermeli.
+  - Menüde bulunmayan bir kod verildiğinde fonksiyon None döndürmeli.
+  - Menüde bulunan kodlar verildiğinde fonksiyon bu kodların toplam fiyatını doğru hesaplamalı.
+  - Menüdeki fiyatlar restoran/mutfak/menu.py içindeki Dish yapısına ve restoran/mutfak/reader.py ile okunan menüye uygun olmalı.
+
+setup: |
+  mkdir -p restoran/mutfak
+  cat > restoran/__init__.py <<'INIT'
+  INIT
+  cat > restoran/mutfak/__init__.py <<'INIT'
+  INIT
+  cat > restoran/mutfak/menu.py <<'MENU'
+  from dataclasses import dataclass
+
+
+  @dataclass
+  class Dish:
+      code: str
+      name: str
+      price: float
+      stock: int
+  MENU
+  cat > restoran/mutfak/reader.py <<'READER'
+  from restoran.mutfak.menu import Dish
+
+
+  def load_menu(path):
+      dishes = []
+      with open(path, encoding="utf-8") as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              code, name, price, stock = line.split(";")
+              dishes.append(Dish(code, name, float(price), int(stock)))
+      return dishes
+  READER
+  cat > restoran/siparis.py <<'SIPARIS'
+  from restoran.mutfak.reader import load_menu
+
+
+  def total_for(menu_path, codes):
+      dishes = load_menu(menu_path)
+      total = 0.0
+      for code in codes:
+          for dish in dishes:
+              if dish.code == code:
+                  total += dish.price
+                  break
+      return total
+  SIPARIS
+  cat > menu.txt <<'DATA'
+  M01;Mercimek Corbasi;45.0;10
+  M02;Izgara Tavuk;120.5;4
+  M03;Ayran;15.0;20
+  DATA
+
+goal_tr: >
+  restoran/siparis.py icindeki total_for fonksiyonunu, menude bulunmayan bir
+  kod verildiginde None dondurecek, aksi halde tum kodlarin toplam fiyatini
+  dogru hesaplayacak bicimde duzelt.
+
+reference_solution: |
+  cat > restoran/siparis.py <<'SIPARIS'
+  from restoran.mutfak.reader import load_menu
+
+
+  def total_for(menu_path, codes):
+      dishes = load_menu(menu_path)
+      by_code = {dish.code: dish for dish in dishes}
+      total = 0.0
+      for code in codes:
+          dish = by_code.get(code)
+          if dish is None:
+              return None
+          total += dish.price
+      return total
+  SIPARIS
+
+outputs:
+  - {path: restoran/siparis.py, kind: program, run: 'python3 -c ''from restoran.siparis import total_for as f; r=f("menu.txt",["M01","M99"]); assert r is None, r; r=f("menu.txt",["M99"]); assert r is None, r; r=f("menu.txt",["M01","M03"]); assert r==60.0, r; r=f("menu.txt",["M02"]); assert r==120.5, r; r=f("menu.txt",[]); assert r==0.0, r; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from restoran.siparis import total_for as f; r=f("menu.txt",["M01","M99"]); assert r is None, r; r=f("menu.txt",["M99"]); assert r is None, r; r=f("menu.txt",["M01","M03"]); assert r==60.0, r; r=f("menu.txt",["M02"]); assert r==120.5, r; r=f("menu.txt",[]); assert r==0.0, r; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8048
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: restoran-siparisleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: erken-donus
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: dosya-okuma
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

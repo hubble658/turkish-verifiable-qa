@@ -1,0 +1,70 @@
+id: gen-s-3202-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Küçük bir hava durumu arşivi tutuyoruz ve elimizde şehir, tarih ve nem sütunlarından oluşan hava.tsv dosyası var. Gün içinde bu tabloya bakıp hangi gün hangi şehirde nemin ne olduğunu görmek istiyoruz ama satır satır okumak yerine tek bir özet dosyası üzerinden ilerlemek daha pratik olacak.
+
+  Bu yüzden hava.tsv içindeki her veri satırında şehir ve tarih alanlarını bir tire ile birleştirip anahtar yapan, bu anahtarlara karşılık gelen nem değerlerini de sayı olarak tutan geçerli bir JSON nesnesi oluşturup ozet.json dosyasına yazmanı istiyorum.
+
+setup: |
+  cat > hava.tsv <<'TSV'
+  sehir	tarih	nem
+  ankara	2024-01-01	78
+  istanbul	2024-01-01	65
+  izmir	2024-01-01	55
+  ankara	2024-01-02	80
+  istanbul	2024-01-02	70
+  izmir	2024-01-02	60
+  ankara	2024-01-03	75
+  istanbul	2024-01-03	68
+  izmir	2024-01-03	58
+  TSV
+
+goal_tr: >
+  hava.tsv dosyasindaki her veri satirindaki sehir ve tarih alanlarini tire
+  ile birlestirip anahtar yapan ve bu anahtarlara karsilik gelen nem
+  degerlerini sayi olarak tutan gecerli bir JSON nesnesini ozet.json
+  dosyasina yaz
+
+reference_solution: |
+  tail -n +2 hava.tsv | tr '\t' '-' | sed 's/^/"/; s/-\([0-9-]*\)-[0-9]*$/-\1":/' > ciftler.txt
+  tail -n +2 hava.tsv | cut -f3 > nemler.txt
+  paste -d' ' ciftler.txt nemler.txt | sed 's/^\(.*\) \(.*\)$/\1 \2/' > satirlar.txt
+  sed 's/$/,/' satirlar.txt | sed '$ s/,$//' | sed 's/^/  /' > govde.txt
+  { echo '{'; cat govde.txt; echo '}'; } > ozet.json
+
+outputs:
+  - {path: ozet.json, kind: json}
+
+checks:
+  - {op: json_eq, path: ozet.json, value: {ankara-2024-01-01: 78, istanbul-2024-01-01: 65, izmir-2024-01-01: 55, ankara-2024-01-02: 80, istanbul-2024-01-02: 70, izmir-2024-01-02: 60, ankara-2024-01-03: 75, istanbul-2024-01-03: 68, izmir-2024-01-03: 58}}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3202
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: hava-durumu-kayitlari
+    hedef: ayikla
+    girdi: tsv
+    kaynak: tek-dosya
+    cikti: json
+    kesif: veriye-bak
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: olcek
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

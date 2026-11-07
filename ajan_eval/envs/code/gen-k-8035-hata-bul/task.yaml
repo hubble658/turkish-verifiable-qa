@@ -1,0 +1,104 @@
+id: gen-k-8035-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  arena/session.py içindeki run_session fonksiyonunu düzelt. Şu anda her parça için ayrı bir ScoreBoard oluşturuyor; bunun yerine tüm parçalar boyunca tek bir ScoreBoard kullanılmasını sağla. Fonksiyon her parçayı bu tek board'a beslemeli ve her parça sonunda o ana kadar biriken toplamı döndürmeli. Yani dönüş değeri, her parça sonunda o parçaya kadar işlenen tüm verilerin birikmiş toplamı olmalı; son parçanın sonucu değil, her adımda biriken toplam. Sadece arena/session.py dosyasını değiştir; arena/rounds.py ve arena/score.py olduğu gibi kalsın.
+
+setup: |
+  mkdir -p arena
+  cat > arena/rounds.py <<'ROUNDS'
+  def round_stream(events):
+      for event in events:
+          kind, value = event
+          if kind == "round":
+              yield value
+  ROUNDS
+  cat > arena/score.py <<'SCORE'
+  from arena.rounds import round_stream
+
+
+  class ScoreBoard:
+      def __init__(self):
+          self.total = 0
+          self.bonus = 0
+
+      def feed(self, events):
+          for value in round_stream(events):
+              self.total += value
+              if value >= 10:
+                  self.bonus += 1
+          return self.total + self.bonus
+  SCORE
+  cat > arena/session.py <<'SESSION'
+  from arena.score import ScoreBoard
+
+
+  def run_session(chunks):
+      results = []
+      for chunk in chunks:
+          board = ScoreBoard()
+          results.append(board.feed(chunk))
+      return results[-1]
+  SESSION
+
+goal_tr: >
+  arena/session.py icindeki run_session fonksiyonunu, tum parcalar boyunca
+  tek bir ScoreBoard kullanip her parca sonunda biriken toplami dondurecek
+  bicimde duzelt.
+
+reference_solution: |
+  cat > arena/session.py <<'SESSION'
+  from arena.score import ScoreBoard
+
+
+  def run_session(chunks):
+      board = ScoreBoard()
+      last = 0
+      for chunk in chunks:
+          last = board.feed(chunk)
+      return last
+  SESSION
+
+outputs:
+  - {path: arena/session.py, kind: program, run: 'python3 -c ''from arena.session import run_session as r; a=[("round",4),("round",12),("round",7)]; b=[("round",3),("round",11)]; assert r([a])==24, r([a]); assert r([a,b])==39, r([a,b]); assert r([b,a])==39, r([b,a]); assert r([a,a])==48, r([a,a]); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from arena.session import run_session as r; a=[("round",4),("round",12),("round",7)]; b=[("round",3),("round",11)]; assert r([a])==24, r([a]); assert r([a,b])==39, r([a,b]); assert r([b,a])==39, r([b,a]); assert r([a,a])==48, r([a,a]); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8035
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: oyun-skor-tablosu
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-durum-sifirlama
+      karmasiklik: duz
+      kalip: generator
+      akis: parcali-akis
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

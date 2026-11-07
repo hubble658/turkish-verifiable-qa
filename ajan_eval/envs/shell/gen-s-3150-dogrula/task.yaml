@@ -1,0 +1,62 @@
+id: gen-s-3150-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  randevular.tsv dosyasındaki CRLF satır sonlarını temizle ve başlık satırı dışında kalan kayıtlardan durum alanı tamamlandi olanların sayısını sonuc.txt dosyasına yalnızca sayı olarak yaz.
+
+setup: |
+  cat > randevular.tsv <<'TSV'
+  hasta_id	tarih	bolum	durum
+  1001	2024-03-01	kardiyoloji	tamamlandi
+  1002	2024-03-01	ortopedi	iptal
+  1003	2024-03-02	kardiyoloji	tamamlandi
+  1004	2024-03-02	noroloji	beklemede
+  1005	2024-03-03	ortopedi	tamamlandi
+  1006	2024-03-03	kardiyoloji	iptal
+  1007	2024-03-04	noroloji	tamamlandi
+  1008	2024-03-04	ortopedi	beklemede
+  TSV
+  sed -i 's/$/\r/' randevular.tsv
+
+goal_tr: >
+  randevular.tsv dosyasindaki CRLF satir sonlarini temizleyip baslik satiri
+  disinda kalan kayitlardan durum alani tamamlandi olanlarin sayisini
+  sonuc.txt dosyasina yalnizca sayi olarak yaz
+
+reference_solution: |
+  awk -F'\t' 'NR>1 { sub(/\r$/,"",$4); if ($4=="tamamlandi") c++ } END { print c+0 }' randevular.tsv > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '4'}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3150
+    bundle: awk
+    tools:
+    - awk
+    konu: hastane-randevulari
+    hedef: dogrula
+    girdi: tsv
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: crlf
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

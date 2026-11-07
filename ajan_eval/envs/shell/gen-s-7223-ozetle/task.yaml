@@ -1,0 +1,80 @@
+id: gen-s-7223-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Şubeler dizini altındaki her sipariş.txt dosyasının ilk sütunundaki sipariş numaralarını birleştirip şubeler/geçerli.txt ile kesişimini al; eşleşen benzersiz sipariş numarası sayısını toplam.txt dosyasına sadece sayı olarak yaz.
+
+setup: |
+  mkdir -p subeler/ankara subeler/istanbul subeler/izmir
+  cat > subeler/ankara/siparis.txt <<'TXT'
+  1001 3 25
+  1002 1 40
+  1003 5 10
+  TXT
+  cat > subeler/istanbul/siparis.txt <<'TXT'
+  2001 2 30
+  2002 4 15
+  TXT
+  cat > subeler/izmir/siparis.txt <<'TXT'
+  3001 1 50
+  3002 6 20
+  3003 2 35
+  3004 3 25
+  TXT
+  cat > subeler/gecerli.txt <<'TXT'
+  1001
+  1002
+  1003
+  2001
+  2002
+  3001
+  3002
+  3003
+  3004
+  TXT
+
+goal_tr: >
+  subeler dizini altindaki her siparis.txt dosyasinin ilk sutunundaki
+  siparis numaralarini birlestirip subeler/gecerli.txt ile icsel birlestir,
+  eslesen benzersiz siparis numarasi sayisini toplam.txt dosyasina sadece
+  sayi olarak yaz
+
+reference_solution: |
+  find subeler -name siparis.txt -exec cut -d' ' -f1 {} \; | sort > /tmp/numaralar.txt
+  join /tmp/numaralar.txt subeler/gecerli.txt | uniq | wc -l > toplam.txt
+
+outputs:
+  - {path: toplam.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: toplam.txt, value: '9'}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7223
+    bundle: birlestir
+    tools:
+    - join
+    - sort
+    konu: restoran-siparisleri
+    hedef: ozetle
+    girdi: sabit-genislik
+    kaynak: dizin-agaci
+    cikti: tek-sayi
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

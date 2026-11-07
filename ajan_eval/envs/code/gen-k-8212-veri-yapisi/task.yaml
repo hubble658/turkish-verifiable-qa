@@ -1,0 +1,130 @@
+id: gen-k-8212-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) meters/cache.py dosyasını oluştur; içinde LRUCache sınıfı kapasite parametresiyle kurulabilsin.
+
+  2) LRUCache sınıfına get(key) metodu ekle; anahtar varsa değerini döndürsün ve o anahtarı en son kullanılan yapsın, anahtar yoksa None döndürsün.
+
+  3) LRUCache sınıfına put(key, value) metodu ekle; anahtarı eklesin veya güncellesin ve kapasite aşıldığında en eski kullanılan anahtarı atsın.
+
+  4) Aynı dosyaya cached_total(cache, meter_id, text) fonksiyonunu ekle; önce get ile önbelleğe baksın, değer yoksa meters.aggregate.total_by_meter sonucunu put ile saklayıp döndürsün.
+
+setup: |
+  mkdir -p meters
+  cat > meters/readings.py <<'READINGS'
+  def parse_line(line):
+      meter_id, kwh = line.split(':')
+      return meter_id.strip(), float(kwh)
+
+
+  def load_readings(text):
+      rows = []
+      for line in text.strip().splitlines():
+          rows.append(parse_line(line))
+      return rows
+  READINGS
+  cat > meters/aggregate.py <<'AGG'
+  from meters.readings import load_readings
+
+
+  def total_by_meter(text):
+      totals = {}
+      for meter_id, kwh in load_readings(text):
+          totals[meter_id] = totals.get(meter_id, 0.0) + kwh
+      return totals
+  AGG
+  cat > input.txt <<'TXT'
+  M1: 12.5
+  M2: 3.0
+  M1: 7.5
+  M3: 1.0
+  M2: 2.0
+  TXT
+
+goal_tr: >
+  meters/cache.py dosyasini yaz: LRUCache sinifi kapasite ile kurulsun;
+  get(key) degeri dondursun ve anahtari en son kullanilan yapsin, yoksa None
+  dondursun; put(key, value) eklesin/guncellesin, kapasite asilinca en eski
+  kullanilan anahtari atsin; cached_total(cache, meter_id, text) fonksiyonu
+  get ile onbellege bakip yoksa meters.aggregate.total_by_meter sonucunu put
+  ile saklayip dondursun.
+
+reference_solution: |
+  cat > meters/cache.py <<'CACHE'
+  from collections import OrderedDict
+
+  from meters.aggregate import total_by_meter
+
+
+  class LRUCache:
+      def __init__(self, capacity):
+          self.capacity = capacity
+          self.store = OrderedDict()
+
+      def get(self, key):
+          if key not in self.store:
+              return None
+          self.store.move_to_end(key)
+          return self.store[key]
+
+      def put(self, key, value):
+          if key in self.store:
+              self.store.move_to_end(key)
+          self.store[key] = value
+          while len(self.store) > self.capacity:
+              self.store.popitem(last=False)
+
+
+  def cached_total(cache, meter_id, text):
+      hit = cache.get(meter_id)
+      if hit is not None:
+          return hit
+      value = total_by_meter(text)[meter_id]
+      cache.put(meter_id, value)
+      return value
+  CACHE
+
+outputs:
+  - {path: meters/cache.py, kind: program, run: 'python3 -c ''from meters.cache import LRUCache, cached_total; t=open("input.txt").read(); c=LRUCache(2); assert c.get("M1") is None; c.put("M1",1.0); c.put("M2",2.0); assert c.get("M1")==1.0; c.put("M3",3.0); assert c.get("M2") is None; assert c.get("M1")==1.0; assert c.get("M3")==3.0; c.put("M3",9.0); assert c.get("M3")==9.0; c2=LRUCache(3); assert cached_total(c2,"M1",t)==20.0; assert cached_total(c2,"M2",t)==5.0; assert cached_total(c2,"M1",t)==20.0; assert c2.get("M1")==20.0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from meters.cache import LRUCache, cached_total; t=open("input.txt").read(); c=LRUCache(2); assert c.get("M1") is None; c.put("M1",1.0); c.put("M2",2.0); assert c.get("M1")==1.0; c.put("M3",3.0); assert c.get("M2") is None; assert c.get("M1")==1.0; assert c.get("M3")==3.0; c.put("M3",9.0); assert c.get("M3")==9.0; c2=LRUCache(3); assert cached_total(c2,"M1",t)==20.0; assert cached_total(c2,"M2",t)==5.0; assert cached_total(c2,"M1",t)==20.0; assert c2.get("M1")==20.0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8212
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: elektrik-sayaclari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: lru-onbellek
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: cok-dosya-birlestirme
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

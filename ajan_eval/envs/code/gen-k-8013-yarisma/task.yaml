@@ -1,0 +1,109 @@
+id: gen-k-8013-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  routes/prefix.py dosyasını oluştur. Bu dosyada iki fonksiyon yer almalı: `load_network(text)` metin halindeki kenar listesini okuyup routes/graph.py içindeki `build_adjacency` ile komşuluk sözlüğüne çevirmeli; `reachable_within(adj, start, budget)` ise start düğümünden başlayarak toplam ağırlığı budget'ı aşmayan tüm yollarla ulaşılabilen düğümlerin varış düğümlerini içeren sıralı bir liste döndürmeli. Bu listede start düğümü de bulunmalı ve ağırlıkların negatif olmadığı varsayılmalı. Ayrıca routes/segments.py ve routes/graph.py dosyaları olduğu gibi korunmalı, onlarda değişiklik yapılmamalı.
+
+setup: |
+  mkdir -p routes
+  cat > routes/segments.py <<'SEG'
+  def parse_segments(lines):
+      """Her satir: 'A B weight' -> (A, B, weight) demeti."""
+      out = []
+      for line in lines:
+          line = line.strip()
+          if not line or line.startswith("#"):
+              continue
+          a, b, w = line.split()
+          out.append((a, b, int(w)))
+      return out
+  SEG
+  cat > routes/graph.py <<'GRAPH'
+  def build_adjacency(edges):
+      """edges: (src, dst, weight) listesi -> {src: [(dst, w), ...]}"""
+      adj = {}
+      for src, dst, w in edges:
+          adj.setdefault(src, []).append((dst, w))
+          adj.setdefault(dst, [])
+      return adj
+  GRAPH
+  cat > routes/__init__.py <<'INIT'
+  INIT
+
+goal_tr: >
+  routes/prefix.py dosyasini yaz: `load_network(text)` metin halindeki kenar
+  listesini okuyup routes.graph.build_adjacency ile komsuluk sozlugune
+  cevirmeli, ve `reachable_within(adj, start, budget)` fonksiyonu start
+  dugumunden toplam agirligi budget'i asmayan tum dugumlere ulasilabilen
+  yollarin VARIS dugumlerini iceren sirali bir liste dondurmeli (start
+  dahil, agirliklar negatif degil).
+
+reference_solution: |
+  cat > routes/prefix.py <<'PREFIX'
+  from routes.segments import parse_segments
+  from routes.graph import build_adjacency
+
+
+  def load_network(text):
+      return build_adjacency(parse_segments(text.splitlines()))
+
+
+  def reachable_within(adj, start, budget):
+      best = {start: 0}
+      frontier = [(0, start)]
+      while frontier:
+          frontier.sort()
+          cost, node = frontier.pop(0)
+          if cost > best.get(node, float("inf")):
+              continue
+          for dst, w in adj.get(node, []):
+              nc = cost + w
+              if nc <= budget and nc < best.get(dst, float("inf")):
+                  best[dst] = nc
+                  frontier.append((nc, dst))
+      return sorted(best.keys())
+  PREFIX
+
+outputs:
+  - {path: routes/prefix.py, kind: program, run: 'python3 -c ''from routes.prefix import load_network, reachable_within; t="A B 2\nA C 5\nB C 1\nB D 7\nC D 1\nD E 3\n"; adj=load_network(t); assert reachable_within(adj,"A",0)==["A"]; assert reachable_within(adj,"A",2)==["A","B"]; assert reachable_within(adj,"A",3)==["A","B","C"]; assert reachable_within(adj,"A",4)==["A","B","C","D"]; assert reachable_within(adj,"A",7)==["A","B","C","D","E"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from routes.prefix import load_network, reachable_within; t="A B 2\nA C 5\nB C 1\nB D 7\nC D 1\nD E 3\n"; adj=load_network(t); assert reachable_within(adj,"A",0)==["A"]; assert reachable_within(adj,"A",2)==["A","B"]; assert reachable_within(adj,"A",3)==["A","B","C"]; assert reachable_within(adj,"A",4)==["A","B","C","D"]; assert reachable_within(adj,"A",7)==["A","B","C","D","E"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8013
+    bundle: yarisma
+    tools:
+    - python3
+    konu: yol-tarifi-agi
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: onek-toplam
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: ic-ice-yapi
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

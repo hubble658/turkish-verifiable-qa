@@ -1,0 +1,58 @@
+id: gen-s-7081-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi klasöründeki tüm .tsv dosyalarındaki yorumları birleştirip ürün başına yorum sayısını azalan sayıya göre sırala ve sonucu cikti/ozet.tsv dosyasına yaz; cikti/ozet.tsv dosyasının sonunda satır sonu karakteri olmasın.
+
+setup: |
+  mkdir -p girdi cikti
+  printf 'urun\tyorum\nA\tiyi\nB\tkotu\nA\tguzel' > girdi/yorumlar_01.tsv
+  printf 'urun\tyorum\nC\torta\nA\tiyi\nB\tberbat\nC\tfena' > girdi/yorumlar_02.tsv
+  printf 'urun\tyorum\nB\tidare\nA\tmukemmel\nC\tiyi\nB\tkotu' > girdi/yorumlar_03.tsv
+
+goal_tr: >
+  girdi altindaki tum .tsv dosyalarindaki yorumlari birlestirip urun basina
+  yorum sayisini azalan sayiya gore sirala ve cikti/ozet.tsv dosyasina yaz;
+  cikti dosyasi satir sonu newline ile bitmesin
+
+reference_solution: |
+  mkdir -p cikti
+  grep -h -v '^urun' girdi/*.tsv | cut -f1 | sort | uniq -c | awk '{print $2"\t"$1}' | sort -k2 -nr > cikti/ozet.tsv
+  wc -l < cikti/ozet.tsv > /dev/null
+  printf '%s' "$(cat cikti/ozet.tsv)" > cikti/ozet.tmp && mv cikti/ozet.tmp cikti/ozet.tsv
+
+outputs:
+  - {path: cikti/ozet.tsv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: cikti/ozet.tsv, value: ["B\t4", "A\t4", "C\t3"]}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7081
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: urun-yorumlari
+    hedef: ozetle
+    girdi: tsv
+    kaynak: cok-dosya
+    cikti: yeniden-adlandirilmis
+    kesif: dosyayi-bul
+    uslup: kisit-sakli
+    direnc: son-newline-yok
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,112 @@
+id: gen-k-5061-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) pricing/discount.py dosyasını aç ve apply_discount fonksiyonunu incele.
+
+  2) apply_discount fonksiyonundaki erken dönüşü kaldır.
+
+  3) Fonksiyonu, indirim oranı sıfırdan büyük olduğunda indirimi tüm ürünlere uygulayacak ve listenin tamamını döndürecek şekilde düzelt.
+
+setup: |
+  mkdir -p pricing
+  cat > pricing/parse.py <<'PARSE'
+  def parse_lines(text):
+      items = []
+      for line in text.strip().splitlines():
+          name, price = line.split(',')
+          items.append((name, float(price)))
+      return items
+  PARSE
+  cat > pricing/discount.py <<'DISCOUNT'
+  from pricing.parse import parse_lines
+
+
+  def apply_discount(text, rate):
+      items = parse_lines(text)
+      out = []
+      for name, price in items:
+          if rate > 0:
+              out.append((name, price * (1.0 - rate)))
+              return out
+          out.append((name, price))
+      return out
+  DISCOUNT
+  cat > pricing/bill.py <<'BILL'
+  from pricing.discount import apply_discount
+
+
+  def total(text, rate):
+      items = apply_discount(text, rate)
+      return round(sum(p for _, p in items), 2)
+  BILL
+  cat > prices.txt <<'TXT'
+  widget,10.00
+  gadget,4.00
+  bolt,2.00
+  TXT
+
+goal_tr: >
+  pricing/discount.py icindeki apply_discount fonksiyonunu, indirim orani
+  sifirdan buyuk oldugunda TUM urunlere indirimi uygulayip listenin tamamini
+  dondurecek bicimde duzelt; erken donusu kaldir.
+
+reference_solution: |
+  cat > pricing/discount.py <<'DISCOUNT'
+  from pricing.parse import parse_lines
+
+
+  def apply_discount(text, rate):
+      items = parse_lines(text)
+      out = []
+      for name, price in items:
+          if rate > 0:
+              out.append((name, price * (1.0 - rate)))
+          else:
+              out.append((name, price))
+      return out
+  DISCOUNT
+
+outputs:
+  - {path: pricing/discount.py, kind: program, run: 'python3 -c ''from pricing.bill import total as t; assert t("widget,10.00\ngadget,4.00\nbolt,2.00", 0.0)==16.0, t("widget,10.00\ngadget,4.00\nbolt,2.00", 0.0); assert t("widget,10.00\ngadget,4.00\nbolt,2.00", 0.5)==8.0, t("widget,10.00\ngadget,4.00\nbolt,2.00", 0.5); assert t("widget,10.00\ngadget,4.00\nbolt,2.00", 0.25)==12.0, t("widget,10.00\ngadget,4.00\nbolt,2.00", 0.25); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from pricing.bill import total as t; assert t("widget,10.00\ngadget,4.00\nbolt,2.00", 0.0)==16.0, t("widget,10.00\ngadget,4.00\nbolt,2.00", 0.0); assert t("widget,10.00\ngadget,4.00\nbolt,2.00", 0.5)==8.0, t("widget,10.00\ngadget,4.00\nbolt,2.00", 0.5); assert t("widget,10.00\ngadget,4.00\nbolt,2.00", 0.25)==12.0, t("widget,10.00\ngadget,4.00\nbolt,2.00", 0.25); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5061
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: urun-fiyatlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: erken-donus
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: stdin-boru
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

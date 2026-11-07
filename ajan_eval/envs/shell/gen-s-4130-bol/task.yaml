@@ -1,0 +1,73 @@
+id: gen-s-4130-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Atölyedeki malzeme sayımını artık defterden takip etmek zorlaştı; her hafta stoklara bakıp elle not alıyoruz ve bir süre sonra hangi ürünün kaç adet kaldığı karışıyor. Bu yüzden girdi klasöründeki envanter dosyasını düzenli bir tabloya çevirip saklamak istiyorum, böylece ileride başka bir programa da kolayca aktarabiliriz. girdi/envanter.ini dosyasındaki her [urun] bloğunu tek bir satıra indirip, başlık satırı ad,stok,fiyat olacak şekilde cikti/envanter.csv dosyasına CSV biçiminde yaz.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/envanter.ini <<'INI'
+  [urun]
+  ad = Vida
+  stok = 120
+  fiyat = 3
+  [urun]
+  ad = Somun
+  stok = 80
+  fiyat = 2
+  [urun]
+  ad = Rondela
+  stok = 45
+  fiyat = 1
+  [urun]
+  ad = Civi
+  stok = 200
+  fiyat = 4
+  INI
+
+goal_tr: >
+  girdi/envanter.ini dosyasindaki her [urun] blogunu bir satir olacak
+  sekilde ad,stok,fiyat basligiyla cikti/envanter.csv dosyasina CSV olarak
+  bol
+
+reference_solution: |
+  mkdir -p cikti
+  printf 'ad,stok,fiyat\n' > cikti/envanter.csv
+  awk -F' = ' '/^\[urun\]/{n++} n>0 && $1=="ad"{ad=$2} n>0 && $1=="stok"{stok=$2} n>0 && $1=="fiyat"{print ad","stok","$2}' girdi/envanter.ini >> cikti/envanter.csv
+  seq 1 1 > /dev/null
+
+outputs:
+  - {path: cikti/envanter.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: cikti/envanter.csv, value: ['ad,stok,fiyat', 'Vida,120,3', 'Somun,80,2', 'Rondela,45,1', 'Civi,200,4']}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4130
+    bundle: uret
+    tools:
+    - printf
+    - seq
+    konu: envanter
+    hedef: bol
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: csv
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,113 @@
+id: gen-k-8211-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  school/courses.py içindeki Course sınıfında eşitlik karşılaştırmasını düzelt: iki ders yalnızca kodları aynı olduğunda eşit sayılsın.
+
+setup: |
+  mkdir -p school
+  cat > school/__init__.py <<'INIT'
+  INIT
+  cat > school/courses.py <<'COURSES'
+  class Course:
+      def __init__(self, code, credits):
+          self.code = code
+          self.credits = credits
+
+      def __eq__(self, other):
+          return self.credits == other.credits
+
+      def __hash__(self):
+          return hash(self.code)
+  COURSES
+  cat > school/transcript.py <<'TRANSCRIPT'
+  from school.courses import Course
+
+
+  def total_credits(lines):
+      seen = set()
+      total = 0
+      for line in lines:
+          code, credits = line.split()
+          c = Course(code, int(credits))
+          if c not in seen:
+              seen.add(c)
+              total += c.credits
+      return total
+  TRANSCRIPT
+  cat > school/gpa.py <<'GPA'
+  from school.transcript import total_credits
+
+
+  def weighted(lines, grades):
+      credits = total_credits(lines)
+      points = sum(grades)
+      return points / credits
+  GPA
+  cat > input.txt <<'DATA'
+  MATH101 3
+  PHYS201 3
+  CHEM110 4
+  DATA
+
+goal_tr: >
+  school/courses.py icindeki Course sinifinin esitlik karsilastirmasini, iki
+  ders yalnizca kodlari ayni oldugunda esit sayilacak bicimde duzelt.
+
+reference_solution: |
+  cat > school/courses.py <<'COURSES'
+  class Course:
+      def __init__(self, code, credits):
+          self.code = code
+          self.credits = credits
+
+      def __eq__(self, other):
+          return self.code == other.code
+
+      def __hash__(self):
+          return hash(self.code)
+  COURSES
+
+outputs:
+  - {path: school/courses.py, kind: program, run: 'python3 -c ''import sys; from school.courses import Course as C; from school.transcript import total_credits as t; lines=open("input.txt").read().splitlines(); assert t(lines)==10, t(lines); assert C("A",3)==C("A",5); assert C("A",3)!=C("B",3); assert len({C("A",3),C("A",9)})==1; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import sys; from school.courses import Course as C; from school.transcript import total_credits as t; lines=open("input.txt").read().splitlines(); assert t(lines)==10, t(lines); assert C("A",3)==C("A",5); assert C("A",3)!=C("B",3); assert len({C("A",3),C("A",9)})==1; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8211
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: ogrenci-transkripti
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-karsilastirma
+      karmasiklik: duz
+      kalip: operator-asiri-yukleme
+      akis: stdin-boru
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

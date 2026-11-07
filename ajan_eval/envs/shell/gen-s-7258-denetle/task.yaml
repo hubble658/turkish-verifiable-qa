@@ -1,0 +1,96 @@
+id: gen-s-7258-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  hava.ini dosyasındaki her [gunN] bölümünü; şehir, durum, sıcaklık ve nem sütunlarından oluşan tek bir satıra indirgeyip, tekrarlanan satırları eleyerek hava.csv dosyasına başlık satırıyla birlikte yaz.
+
+setup: |
+  cat > hava.ini <<'INI'
+  [gun1]
+  sehir=Ankara
+  durum=Gunesli
+  sicaklik=24
+  nem=30
+
+  [gun2]
+  sehir=Istanbul
+  durum=Yagmurlu
+  sicaklik=17
+  nem=75
+
+  [gun3]
+  sehir=Izmir
+  durum=Parcali
+  sicaklik=22
+  nem=45
+
+  [gun4]
+  sehir=Ankara
+  durum=Gunesli
+  sicaklik=24
+  nem=30
+
+  [gun5]
+  sehir=Bursa
+  durum=Kapali
+  sicaklik=19
+  nem=60
+  INI
+
+  cat > hava.ini.yedek <<'INI'
+  [gun1]
+  sehir=Ankara
+  durum=Gunesli
+  sicaklik=24
+  nem=30
+
+  [gun2]
+  sehir=Istanbul
+  durum=Yagmurlu
+  sicaklik=17
+  nem=75
+  INI
+
+goal_tr: >
+  hava.ini dosyasindaki her [gunN] bolumunu sehir,durum,sicaklik,nem
+  sutunlariyla tek satira indirgeyip tekrarlanan satirlari eleyerek hava.csv
+  dosyasina baslik satiriyla birlikte yaz
+
+reference_solution: |
+  grep -v '^$' hava.ini | grep -v '^\[' | sed 's/^[a-z]*=//' | paste -d, - - - - | sort | uniq | sed '1i sehir,durum,sicaklik,nem' > hava.csv
+
+outputs:
+  - {path: hava.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: hava.csv, value: ['sehir,durum,sicaklik,nem', 'Ankara,Gunesli,24,30', 'Bursa,Kapali,19,60', 'Istanbul,Yagmurlu,17,75', 'Izmir,Parcali,22,45']}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7258
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: hava-durumu-kayitlari
+    hedef: denetle
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: csv
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

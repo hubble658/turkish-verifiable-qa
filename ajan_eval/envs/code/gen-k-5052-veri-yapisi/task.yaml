@@ -1,0 +1,163 @@
+id: gen-k-5052-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  bufkit/ring.py içindeki RingQueue sınıfını sabit kapasiteli dairesel dizi olarak tam olarak gerçekleştir. push metodu kuyruk dolduğunda en eski elemanı atıp yerine yenisini yazmalı; pop metodu elemanları FIFO sırasıyla çıkarmalı; peek metodu en eski elemanı döndürmeli; is_empty ve __len__ metotları doğru çalışmalı. Bu sayede pricing/pipeline.py içindeki process_orders ve window_total fonksiyonları doğru sonuç vermeli.
+
+setup: |
+  mkdir -p pricing bufkit
+  cat > pricing/rates.py <<'RATES'
+  def load_rates(path):
+      rates = {}
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              code, price = line.split(',')
+              rates[code] = float(price)
+      return rates
+  RATES
+  cat > bufkit/ring.py <<'RING'
+  class RingQueue:
+      def __init__(self, capacity):
+          self.capacity = capacity
+          self.slots = [None] * capacity
+          self.head = 0
+          self.count = 0
+
+      def push(self, item):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def is_empty(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+  RING
+  cat > pricing/pipeline.py <<'PIPE'
+  from pricing.rates import load_rates
+  from bufkit.ring import RingQueue
+
+
+  def process_orders(path, capacity):
+      rates = load_rates(path)
+      q = RingQueue(capacity)
+      for code, price in rates.items():
+          q.push((code, price))
+      total = 0.0
+      while not q.is_empty():
+          code, price = q.pop()
+          total += price
+      return round(total, 2)
+
+
+  def window_total(path, capacity):
+      rates = load_rates(path)
+      q = RingQueue(capacity)
+      for code, price in rates.items():
+          q.push(price)
+      return round(sum(q.slots[i] for i in range(q.capacity)), 2)
+  PIPE
+  cat > orders.txt <<'ORD'
+  alpha,2.50
+  beta,1.25
+  gamma,4.00
+  delta,0.75
+  ORD
+
+goal_tr: >
+  bufkit/ring.py icindeki RingQueue sinifini sabit kapasiteli dairesel dizi
+  olarak tam gerceklestir (push dolunca en eski elemani atip yerine yazar,
+  pop FIFO sirasiyla cikarir, peek en eski elemani dondurur, is_empty ve
+  __len__ dogru calisir); boylece pricing/pipeline.py icindeki
+  process_orders ve window_total dogru sonuc versin.
+
+reference_solution: |
+  cat > bufkit/ring.py <<'RING'
+  class RingQueue:
+      def __init__(self, capacity):
+          self.capacity = capacity
+          self.slots = [None] * capacity
+          self.head = 0
+          self.count = 0
+
+      def push(self, item):
+          if self.count < self.capacity:
+              index = (self.head + self.count) % self.capacity
+              self.slots[index] = item
+              self.count += 1
+          else:
+              self.slots[self.head] = item
+              self.head = (self.head + 1) % self.capacity
+
+      def pop(self):
+          if self.count == 0:
+              raise IndexError("pop from empty RingQueue")
+          item = self.slots[self.head]
+          self.slots[self.head] = None
+          self.head = (self.head + 1) % self.capacity
+          self.count -= 1
+          return item
+
+      def peek(self):
+          if self.count == 0:
+              raise IndexError("peek from empty RingQueue")
+          return self.slots[self.head]
+
+      def is_empty(self):
+          return self.count == 0
+
+      def __len__(self):
+          return self.count
+  RING
+
+outputs:
+  - {path: bufkit/ring.py, kind: program, run: 'python3 -c ''from bufkit.ring import RingQueue as R; q=R(3); assert len(q)==0 and q.is_empty(); q.push("a"); q.push("b"); assert q.peek()=="a" and len(q)==2; q.push("c"); q.push("d"); assert len(q)==3 and q.peek()=="b", q.peek(); assert q.pop()=="b"; assert q.pop()=="c"; assert q.pop()=="d"; assert q.is_empty(); r=R(2); r.push(1); r.push(2); r.push(3); r.push(4); assert r.pop()==3 and r.pop()==4; from pricing.pipeline import process_orders as p, window_total as w; assert p("orders.txt",4)==8.5, p("orders.txt",4); assert p("orders.txt",2)==4.75, p("orders.txt",2); assert w("orders.txt",2)==4.75, w("orders.txt",2); assert w("orders.txt",4)==8.5, w("orders.txt",4); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from bufkit.ring import RingQueue as R; q=R(3); assert len(q)==0 and q.is_empty(); q.push("a"); q.push("b"); assert q.peek()=="a" and len(q)==2; q.push("c"); q.push("d"); assert len(q)==3 and q.peek()=="b", q.peek(); assert q.pop()=="b"; assert q.pop()=="c"; assert q.pop()=="d"; assert q.is_empty(); r=R(2); r.push(1); r.push(2); r.push(3); r.push(4); assert r.pop()==3 and r.pop()==4; from pricing.pipeline import process_orders as p, window_total as w; assert p("orders.txt",4)==8.5, p("orders.txt",4); assert p("orders.txt",2)==4.75, p("orders.txt",2); assert w("orders.txt",2)==4.75, w("orders.txt",2); assert w("orders.txt",4)==8.5, w("orders.txt",4); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5052
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: urun-fiyatlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kuyruk
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

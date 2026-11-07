@@ -1,0 +1,144 @@
+id: gen-k-5103-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) docs/rank.py dosyasındaki rank fonksiyonunu, eşit score değerlerinde belge kimliğine göre artan sırada kararlı bir sıralama yapacak şekilde düzelt.
+
+  2) Aynı girdiyle yapılan her çağrıda fonksiyonun aynı listeyi döndürmesini sağla.
+
+setup: |
+  mkdir -p docs
+  cat > docs/errors.py <<'PY'
+  class DocError(Exception):
+      pass
+
+
+  class MissingFieldError(DocError):
+      def __init__(self, field):
+          super().__init__("missing field: " + field)
+          self.field = field
+
+
+  class BadValueError(DocError):
+      def __init__(self, field, value):
+          super().__init__("bad value for " + field + ": " + value)
+          self.field = field
+          self.value = value
+  PY
+  cat > docs/parse.py <<'PY'
+  from docs.errors import MissingFieldError, BadValueError
+
+
+  def parse_line(line):
+      parts = line.split("|")
+      if len(parts) < 3:
+          raise MissingFieldError("body")
+      doc_id, score, body = parts[0], parts[1], parts[2]
+      if not doc_id:
+          raise MissingFieldError("id")
+      try:
+          score = int(score)
+      except ValueError:
+          raise BadValueError("score", score)
+      if score < 0:
+          raise BadValueError("score", str(score))
+      return {"id": doc_id, "score": score, "body": body}
+  PY
+  cat > docs/rank.py <<'PY'
+  from docs.parse import parse_line
+  from docs.errors import DocError
+
+
+  def rank(text, k):
+      docs = []
+      errors = []
+      for line in text.splitlines():
+          line = line.strip()
+          if not line:
+              continue
+          try:
+              docs.append(parse_line(line))
+          except DocError as exc:
+              errors.append(exc)
+      docs.sort(key=lambda d: d["score"], reverse=True)
+      return docs[:k], errors
+  PY
+  cat > docs/__init__.py <<'PY'
+  PY
+  cat > corpus.txt <<'TXT'
+  a1|5|alpha
+  b2|9|bravo
+  c3|5|charlie
+  d4|9|delta
+  e5|1|echo
+  TXT
+
+goal_tr: >
+  docs/rank.py icindeki rank fonksiyonunu, esit score degerlerinde belge
+  kimligine gore artan sirada kararli bir siralama yapacak sekilde duzelt;
+  boylece ayni girdi her cagrida ayni listeyi dondursun.
+
+reference_solution: |
+  cat > docs/rank.py <<'PY'
+  from docs.parse import parse_line
+  from docs.errors import DocError
+
+
+  def rank(text, k):
+      docs = []
+      errors = []
+      for line in text.splitlines():
+          line = line.strip()
+          if not line:
+              continue
+          try:
+              docs.append(parse_line(line))
+          except DocError as exc:
+              errors.append(exc)
+      docs.sort(key=lambda d: (-d["score"], d["id"]))
+      return docs[:k], errors
+  PY
+
+outputs:
+  - {path: docs/rank.py, kind: program, run: 'python3 -c ''from docs.rank import rank as f; t=open("corpus.txt").read(); d,e=f(t,5); assert [x["id"] for x in d]==["b2","d4","a1","c3","e5"], [x["id"] for x in d]; assert e==[]; d2,_=f(t,2); assert [x["id"] for x in d2]==["b2","d4"]; t2="z9|3|zz\ny8|3|yy\nx7|3|xx\n"; d3,_=f(t2,3); assert [x["id"] for x in d3]==["x7","y8","z9"], [x["id"] for x in d3]; t3="m1|2|one\nbad\nn2|2|two\n"; d4,er=f(t3,5); assert [x["id"] for x in d4]==["m1","n2"], [x["id"] for x in d4]; assert len(er)==1; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from docs.rank import rank as f; t=open("corpus.txt").read(); d,e=f(t,5); assert [x["id"] for x in d]==["b2","d4","a1","c3","e5"], [x["id"] for x in d]; assert e==[]; d2,_=f(t,2); assert [x["id"] for x in d2]==["b2","d4"]; t2="z9|3|zz\ny8|3|yy\nx7|3|xx\n"; d3,_=f(t2,3); assert [x["id"] for x in d3]==["x7","y8","z9"], [x["id"] for x in d3]; t3="m1|2|one\nbad\nn2|2|two\n"; d4,er=f(t3,5); assert [x["id"] for x in d4]==["m1","n2"], [x["id"] for x in d4]; assert len(er)==1; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5103
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: metin-belgeleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-kararsizligi
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: parcali-akis
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

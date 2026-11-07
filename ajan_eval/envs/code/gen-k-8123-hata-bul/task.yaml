@@ -1,0 +1,129 @@
+id: gen-k-8123-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  clinic/booking.py dosyasındaki book fonksiyonunun varsayılan etiket listesi tüm çağrılar arasında paylaşılıyor ve bu yüzden bir randevuya eklenen etiketler başka randevulara sızıyor. book fonksiyonunu, çağrıldığında paylaşılmayan yeni bir varsayılan liste kullanacak şekilde düzelt; kaydedilen etiketler ve fonksiyonun döndürdüğü değer her çağrı için bağımsız olsun, bir çağrıda yapılan değişiklik başka bir çağrıyı etkilemesin.
+
+setup: |
+  mkdir -p clinic
+  cat > clinic/__init__.py <<'EOF'
+  EOF
+  cat > clinic/errors.py <<'ERRORS'
+  class ScheduleError(Exception):
+      pass
+
+
+  class SlotTaken(ScheduleError):
+      pass
+
+
+  class UnknownDoctor(ScheduleError):
+      pass
+  ERRORS
+  cat > clinic/booking.py <<'BOOK'
+  from clinic.errors import SlotTaken, UnknownDoctor
+
+  DOCTORS = {"ayse": ["09:00", "10:00"], "mehmet": ["11:00"]}
+  _booked = {}
+
+
+  def book(doctor, slot, tags=[]):
+      if doctor not in DOCTORS:
+          raise UnknownDoctor(doctor)
+      if slot not in DOCTORS[doctor]:
+          raise ScheduleError("no such slot: " + slot)
+      key = (doctor, slot)
+      if key in _booked:
+          raise SlotTaken(slot)
+      _booked[key] = tags
+      return tags
+
+
+  def booked_tags(doctor, slot):
+      return _booked.get((doctor, slot), [])
+
+
+  def reset():
+      _booked.clear()
+  BOOK
+
+goal_tr: >
+  clinic/booking.py icindeki book fonksiyonu varsayilan etiket listesini
+  cagrilar arasinda paylastigi icin farkli randevularin etiketleri birbirine
+  siziyor; varsayilani paylasmayan bir listeyle degistir ve kayit ile donus
+  degerlerinin cagrilar arasinda bagimsiz olmasini sagla.
+
+reference_solution: |
+  cat > clinic/booking.py <<'BOOK'
+  from clinic.errors import SlotTaken, UnknownDoctor
+
+  DOCTORS = {"ayse": ["09:00", "10:00"], "mehmet": ["11:00"]}
+  _booked = {}
+
+
+  def book(doctor, slot, tags=None):
+      if doctor not in DOCTORS:
+          raise UnknownDoctor(doctor)
+      if slot not in DOCTORS[doctor]:
+          raise ScheduleError("no such slot: " + slot)
+      key = (doctor, slot)
+      if key in _booked:
+          raise SlotTaken(slot)
+      if tags is None:
+          tags = []
+      stored = list(tags)
+      _booked[key] = stored
+      return list(stored)
+
+
+  def booked_tags(doctor, slot):
+      return list(_booked.get((doctor, slot), []))
+
+
+  def reset():
+      _booked.clear()
+  BOOK
+
+outputs:
+  - {path: clinic/booking.py, kind: program, run: 'python3 -c ''from clinic.booking import book, booked_tags, reset; reset(); a=book("ayse","09:00"); a.append("x"); assert booked_tags("ayse","09:00")==[], ("leak", booked_tags("ayse","09:00")); b=book("ayse","10:00"); assert b==[], ("shared-default", b); assert booked_tags("ayse","10:00")==[], booked_tags("ayse","10:00"); c=book("mehmet","11:00",["kardiyoloji"]); assert c==["kardiyoloji"], c; assert booked_tags("mehmet","11:00")==["kardiyoloji"]; assert booked_tags("ayse","09:00")==[], ("cross", booked_tags("ayse","09:00")); reset(); d=book("ayse","09:00"); assert d==[], ("stale", d); e=book("ayse","10:00",["dahiliye"]); assert e==["dahiliye"], e; assert booked_tags("ayse","10:00")==["dahiliye"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from clinic.booking import book, booked_tags, reset; reset(); a=book("ayse","09:00"); a.append("x"); assert booked_tags("ayse","09:00")==[], ("leak", booked_tags("ayse","09:00")); b=book("ayse","10:00"); assert b==[], ("shared-default", b); assert booked_tags("ayse","10:00")==[], booked_tags("ayse","10:00"); c=book("mehmet","11:00",["kardiyoloji"]); assert c==["kardiyoloji"], c; assert booked_tags("mehmet","11:00")==["kardiyoloji"]; assert booked_tags("ayse","09:00")==[], ("cross", booked_tags("ayse","09:00")); reset(); d=book("ayse","09:00"); assert d==[], ("stale", d); e=book("ayse","10:00",["dahiliye"]); assert e==["dahiliye"], e; assert booked_tags("ayse","10:00")==["dahiliye"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8123
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: hastane-randevulari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: mutable-varsayilan
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: bellek-ici
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,112 @@
+id: gen-k-8334-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  callcenter/records/summary.py dosyasındaki build_summary fonksiyonunu düzelt. Fonksiyon her çağrıldığında toplamları sıfırdan hesaplasın ve yalnızca o çağrıya ait ajanların özetini döndürsün; önceki çağrılardan kalan ajanlar sonuca sızmasın.
+
+setup: |
+  mkdir -p callcenter/records
+  cat > callcenter/records/loader.py <<'LOADER'
+  def load_lines(path):
+      with open(path) as fh:
+          return [line.rstrip("\n") for line in fh if line.strip()]
+
+
+  def split_fields(lines):
+      return [line.split("|") for line in lines]
+  LOADER
+  cat > callcenter/records/parser.py <<'PARSER'
+  from callcenter.records.loader import load_lines, split_fields
+
+
+  def parse_calls(path):
+      rows = split_fields(load_lines(path))
+      calls = []
+      for agent, minutes, outcome in rows:
+          calls.append({"agent": agent, "minutes": int(minutes), "outcome": outcome})
+      return calls
+  PARSER
+  cat > callcenter/records/summary.py <<'SUMMARY'
+  from callcenter.records.parser import parse_calls
+
+
+  def build_summary(path, totals={}):
+      for call in parse_calls(path):
+          agent = call["agent"]
+          totals.setdefault(agent, {"resolved": 0, "escalated": 0, "minutes": 0})
+          totals[agent][call["outcome"]] += 1
+          totals[agent]["minutes"] += call["minutes"]
+      return totals
+  SUMMARY
+  cat > calls.txt <<'CALLS'
+  ayse|12|resolved
+  mehmet|7|escalated
+  ayse|5|escalated
+  zeynep|9|resolved
+  mehmet|3|resolved
+  CALLS
+
+goal_tr: >
+  callcenter/records/summary.py icindeki build_summary fonksiyonunu, her
+  cagri icin toplamlari sifirdan hesaplayip yalnizca o cagriya ait ajanlarin
+  ozetini dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > callcenter/records/summary.py <<'SUMMARY'
+  from callcenter.records.parser import parse_calls
+
+
+  def build_summary(path, totals=None):
+      if totals is None:
+          totals = {}
+      for call in parse_calls(path):
+          agent = call["agent"]
+          totals.setdefault(agent, {"resolved": 0, "escalated": 0, "minutes": 0})
+          totals[agent][call["outcome"]] += 1
+          totals[agent]["minutes"] += call["minutes"]
+      return totals
+  SUMMARY
+
+outputs:
+  - {path: callcenter/records/summary.py, kind: program, run: 'python3 -c ''from callcenter.records.summary import build_summary as f; a=f("calls.txt"); assert a=={"ayse":{"resolved":1,"escalated":1,"minutes":17},"mehmet":{"resolved":1,"escalated":1,"minutes":10},"zeynep":{"resolved":1,"escalated":0,"minutes":9}}, a; b=f("calls.txt"); assert b==a, b; assert b["ayse"]["minutes"]==17, b; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from callcenter.records.summary import build_summary as f; a=f("calls.txt"); assert a=={"ayse":{"resolved":1,"escalated":1,"minutes":17},"mehmet":{"resolved":1,"escalated":1,"minutes":10},"zeynep":{"resolved":1,"escalated":0,"minutes":9}}, a; b=f("calls.txt"); assert b==a, b; assert b["ayse"]["minutes"]==17, b; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8334
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: cagri-merkezi-kayitlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: mutable-varsayilan
+      karmasiklik: duz
+      kalip: ozyineleme
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

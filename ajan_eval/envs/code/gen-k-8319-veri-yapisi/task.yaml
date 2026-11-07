@@ -1,0 +1,128 @@
+id: gen-k-8319-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) schedule/plan.py dosyasındaki build_plan fonksiyonunu gerçekleştir; roster.txt ve shifts.txt dosyalarından okunan veriyle her vardiyaya uygun personeli atayan bir sözlük döndürsün.
+
+  2) schedule/plan.py dosyasındaki coverage fonksiyonunu gerçekleştir; her vardiyanın kaç personel tarafından karşılandığını sözlük olarak döndürsün.
+
+setup: |
+  mkdir -p schedule
+  cat > schedule/roster.py <<'ROSTER'
+  def load_roster(path):
+      staff = {}
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              name, roles = line.split(':')
+              staff[name] = roles.split(',')
+      return staff
+  ROSTER
+  cat > schedule/shifts.py <<'SHIFTS'
+  def load_shifts(path):
+      shifts = {}
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              shift_id, needed = line.split(':')
+              shifts[shift_id] = needed.split(',')
+      return shifts
+  SHIFTS
+  cat > schedule/plan.py <<'PLAN'
+  from schedule.roster import load_roster
+  from schedule.shifts import load_shifts
+
+
+  def build_plan(roster_path, shifts_path):
+      raise NotImplementedError
+
+
+  def coverage(plan, shifts):
+      raise NotImplementedError
+  PLAN
+  cat > roster.txt <<'R'
+  ada:morning,night
+  bo:morning
+  cem:night,evening
+  di:morning,evening
+  R
+  cat > shifts.txt <<'S'
+  morning:ada,bo
+  night:ada,cem
+  evening:cem,di
+  S
+
+goal_tr: >
+  schedule/plan.py icindeki build_plan ve coverage fonksiyonlarini
+  gerceklestir: build_plan roster.txt ve shifts.txt dosyalarindan okunan
+  veriyle her vardiyaya uygun personeli atayan bir sozluk dondursun,
+  coverage ise her vardiyanin kac personel tarafindan karsilandigini sozluk
+  olarak versin.
+
+reference_solution: |
+  cat > schedule/plan.py <<'PLAN'
+  from schedule.roster import load_roster
+  from schedule.shifts import load_shifts
+
+
+  def build_plan(roster_path, shifts_path):
+      staff = load_roster(roster_path)
+      shifts = load_shifts(shifts_path)
+      plan = {}
+      for shift_id, needed in shifts.items():
+          assigned = [name for name in needed if shift_id in staff.get(name, [])]
+          plan[shift_id] = assigned
+      return plan
+
+
+  def coverage(plan, shifts):
+      return {shift_id: len(plan.get(shift_id, [])) for shift_id in shifts}
+  PLAN
+
+outputs:
+  - {path: schedule/plan.py, kind: program, run: 'python3 -c ''from schedule.plan import build_plan, coverage; from schedule.shifts import load_shifts; s=load_shifts("shifts.txt"); p=build_plan("roster.txt","shifts.txt"); assert p=={"morning":["ada","bo"],"night":["ada","cem"],"evening":["cem","di"]}, p; assert coverage(p,s)=={"morning":2,"night":2,"evening":2}, coverage(p,s); assert coverage({"morning":["ada"]},s)=={"morning":1,"night":0,"evening":0}; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from schedule.plan import build_plan, coverage; from schedule.shifts import load_shifts; s=load_shifts("shifts.txt"); p=build_plan("roster.txt","shifts.txt"); assert p=={"morning":["ada","bo"],"night":["ada","cem"],"evening":["cem","di"]}, p; assert coverage(p,s)=={"morning":2,"night":2,"evening":2}, coverage(p,s); assert coverage({"morning":["ada"]},s)=={"morning":1,"night":0,"evening":0}; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8319
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: vardiya-cizelgesi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: graf-gezinme
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: dosya-okuma
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,241 @@
+id: gen-k-5013-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) weblog/trie/store.py dosyasındaki DictNodeStore sınıfının __init__, get_child, set_child, children, terminal ve set_terminal metotlarındaki NotImplementedError gövdelerini çalışır biçimde gerçekleştir; sınıf sözlük tabanlı bir düğüm deposu olsun.
+
+  2) weblog/trie/prefix.py dosyasındaki PrefixTrie sınıfının __init__, insert, count ve completions metotlarındaki NotImplementedError gövdelerini çalışır biçimde gerçekleştir.
+
+  3) PrefixTrie'nin insert metodu verilen segmentleri ağaca eklesin, count metodu verilen segmentlerin sayacını döndürsün.
+
+  4) PrefixTrie'nin completions metodu verilen segment önekine uyan yollar içinde en yüksek sayaca sahip olan yolu döndürsün.
+
+setup: |
+  mkdir -p weblog/trie weblog/io
+  cat > weblog/__init__.py <<'EOF'
+  EOF
+  cat > weblog/trie/__init__.py <<'EOF'
+  EOF
+  cat > weblog/io/__init__.py <<'EOF'
+  EOF
+  cat > weblog/trie/base.py <<'BASE'
+  from abc import ABC, abstractmethod
+
+
+  class NodeStore(ABC):
+      """Abstract storage contract for trie nodes keyed by a single character."""
+
+      @abstractmethod
+      def get_child(self, label):
+          raise NotImplementedError
+
+      @abstractmethod
+      def set_child(self, label, node):
+          raise NotImplementedError
+
+      @abstractmethod
+      def children(self):
+          raise NotImplementedError
+
+      @abstractmethod
+      def terminal(self):
+          raise NotImplementedError
+
+      @abstractmethod
+      def set_terminal(self, value):
+          raise NotImplementedError
+  BASE
+  cat > weblog/trie/store.py <<'STORE'
+  from weblog.trie.base import NodeStore
+
+
+  class DictNodeStore(NodeStore):
+      def __init__(self):
+          raise NotImplementedError
+
+      def get_child(self, label):
+          raise NotImplementedError
+
+      def set_child(self, label, node):
+          raise NotImplementedError
+
+      def children(self):
+          raise NotImplementedError
+
+      def terminal(self):
+          raise NotImplementedError
+
+      def set_terminal(self, value):
+          raise NotImplementedError
+  STORE
+  cat > weblog/trie/prefix.py <<'PREFIX'
+  from weblog.trie.store import DictNodeStore
+
+
+  class PrefixTrie:
+      """Trie over path segments; each node may carry a hit counter."""
+
+      def __init__(self, store_factory=DictNodeStore):
+          raise NotImplementedError
+
+      def insert(self, segments):
+          raise NotImplementedError
+
+      def count(self, segments):
+          raise NotImplementedError
+
+      def completions(self, prefix):
+          raise NotImplementedError
+  PREFIX
+  cat > weblog/io/reader.py <<'READER'
+  def read_lines(path):
+      with open(path, "r", encoding="utf-8") as handle:
+          return [line.rstrip("\n") for line in handle if line.strip()]
+  READER
+  cat > weblog/io/paths.py <<'PATHS'
+  def split_path(line):
+      parts = line.split(" ")
+      method = parts[0]
+      path = parts[1]
+      segments = [s for s in path.split("/") if s]
+      return method, segments
+  PATHS
+  cat > access.log <<'LOG'
+  GET /api/users/42
+  GET /api/users/7
+  POST /api/orders
+  GET /api/users/42
+  GET /static/app.js
+  GET /api/orders
+  GET /api/users/42
+  LOG
+
+goal_tr: >
+  weblog/trie/store.py ve weblog/trie/prefix.py dosyalarindaki
+  NotImplementedError govdelerini, DictNodeStore sozluk tabanli dugum
+  deposunu ve PrefixTrie'nin insert/count/completions metotlarini calisir
+  bicimde gerceklestir; completions verilen segment onekine uyan yollar
+  icinde en yuksek sayaci olan yolu dondursun.
+
+reference_solution: |
+  cat > weblog/trie/store.py <<'STORE'
+  from weblog.trie.base import NodeStore
+
+
+  class DictNodeStore(NodeStore):
+      def __init__(self):
+          self._children = {}
+          self._terminal = None
+
+      def get_child(self, label):
+          return self._children.get(label)
+
+      def set_child(self, label, node):
+          self._children[label] = node
+
+      def children(self):
+          return sorted(self._children.items())
+
+      def terminal(self):
+          return self._terminal
+
+      def set_terminal(self, value):
+          self._terminal = value
+  STORE
+  cat > weblog/trie/prefix.py <<'PREFIX'
+  from weblog.trie.store import DictNodeStore
+
+
+  class PrefixTrie:
+      """Trie over path segments; each node may carry a hit counter."""
+
+      def __init__(self, store_factory=DictNodeStore):
+          self._store_factory = store_factory
+          self._root = store_factory()
+
+      def insert(self, segments):
+          node = self._root
+          for label in segments:
+              child = node.get_child(label)
+              if child is None:
+                  child = self._store_factory()
+                  node.set_child(label, child)
+              node = child
+          node.set_terminal((node.terminal() or 0) + 1)
+
+      def _walk(self, segments):
+          node = self._root
+          for label in segments:
+              node = node.get_child(label)
+              if node is None:
+                  return None
+          return node
+
+      def count(self, segments):
+          node = self._walk(segments)
+          if node is None:
+              return 0
+          return node.terminal() or 0
+
+      def completions(self, prefix):
+          node = self._walk(prefix)
+          if node is None:
+              return None
+          best = None
+          best_count = 0
+          stack = [(node, list(prefix))]
+          while stack:
+              current, trail = stack.pop()
+              hits = current.terminal()
+              if hits and hits > best_count:
+                  best_count = hits
+                  best = list(trail)
+              for label, child in current.children():
+                  stack.append((child, trail + [label]))
+          return best
+  PREFIX
+
+outputs:
+  - {path: weblog/trie/store.py, kind: program, run: 'python3 -c ''from weblog.io.reader import read_lines; from weblog.io.paths import split_path; from weblog.trie.prefix import PrefixTrie; lines=read_lines("access.log"); t=PrefixTrie(); [t.insert(split_path(l)[1]) for l in lines]; assert t.count(["api","users","42"])==3, t.count(["api","users","42"]); assert t.count(["api","users","7"])==1; assert t.count(["api","nope"])==0; assert t.completions(["api"])==["api","users","42"], t.completions(["api"]); assert t.completions(["api","orders"])==["api","orders"]; assert t.completions(["static"])==["static","app.js"]; assert t.completions(["zzz"]) is None; print("TAMAM")'''}
+  - {path: weblog/trie/prefix.py, kind: program, run: 'python3 -c ''from weblog.io.reader import read_lines; from weblog.io.paths import split_path; from weblog.trie.prefix import PrefixTrie; lines=read_lines("access.log"); t=PrefixTrie(); [t.insert(split_path(l)[1]) for l in lines]; assert t.count(["api","users","42"])==3, t.count(["api","users","42"]); assert t.count(["api","users","7"])==1; assert t.count(["api","nope"])==0; assert t.completions(["api"])==["api","users","42"], t.completions(["api"]); assert t.completions(["api","orders"])==["api","orders"]; assert t.completions(["static"])==["static","app.js"]; assert t.completions(["zzz"]) is None; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from weblog.io.reader import read_lines; from weblog.io.paths import split_path; from weblog.trie.prefix import PrefixTrie; lines=read_lines("access.log"); t=PrefixTrie(); [t.insert(split_path(l)[1]) for l in lines]; assert t.count(["api","users","42"])==3, t.count(["api","users","42"]); assert t.count(["api","users","7"])==1; assert t.count(["api","nope"])==0; assert t.completions(["api"])==["api","users","42"], t.completions(["api"]); assert t.completions(["api","orders"])==["api","orders"]; assert t.completions(["static"])==["static","app.js"]; assert t.completions(["zzz"]) is None; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5013
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: web-erisim-loglari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: trie
+      karmasiklik: duz
+      kalip: abc-protokol
+      akis: dosya-okuma
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,143 @@
+id: gen-k-8192-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Sabah beri sensör verileriyle uğraşıyorum, dün gece bıraktığım testler bir türlü beklediğim sonucu vermedi. Ekip toplantısında alarm sayılarının tutarsız çıktığını fark ettik, muhtemelen oturum boyunca biriken örnek sayısı doğru hesaplanmıyor. /workspace altındaki sensors/alarm.py dosyasındaki AlarmSession sınıfına bir bakabilir misin? feed her çağrıldığında o ana kadar beslenen örnek sayısını doğru şekilde biriktirmesi lazım; sayaç hiçbir durumda sıfırlanmamalı. Sadece sensors/alarm.py üzerinde çalış, diğer dosyalara dokunma.
+
+setup: |
+  mkdir -p sensors
+  cat > sensors/thresholds.py <<'THRESH'
+  LIMITS = {"temp": 30.0, "hum": 70.0, "press": 120.0}
+  THRESH
+
+  cat > sensors/reader.py <<'READER'
+  def read_samples(text):
+      samples = []
+      for line in text.strip().splitlines():
+          parts = line.split(",")
+          samples.append((parts[0], float(parts[1])))
+      return samples
+  READER
+
+  cat > sensors/alarm.py <<'ALARM'
+  from sensors.thresholds import LIMITS
+  from sensors.reader import read_samples
+
+
+  class AlarmSession:
+      def __init__(self, limits):
+          self.limits = limits
+          self.count = 0
+          self.breaches = []
+
+      def __enter__(self):
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          return False
+
+      def feed(self, samples):
+          for name, value in samples:
+              if value > self.limits[name]:
+                  self.breaches.append(name)
+              self.count = self.count
+
+
+  def scan(path):
+      with open(path) as fh:
+          text = fh.read()
+      samples = read_samples(text)
+      with AlarmSession(LIMITS) as session:
+          session.feed(samples)
+          return session.breaches
+  ALARM
+
+  cat > samples.txt <<'DATA'
+  temp,31.0
+  hum,50.0
+  temp,25.0
+  press,130.0
+  DATA
+
+goal_tr: >
+  sensors/alarm.py dosyasindaki AlarmSession sinifini, feed her
+  cagrildiginda o ana kadar beslenen ornek sayisini dogru biriktirecek
+  bicimde duzelt (sayac sifirlanmamali).
+
+reference_solution: |
+  cat > sensors/alarm.py <<'ALARM'
+  from sensors.thresholds import LIMITS
+  from sensors.reader import read_samples
+
+
+  class AlarmSession:
+      def __init__(self, limits):
+          self.limits = limits
+          self.count = 0
+          self.breaches = []
+
+      def __enter__(self):
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          return False
+
+      def feed(self, samples):
+          for name, value in samples:
+              if value > self.limits[name]:
+                  self.breaches.append(name)
+              self.count += 1
+
+
+  def scan(path):
+      with open(path) as fh:
+          text = fh.read()
+      samples = read_samples(text)
+      with AlarmSession(LIMITS) as session:
+          session.feed(samples)
+          return session.breaches
+  ALARM
+
+outputs:
+  - {path: sensors/alarm.py, kind: program, run: 'python3 -c ''from sensors.alarm import AlarmSession, scan; from sensors.thresholds import LIMITS; s=AlarmSession(LIMITS); s.feed([("temp",31.0),("hum",50.0)]); assert s.count==2, s.count; s.feed([("press",130.0)]); assert s.count==3, s.count; assert s.breaches==["temp","press"], s.breaches; assert scan("samples.txt")==["temp","press"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensors.alarm import AlarmSession, scan; from sensors.thresholds import LIMITS; s=AlarmSession(LIMITS); s.feed([("temp",31.0),("hum",50.0)]); assert s.count==2, s.count; s.feed([("press",130.0)]); assert s.count==3, s.count; assert s.breaches==["temp","press"], s.breaches; assert scan("samples.txt")==["temp","press"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8192
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: sensor-alarm-kurallari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-durum-sifirlama
+      karmasiklik: duz
+      kalip: context-manager
+      akis: dosya-okuma
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

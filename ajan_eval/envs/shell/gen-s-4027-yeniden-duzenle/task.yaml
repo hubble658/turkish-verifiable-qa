@@ -1,0 +1,92 @@
+id: gen-s-4027-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) girdi dizinindeki bozuk.txt dışındaki tüm sensör dosyalarını olcumler.tar adlı bir arşivde topla.
+  2) Arşivi yedek dizinine çıkar.
+  3) Her dosyanın sıcaklık satırları yedek altında aynı adla dursun: yedek/sensor_a.txt, yedek/sensor_b.txt, yedek/sensor_c.txt.
+
+setup: |
+  mkdir -p girdi yedek
+  cat > girdi/sensor_a.txt <<'TXT'
+  sicaklik=21.4
+  nem=44
+  basinc=1008
+  sicaklik=22.1
+  nem=45
+  TXT
+  cat > girdi/sensor_b.txt <<'TXT'
+  sicaklik=19.8
+  nem=41
+  basinc=1012
+  sicaklik=20.3
+  nem=42
+  TXT
+  cat > girdi/sensor_c.txt <<'TXT'
+  sicaklik=23.0
+  nem=48
+  basinc=1005
+  sicaklik=23.6
+  nem=49
+  TXT
+  cat > girdi/bozuk.txt <<'TXT'
+  sicaklik=
+  nem=abc
+  basinc=9999
+  TXT
+
+goal_tr: >
+  girdi dizinindeki bozuk.txt disindaki tum sensor dosyalarini bir arsivde
+  toplayip yedek dizinine cikar ve her dosyadaki sicaklik satirlarini ayni
+  adla yedek altinda tut
+
+reference_solution: |
+  cd girdi && tar -cf ../olcumler.tar --exclude=bozuk.txt *.txt && cd .. && mkdir -p yedek && tar -xf olcumler.tar -C yedek && find yedek -type f -name 'sensor_*' -exec sed -i '/^sicaklik=/!d' {} +
+
+outputs:
+  - {path: olcumler.tar, kind: file}
+  - {path: yedek, kind: dir}
+  - {path: yedek/sensor_a.txt, kind: file}
+  - {path: yedek/sensor_b.txt, kind: file}
+  - {path: yedek/sensor_c.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: yedek, value: [sensor_a.txt, sensor_b.txt, sensor_c.txt]}
+  - {op: run_stdout_eq, cmd: tar -tf olcumler.tar | sort, value: 'sensor_a.txt
+
+    sensor_b.txt
+
+    sensor_c.txt'}
+  - {op: file_lines_eq, path: yedek/sensor_a.txt, value: [sicaklik=21.4, sicaklik=22.1]}
+  - {op: file_lines_eq, path: yedek/sensor_b.txt, value: [sicaklik=19.8, sicaklik=20.3]}
+  - {op: file_lines_eq, path: yedek/sensor_c.txt, value: [sicaklik=23.0, sicaklik=23.6]}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4027
+    bundle: secerek-arsivle
+    tools:
+    - tar
+    - find
+    konu: sensor-olcumleri
+    hedef: yeniden-duzenle
+    girdi: json
+    kaynak: cok-dosya
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

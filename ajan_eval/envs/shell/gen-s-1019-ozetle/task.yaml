@@ -1,0 +1,71 @@
+id: gen-s-1019-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Kütüphane kayıtlarından kısa bir özet çıkarmam lazım. kutuphane/kayitlar.json içindeki her kaydın id ve kitap alanlarını, kayıtların dosyadaki sırasını koruyarak "id kitap" biçiminde tek satırda birleştir; .yedek uzantılı dosya işleme katılmasın. Sonuç kutuphane/ozet.txt dosyasına yazılsın.
+
+setup: |
+  mkdir -p kutuphane
+  cat > kutuphane/kayitlar.json <<'JSON'
+  [
+    {"id": 1, "kitap": "Kirmizi Kitap", "durum": "oduncte"},
+    {"id": 2, "kitap": "Mavi Kitap", "durum": "rafta"},
+    {"id": 3, "kitap": "Yesil Kitap", "durum": "oduncte"},
+    {"id": 4, "kitap": "Sari Kitap", "durum": "kayip"},
+    {"id": 5, "kitap": "Beyaz Kitap", "durum": "rafta"},
+    {"id": 6, "kitap": "Siyah Kitap", "durum": "oduncte"}
+  ]
+  JSON
+  cat > kutuphane/kayitlar.json.yedek <<'JSON'
+  [
+    {"id": 99, "kitap": "Tuzak Kitap", "durum": "oduncte"}
+  ]
+  JSON
+
+goal_tr: >
+  kutuphane/kayitlar.json icindeki her kaydin id ve kitap alanlarini,
+  kayitlar dosyadaki sirayla, "id kitap" biciminde tek satirda birlestirip
+  kutuphane/ozet.txt dosyasina yaz; .yedek uzantili dosyayi isleme katma.
+
+reference_solution: |
+  grep -v '\.yedek' kutuphane/kayitlar.json > /tmp/k.json
+  head -n -1 /tmp/k.json | tail -n +2 > /tmp/ic.json
+  sed -e 's/^[[:space:]]*//' -e 's/.*"id": *\([0-9]*\).*/id=\1/' /tmp/ic.json > /tmp/ids.txt
+  sed -e 's/^[[:space:]]*//' -e 's/.*"kitap": *"\([^"]*\)".*/\1/' /tmp/ic.json > /tmp/adlar.txt
+  paste -d' ' /tmp/ids.txt /tmp/adlar.txt | sed 's/^id=//' > kutuphane/ozet.txt
+
+outputs:
+  - {path: kutuphane/ozet.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: kutuphane/ozet.txt, value: [1 Kirmizi Kitap, 2 Mavi Kitap, 3 Yesil Kitap, 4 Sari Kitap, 5 Beyaz Kitap, 6 Siyah Kitap]}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-1019
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: kutuphane-kayitlari
+    hedef: ozetle
+    girdi: json
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

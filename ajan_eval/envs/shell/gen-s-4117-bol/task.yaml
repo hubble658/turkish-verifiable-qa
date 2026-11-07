@@ -1,0 +1,67 @@
+id: gen-s-4117-bol
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  depo dizininin içindeki her alt dizini incele ve envanter.json adlı bir dosya oluştur. Bu dosyada her alt dizin için bir giriş bulunsun; her giriş {"dizin": <ad>, "dosya_sayisi": <sayi>} biçiminde olsun ve o dizindeki dosya sayısını göstersin. Girişler dizin adına göre artan sırada yer alsın.
+
+setup: |
+  mkdir -p depo/arsiv depo/aktif
+  printf 'kirmizi kalem\n' > 'depo/aktif/kirmizi kalem.txt'
+  printf 'mavi defter\n' > 'depo/aktif/mavi defter.txt'
+  printf 'eski kayit\n' > 'depo/arsiv/eski kayit.txt'
+
+goal_tr: >
+  depo dizinindeki her alt dizinin adini ve o dizindeki dosya sayisini
+  iceren envanter.json dosyasini olustur; her giris {"dizin": <ad>,
+  "dosya_sayisi": <sayi>} biciminde olsun ve dizinler ada gore artan sirada
+  yer alsin.
+
+reference_solution: |
+  mkdir -p gecici
+  for d in depo/*/; do
+    ad=$(basename "$d")
+    n=$(find "$d" -maxdepth 1 -type f | wc -l)
+    printf '%s %s\n' "$ad" "$n"
+  done | sort > gecici/satirlar.txt
+  {
+    printf '[\n'
+    sed 's/^\([^ ]*\) \([0-9]*\)$/  {"dizin": "\1", "dosya_sayisi": \2}/' gecici/satirlar.txt | paste -sd ',' -
+    printf '\n]\n'
+  } > gecici/envanter.json
+  mv gecici/envanter.json envanter.json
+
+outputs:
+  - {path: envanter.json, kind: json}
+
+checks:
+  - {op: json_eq, path: envanter.json, value: [{dizin: aktif, dosya_sayisi: 2}, {dizin: arsiv, dosya_sayisi: 1}]}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4117
+    bundle: dosya-duzen
+    tools:
+    - mkdir
+    - mv
+    konu: envanter
+    hedef: bol
+    girdi: duz-metin
+    kaynak: dizin-agaci
+    cikti: json
+    kesif: yok
+    uslup: duz-hedef
+    direnc: bosluklu-ad
+    bukulme: olcek
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

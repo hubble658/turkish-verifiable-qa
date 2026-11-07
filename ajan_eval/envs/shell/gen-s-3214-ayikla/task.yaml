@@ -1,0 +1,59 @@
+id: gen-s-3214-ayikla
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  randevular dizin ağacındaki tüm kayit.txt dosyalarının ilk iki satırını atlayıp kalan satırları sırayla satir-listesi.txt dosyasına yaz.
+
+setup: |
+  mkdir -p randevular/klinikler/1 randevular/klinikler/2 randevular/klinikler/3
+  printf '2024-03-01 09:00 Ayse Yilmaz Kardiyoloji\n2024-03-01 10:30 Mehmet Demir Noroloji\n' > randevular/klinikler/1/kayit.txt
+  printf '2024-03-02 08:15 Zeynep Kaya Ortopedi\n2024-03-02 11:45 Ali Vural Kardiyoloji\n' > randevular/klinikler/2/kayit.txt
+  printf '2024-03-03 14:00 Fatma Ozturk Noroloji\n2024-03-03 15:20 Hasan Celik Ortopedi\n' > randevular/klinikler/3/kayit.txt
+  printf '2024-03-04 09:45 Elif Arslan Kardiyoloji\n' > randevular/klinikler/3/ek.txt
+
+goal_tr: >
+  randevular dizin agacindaki tum kayit.txt dosyalarinin satirlarini
+  birlestirip ilk iki satiri head ile atlayarak kalan satirlari tail ile
+  alip sirayla satir-listesi.txt dosyasina yaz
+
+reference_solution: |
+  find randevular -name kayit.txt | sort | xargs cat > birlesik.txt
+  head -n 2 birlesik.txt > ilk.txt
+  tail -n +3 birlesik.txt > satir-listesi.txt
+  rm birlesik.txt ilk.txt
+
+outputs:
+  - {path: satir-listesi.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: satir-listesi.txt, value: ['2024-03-02 08:15 Zeynep Kaya Ortopedi', '2024-03-02 11:45 Ali Vural Kardiyoloji', '2024-03-03 14:00 Fatma Ozturk Noroloji', '2024-03-03 15:20 Hasan Celik Ortopedi']}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3214
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: hastane-randevulari
+    hedef: ayikla
+    girdi: duz-metin
+    kaynak: dizin-agaci
+    cikti: satir-listesi
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: olcek
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

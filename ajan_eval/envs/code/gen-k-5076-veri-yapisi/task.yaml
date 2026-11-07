@@ -1,0 +1,164 @@
+id: gen-k-5076-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  callcenter/intervals/merge.py dosyasındaki Interval sınıfının __add__ metodu ile IntervalSet sınıfını (__init__, add ve total metotlarıyla birlikte) gerçekleştir. IntervalSet çakışan ya da komşu olan aralıkları birleştirip sıralı biçimde tutmalı; add yeni bir aralığı ekledikten sonra aralıkları yeniden birleştirmeli; total ise birleştirilmiş aralıkların toplam uzunluğunu döndürmelidir. Böylece callcenter/load.py üzerinden okunan kayıtlarda toplam süre doğru hesaplanmalıdır.
+
+  Su sartlar saglanmali:
+  - callcenter/intervals/merge.py dosyası, Interval.__add__ ile IntervalSet.__init__, IntervalSet.add ve IntervalSet.total metotlarını içermeli.
+  - IntervalSet, çakışan ve komşu aralıkları birleştirip sıralı tutmalı.
+  - IntervalSet.add, yeni aralığı ekledikten sonra aralıkları yeniden birleştirmeli.
+  - IntervalSet.total, birleştirilmiş aralıkların toplam uzunluğunu döndürmeli.
+  - callcenter/load.py içindeki load_intervals fonksiyonu, calls.txt dosyasındaki kayıtları okuyup IntervalSet üzerinden doğru toplam süreyi hesaplayabilmeli.
+
+setup: |
+  mkdir -p callcenter/intervals
+  cat > callcenter/__init__.py <<'EOF'
+  EOF
+  cat > callcenter/intervals/__init__.py <<'EOF'
+  EOF
+  cat > callcenter/intervals/merge.py <<'EOF'
+  class Interval:
+      """A closed time interval [start, end] in seconds."""
+
+      def __init__(self, start, end):
+          self.start = start
+          self.end = end
+
+      def __add__(self, other):
+          raise NotImplementedError
+
+      def __repr__(self):
+          return "Interval(%r, %r)" % (self.start, self.end)
+
+
+  class IntervalSet:
+      """A set of intervals kept merged and sorted."""
+
+      def __init__(self, intervals=None):
+          raise NotImplementedError
+
+      def add(self, interval):
+          raise NotImplementedError
+
+      def total(self):
+          raise NotImplementedError
+  EOF
+  cat > callcenter/load.py <<'EOF'
+  from callcenter.intervals.merge import Interval, IntervalSet
+
+
+  def load_intervals(path):
+      """Read lines 'start,end' and return an IntervalSet."""
+      intervals = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              a, b = line.split(',')
+              intervals.append(Interval(int(a), int(b)))
+      return IntervalSet(intervals)
+  EOF
+  cat > calls.txt <<'EOF'
+  10,20
+  15,25
+  30,40
+  35,50
+  60,70
+  EOF
+
+goal_tr: >
+  callcenter/intervals/merge.py icindeki Interval.__add__ ve IntervalSet
+  sinifini (__init__, add, total) oyle gerceklestir ki IntervalSet
+  cakisan/komsu araliklari birlestirip sirali tutsun, add yeni araligi
+  ekleyip yeniden birlestirsin ve total birlestirilmis araliklarin toplam
+  uzunlugunu dondursun; boylece callcenter/load.py uzerinden okunan
+  kayitlarda total dogru hesaplansin.
+
+reference_solution: |
+  cat > callcenter/intervals/merge.py <<'EOF'
+  class Interval:
+      """A closed time interval [start, end] in seconds."""
+
+      def __init__(self, start, end):
+          self.start = start
+          self.end = end
+
+      def __add__(self, other):
+          if self.end < other.start or other.end < self.start:
+              return None
+          return Interval(min(self.start, other.start), max(self.end, other.end))
+
+      def __repr__(self):
+          return "Interval(%r, %r)" % (self.start, self.end)
+
+
+  class IntervalSet:
+      """A set of intervals kept merged and sorted."""
+
+      def __init__(self, intervals=None):
+          self.items = []
+          for iv in intervals or []:
+              self.add(iv)
+
+      def add(self, interval):
+          merged = interval
+          rest = []
+          for existing in self.items:
+              combined = merged + existing
+              if combined is None:
+                  rest.append(existing)
+              else:
+                  merged = combined
+          rest.append(merged)
+          rest.sort(key=lambda iv: iv.start)
+          self.items = rest
+
+      def total(self):
+          return sum(iv.end - iv.start for iv in self.items)
+  EOF
+
+outputs:
+  - {path: callcenter/intervals/merge.py, kind: program, run: 'python3 -c ''from callcenter.load import load_intervals; from callcenter.intervals.merge import Interval, IntervalSet; s=load_intervals("calls.txt"); assert s.total()==45, s.total(); assert [(i.start,i.end) for i in s.items]==[(10,25),(30,50),(60,70)], s.items; s.add(Interval(24,33)); assert s.total()==50, s.total(); assert [(i.start,i.end) for i in s.items]==[(10,50),(60,70)], s.items; assert (Interval(0,5)+Interval(10,20)) is None; assert (Interval(0,5)+Interval(4,9)).end==9; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from callcenter.load import load_intervals; from callcenter.intervals.merge import Interval, IntervalSet; s=load_intervals("calls.txt"); assert s.total()==45, s.total(); assert [(i.start,i.end) for i in s.items]==[(10,25),(30,50),(60,70)], s.items; s.add(Interval(24,33)); assert s.total()==50, s.total(); assert [(i.start,i.end) for i in s.items]==[(10,50),(60,70)], s.items; assert (Interval(0,5)+Interval(10,20)) is None; assert (Interval(0,5)+Interval(4,9)).end==9; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5076
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: cagri-merkezi-kayitlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: aralik-birlestirme
+      karmasiklik: duz
+      kalip: operator-asiri-yukleme
+      akis: cok-dosya-birlestirme
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

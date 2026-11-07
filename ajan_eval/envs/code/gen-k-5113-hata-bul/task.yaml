@@ -1,0 +1,144 @@
+id: gen-k-5113-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  farm/crops/yield_calc.py dosyasındaki CropYield sınıfının total metodunu düzelt. Bu metot şu anda her parselin toplamına yalnızca base_yield ile factor çarpımını ekliyor; bunun yerine her parsel için base_yield, factor ve o parselin area değerini birlikte çarparak toplaması gerekiyor.
+
+  Yani total metodu her kayıt için base_yield * factor * area hesabını yapıp bunları toplamalı.
+
+  Şu şartlar sağlanmalı:
+  - farm/crops/yield_calc.py dosyası mevcut olmalı ve içinde CropYield sınıfı ile total metodu bulunmalı.
+  - total metodu her parsel için base_yield * factor * area çarpımını hesaplamalı.
+  - total metodu bu çarpımların toplamını döndürmeli.
+  - add_plot ile eklenen her kayıt için hem factor hem area değeri kullanılmalı.
+  - farm/report.py içindeki summarize fonksiyonu bu düzeltilmiş total metodunu kullanarak doğru toplamı üretmeli.
+
+setup: |
+  mkdir -p farm/crops farm/soil
+  cat > farm/soil/quality.py <<'QUALITY'
+  def soil_factor(moisture, ph):
+      if moisture < 0 or moisture > 100:
+          raise ValueError("moisture out of range")
+      if ph < 0 or ph > 14:
+          raise ValueError("ph out of range")
+      return (moisture / 100.0) * (1.0 - abs(ph - 6.5) / 14.0)
+
+
+  def is_fertile(factor):
+      return factor >= 0.3
+  QUALITY
+  cat > farm/crops/yield_calc.py <<'YIELD'
+  from farm.soil.quality import soil_factor, is_fertile
+
+
+  class YieldError(Exception):
+      pass
+
+
+  class CropYield:
+      def __init__(self, base_yield):
+          self.base_yield = base_yield
+          self._records = []
+
+      def add_plot(self, moisture, ph, area):
+          factor = soil_factor(moisture, ph)
+          if not is_fertile(factor):
+              raise YieldError("plot not fertile")
+          self._records.append((factor, area))
+
+      def total(self):
+          total = 0.0
+          for factor, area in self._records:
+              total += self.base_yield * factor
+          return total
+  YIELD
+  cat > farm/report.py <<'REPORT'
+  from farm.crops.yield_calc import CropYield, YieldError
+
+
+  def summarize(plots, base_yield):
+      cy = CropYield(base_yield)
+      skipped = 0
+      for moisture, ph, area in plots:
+          try:
+              cy.add_plot(moisture, ph, area)
+          except YieldError:
+              skipped += 1
+      return {"total": round(cy.total(), 2), "skipped": skipped}
+  REPORT
+
+goal_tr: >
+  farm/crops/yield_calc.py icindeki CropYield.total metodunu, her parselin
+  toplamina alanini da carparak (base_yield * factor * area) dogru
+  hesaplayacak bicimde duzelt.
+
+reference_solution: |
+  cat > farm/crops/yield_calc.py <<'YIELD'
+  from farm.soil.quality import soil_factor, is_fertile
+
+
+  class YieldError(Exception):
+      pass
+
+
+  class CropYield:
+      def __init__(self, base_yield):
+          self.base_yield = base_yield
+          self._records = []
+
+      def add_plot(self, moisture, ph, area):
+          factor = soil_factor(moisture, ph)
+          if not is_fertile(factor):
+              raise YieldError("plot not fertile")
+          self._records.append((factor, area))
+
+      def total(self):
+          total = 0.0
+          for factor, area in self._records:
+              total += self.base_yield * factor * area
+          return total
+  YIELD
+
+outputs:
+  - {path: farm/crops/yield_calc.py, kind: program, run: 'python3 -c ''from farm.report import summarize; r=summarize([(50,6.5,2.0),(50,6.5,3.0),(10,1.0,5.0)],10.0); assert r=={"total":25.0,"skipped":1}, r; r2=summarize([(100,6.5,1.0)],2.0); assert r2=={"total":2.0,"skipped":0}, r2; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from farm.report import summarize; r=summarize([(50,6.5,2.0),(50,6.5,3.0),(10,1.0,5.0)],10.0); assert r=={"total":25.0,"skipped":1}, r; r2=summarize([(100,6.5,1.0)],2.0); assert r2=={"total":2.0,"skipped":0}, r2; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5113
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: tarim-verim-olcumleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kapsam-hatasi
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: cok-dosya-birlestirme
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

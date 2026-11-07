@@ -1,0 +1,120 @@
+id: gen-s-3009-arsivle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+prompt: 'Kütüphanedeki kayıtları düzenli tutmaya çalışıyorum ama son zamanlarda her şey birbirine karıştı; raf listeleri,
+  ödünç kayıtları ve içine yanlışlıkla geçersiz satırların bulaştığı bir dosya ayrı ayrı duruyor. Bilgisayarın başında oturmuş,
+  bu dağınıklığı tek bir düzenli arşive nasıl toparlarım diye düşünüyordum. Bugünlük tek isteğim, kitaplik dizinindeki raflar.txt,
+  odunc.txt ve kirli.txt dosyalarını bir arada tutan bir kitaplik.tar.gz arşivi oluşturman.
+
+
+  Arşivin içinde temiz.txt adında bir dosya olsun; bu dosyada yalnızca "RAF|YYYY-AA-GG" biçimine uyan geçerli satırlar bulunsun
+  ve her geçerli satır yalnızca bir kez yer alsın.
+
+
+  Arşivin içinde yalnız temiz.txt olsun. Çıktıyı çalışma dizininin kökünde (kitaplik.tar.gz ve temiz.txt) oluştur, alt dizine
+  yazma.
+
+  '
+setup: 'mkdir -p kitaplik
+
+  cat > kitaplik/raflar.txt <<''EOF''
+
+  R01|Deneme|2019|3
+
+  R02|Siir|2020|5
+
+  R03|Roman|2018|2
+
+  R04|Deneme|2021|4
+
+  EOF
+
+  cat > kitaplik/odunc.txt <<''EOF''
+
+  R01|2024-01-05
+
+  R02|2024-02-11
+
+  R02|2024-03-02
+
+  R03|2024-01-20
+
+  R04|2024-04-01
+
+  R04|2024-04-15
+
+  R04|2024-05-02
+
+  EOF
+
+  cat > kitaplik/kirli.txt <<''EOF''
+
+  bu satir gecerli degil
+
+  R01|2024-06-01
+
+  R02|kotu-tarih
+
+  EOF
+
+  '
+goal_tr: 'kitaplik dizinindeki raflar.txt, odunc.txt ve kirli.txt dosyalarini tek bir kitaplik.tar.gz arsivinde topla; arsivde
+  yalnizca gecerli bicimdeki "RAF|YYYY-AA-GG" satirlarini iceren temiz.txt bulunsun ve bu dosyada her gecerli satir bir kez
+  yer alsin.
+
+  '
+reference_solution: 'find kitaplik -type f -name ''*.txt'' -exec cat {} + | grep -E ''^[A-Z0-9]+\|[0-9]{4}-[0-9]{2}-[0-9]{2}$''
+  | sort -u > temiz.txt
+
+  tar -czf kitaplik.tar.gz temiz.txt
+
+  '
+outputs:
+- path: kitaplik.tar.gz
+  kind: file
+- path: temiz.txt
+  kind: file
+checks:
+- op: run_stdout_eq
+  cmd: tar -tzf kitaplik.tar.gz | sort
+  value: temiz.txt
+- op: file_lines_eq
+  path: temiz.txt
+  value:
+  - R01|2024-01-05
+  - R01|2024-06-01
+  - R02|2024-02-11
+  - R02|2024-03-02
+  - R03|2024-01-20
+  - R04|2024-04-01
+  - R04|2024-04-15
+  - R04|2024-05-02
+metadata:
+  domain: arsivle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3009
+    bundle: secerek-arsivle
+    tools:
+    - tar
+    - find
+    konu: kutuphane-kayitlari
+    hedef: arsivle
+    girdi: sabit-genislik
+    kaynak: cok-dosya
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}
+  duzeltme:
+    neden: yol_belirsiz
+    not: Arşivin ve temiz.txt'nin yeri, arşivde yalnız temiz.txt olacağı yazmıyordu.

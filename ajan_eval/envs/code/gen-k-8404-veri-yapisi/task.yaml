@@ -1,0 +1,141 @@
+id: gen-k-8404-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  diner/index/trie.py dosyasındaki MenuTrie sınıfının complete metodunu, verilen öneki taşıyan yemek adlarını döndürecek biçimde tamamla. Karşılaştırma yaparken büyük-küçük harf farkı ile boşluk ve tire farkı gözetilmemeli. Aynı yemek birden fazla kez eklenmiş olsa bile sonuçta her yemek adı yalnızca bir kez yer almalı ve dönen liste alfabetik sıralı olmalı.
+
+  Şu şartlar sağlanmalı:
+  - diner/index/trie.py dosyasındaki MenuTrie sınıfının complete metodu tamamlanmış olmalı.
+  - complete metodu, verilen öneki taşıyan yemek adlarını döndürmeli.
+  - Önek karşılaştırmasında büyük-küçük harf farkı gözetilmemeli.
+  - Önek karşılaştırmasında boşluk ve tire farkı gözetilmemeli.
+  - Aynı yemek birden fazla kez eklenmiş olsa bile sonuçta tekrarsız liste dönmeli.
+  - Dönen liste alfabetik sıralı olmalı.
+
+setup: |
+  mkdir -p diner/index diner/menu
+  cat > diner/menu/items.py <<'ITEMS'
+  def normalize(name):
+      return name.strip().lower().replace(" ", "-")
+  ITEMS
+  cat > diner/index/trie.py <<'TRIE'
+  from diner.menu.items import normalize
+
+
+  class MenuTrie:
+      def __init__(self):
+          self.root = {}
+
+      def add(self, name):
+          node = self.root
+          for ch in normalize(name):
+              node = node.setdefault(ch, {})
+          node.setdefault("$", []).append(name.strip())
+
+      def complete(self, prefix):
+          node = self.root
+          for ch in normalize(prefix):
+              if ch not in node:
+                  return []
+              node = node[ch]
+          found = []
+          stack = [node]
+          while stack:
+              cur = stack.pop()
+              if "$" in cur:
+                  found.extend(cur["$"])
+              for key, child in cur.items():
+                  if key != "$":
+                      stack.append(child)
+          return sorted(found)
+  TRIE
+  cat > diner/index/__init__.py <<'INIT'
+  from diner.index.trie import MenuTrie
+
+  __all__ = ["MenuTrie"]
+  INIT
+  cat > diner/__init__.py <<'PKG'
+  PKG
+
+goal_tr: >
+  diner/index/trie.py icindeki MenuTrie sinifini, complete metodu verilen
+  oneki tasiyan yemek adlarini buyuk-kucuk harf ve bosluk/tire farkini
+  gozetmeden, ayni yemek birden fazla kez eklenmis olsa bile TEKRARSIZ ve
+  alfabetik sirali olarak dondurecek bicimde tamamla.
+
+reference_solution: |
+  cat > diner/index/trie.py <<'TRIE'
+  from diner.menu.items import normalize
+
+
+  class MenuTrie:
+      def __init__(self):
+          self.root = {}
+
+      def add(self, name):
+          node = self.root
+          for ch in normalize(name):
+              node = node.setdefault(ch, {})
+          node.setdefault("$", []).append(name.strip())
+
+      def complete(self, prefix):
+          node = self.root
+          for ch in normalize(prefix):
+              if ch not in node:
+                  return []
+              node = node[ch]
+          found = set()
+          stack = [node]
+          while stack:
+              cur = stack.pop()
+              if "$" in cur:
+                  found.update(cur["$"])
+              for key, child in cur.items():
+                  if key != "$":
+                      stack.append(child)
+          return sorted(found)
+  TRIE
+
+outputs:
+  - {path: diner/index/trie.py, kind: program, run: 'python3 -c ''from diner.index import MenuTrie as T; t=T(); t.add("Margherita Pizza"); t.add("Margherita Pizza"); t.add("margherita pizza"); t.add("Mushroom Soup"); t.add("Minestrone"); t.add("Miso Glazed Salmon"); assert t.complete("marg")==["Margherita Pizza","margherita pizza"], t.complete("marg"); assert t.complete("MUSH")==["Mushroom Soup"], t.complete("MUSH"); assert t.complete("mi")==["Minestrone","Miso Glazed Salmon"], t.complete("mi"); assert t.complete("zzz")==[], t.complete("zzz"); assert t.complete("")==["Margherita Pizza","Minestrone","Miso Glazed Salmon","Mushroom Soup","margherita pizza"], t.complete(""); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from diner.index import MenuTrie as T; t=T(); t.add("Margherita Pizza"); t.add("Margherita Pizza"); t.add("margherita pizza"); t.add("Mushroom Soup"); t.add("Minestrone"); t.add("Miso Glazed Salmon"); assert t.complete("marg")==["Margherita Pizza","margherita pizza"], t.complete("marg"); assert t.complete("MUSH")==["Mushroom Soup"], t.complete("MUSH"); assert t.complete("mi")==["Minestrone","Miso Glazed Salmon"], t.complete("mi"); assert t.complete("zzz")==[], t.complete("zzz"); assert t.complete("")==["Margherita Pizza","Minestrone","Miso Glazed Salmon","Mushroom Soup","margherita pizza"], t.complete(""); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8404
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: restoran-siparisleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kolay
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: trie
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: cok-dosya-birlestirme
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

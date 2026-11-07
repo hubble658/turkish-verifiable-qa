@@ -1,0 +1,113 @@
+id: gen-k-8019-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) rez/merger.py dosyasındaki IntervalMerger sınıfını, rez/reservations.txt dosyasındaki her satırı uçuş_kodu, başlangıç, bitiş ve koltuk alanları olarak okuyacak biçimde düzelt.
+
+  2) Sınıfın aralıkları koltuk sayılarını toplayarak birleştirmesini sağla; kesişen veya bitişik aralıklar tek aralıkta toplansın.
+
+  3) Birleştirilen aralığın bitişini, kapsanan aralıkların en büyük bitişine genişlet.
+
+  4) merged() çağrıldığında (başlangıç, bitiş, toplam_koltuk) demetlerini başlangıca göre artan sırada döndür.
+
+setup: |
+  mkdir -p rez
+  cat > rez/reservations.txt <<'DATA'
+  TK100,2024-05-01,2024-05-03,3
+  TK200,2024-05-02,2024-05-05,2
+  TK300,2024-05-04,2024-05-06,4
+  TK400,2024-05-07,2024-05-09,1
+  DATA
+  cat > rez/merger.py <<'PY'
+  class IntervalMerger:
+      def __init__(self):
+          self._rows = []
+
+      def add(self, start, end, seats):
+          self._rows.append((start, end, int(seats)))
+
+      def merged(self):
+          rows = sorted(self._rows)
+          out = []
+          for s, e, n in rows:
+              if out and s < out[-1][1]:
+                  ps, pe, pn = out[-1]
+                  out[-1] = (ps, pe, pn + n)
+              else:
+                  out.append((s, e, n))
+          return out
+  PY
+
+goal_tr: >
+  rez/merger.py icindeki IntervalMerger sinifini, rez/reservations.txt
+  dosyasindaki her satiri (ucus_kodu, baslangic, bitis, koltuk) okuyup
+  baslangic-bitis araliklarini koltuk sayisini toplayarak birlestiren;
+  kesisen veya bitisik araliklari tek aralikta toplayan, birlestirilen
+  araligin bitisini en buyuk bitise genisleten ve merged() ile (baslangic,
+  bitis, toplam_koltuk) demetlerini baslangica gore artan sirada donduren
+  bicimde duzelt.
+
+reference_solution: |
+  cat > rez/merger.py <<'PY'
+  class IntervalMerger:
+      def __init__(self):
+          self._rows = []
+
+      def add(self, start, end, seats):
+          self._rows.append((start, end, int(seats)))
+
+      def merged(self):
+          rows = sorted(self._rows)
+          out = []
+          for s, e, n in rows:
+              if out and s <= out[-1][1]:
+                  ps, pe, pn = out[-1]
+                  out[-1] = (ps, pe if pe >= e else e, pn + n)
+              else:
+                  out.append((s, e, n))
+          return out
+  PY
+
+outputs:
+  - {path: rez/merger.py, kind: program, run: 'python3 -c ''from rez.merger import IntervalMerger as M; m=M(); [m.add(*l.split(",")[1:]) for l in open("rez/reservations.txt").read().strip().splitlines()]; r=m.merged(); assert r==[("2024-05-01","2024-05-06",9),("2024-05-07","2024-05-09",1)], r; m2=M(); m2.add("2024-06-01","2024-06-02",1); m2.add("2024-06-02","2024-06-04",2); m2.add("2024-06-10","2024-06-11",5); assert m2.merged()==[("2024-06-01","2024-06-04",3),("2024-06-10","2024-06-11",5)]; m3=M(); m3.add("2024-07-01","2024-07-02",1); m3.add("2024-07-02","2024-07-10",2); assert m3.merged()==[("2024-07-01","2024-07-10",3)]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from rez.merger import IntervalMerger as M; m=M(); [m.add(*l.split(",")[1:]) for l in open("rez/reservations.txt").read().strip().splitlines()]; r=m.merged(); assert r==[("2024-05-01","2024-05-06",9),("2024-05-07","2024-05-09",1)], r; m2=M(); m2.add("2024-06-01","2024-06-02",1); m2.add("2024-06-02","2024-06-04",2); m2.add("2024-06-10","2024-06-11",5); assert m2.merged()==[("2024-06-01","2024-06-04",3),("2024-06-10","2024-06-11",5)]; m3=M(); m3.add("2024-07-01","2024-07-02",1); m3.add("2024-07-02","2024-07-10",2); assert m3.merged()==[("2024-07-01","2024-07-10",3)]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8019
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: ucus-rezervasyonlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: aralik-birlestirme
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: dosya-okuma
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

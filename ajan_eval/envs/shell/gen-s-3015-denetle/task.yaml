@@ -1,0 +1,90 @@
+id: gen-s-3015-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  randevular klasöründeki her .tsv dosyasını incele. Her birinde durum sütununda "gelmedi" değeri taşıyan satırları, başlık satırı hariç, dosya adındaki poliklinik etiketiyle birlikte denetim/ altında aynı adlı bir .txt dosyasına yaz. Örneğin poliklinik_a.tsv içindeki "gelmedi" satırları denetim/poliklinik_a.txt dosyasına, poliklinik_b.tsv içindekiler denetim/poliklinik_b.txt dosyasına, poliklinik_c.tsv içindekiler denetim/poliklinik_c.txt dosyasına gitsin. denetim/ klasörünü oluştur. Her çıktı satırı "poliklinik_etiket<TAB>hasta_id<TAB>tarih<TAB>doktor" biçiminde olsun; yani dosya adındaki etiket (örn. poliklinik_a), hasta_id, tarih ve doktor değerleri sekmeyle ayrılmış olarak yazılsın.
+
+  Şu şartlar sağlanmalı:
+  - denetim/ klasörü ve içinde denetim/poliklinik_a.txt, denetim/poliklinik_b.txt, denetim/poliklinik_c.txt dosyaları oluşturulmuş olmalı.
+  - Her .txt dosyası yalnızca ilgili .tsv dosyasındaki durum değeri "gelmedi" olan satırları içermeli; başlık satırı yazılmamalı.
+  - Her satır tam olarak dört alandan oluşmalı ve alanlar sekmeyle ayrılmalı: poliklinik etiketi, hasta_id, tarih, doktor.
+  - İlk alan, dosya adındaki poliklinik etiketiyle (poliklinik_a, poliklinik_b, poliklinik_c) eşleşmeli.
+  - Diğer alanlar ilgili .tsv satırındaki hasta_id, tarih ve doktor değerlerini korumalı.
+  - "geldi" değeri taşıyan satırlar hiçbir çıktı dosyasına yazılmamalı.
+
+setup: |
+  mkdir -p randevular
+  cat > randevular/poliklinik_a.tsv <<'TSV'
+  hasta_id	tarih	doktor	durum
+  1001	2024-03-01	Dr_Ayse	geldi
+  1002	2024-03-01	Dr_Ayse	gelmedi
+  1003	2024-03-02	Dr_Mehmet	geldi
+  1004	2024-03-02	Dr_Mehmet	geldi
+  TSV
+  cat > randevular/poliklinik_b.tsv <<'TSV'
+  hasta_id	tarih	doktor	durum
+  2001	2024-03-01	Dr_Zeynep	gelmedi
+  2002	2024-03-02	Dr_Zeynep	geldi
+  2003	2024-03-03	Dr_Ali	gelmedi
+  2004	2024-03-03	Dr_Ali	gelmedi
+  TSV
+  cat > randevular/poliklinik_c.tsv <<'TSV'
+  hasta_id	tarih	doktor	durum
+  3001	2024-03-01	Dr_Ayse	geldi
+  3002	2024-03-02	Dr_Zeynep	gelmedi
+  3003	2024-03-03	Dr_Ali	geldi
+  3004	2024-03-03	Dr_Mehmet	gelmedi
+  TSV
+
+goal_tr: >
+  randevular klasorundeki her .tsv dosyasindaki durum sutununda "gelmedi"
+  degeri tasiyan satirlari, baslik satiri haric, dosya adindaki poliklinik
+  etiketiyle birlikte denetim/ altinda ayni adli bir .txt dosyasina yaz; her
+  satir "poliklinik_etiket<TAB>hasta_id<TAB>tarih<TAB>doktor" biciminde
+  olsun.
+
+reference_solution: |
+  mkdir -p denetim
+  find randevular -name '*.tsv' -print0 | xargs -0 -I{} sh -c 'b=$(basename "{}" .tsv); awk -F"\t" -v et="$b" "NR>1 && \$4==\"gelmedi\" {print et\"\t\"\$1\"\t\"\$2\"\t\"\$3}" "{}" > "denetim/$b.txt"'
+
+outputs:
+  - {path: denetim, kind: dir}
+  - {path: denetim/poliklinik_a.txt, kind: file}
+  - {path: denetim/poliklinik_b.txt, kind: file}
+  - {path: denetim/poliklinik_c.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: denetim, value: [poliklinik_a.txt, poliklinik_b.txt, poliklinik_c.txt]}
+  - {op: file_content_eq, path: denetim/poliklinik_a.txt, value: "poliklinik_a\t1002\t2024-03-01\tDr_Ayse"}
+  - {op: file_lines_eq, path: denetim/poliklinik_b.txt, value: ["poliklinik_b\t2001\t2024-03-01\tDr_Zeynep", "poliklinik_b\t2003\t2024-03-03\tDr_Ali", "poliklinik_b\t2004\t2024-03-03\tDr_Ali"]}
+  - {op: file_lines_eq, path: denetim/poliklinik_c.txt, value: ["poliklinik_c\t3002\t2024-03-02\tDr_Zeynep", "poliklinik_c\t3004\t2024-03-03\tDr_Mehmet"]}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3015
+    bundle: bul-tasi
+    tools:
+    - find
+    - xargs
+    konu: hastane-randevulari
+    hedef: denetle
+    girdi: tsv
+    kaynak: cok-dosya
+    cikti: birden-cok-dosya
+    kesif: veriye-bak
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

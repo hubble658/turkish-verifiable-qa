@@ -1,0 +1,96 @@
+id: gen-s-3215-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri/randevular.tsv'yi veri/bolumler.tsv'deki kat bilgisiyle birleştir; her bölüm için cikti altında bölüm adıyla aynı isimde alt dizin aç, o bölümün randevu satırlarını (başlık dahil) cikti/Kardiyoloji/randevular.tsv, cikti/Noroloji/randevular.tsv ve cikti/Ortopedi/randevular.tsv dosyalarına yaz. Kat bilgisini de cikti/Kardiyoloji/kat.txt, cikti/Noroloji/kat.txt ve cikti/Ortopedi/kat.txt dosyalarına koy.
+
+setup: |
+  mkdir -p veri
+  cat > veri/randevular.tsv <<'TSV'
+  hasta_id	tarih	bolum	doktor
+  H001	2024-03-01	Kardiyoloji	DrA
+  H002	2024-03-01	Noroloji	DrB
+  H003	2024-03-02	Kardiyoloji	DrA
+  H004	2024-03-02	Ortopedi	DrC
+  H005	2024-03-03	Noroloji	DrB
+  H006	2024-03-03	Kardiyoloji	DrD
+  H007	2024-03-04	Ortopedi	DrC
+  H008	2024-03-04	Noroloji	DrB
+  TSV
+  cat > veri/bolumler.tsv <<'TSV'
+  bolum	kat
+  Kardiyoloji	3
+  Noroloji	5
+  Ortopedi	2
+  TSV
+
+goal_tr: >
+  veri/randevular.tsv icindeki her bolum icin, veri/bolumler.tsv'deki kat
+  bilgisiyle birlestirip cikti/ altinda bolum adiyla ayni isimde bir alt
+  dizin olustur ve o bolume ait randevu satirlarini (baslik satiri dahil)
+  ilgili dizindeki randevular.tsv dosyasina yaz
+
+reference_solution: |
+  mkdir -p cikti
+  head -n 1 veri/randevular.tsv > cikti/_baslik.tsv
+  tail -n +2 veri/randevular.tsv | while IFS=$'\t' read -r hasta tarih bolum doktor; do
+    mkdir -p "cikti/$bolum"
+    if [ ! -f "cikti/$bolum/randevular.tsv" ]; then
+      cat cikti/_baslik.tsv > "cikti/$bolum/randevular.tsv"
+    fi
+    printf '%s\t%s\t%s\t%s\n' "$hasta" "$tarih" "$bolum" "$doktor" >> "cikti/$bolum/randevular.tsv"
+  done
+  rm -f cikti/_baslik.tsv
+  while IFS=$'\t' read -r bolum kat; do
+    [ "$bolum" = "bolum" ] && continue
+    mkdir -p "cikti/$bolum"
+    printf '%s\n' "$kat" > "cikti/$bolum/kat.txt"
+  done < veri/bolumler.tsv
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/Kardiyoloji/randevular.tsv, kind: file}
+  - {path: cikti/Noroloji/randevular.tsv, kind: file}
+  - {path: cikti/Ortopedi/randevular.tsv, kind: file}
+  - {path: cikti/Kardiyoloji/kat.txt, kind: file}
+  - {path: cikti/Noroloji/kat.txt, kind: file}
+  - {path: cikti/Ortopedi/kat.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [Kardiyoloji, Noroloji, Ortopedi]}
+  - {op: file_content_eq, path: cikti/Kardiyoloji/kat.txt, value: '3'}
+  - {op: file_lines_eq, path: cikti/Kardiyoloji/randevular.tsv, value: ["hasta_id\ttarih\tbolum\tdoktor", "H001\t2024-03-01\tKardiyoloji\tDrA", "H003\t2024-03-02\tKardiyoloji\tDrA", "H006\t2024-03-03\tKardiyoloji\tDrD"]}
+  - {op: file_content_eq, path: cikti/Noroloji/kat.txt, value: '5'}
+  - {op: file_lines_eq, path: cikti/Noroloji/randevular.tsv, value: ["hasta_id\ttarih\tbolum\tdoktor", "H002\t2024-03-01\tNoroloji\tDrB", "H005\t2024-03-03\tNoroloji\tDrB", "H008\t2024-03-04\tNoroloji\tDrB"]}
+  - {op: file_content_eq, path: cikti/Ortopedi/kat.txt, value: '2'}
+  - {op: file_lines_eq, path: cikti/Ortopedi/randevular.tsv, value: ["hasta_id\ttarih\tbolum\tdoktor", "H004\t2024-03-02\tOrtopedi\tDrC", "H007\t2024-03-04\tOrtopedi\tDrC"]}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3215
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: hastane-randevulari
+    hedef: bol
+    girdi: tsv
+    kaynak: iki-dosya-capraz
+    cikti: dizin-yapisi
+    kesif: dosyayi-bul
+    uslup: terse
+    direnc: yok
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,136 @@
+id: gen-k-5074-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) planner/queue.py dosyasındaki EventQueue sınıfını, "SS:DD isim" biçimindeki etkinlikleri başlangıç saatine göre artan sırada çıkaracak bir öncelik kuyruğu olacak şekilde gerçekleştir.
+
+  2) Aynı anda okunan etkinlikler arasında önce okunan önce çıksın.
+
+  3) push yöntemi kuyruğa yeni bir etkinlik eklesin.
+
+  4) pop yöntemi en erken etkinliğin adını döndürsün ve onu kuyruktan çıkarsın.
+
+  5) peek yöntemi kuyruğu bozmadan en erken etkinliğin adını döndürsün.
+
+  6) len işlemi kuyruktaki eleman sayısını versin.
+
+  7) planner/queue.py dosyasındaki make_queue fabrika fonksiyonunu, bu kuyruğu oluşturacak ve stdin'den satır satır okunan etkinlikleri kuyruğa ekleyecek şekilde gerçekleştir.
+
+setup: |
+  mkdir -p planner/core
+  cat > planner/core/__init__.py <<'PY'
+  PY
+  cat > planner/__init__.py <<'PY'
+  PY
+  cat > planner/core/clock.py <<'PY'
+  def minutes(hhmm):
+      h, m = hhmm.split(":")
+      return int(h) * 60 + int(m)
+  PY
+  cat > planner/queue.py <<'PY'
+  class EventQueue:
+      def __init__(self):
+          self._items = []
+
+      def push(self, start, name):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+
+
+  def make_queue():
+      raise NotImplementedError
+  PY
+
+goal_tr: >
+  planner/queue.py icindeki EventQueue sinifini ve make_queue fabrika
+  fonksiyonunu, stdin'den satir satir okunan "SS:DD isim" bicimindeki
+  etkinlikleri baslangic saatine gore artan sirada cikaracak bir oncelik
+  kuyrugu olacak sekilde gerceklestir; esit saatlerde once okunan once
+  cikmali, pop en erken etkinligin adini dondurmeli, peek kuyrugu bozmadan
+  en erken adi dondurmeli ve len eleman sayisini vermeli.
+
+reference_solution: |
+  cat > planner/queue.py <<'PY'
+  from planner.core.clock import minutes
+
+
+  class EventQueue:
+      def __init__(self):
+          self._items = []
+          self._seq = 0
+
+      def push(self, start, name):
+          item = (minutes(start), self._seq, name)
+          self._seq += 1
+          self._items.append(item)
+          self._items.sort(key=lambda t: (t[0], t[1]))
+
+      def pop(self):
+          if not self._items:
+              raise IndexError("empty queue")
+          return self._items.pop(0)[2]
+
+      def peek(self):
+          if not self._items:
+              raise IndexError("empty queue")
+          return self._items[0][2]
+
+      def __len__(self):
+          return len(self._items)
+
+
+  def make_queue():
+      return EventQueue()
+  PY
+
+outputs:
+  - {path: planner/queue.py, kind: program, run: 'python3 -c ''import io,sys; from planner.queue import make_queue; q=make_queue(); assert len(q)==0; [q.push(s,n) for s,n in [("09:30","standup"),("08:15","coffee"),("09:30","review"),("07:00","gym")]]; assert len(q)==4; assert q.peek()=="gym"; assert len(q)==4; assert q.pop()=="gym"; assert q.pop()=="coffee"; assert q.peek()=="standup"; assert q.pop()=="standup"; assert q.pop()=="review"; assert len(q)==0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import io,sys; from planner.queue import make_queue; q=make_queue(); assert len(q)==0; [q.push(s,n) for s,n in [("09:30","standup"),("08:15","coffee"),("09:30","review"),("07:00","gym")]]; assert len(q)==4; assert q.peek()=="gym"; assert len(q)==4; assert q.pop()=="gym"; assert q.pop()=="coffee"; assert q.peek()=="standup"; assert q.pop()=="standup"; assert q.pop()=="review"; assert len(q)==0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5074
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: takvim-etkinlikleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: oncelik-kuyrugu
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: stdin-boru
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

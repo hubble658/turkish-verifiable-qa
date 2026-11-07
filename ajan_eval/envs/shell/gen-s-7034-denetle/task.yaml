@@ -1,0 +1,65 @@
+id: gen-s-7034-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) kayitlar dizin ağacındaki tüm csv dosyalarını dolaş; arsiv alt dizinindeki dosyaları hariç tut.
+  2) Bulduğun her csv dosyasındaki CRLF satır sonlarını temizle.
+  3) arsiv alt dizini hariç tutulan dosyalardaki kalem sayısını hesapla.
+  4) arsiv alt dizini hariç tutulan dosyalardaki durumu odendi olan tutarların toplamını hesapla.
+  5) kalem sayısını toplam_kalem alanına ve ödenen tutarların toplamını odenen_toplam alanına sayı olarak yazarak denetim.json dosyasına JSON biçiminde kaydet.
+
+setup: |
+  mkdir -p kayitlar/2024 kayitlar/2024/arsiv
+  printf 'kalem;tutar;durum\r\nK001;1250;odendi\r\nK002;800;beklemede\r\n' > kayitlar/2024/ocak.csv
+  printf 'kalem;tutar;durum\r\nK003;4300;odendi\r\nK004;150;iptal\r\n' > kayitlar/2024/subat.csv
+  printf 'kalem;tutar;durum\r\nK005;990;beklemede\r\n' > kayitlar/2024/arsiv/mart.csv
+  printf 'kalem;tutar;durum\r\nK006;77;odendi\r\n' > kayitlar/2024/arsiv/tuzak.csv
+
+goal_tr: >
+  kayitlar dizin agacindaki tum csv dosyalarini dolasip CRLF satir sonlarini
+  temizleyerek, arsiv alt dizinindeki dosyalari haric tutarak, kalem
+  sayisini ve odendi durumundaki tutarlarin toplamini denetim.json dosyasina
+  JSON olarak yaz; toplam_kalem ve odenen_toplam alanlari sayi olsun.
+
+reference_solution: |
+  find kayitlar -type f -name '*.csv' ! -path '*/arsiv/*' | sort | xargs cat | tr -d '\r' > birlesik.tmp
+  wc -l < birlesik.tmp | awk '{print $1-2}' > kalem.tmp
+  awk -F';' '$3=="odendi"{s+=$2} END{print s+0}' birlesik.tmp > toplam.tmp
+  awk -v k="$(cat kalem.tmp)" -v t="$(cat toplam.tmp)" 'BEGIN{printf "{\"toplam_kalem\": %d, \"odenen_toplam\": %d}\n", k, t}' > denetim.json
+  rm -f birlesik.tmp kalem.tmp toplam.tmp
+
+outputs:
+  - {path: denetim.json, kind: json}
+
+checks:
+  - {op: json_eq, path: denetim.json, value: {toplam_kalem: 4, odenen_toplam: 5550}}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7034
+    bundle: dizin-istatistik
+    tools:
+    - wc
+    - find
+    konu: muhasebe-kalemleri
+    hedef: denetle
+    girdi: json
+    kaynak: dizin-agaci
+    cikti: json
+    kesif: yok
+    uslup: numarali-emir
+    direnc: crlf
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

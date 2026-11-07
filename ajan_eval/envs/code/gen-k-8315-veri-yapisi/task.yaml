@@ -1,0 +1,174 @@
+id: gen-k-8315-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) maintenance/stack.py dosyasındaki MaintenanceStack sınıfının __init__, push, pop, peek ve __len__ metotlarını gerçek bir yığın gerçekleştirmesiyle doldur; push ekleme yapsın, pop ve peek yığının son elemanını döndürsün ve __len__ yığındaki eleman sayısını versin.
+
+  2) maintenance/stack.py dosyasındaki SafeMaintenanceStack sınıfında pop ve peek metotlarını öyle doldur ki boş yığın durumunda UnderflowError fırlatılsın, dolu yığında ise doğru eleman döndürülsün.
+
+  3) maintenance/service.py dosyasını hiç değiştirmeden çalışacak şekilde maintenance/stack.py içindeki tüm metotları tamamla.
+
+setup: |
+  mkdir -p maintenance
+  cat > maintenance/stack.py <<'STACK'
+  class MaintenanceStack:
+      def __init__(self):
+          self._items = []
+
+      def push(self, record):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+
+
+  class MaintenanceError(Exception):
+      pass
+
+
+  class UnderflowError(MaintenanceError):
+      pass
+
+
+  class InvalidRecordError(MaintenanceError):
+      pass
+
+
+  class SafeMaintenanceStack(MaintenanceStack):
+      def pop(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+  STACK
+  cat > maintenance/service.py <<'SERVICE'
+  from maintenance.stack import SafeMaintenanceStack, InvalidRecordError
+
+
+  REQUIRED = ("machine", "action")
+
+
+  def validate(record):
+      if not isinstance(record, dict):
+          raise InvalidRecordError("record must be a dict")
+      for key in REQUIRED:
+          if key not in record or not str(record[key]).strip():
+              raise InvalidRecordError("missing " + key)
+      return {"machine": str(record["machine"]).strip(),
+              "action": str(record["action"]).strip()}
+
+
+  def undo_last(stack):
+      return stack.pop()
+
+
+  def last_record(stack):
+      return stack.peek()
+
+
+  def build(records):
+      stack = SafeMaintenanceStack()
+      for record in records:
+          stack.push(validate(record))
+      return stack
+  SERVICE
+
+goal_tr: >
+  maintenance/stack.py icindeki MaintenanceStack ve SafeMaintenanceStack
+  siniflarinin tum metotlarini gercek bir yigin gerceklestirmesiyle doldur;
+  push/pop/peek/__len__ calissin ve SafeMaintenanceStack bos yiginda
+  UnderflowError firlatsin, boylece maintenance/service.py degismeden
+  calissin.
+
+reference_solution: |
+  cat > maintenance/stack.py <<'STACK'
+  class MaintenanceStack:
+      def __init__(self):
+          self._items = []
+
+      def push(self, record):
+          self._items.append(record)
+
+      def pop(self):
+          return self._items.pop()
+
+      def peek(self):
+          return self._items[-1]
+
+      def __len__(self):
+          return len(self._items)
+
+
+  class MaintenanceError(Exception):
+      pass
+
+
+  class UnderflowError(MaintenanceError):
+      pass
+
+
+  class InvalidRecordError(MaintenanceError):
+      pass
+
+
+  class SafeMaintenanceStack(MaintenanceStack):
+      def pop(self):
+          if len(self) == 0:
+              raise UnderflowError("no records")
+          return super().pop()
+
+      def peek(self):
+          if len(self) == 0:
+              raise UnderflowError("no records")
+          return super().peek()
+  STACK
+
+outputs:
+  - {path: maintenance/stack.py, kind: program, run: 'python3 -c ''from maintenance.service import build, undo_last, last_record; from maintenance.stack import UnderflowError, MaintenanceError, InvalidRecordError; s=build([{"machine":"pump","action":"oil"},{"machine":"lathe","action":"belt"}]); assert len(s)==2; assert last_record(s)=={"machine":"lathe","action":"belt"}; assert undo_last(s)=={"machine":"lathe","action":"belt"}; assert len(s)==1; assert undo_last(s)=={"machine":"pump","action":"oil"}; assert len(s)==0; ok=False; exec("try:\n    undo_last(s)\nexcept UnderflowError:\n    ok=True"); assert ok, "pop on empty must raise"; ok=False; exec("try:\n    last_record(s)\nexcept UnderflowError:\n    ok=True"); assert ok, "peek on empty must raise"; ok=False; exec("try:\n    build([{\"machine\":\"pump\"}])\nexcept InvalidRecordError:\n    ok=True"); assert ok, "invalid record must raise"; assert issubclass(UnderflowError, MaintenanceError) and issubclass(InvalidRecordError, MaintenanceError); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from maintenance.service import build, undo_last, last_record; from maintenance.stack import UnderflowError, MaintenanceError, InvalidRecordError; s=build([{"machine":"pump","action":"oil"},{"machine":"lathe","action":"belt"}]); assert len(s)==2; assert last_record(s)=={"machine":"lathe","action":"belt"}; assert undo_last(s)=={"machine":"lathe","action":"belt"}; assert len(s)==1; assert undo_last(s)=={"machine":"pump","action":"oil"}; assert len(s)==0; ok=False; exec("try:\n    undo_last(s)\nexcept UnderflowError:\n    ok=True"); assert ok, "pop on empty must raise"; ok=False; exec("try:\n    last_record(s)\nexcept UnderflowError:\n    ok=True"); assert ok, "peek on empty must raise"; ok=False; exec("try:\n    build([{\"machine\":\"pump\"}])\nexcept InvalidRecordError:\n    ok=True"); assert ok, "invalid record must raise"; assert issubclass(UnderflowError, MaintenanceError) and issubclass(InvalidRecordError, MaintenanceError); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8315
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: makine-bakim-kayitlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: bellek-ici
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

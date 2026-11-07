@@ -1,0 +1,68 @@
+id: gen-s-3117-karsilastir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+prompt: 'notlar altındaki her sınıfın notlar.tsv satırlarını karşılaştır; sadece sinif-a ile sinif-b arasında farklı olanları
+  başına sınıf adı ve sekme koyup sinif adına göre artan sıralı olarak farklar.tsv dosyasına yaz.
+
+
+  Çıktıyı çalışma dizininin kökünde (farklar.tsv) oluştur, alt dizine yazma.
+
+  '
+setup: "mkdir -p notlar/sinif-a notlar/sinif-b\ncat > notlar/sinif-a/notlar.tsv <<'TSV'\nali\tmatematik\t85\nayse\tmatematik\t\
+  90\ncan\tfizik\t70\ndeniz\tkimya\t88\nTSV\ncat > notlar/sinif-b/notlar.tsv <<'TSV'\nali\tmatematik\t85\nayse\tmatematik\t\
+  95\ncan\tfizik\t70\nece\tkimya\t60\nTSV\ncat > notlar/sinif-a/eski.tsv <<'TSV'\nveli\ttarih\t40\nTSV\ncat > notlar/sinif-b/eski.tsv\
+  \ <<'TSV'\nveli\ttarih\t45\nTSV\n"
+goal_tr: 'notlar dizini agacindaki her sinifin notlar.tsv dosyasindaki ogrenci-ders satirlarini karsilastirip yalnizca sinif-a
+  ve sinif-b arasinda farkli olan satirlari, her satirin basina hangi sinifa ait oldugunu belirten sinif adi ve sekme koyarak,
+  sinif adina gore artan sirali olarak farklar.tsv dosyasina yaz
+
+  '
+reference_solution: 'python3 - <<''PY''
+
+  a = set(open("notlar/sinif-a/notlar.tsv")); b = set(open("notlar/sinif-b/notlar.tsv"))
+
+  s = sorted(["sinif-a\t" + x for x in a - b] + ["sinif-b\t" + x for x in b - a])
+
+  open("farklar.tsv", "w").write("".join(s))
+
+  PY
+
+  '
+outputs: []
+checks:
+- op: file_lines_eq
+  path: farklar.tsv
+  value:
+  - "sinif-a\tayse\tmatematik\t90"
+  - "sinif-a\tdeniz\tkimya\t88"
+  - "sinif-b\tayse\tmatematik\t95"
+  - "sinif-b\tece\tkimya\t60"
+metadata:
+  domain: karsilastir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3117
+    bundle: kume-farki
+    tools:
+    - comm
+    - sort
+    konu: ogrenci-notlari
+    hedef: karsilastir
+    girdi: tsv
+    kaynak: dizin-agaci
+    cikti: satir-listesi
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}
+  duzeltme:
+    neden: altin_yanlis
+    not: Altında iki sınıfta aynı olan satırlar da vardı; ayrıca çıktı yeri yazmıyordu.

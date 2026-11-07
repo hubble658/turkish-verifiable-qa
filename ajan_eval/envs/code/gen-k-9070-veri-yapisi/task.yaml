@@ -1,0 +1,211 @@
+id: gen-k-9070-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 20
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sensor/trie.py içindeki SensorTrie sınıfını tamamla: add, total, stations, __len__ ve __add__ çalışsın. sensor/build.py ise sensor/readings.py'deki load_batches verisini trie'e yüklesin.
+
+setup: |
+  mkdir -p sensor
+  cat > sensor/readings.py <<'READINGS'
+  def load_batches():
+      return [
+          {"station": "north", "values": [3, 5, 8]},
+          {"station": "south", "values": [4, 4]},
+          {"station": "north", "values": [9]},
+      ]
+  READINGS
+  cat > sensor/trie.py <<'TRIE'
+  class SensorTrie:
+      def __init__(self):
+          raise NotImplementedError
+
+      def add(self, station, value):
+          raise NotImplementedError
+
+      def total(self, station):
+          raise NotImplementedError
+
+      def stations(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+
+      def __add__(self, other):
+          raise NotImplementedError
+  TRIE
+
+goal_tr: >
+  sensor/trie.py icindeki SensorTrie sinifini tamamla: add ile okuma ekle,
+  total ile bir istasyonun toplamini ver, stations ile istasyon adlarini
+  sirali dondur, __len__ toplam okuma sayisini, __add__ iki trie'i
+  birlestirip yeni trie dondursun; sensor/readings.py icindeki load_batches
+  verisini bu trie'e yukleyen sensor/build.py de yazilsin.
+
+reference_solution: |
+  cat > sensor/trie.py <<'TRIE'
+  class SensorTrie:
+      def __init__(self):
+          self._root = {}
+
+      def add(self, station, value):
+          node = self._root
+          for ch in station:
+              node = node.setdefault(ch, {})
+          node.setdefault("_vals", []).append(value)
+
+      def total(self, station):
+          node = self._root
+          for ch in station:
+              if ch not in node:
+                  return 0
+              node = node[ch]
+          return sum(node.get("_vals", []))
+
+      def stations(self):
+          out = []
+
+          def walk(node, prefix):
+              if "_vals" in node:
+                  out.append(prefix)
+              for ch in sorted(k for k in node if k != "_vals"):
+                  walk(node[ch], prefix + ch)
+
+          walk(self._root, "")
+          return out
+
+      def __len__(self):
+          total = 0
+
+          def walk(node):
+              nonlocal total
+              total += len(node.get("_vals", []))
+              for ch in node:
+                  if ch != "_vals":
+                      walk(node[ch])
+
+          walk(self._root)
+          return total
+
+      def __add__(self, other):
+          merged = SensorTrie()
+          for station in self.stations():
+              for v in self._values(station):
+                  merged.add(station, v)
+          for station in other.stations():
+              for v in other._values(station):
+                  merged.add(station, v)
+          return merged
+
+      def _values(self, station):
+          node = self._root
+          for ch in station:
+              node = node[ch]
+          return list(node.get("_vals", []))
+  TRIE
+  cat > sensor/build.py <<'BUILD'
+  from sensor.readings import load_batches
+  from sensor.trie import SensorTrie
+
+
+  def build_trie():
+      trie = SensorTrie()
+      for batch in load_batches():
+          for v in batch["values"]:
+              trie.add(batch["station"], v)
+      return trie
+  BUILD
+
+ara_adim: |
+  cat > sensor/trie.py <<'TRIE'
+  class SensorTrie:
+      def __init__(self):
+          self._root = {}
+
+      def add(self, station, value):
+          node = self._root
+          for ch in station:
+              node = node.setdefault(ch, {})
+          node.setdefault("_vals", []).append(value)
+
+      def total(self, station):
+          node = self._root
+          for ch in station:
+              if ch not in node:
+                  return 0
+              node = node[ch]
+          return sum(node.get("_vals", []))
+
+      def stations(self):
+          out = []
+
+          def walk(node, prefix):
+              if "_vals" in node:
+                  out.append(prefix)
+              for ch in sorted(k for k in node if k != "_vals"):
+                  walk(node[ch], prefix + ch)
+
+          walk(self._root, "")
+          return out
+
+      def __len__(self):
+          total = 0
+
+          def walk(node):
+              nonlocal total
+              total += len(node.get("_vals", []))
+              for ch in node:
+                  if ch != "_vals":
+                      walk(node[ch])
+
+          walk(self._root)
+          return total
+  TRIE
+
+outputs:
+  - {path: sensor/build.py, kind: program, run: 'python3 -c ''from sensor.build import build_trie as f; t=f(); assert t.total("north")==25, t.total("north"); assert t.stations()==["north","south"], t.stations(); print("TAMAM")'''}
+  - {path: sensor/trie.py, kind: program, run: 'python3 -c ''from sensor.trie import SensorTrie as T; a=T(); a.add("north",3); a.add("north",5); assert a.total("north")==8; assert a.total("south")==0; assert a.stations()==["north"]; print("ILERLEME-TAMAM")'''}
+  - {path: sensor/trie.py, kind: program, run: 'python3 -c ''from sensor.trie import SensorTrie as T; a=T(); a.add("north",3); a.add("north",5); b=T(); b.add("south",4); c=a+b; assert c.total("north")==8 and c.total("south")==4, (c.total("north"),c.total("south")); assert len(c)==3, len(c); assert c.stations()==["north","south"]; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensor.build import build_trie as f; t=f(); assert t.total("north")==25, t.total("north"); assert t.stations()==["north","south"], t.stations(); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensor.trie import SensorTrie as T; a=T(); a.add("north",3); a.add("north",5); assert a.total("north")==8; assert a.total("south")==0; assert a.stations()==["north"]; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensor.trie import SensorTrie as T; a=T(); a.add("north",3); a.add("north",5); b=T(); b.add("south",4); c=a+b; assert c.total("north")==8 and c.total("south")==4, (c.total("north"),c.total("south")); assert len(c)==3, len(c); assert c.stations()==["north","south"]; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9070
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: sensor-serisi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: kolay
+    adim: 7
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: trie
+      karmasiklik: orta
+      kalip: operator-asiri-yukleme
+      akis: ic-ice-yapi
+      topoloji: iki-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

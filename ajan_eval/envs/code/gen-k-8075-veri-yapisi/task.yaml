@@ -1,0 +1,127 @@
+id: gen-k-8075-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Bugün vardiya planlama modülü üzerinde çalışıyoruz; gün içinde birkaç dosya açtık ama kuyruk tarafı hâlâ eksik kaldı. Elimizde merge_shifts fonksiyonu ile bir araya getirilmiş vardiya kayıtları var, bunları öncelik sırasına göre işleyecek bir yapıya ihtiyacımız var.
+
+  schedule/core/queue.py dosyasındaki ShiftQueue sınıfını, merge_shifts ile birleştirilmiş vardiya kayıtlarından (öncelik, kimlik) çiftlerini en küçük öncelik önce çıkacak şekilde tutan bir öncelik kuyruğu olarak gerçekleştir. push, pop, peek ve len davranışları doğru olsun.
+
+setup: |
+  mkdir -p schedule/core
+  cat > schedule/core/__init__.py <<'INIT'
+  INIT
+  cat > schedule/core/shifts.py <<'SHIFTS'
+  def merge_shifts(*sources):
+      rows = []
+      for src in sources:
+          for item in src:
+              rows.append(item)
+      return rows
+  SHIFTS
+  cat > schedule/core/queue.py <<'QUEUE'
+  import heapq
+
+
+  class ShiftQueue:
+      def __init__(self):
+          raise NotImplementedError
+
+      def push(self, priority, shift_id):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+  QUEUE
+  cat > schedule/__init__.py <<'INIT'
+  INIT
+  cat > shifts_day.csv <<'CSV'
+  3,morning
+  1,night
+  5,evening
+  CSV
+  cat > shifts_night.csv <<'CSV'
+  2,standby
+  4,cleanup
+  CSV
+
+goal_tr: >
+  schedule/core/queue.py icindeki ShiftQueue sinifini, merge_shifts ile
+  birlestirilmis vardiya kayitlarindan (oncelik, kimlik) ciftlerini en kucuk
+  oncelik once cikacak sekilde tutan bir oncelik kuyrugu olarak
+  gerceklestir; push, pop, peek ve len davranislari dogru olsun.
+
+reference_solution: |
+  cat > schedule/core/queue.py <<'QUEUE'
+  import heapq
+
+
+  class ShiftQueue:
+      def __init__(self):
+          self._heap = []
+          self._counter = 0
+
+      def push(self, priority, shift_id):
+          heapq.heappush(self._heap, (priority, self._counter, shift_id))
+          self._counter += 1
+
+      def pop(self):
+          priority, _, shift_id = heapq.heappop(self._heap)
+          return (priority, shift_id)
+
+      def peek(self):
+          priority, _, shift_id = self._heap[0]
+          return (priority, shift_id)
+
+      def __len__(self):
+          return len(self._heap)
+  QUEUE
+
+outputs:
+  - {path: schedule/core/queue.py, kind: program, run: 'python3 -c ''from schedule.core.shifts import merge_shifts as m; from schedule.core.queue import ShiftQueue as Q; a=open("shifts_day.csv").read().strip().splitlines(); b=open("shifts_night.csv").read().strip().splitlines(); d=[(int(l.split(",")[0]), l.split(",")[1]) for l in a]; n=[(int(l.split(",")[0]), l.split(",")[1]) for l in b]; rows=m(d,n); q=Q(); assert len(q)==0; [q.push(p,s) for p,s in rows]; assert len(q)==5; assert q.peek()==(1,"night"); assert q.pop()==(1,"night"); assert q.pop()==(2,"standby"); assert len(q)==3; assert q.peek()==(3,"morning"); assert q.pop()==(3,"morning"); assert q.pop()==(4,"cleanup"); assert q.pop()==(5,"evening"); assert len(q)==0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from schedule.core.shifts import merge_shifts as m; from schedule.core.queue import ShiftQueue as Q; a=open("shifts_day.csv").read().strip().splitlines(); b=open("shifts_night.csv").read().strip().splitlines(); d=[(int(l.split(",")[0]), l.split(",")[1]) for l in a]; n=[(int(l.split(",")[0]), l.split(",")[1]) for l in b]; rows=m(d,n); q=Q(); assert len(q)==0; [q.push(p,s) for p,s in rows]; assert len(q)==5; assert q.peek()==(1,"night"); assert q.pop()==(1,"night"); assert q.pop()==(2,"standby"); assert len(q)==3; assert q.peek()==(3,"morning"); assert q.pop()==(3,"morning"); assert q.pop()==(4,"cleanup"); assert q.pop()==(5,"evening"); assert len(q)==0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8075
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: vardiya-cizelgesi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kolay
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: oncelik-kuyrugu
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: cok-dosya-birlestirme
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

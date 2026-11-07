@@ -1,0 +1,127 @@
+id: gen-k-5036-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  depot/stock.py dosyasındaki total_qty fonksiyonu şu anda yalnızca ilk stok satırının miktarını döndürüyor. Bu fonksiyonu, StockScan iterator'ünü baştan sona tüketecek ve dosyadaki tüm stok satırlarının miktarlarının toplamını doğru şekilde döndürecek biçimde düzelt. depot/stock.py dışındaki dosyalara, özellikle depot/reader.py ve stock.txt dosyalarına, dokunma.
+
+setup: |
+  mkdir -p depot
+  cat > depot/reader.py <<'READER'
+  def iter_lines(path):
+      with open(path, encoding="utf-8") as fh:
+          for line in fh:
+              line = line.rstrip("\n")
+              if line:
+                  yield line
+  READER
+  cat > depot/stock.py <<'STOCK'
+  from depot.reader import iter_lines
+
+
+  class StockScan:
+      """Iterator over (sku, qty) pairs from a stock file."""
+
+      def __init__(self, path):
+          self._rows = iter_lines(path)
+          self._sku = None
+          self._qty = None
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          line = next(self._rows)
+          sku, qty = line.split(",")
+          return sku, int(qty)
+
+
+  def total_qty(path):
+      """Return total quantity across all stock lines."""
+      for sku, qty in StockScan(path):
+          return qty
+      return 0
+  STOCK
+  cat > stock.txt <<'DATA'
+  bolt,10
+  nut,4
+  washer,6
+  DATA
+
+goal_tr: >
+  depot/stock.py icindeki total_qty fonksiyonunu, StockScan iterator'unu
+  bastan sona tuketip dosyadaki tum stok satirlarinin miktar toplamini dogru
+  dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > depot/stock.py <<'STOCK'
+  from depot.reader import iter_lines
+
+
+  class StockScan:
+      """Iterator over (sku, qty) pairs from a stock file."""
+
+      def __init__(self, path):
+          self._rows = iter_lines(path)
+          self._sku = None
+          self._qty = None
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          line = next(self._rows)
+          sku, qty = line.split(",")
+          return sku, int(qty)
+
+
+  def total_qty(path):
+      """Return total quantity across all stock lines."""
+      total = 0
+      for sku, qty in StockScan(path):
+          total += qty
+      return total
+  STOCK
+
+outputs:
+  - {path: depot/stock.py, kind: program, run: 'python3 -c ''from depot.stock import total_qty as f, StockScan as S; assert f("stock.txt")==20, f("stock.txt"); assert list(S("stock.txt"))==[("bolt",10),("nut",4),("washer",6)]; open("empty.txt","w").close(); assert f("empty.txt")==0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depot.stock import total_qty as f, StockScan as S; assert f("stock.txt")==20, f("stock.txt"); assert list(S("stock.txt"))==[("bolt",10),("nut",4),("washer",6)]; open("empty.txt","w").close(); assert f("empty.txt")==0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5036
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: depo-envanteri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: erken-donus
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: cok-dosya-birlestirme
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

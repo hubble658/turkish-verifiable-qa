@@ -1,0 +1,63 @@
+id: gen-s-4012-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  yorumlar.tsv dosyasındaki puan sütunundaki farklı değerlerin sayısını sonuc.txt dosyasına sadece sayı olarak yaz.
+
+setup: |
+  cat > yorumlar.tsv <<'TSV'
+  urun	sehir	puan
+  kalem	ankara	5
+  defter	izmir	3
+  kalem	bursa	4
+  silgi	ankara	2
+  defter	ankara	5
+  kalem	izmir	1
+  silgi	izmir	4
+  defter	bursa	3
+  kalem	ankara	3
+  silgi	bursa	5
+  TSV
+
+goal_tr: >
+  yorumlar.tsv dosyasindaki puan sutunundaki birbirinden farkli degerlerin
+  sayisini sonuc.txt dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  tail -n +2 yorumlar.tsv | cut -f3 | sort -n | uniq | wc -l | tr -d ' ' > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '5'}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4012
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: urun-yorumlari
+    hedef: ozetle
+    girdi: tsv
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: olcek
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,73 @@
+id: gen-s-3041-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) girdi/hesaplar.json dosyasındaki her hesap kalemi için borç ve alacak tutarlarından büyük olanı belirle.
+
+  2) Bu net tutarı, girdi/limitler.txt dosyasında aynı hesap numarasına karşılık gelen limit ile karşılaştır.
+
+  3) Net tutarı limitini aşan hesapları, hesap numarasına göre artan sırada olacak şekilde, her satırda "hesap<TAB>ad<TAB>net" biçiminde asilan.txt dosyasına yaz.
+
+  4) asilan.txt dosyasının sonuna newline karakteri koyma.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/hesaplar.json <<'JSON'
+  {"kalemler":[{"hesap":"100","ad":"Kasa","borc":1500,"alacak":0},{"hesap":"101","ad":"Alinan Cekler","borc":0,"alacak":1500},{"hesap":"120","ad":"Alicilar","borc":3200,"alacak":0},{"hesap":"320","ad":"Saticilar","borc":0,"alacak":3200},{"hesap":"153","ad":"Ticari Mallar","borc":900,"alacak":0},{"hesap":"500","ad":"Sermaye","borc":0,"alacak":900}]}
+  JSON
+  cat > girdi/limitler.txt <<'TXT'
+  100 2000
+  101 2000
+  120 1000
+  320 1000
+  153 500
+  500 500
+  TXT
+
+goal_tr: >
+  girdi/hesaplar.json icindeki her kalemin borc ve alacak tutarindan buyuk
+  olanini girdi/limitler.txt dosyasindaki ayni hesap numarasinin limitiyle
+  karsilastirip, net tutari limiti asan hesaplari "hesap<TAB>ad<TAB>net"
+  biciminde hesap numarasina gore artan sirada girdi/../asilan.txt dosyasina
+  yaz ve dosyanin sonuna newline koyma
+
+reference_solution: |
+  find girdi -name 'hesaplar.json' -print0 | xargs -0 cat | sed 's/},{/}\n{/g' | sed 's/.*\[//; s/\].*//' | tr -d '{}' | sed 's/"//g; s/borc://; s/alacak://; s/hesap://; s/ad://' | sed 's/,/ /g' | awk '{if($3>$4) n=$3-$4; else n=$4-$3; print $1, $2, n}' | sort -k1,1 > /tmp/net.txt
+  join -1 1 -2 1 /tmp/net.txt <(sort -k1,1 girdi/limitler.txt) | awk '$3>$4 {print $1 "\t" $2 "\t" $3}' > asilan.txt
+  printf '%s' "$(cat asilan.txt)" > asilan.txt
+
+outputs:
+  - {path: asilan.txt, kind: lines, run: wc -l < asilan.txt}
+
+checks:
+  - {op: file_lines_eq, path: asilan.txt, value: ["120\tAlicilar\t3200", "320\tSaticilar\t3200", "500\tSermaye\t900"]}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3041
+    bundle: bul-tasi
+    tools:
+    - find
+    - xargs
+    konu: muhasebe-kalemleri
+    hedef: yeniden-duzenle
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: son-newline-yok
+    bukulme: olcek
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

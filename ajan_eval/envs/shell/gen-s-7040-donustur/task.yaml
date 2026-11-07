@@ -1,0 +1,68 @@
+id: gen-s-7040-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) arsiv dizinindeki tüm json dosyalarındaki sicaklik değerlerinin toplamını hesapla.
+  2) Bu toplamı toplam.txt dosyasına sadece sayı olarak yaz.
+
+setup: |
+  mkdir -p arsiv
+  cat > arsiv/olcumler.json <<'JSON'
+  {"kayitlar":[
+  {"gun":"pazartesi","sicaklik":21,"nem":40},
+  {"gun":"sali","sicaklik":24,"nem":55},
+  {"gun":"carsamba","sicaklik":19,"nem":60},
+  {"gun":"persembe","sicaklik":27,"nem":35},
+  {"gun":"cuma","sicaklik":23,"nem":50},
+  {"gun":"cumartesi","sicaklik":18,"nem":65},
+  {"gun":"pazar","sicaklik":25,"nem":45}
+  ]}
+  JSON
+  for i in $(seq 1 40); do
+    cp arsiv/olcumler.json "arsiv/olcumler_$i.json"
+  done
+
+goal_tr: >
+  arsiv dizinindeki tum json dosyalarindaki sicaklik degerlerinin toplamini
+  toplam.txt dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  tar czf arsiv.tar.gz arsiv
+  gzip -dc arsiv.tar.gz | tar xOf - --wildcards '*/olcumler*.json' | grep -o '"sicaklik":[0-9]*' | cut -d: -f2 | paste -sd+ | bc > toplam.txt 2>/dev/null || true
+  gzip -dc arsiv.tar.gz | tar xOf - --wildcards '*/olcumler*.json' | grep -o '"sicaklik":[0-9]*' | cut -d: -f2 | awk '{s+=$1} END {print s}' > toplam.txt
+
+outputs:
+  - {path: toplam.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: toplam.txt, value: '6437'}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7040
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: hava-durumu-kayitlari
+    hedef: donustur
+    girdi: json
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: dolayli-hedef
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: olcek
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

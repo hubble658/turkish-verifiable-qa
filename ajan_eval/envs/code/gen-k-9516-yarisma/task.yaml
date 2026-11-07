@@ -1,0 +1,164 @@
+id: gen-k-9516-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 26
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Sınav sonuçları raporu yanlış hesaplanıyor. exam/parser.py, exam/simulator.py ve exam/report.py dosyalarındaki hataları düzelt; scores.txt dosyası üzerinden build_report çağrıldığında doğru sonucu verecek hale gelsin.
+
+  Özellikle şu sorunlar giderilmeli:
+  - Geçme oranı 0 ile 100 arasında bir yüzde değeri olarak döndürülmeli; şu an olduğu gibi 0-1 arası bir oran değil.
+  - Tam eşikteki ve eşik üstündeki öğrenciler geçmiş sayılmalı; eşiğin altındakiler geçmemiş sayılmalı. Şu anki sınıflandırma bunun tersi.
+  - Ondalıklı puanlar yuvarlanmadan korunmalı; puanlar tam sayıya çevrilmemeli.
+
+  Bozuk dosyalar: exam/parser.py, exam/simulator.py, exam/report.py
+  Girdi dosyası: scores.txt
+
+  Şu şartlar sağlanmalı:
+  1. exam/parser.py, exam/simulator.py ve exam/report.py dosyaları düzeltilmiş olarak mevcut olmalı.
+  2. exam/parser.py ondalıklı puanları tam sayıya çevirmeden okumalı; scores.txt içindeki 50.5 gibi değerler olduğu gibi korunmalı.
+  3. exam/simulator.py içindeki pass_count, puanı eşik değerine eşit ya da eşikten büyük olan kayıtları geçmiş saymalı; eşikten küçük olanları geçmemiş saymalı.
+  4. exam/report.py içindeki build_report, scores.txt içeriği üzerinden çağrıldığında geçme oranını 0 ile 100 arasında yüzde olarak döndürmeli (örneğin 2/3 geçen öğrenci için 66.67 değeri).
+  5. build_report çıktısı pass_rate= biçimini korumalı ve yüzde değeri iki ondalık basamakla gösterilmeli.
+  6. Ondalıklı puanlar hiçbir adımda yuvarlanmamalı.
+  7. scores.txt dosyası değiştirilmemeli.
+
+setup: |
+  mkdir -p exam
+  cat > exam/parser.py <<'PY'
+  def parse_line(line):
+      name, score = line.split(",")
+      # BUG 1: score truncated to int, decimals lost
+      return (name.strip(), int(float(score)))
+  PY
+  cat > exam/simulator.py <<'PY'
+  from exam.parser import parse_line
+
+
+  class ExamSimulator:
+      def __init__(self, lines):
+          self.records = [parse_line(l) for l in lines if l.strip()]
+
+      def pass_count(self, threshold):
+          # BUG 2: counts records with score < threshold (inverted)
+          return sum(1 for n, s in self.records if s < threshold)
+
+      def curve(self, bonus):
+          return [(n, s + bonus) for n, s in self.records]
+  PY
+  cat > exam/report.py <<'PY'
+  from exam.simulator import ExamSimulator
+
+
+  def build_report(lines, threshold=50.0):
+      sim = ExamSimulator(lines)
+      n = sim.pass_count(threshold)
+      total = len(sim.records)
+      # BUG 3: uses pass_count (inverted) as numerator, no *100
+      return "pass_rate=%.2f" % (n / total)
+
+
+  def curved_names(lines, bonus=0.0):
+      sim = ExamSimulator(lines)
+      return [n for n, s in sim.curve(bonus) if s >= 50.0]
+  PY
+  cat > scores.txt <<'TXT'
+  ada,50.5
+  bora,49.5
+  cem,80
+  TXT
+
+goal_tr: >
+  Sinav sonuclari raporu yanlis cikiyor: gecme orani 0-100 arasi yuzde
+  olarak gorunmuyor, tam esikteki ve esik ustu ogrenciler yanlis
+  siniflaniyor ve ondalikli puanlar yuvarlaniyor; scores.txt uzerinden
+  build_report cagrildiginda dogru sonucu verecek bicimde kodu duzelt.
+
+reference_solution: |
+  cat > exam/parser.py <<'PY'
+  def parse_line(line):
+      name, score = line.split(",")
+      return (name.strip(), float(score))
+  PY
+  cat > exam/simulator.py <<'PY'
+  from exam.parser import parse_line
+
+
+  class ExamSimulator:
+      def __init__(self, lines):
+          self.records = [parse_line(l) for l in lines if l.strip()]
+
+      def pass_count(self, threshold):
+          return sum(1 for n, s in self.records if s >= threshold)
+
+      def curve(self, bonus):
+          return [(n, s + bonus) for n, s in self.records]
+  PY
+  cat > exam/report.py <<'PY'
+  from exam.simulator import ExamSimulator
+
+
+  def build_report(lines, threshold=50.0):
+      sim = ExamSimulator(lines)
+      n = sim.pass_count(threshold)
+      total = len(sim.records)
+      return "pass_rate=%.2f" % (100.0 * n / total)
+
+
+  def curved_names(lines, bonus=0.0):
+      sim = ExamSimulator(lines)
+      return [n for n, s in sim.curve(bonus) if s >= 50.0]
+  PY
+
+ara_adim: |
+  cat > exam/parser.py <<'PY'
+  def parse_line(line):
+      name, score = line.split(",")
+      return (name.strip(), float(score))
+  PY
+
+outputs:
+  - {path: exam/report.py, kind: program, run: 'python3 -c ''from exam.report import build_report as f; lines=open("scores.txt").read().splitlines(); assert f(lines)=="pass_rate=66.67", f(lines); print("TAMAM")'''}
+  - {path: exam/parser.py, kind: program, run: 'python3 -c ''from exam.parser import parse_line as f; assert f("ada,50.5")==("ada",50.5), f("ada,50.5"); print("ILERLEME-TAMAM")'''}
+  - {path: exam/simulator.py, kind: program, run: 'python3 -c ''from exam.simulator import ExamSimulator as C; s=C(["ada,50.5","bora,49.5"]); assert s.curve(10.0)==[("ada",60.5),("bora",59.5)], s.curve(10.0); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from exam.parser import parse_line as f; assert f("ada,50.5")==("ada",50.5), f("ada,50.5"); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from exam.report import build_report as f; lines=open("scores.txt").read().splitlines(); assert f(lines)=="pass_rate=66.67", f(lines); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from exam.simulator import ExamSimulator as C; s=C(["ada,50.5","bora,49.5"]); assert s.curve(10.0)==[("ada",60.5),("bora",59.5)], s.curve(10.0); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9516
+    bundle: yarisma
+    tools:
+    - python3
+    konu: sinav-sonuclari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kolay
+    adim: 10
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: benzetim
+      karmasiklik: derin
+      kalip: durumlu-sinif
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 3
+      regresyon: true
+      bagimli: true
+      kesif_zor: true

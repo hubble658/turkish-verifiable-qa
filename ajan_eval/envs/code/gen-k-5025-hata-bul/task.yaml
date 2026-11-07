@@ -1,0 +1,111 @@
+id: gen-k-5025-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  fleet/report.py içindeki efficient_plates fonksiyonunu, 100 km başına yakıt tüketimi eşik değerine eşit veya altında kalan araçları seçecek şekilde düzelt.
+
+setup: |
+  mkdir -p fleet
+  cat > fleet/parse.py <<'PARSE'
+  def parse_log(text):
+      rows = []
+      for line in text.strip().splitlines():
+          if not line.strip():
+              continue
+          plate, km, fuel = line.split(",")
+          rows.append((plate.strip(), float(km), float(fuel)))
+      return rows
+  PARSE
+  cat > fleet/aggregate.py <<'AGG'
+  from fleet.parse import parse_log
+
+
+  def by_plate(text):
+      totals = {}
+      for plate, km, fuel in parse_log(text):
+          if plate in totals:
+              prev_km, prev_fuel = totals[plate]
+              totals[plate] = (prev_km + km, prev_fuel + fuel)
+          else:
+              totals[plate] = (km, fuel)
+      return totals
+  AGG
+  cat > fleet/report.py <<'REPORT'
+  from fleet.aggregate import by_plate
+
+
+  def efficient_plates(text, max_l_per_100km):
+      totals = by_plate(text)
+      result = []
+      for plate, (km, fuel) in totals.items():
+          if km <= 0:
+              continue
+          if fuel / km * 100 > max_l_per_100km:
+              result.append(plate)
+      return sorted(result)
+  REPORT
+
+goal_tr: >
+  fleet/report.py icindeki efficient_plates fonksiyonunu, 100 km basina
+  yakit tuketimi esigin ALTINDA kalan araclari (esik degeri dahil) dogru
+  sececek bicimde duzelt.
+
+reference_solution: |
+  cat > fleet/report.py <<'REPORT'
+  from fleet.aggregate import by_plate
+
+
+  def efficient_plates(text, max_l_per_100km):
+      totals = by_plate(text)
+      result = []
+      for plate, (km, fuel) in totals.items():
+          if km <= 0:
+              continue
+          if fuel / km * 100 <= max_l_per_100km:
+              result.append(plate)
+      return sorted(result)
+  REPORT
+
+outputs:
+  - {path: fleet/report.py, kind: program, run: 'python3 -c ''from fleet.report import efficient_plates as f; d="AB12,100,8.0\nCD34,200,20.0\nEF56,50,4.0\n"; assert f(d,8.0)==["AB12","EF56"], f(d,8.0); assert f(d,10.0)==["AB12","CD34","EF56"], f(d,10.0); assert f(d,5.0)==[], f(d,5.0); assert f(d,0.0)==[], f(d,0.0); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.report import efficient_plates as f; d="AB12,100,8.0\nCD34,200,20.0\nEF56,50,4.0\n"; assert f(d,8.0)==["AB12","EF56"], f(d,8.0); assert f(d,10.0)==["AB12","CD34","EF56"], f(d,10.0); assert f(d,5.0)==[], f(d,5.0); assert f(d,0.0)==[], f(d,0.0); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5025
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: arac-filosu
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-karsilastirma
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: stdin-boru
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,73 @@
+id: gen-s-3244-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri/istasyon_a.csv ve veri/istasyon_b.csv dosyalarını incele. Bu iki dosyada başlık satırı dışında kalan tarih,sehir,sicaklik satırlarından her iki dosyada da birebir aynı olan ortak satırları bul. Bulduğun ortak satırların sayısını, başka hiçbir şey eklemeden sadece sayı olarak sonuc.txt dosyasına yaz.
+
+setup: |
+  mkdir -p veri
+  cat > veri/istasyon_a.csv <<'CSV'
+  tarih,sehir,sicaklik
+  2024-01-01,ankara,5
+  2024-01-02,ankara,7
+  2024-01-03,ankara,6
+  2024-01-04,ankara,9
+  2024-01-05,ankara,4
+  CSV
+  cat > veri/istasyon_b.csv <<'CSV'
+  tarih,sehir,sicaklik
+  2024-01-01,ankara,5
+  2024-01-02,ankara,7
+  2024-01-03,ankara,6
+  2024-01-04,ankara,9
+  2024-01-05,ankara,4
+  2024-01-06,ankara,8
+  CSV
+
+goal_tr: >
+  veri/istasyon_a.csv ve veri/istasyon_b.csv dosyalarindaki baslik disindaki
+  tarih,sehir,sicaklik satirlarindan iki dosyada da aynen gecen ortak satir
+  sayisini sonuc.txt dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  tail -n +2 veri/istasyon_a.csv | sort | uniq > /tmp/a_satirlar.txt
+  tail -n +2 veri/istasyon_b.csv | sort | uniq > /tmp/b_satirlar.txt
+  comm -12 /tmp/a_satirlar.txt /tmp/b_satirlar.txt > /tmp/ortak.txt
+  wc -l < /tmp/ortak.txt | tr -d ' ' > sonuc.txt
+  cat sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '5'}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3244
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: hava-durumu-kayitlari
+    hedef: denetle
+    girdi: csv
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

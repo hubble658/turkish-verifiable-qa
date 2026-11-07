@@ -1,0 +1,94 @@
+id: gen-k-8409-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sensor/queue.py içindeki drain_by_priority fonksiyonunu, sensor/stream.py dosyasındaki readings fonksiyonunun döndürdüğü okumaları öncelik kuyruğu kullanarak sıralı bir liste halinde döndürecek şekilde gerçekleştir. Sıralamada önceliği küçük olan okumalar önce gelsin.
+
+setup: |
+  mkdir -p sensor
+  cat > sensor/stream.py <<'STREAM'
+  def readings():
+      return [
+          ("temp", 4, 21.5),
+          ("hum", 1, 55.0),
+          ("temp", 2, 19.0),
+          ("press", 5, 1013.0),
+          ("hum", 3, 60.5),
+          ("press", 1, 1000.0),
+      ]
+  STREAM
+  cat > sensor/queue.py <<'QUEUE'
+  from sensor.stream import readings
+
+
+  def drain_by_priority():
+      raise NotImplementedError
+  QUEUE
+
+goal_tr: >
+  sensor/queue.py icindeki drain_by_priority fonksiyonunu,
+  sensor/stream.py'deki okumalari (oncelik kucuk olan once gelecek sekilde)
+  oncelik kuyrugu kullanarak sirali bir liste olarak dondurecek bicimde
+  gerceklestir.
+
+reference_solution: |
+  cat > sensor/queue.py <<'QUEUE'
+  import heapq
+
+  from sensor.stream import readings
+
+
+  def drain_by_priority():
+      heap = []
+      for name, prio, value in readings():
+          heapq.heappush(heap, (prio, name, value))
+      out = []
+      while heap:
+          prio, name, value = heapq.heappop(heap)
+          out.append((name, prio, value))
+      return out
+  QUEUE
+
+outputs:
+  - {path: sensor/queue.py, kind: program, run: 'python3 -c ''from sensor.queue import drain_by_priority as f; r=f(); assert r==[("hum",1,55.0),("press",1,1000.0),("temp",2,19.0),("hum",3,60.5),("temp",4,21.5),("press",5,1013.0)], r; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensor.queue import drain_by_priority as f; r=f(); assert r==[("hum",1,55.0),("press",1,1000.0),("temp",2,19.0),("hum",3,60.5),("temp",4,21.5),("press",5,1013.0)], r; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8409
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: sensor-serisi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: oncelik-kuyrugu
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: bellek-ici
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

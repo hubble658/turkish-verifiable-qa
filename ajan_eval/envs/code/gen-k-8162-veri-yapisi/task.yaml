@@ -1,0 +1,136 @@
+id: gen-k-8162-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  grid/stack.py içindeki MeterStack sınıfını push, pop, peek ve size metotlarıyla çalışan bir yığın olarak tamamla. push yığının tepesine Meter nesnesi koysun, pop tepeyi çıkarıp döndürsün, peek tepeyi çıkarmadan döndürsün, size eleman sayısını versin ve boş yığında pop/peek IndexError yükseltsin.
+
+setup: |
+  mkdir -p grid
+  cat > grid/meter.py <<'METER'
+  class Meter:
+      def __init__(self, meter_id):
+          self.meter_id = meter_id
+          self.readings = []
+
+      def record(self, kwh):
+          self.readings.append(kwh)
+
+      def total(self):
+          return sum(self.readings)
+
+      def last(self):
+          return self.readings[-1] if self.readings else None
+  METER
+  cat > grid/stack.py <<'STACK'
+  from grid.meter import Meter
+
+
+  class MeterStack:
+      def __init__(self):
+          self._items = []
+
+      def push(self, meter_id):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def size(self):
+          raise NotImplementedError
+  STACK
+  cat > grid/audit.py <<'AUDIT'
+  from grid.stack import MeterStack
+
+
+  def audit(events):
+      stack = MeterStack()
+      out = []
+      for kind, value in events:
+          if kind == "push":
+              stack.push(value)
+          elif kind == "pop":
+              out.append(stack.pop())
+          elif kind == "peek":
+              out.append(stack.peek())
+      return out
+  AUDIT
+
+goal_tr: >
+  grid/stack.py icindeki MeterStack sinifini, push/pop/peek/size
+  metotlariyla calisan bir yigin olacak bicimde tamamla; push yiginin
+  tepesine Meter nesnesi koysun, pop tepeyi cikarip dondursun, peek tepeyi
+  cikarmadan dondursun, size eleman sayisini versin ve bos yiginda pop/peek
+  IndexError yukseltsin.
+
+reference_solution: |
+  cat > grid/stack.py <<'STACK'
+  from grid.meter import Meter
+
+
+  class MeterStack:
+      def __init__(self):
+          self._items = []
+
+      def push(self, meter_id):
+          self._items.append(Meter(meter_id))
+
+      def pop(self):
+          if not self._items:
+              raise IndexError("stack is empty")
+          return self._items.pop()
+
+      def peek(self):
+          if not self._items:
+              raise IndexError("stack is empty")
+          return self._items[-1]
+
+      def size(self):
+          return len(self._items)
+  STACK
+
+outputs:
+  - {path: grid/stack.py, kind: program, run: 'python3 -c ''from grid.stack import MeterStack as S; from grid.meter import Meter as M; from grid.audit import audit as a; s=S(); assert s.size()==0; s.push("A1"); s.push("B2"); assert s.size()==2; assert isinstance(s.peek(), M); assert s.peek().meter_id=="B2"; assert s.size()==2; assert s.pop().meter_id=="B2"; assert s.size()==1; r=a([("push","X"),("push","Y"),("peek",None),("pop",None)]); assert [getattr(x,"meter_id") for x in r]==["Y","Y"]; e=S(); ok=False; exec("try:\n    e.pop()\nexcept IndexError:\n    ok=True"); assert ok; ok2=False; exec("try:\n    e.peek()\nexcept IndexError:\n    ok2=True"); assert ok2; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from grid.stack import MeterStack as S; from grid.meter import Meter as M; from grid.audit import audit as a; s=S(); assert s.size()==0; s.push("A1"); s.push("B2"); assert s.size()==2; assert isinstance(s.peek(), M); assert s.peek().meter_id=="B2"; assert s.size()==2; assert s.pop().meter_id=="B2"; assert s.size()==1; r=a([("push","X"),("push","Y"),("peek",None),("pop",None)]); assert [getattr(x,"meter_id") for x in r]==["Y","Y"]; e=S(); ok=False; exec("try:\n    e.pop()\nexcept IndexError:\n    ok=True"); assert ok; ok2=False; exec("try:\n    e.peek()\nexcept IndexError:\n    ok2=True"); assert ok2; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8162
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: elektrik-sayaclari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: terse
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: cok-dosya-birlestirme
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

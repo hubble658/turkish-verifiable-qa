@@ -1,0 +1,72 @@
+id: gen-s-3149-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kayitlar.log dosyasındaki her satırı tarih, işlem ve kullanıcı alanlarına ayırıp işlem alanına göre GIRIS ve CIKIS satır sayılarını içeren geçerli bir JSON nesnesi oluşturup ozet.json dosyasına yaz. tuzak.log dosyasını işleme katma.
+
+setup: |
+  cat > kayitlar.log <<'LOG'
+  2024-03-01 GIRIS ali
+  2024-03-01 CIKIS veli
+  2024-03-02 GIRIS ayse
+  2024-03-02 GIRIS mehmet
+  2024-03-03 CIKIS ali
+  2024-03-03 GIRIS veli
+  2024-03-04 CIKIS ayse
+  2024-03-04 GIRIS zeynep
+  2024-03-05 CIKIS mehmet
+  2024-03-05 GIRIS ali
+  2024-03-06 CIKIS veli
+  2024-03-06 GIRIS ayse
+  LOG
+  printf '2024-03-07 GIRIS hakan\n2024-03-07 CIKIS hakan' > tuzak.log
+
+goal_tr: >
+  kayitlar.log dosyasindaki her satiri "tarih islem kullanici" olarak
+  ayirip, islem alanina gore GIRIS ve CIKIS satir sayilarini iceren gecerli
+  bir JSON nesnesini ozet.json dosyasina yaz; tuzak.log dosyasini isleme
+  katma.
+
+reference_solution: |
+  head -n 1 kayitlar.log > /dev/null
+  tail -n 1 kayitlar.log > /dev/null
+  awk '{print $2}' kayitlar.log | sort | uniq -c > gecici_sayim.txt
+  giris=$(grep -w 'GIRIS' gecici_sayim.txt | awk '{print $1}')
+  cikis=$(grep -w 'CIKIS' gecici_sayim.txt | awk '{print $1}')
+  printf '{"GIRIS": %s, "CIKIS": %s}\n' "$giris" "$cikis" > ozet.json
+
+outputs:
+  - {path: ozet.json, kind: json, run: head -c 200 ozet.json}
+
+checks:
+  - {op: json_eq, path: ozet.json, value: {GIRIS: 7, CIKIS: 5}}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3149
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: kutuphane-kayitlari
+    hedef: bol
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: json
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: son-newline-yok
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

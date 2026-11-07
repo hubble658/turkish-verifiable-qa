@@ -1,0 +1,145 @@
+id: gen-k-8116-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  game/cache.py içindeki ScoreCache sınıfını, en son kullanılan kapasite kadar anahtarı tutan bir LRU önbellek olacak şekilde gerçekleştir. get var olan anahtarın değerini döndürüp o anahtarı en yeni yapmalı, yoksa None döndürmeli ve misses artmalı. put ise kapasite aşıldığında en eski kullanılan anahtarı atarak hits ve misses sayaçlarını doğru tutmalı. game/cache.py dışındaki dosyalara dokunma; game/board.py, a.txt ve b.txt olduğu gibi kalmalı.
+
+setup: |
+  mkdir -p game
+  cat > game/board.py <<'BOARD'
+  def load_scores(path):
+      rows = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              name, score = line.split(',')
+              rows.append((name, int(score)))
+      return rows
+
+
+  def merge_boards(paths):
+      merged = []
+      for p in paths:
+          merged.extend(load_scores(p))
+      return merged
+  BOARD
+  cat > game/cache.py <<'CACHE'
+  class ScoreCache:
+      def __init__(self, capacity):
+          raise NotImplementedError
+
+      def get(self, key):
+          raise NotImplementedError
+
+      def put(self, key, value):
+          raise NotImplementedError
+
+      def hits(self):
+          raise NotImplementedError
+
+      def misses(self):
+          raise NotImplementedError
+  CACHE
+  cat > a.txt <<'A'
+  ann,10
+  bob,30
+  A
+  cat > b.txt <<'B'
+  cid,20
+  dan,40
+  B
+
+goal_tr: >
+  game/cache.py icindeki ScoreCache sinifini, en son kullanilan kapasite
+  kadar anahtari tutan bir LRU onbellek olacak sekilde gerceklestir; get var
+  olan anahtarin degerini dondurup anahtari en yeni yapmali, yoksa None
+  dondurmeli ve misses artmali, put kapasite asildiginda en eski kullanilan
+  anahtari atarak hits ve misses sayaclarini dogru tutmali.
+
+reference_solution: |
+  cat > game/cache.py <<'CACHE'
+  class ScoreCache:
+      def __init__(self, capacity):
+          if capacity < 1:
+              raise ValueError("capacity must be >= 1")
+          self.capacity = capacity
+          self._store = {}
+          self._order = []
+          self._hits = 0
+          self._misses = 0
+
+      def _touch(self, key):
+          self._order.remove(key)
+          self._order.append(key)
+
+      def get(self, key):
+          if key in self._store:
+              self._hits += 1
+              self._touch(key)
+              return self._store[key]
+          self._misses += 1
+          return None
+
+      def put(self, key, value):
+          if key in self._store:
+              self._store[key] = value
+              self._touch(key)
+              return
+          if len(self._store) >= self.capacity:
+              oldest = self._order.pop(0)
+              del self._store[oldest]
+          self._store[key] = value
+          self._order.append(key)
+
+      def hits(self):
+          return self._hits
+
+      def misses(self):
+          return self._misses
+  CACHE
+
+outputs:
+  - {path: game/cache.py, kind: program, run: 'python3 -c ''from game.cache import ScoreCache as C; from game.board import merge_boards as m; rows=m(["a.txt","b.txt"]); c=C(2); assert c.get("ann") is None; assert c.misses()==1; c.put("ann",10); c.put("bob",30); assert c.get("ann")==10; assert c.hits()==1; c.put("cid",20); assert c.get("bob") is None; assert c.misses()==2; assert c.get("ann")==10; assert c.get("cid")==20; assert c.hits()==3; assert c.get("dan") is None; assert c.misses()==3; assert c.get("ann")==10; assert c.get("cid")==20; assert c.hits()==5; assert c.get("bob") is None; assert c.misses()==4; assert [r[0] for r in rows]==["ann","bob","cid","dan"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from game.cache import ScoreCache as C; from game.board import merge_boards as m; rows=m(["a.txt","b.txt"]); c=C(2); assert c.get("ann") is None; assert c.misses()==1; c.put("ann",10); c.put("bob",30); assert c.get("ann")==10; assert c.hits()==1; c.put("cid",20); assert c.get("bob") is None; assert c.misses()==2; assert c.get("ann")==10; assert c.get("cid")==20; assert c.hits()==3; assert c.get("dan") is None; assert c.misses()==3; assert c.get("ann")==10; assert c.get("cid")==20; assert c.hits()==5; assert c.get("bob") is None; assert c.misses()==4; assert [r[0] for r in rows]==["ann","bob","cid","dan"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8116
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: oyun-skor-tablosu
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: lru-onbellek
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: cok-dosya-birlestirme
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

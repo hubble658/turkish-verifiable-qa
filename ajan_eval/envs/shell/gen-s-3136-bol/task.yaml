@@ -1,0 +1,67 @@
+id: gen-s-3136-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  notlar.txt dosyasındaki her satırı öğrenci adına göre ayırıp her öğrenci için ayrı bir dosya oluştur. Ali için Ali.txt, Ayşe için Ayse.txt dosyaları oluşturulsun; her dosyada yalnızca o öğrenciye ait not satırları aynen yer alsın.
+
+  Şu şartlar sağlanmalı:
+  - Çalışma dizini /workspace.
+  - notlar.txt dosyasındaki satırlar öğrenci adına göre gruplanmalı.
+  - Ali.txt dosyası oluşturulmalı ve içinde yalnızca Ali'ye ait not satırları yer almalı.
+  - Ayse.txt dosyası oluşturulmalı ve içinde yalnızca Ayşe'ye ait not satırları yer almalı.
+  - Her not satırı notlar.txt dosyasındaki haliyle aynen korunmalı; satır içeriği değiştirilmemeli.
+  - Her öğrenci için yalnızca bir dosya oluşturulmalı.
+
+setup: |
+  cat > notlar.txt <<'EOF'
+  Ali: matematik=85
+  Ayse: fizik=90
+  Ali: fizik=70
+  Ayse: matematik=95
+  EOF
+
+goal_tr: >
+  notlar.txt icindeki her satiri ogrenci adina gore ayirip her ogrenci icin
+  <ad>.txt dosyasi olustur; dosyalarda o ogrencinin not satirlari aynen
+  kalsin
+
+reference_solution: |
+  cut -d: -f1 notlar.txt | sort -u | while read ad; do grep "^$ad:" notlar.txt | tee "$ad.txt" > /dev/null; done
+
+outputs:
+  - {path: Ali.txt, kind: file}
+  - {path: Ayse.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: Ali.txt, value: ['Ali: matematik=85', 'Ali: fizik=70']}
+  - {op: file_lines_eq, path: Ayse.txt, value: ['Ayse: fizik=90', 'Ayse: matematik=95']}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3136
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: ogrenci-notlari
+    hedef: bol
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: crlf
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

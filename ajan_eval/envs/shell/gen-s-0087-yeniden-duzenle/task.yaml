@@ -1,0 +1,84 @@
+id: gen-s-0087-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+prompt: 'envanter/urunler dizinindeki tüm JSON dosyalarını tek bir tar arşivine paketle, ardından bu arşivden çıkarılan dosyaların
+  içeriklerini CSV formatında envanter.csv dosyasına yaz ve envanter.csv''de sadece sayılar ve metinler olsun.
+
+
+  CSV''nin ilk satırı "id,ad,stok,fiyat" başlığı olsun, sonra her ürün bir satır (ör. "1,laptop x1,15,999.99"). Çıktıyı çalışma
+  dizininin kökünde (envanter.csv) oluştur, alt dizine yazma.
+
+  '
+setup: 'mkdir -p envanter/urunler
+
+  cat > envanter/urunler/001.json <<''EOF''
+
+  {"id": 1, "ad": "laptop x1", "stok": 15, "fiyat": 999.99}
+
+  EOF
+
+  cat > envanter/urunler/002.json <<''EOF''
+
+  {"id": 2, "ad": "monitor y2", "stok": 8, "fiyat": 249.99}
+
+  EOF
+
+  cat > envanter/urunler/003.json <<''EOF''
+
+  {"id": 3, "ad": "klavye z3", "stok": 25, "fiyat": 49.99}
+
+  EOF
+
+  cat > envanter/urunler/004.json <<''EOF''
+
+  {"id": 4, "ad": "fare a4", "stok": 30, "fiyat": 19.99}
+
+  EOF
+
+  '
+goal_tr: 'envanter/urunler dizinindeki tum JSON dosyalarini bir tar arsivine Paketle ve bu arsivden cikarilan dosyaların icerigini
+  CSV formatında envanter.csv''ye yaz
+
+  '
+reference_solution: "tar -cf envanter.tar -C envanter urunler\nmkdir -p /tmp/ac && tar -xf envanter.tar -C /tmp/ac\npython3\
+  \ - <<'PY'\nimport glob, json\nr = [json.load(open(y)) for y in sorted(glob.glob(\"/tmp/ac/urunler/*.json\"))]\nwith open(\"\
+  envanter.csv\", \"w\") as f:\n    f.write(\"id,ad,stok,fiyat\\n\")\n    for x in r:\n        f.write(f\"{x['id']},{x['ad']},{x['stok']},{x['fiyat']}\\\
+  n\")\nPY\n"
+outputs: []
+checks:
+- op: file_lines_eq
+  path: envanter.csv
+  value:
+  - id,ad,stok,fiyat
+  - 1,laptop x1,15,999.99
+  - 2,monitor y2,8,249.99
+  - 3,klavye z3,25,49.99
+  - 4,fare a4,30,19.99
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-0087
+    bundle: secerek-arsivle
+    tools:
+    - tar
+    - find
+    konu: envanter
+    hedef: yeniden-duzenle
+    girdi: json
+    kaynak: cok-dosya
+    cikti: csv
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: bosluklu-ad
+    bukulme: olcek
+    adim: 4
+    image: verifiable-dataset/base:latest
+    metadata: {}
+  duzeltme:
+    neden: altin_yanlis
+    not: Referans JSON'u awk ile bozuyor; altın 'id, 1,ad,' gibi satırlardı ve dosya sırasına bağlıydı. Çıktının yeri yazmıyordu.

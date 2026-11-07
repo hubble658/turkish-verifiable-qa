@@ -1,0 +1,68 @@
+id: gen-s-3191-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  randevular.csv dosyasındaki veri satırlarını poliklinik sütununa göre grupla; her poliklinik grubunun içindeki satırları hasta_id değerine göre artan sırada tut ve grupları poliklinik adına göre alfabetik sırada birleştir. Elde ettiğin sonucu, başlık satırı da dahil olmak üzere poliklinik_bolumleri.csv dosyasına yaz.
+
+setup: |
+  cat > randevular.csv <<'CSV'
+  hasta_id,poliklinik,tarih,durum
+  1001,kardiyoloji,2024-03-01,tamamlandi
+  1002,ortopedi,2024-03-01,iptal
+  1003,kardiyoloji,2024-03-02,tamamlandi
+  1004,noroloji,2024-03-02,tamamlandi
+  1005,ortopedi,2024-03-03,bekliyor
+  1006,kardiyoloji,2024-03-03,iptal
+  1007,noroloji,2024-03-04,tamamlandi
+  1008,ortopedi,2024-03-04,tamamlandi
+  1009,kardiyoloji,2024-03-05,bekliyor
+  1010,noroloji,2024-03-05,iptal
+  1011,kardiyoloji,2024-03-06,tamamlandi
+  1012,ortopedi,2024-03-06,tamamlandi
+  CSV
+
+goal_tr: >
+  randevular.csv dosyasindaki veri satirlarini poliklinik sutununa gore
+  grupla; her poliklinigin satirlarini kendi icinde hasta_id'ye gore artan
+  sirada tut ve gruplari poliklinik adina gore alfabetik sirada birlestirip
+  baslik satiriyla birlikte poliklinik_bolumleri.csv dosyasina yaz
+
+reference_solution: |
+  head -n 1 randevular.csv > poliklinik_bolumleri.csv
+  tail -n +2 randevular.csv | sort -t, -k2,2 -k1,1n >> poliklinik_bolumleri.csv
+
+outputs:
+  - {path: poliklinik_bolumleri.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: poliklinik_bolumleri.csv, value: ['hasta_id,poliklinik,tarih,durum', '1001,kardiyoloji,2024-03-01,tamamlandi', '1003,kardiyoloji,2024-03-02,tamamlandi', '1006,kardiyoloji,2024-03-03,iptal', '1009,kardiyoloji,2024-03-05,bekliyor', '1011,kardiyoloji,2024-03-06,tamamlandi', '1004,noroloji,2024-03-02,tamamlandi', '1007,noroloji,2024-03-04,tamamlandi', '1010,noroloji,2024-03-05,iptal', '1002,ortopedi,2024-03-01,iptal', '1005,ortopedi,2024-03-03,bekliyor', '1008,ortopedi,2024-03-04,tamamlandi', '1012,ortopedi,2024-03-06,tamamlandi']}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3191
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: hastane-randevulari
+    hedef: bol
+    girdi: csv
+    kaynak: tek-dosya
+    cikti: csv
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

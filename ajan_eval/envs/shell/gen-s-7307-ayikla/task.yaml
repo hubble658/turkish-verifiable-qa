@@ -1,0 +1,68 @@
+id: gen-s-7307-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  hava.json dosyasındaki kayıtlar arasından sıcaklığı 20 ile 30 arasında olan şehirlerin sayısını bul ve bu sayıyı sonuc.txt dosyasına sadece sayı olarak yaz.
+
+  Şu şartlar sağlanmalı:
+  - sonuc.txt dosyası oluşturulmalı.
+  - sonuc.txt içinde yalnızca sayı bulunmalı, başka hiçbir metin veya karakter olmamalı.
+  - Sayı, hava.json içindeki sıcaklığı 20 ile 30 arasında olan şehirlerin sayısını doğru şekilde yansıtmalı.
+  - hava.json dosyasındaki mevcut kayıtlar kullanılmalı.
+
+setup: |
+  cat > hava.json <<'JSON'
+  {"kayitlar":[
+  {"sehir":"Ankara","sicaklik":21},
+  {"sehir":"Izmir","sicaklik":29},
+  {"sehir":"Bursa","sicaklik":17},
+  {"sehir":"Antalya","sicaklik":33},
+  {"sehir":"Konya","sicaklik":12},
+  {"sehir":"Trabzon","sicaklik":24}
+  ]}
+  JSON
+
+goal_tr: >
+  hava.json icindeki kayitlardan sicakligi 20 ile 30 arasinda olan sehir
+  sayisini sonuc.txt dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  tail -n +2 hava.json > govde.txt
+  head -n -2 govde.txt > satirlar.txt
+  grep -c '"sicaklik":2[0-9]\|"sicaklik":30' satirlar.txt > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '2'}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7307
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: hava-durumu-kayitlari
+    hedef: ayikla
+    girdi: json
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

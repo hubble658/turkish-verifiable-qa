@@ -1,0 +1,65 @@
+id: gen-s-3223-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  yorumlar.txt'deki her satırı noktalı virgülle ayrılmış alanlara çevirip alanları ters sırayla birleştirerek satir-listesi.txt dosyasına yaz. tuzak.txt'deki satırları dahil etme.
+
+setup: |
+  mkdir -p /workspace
+  cat > yorumlar.txt <<'EOF'
+  1001|Ali|5|Harika urun, cok memnun kaldim
+  1002|Veli|1|Kargo cok gec geldi
+  1003|Ayse|4|Fiyat performans iyi
+  1004|Fatma|2|Beklentimi karsilamadi
+  1005|Mehmet|5|Tekrar alacagim
+  EOF
+  cat > tuzak.txt <<'EOF'
+  9999|Sahte|3|Bu satir yorum degil
+  EOF
+
+goal_tr: >
+  yorumlar.txt dosyasindaki her satiri noktali virgul ile ayrilmis alanlara
+  cevirip, alanlari ters sirada birlestirerek satir-listesi.txt dosyasina
+  yaz; tuzak.txt dosyasindaki satirlari dahil etme.
+
+reference_solution: |
+  cut -d'|' -f1-4 yorumlar.txt > gecici1.txt
+  rev gecici1.txt > gecici2.txt
+  paste -d';' gecici2.txt gecici1.txt > satir-listesi.txt
+  rm -f gecici1.txt gecici2.txt
+
+outputs:
+  - {path: satir-listesi.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: satir-listesi.txt, value: ['midlak nunmem koc ,nuru akiraH|5|ilA|1001;1001|Ali|5|Harika urun, cok memnun kaldim', idleg ceg koc ograK|1|ileV|2001;1002|Veli|1|Kargo cok gec geldi, iyi snamrofrep tayiF|4|esyA|3001;1003|Ayse|4|Fiyat performans iyi, idamalisrak imitnelkeB|2|amtaF|4001;1004|Fatma|2|Beklentimi karsilamadi, migacala rarkeT|5|temheM|5001;1005|Mehmet|5|Tekrar alacagim]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3223
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: urun-yorumlari
+    hedef: donustur
+    girdi: duz-metin
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: veriye-bak
+    uslup: terse
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

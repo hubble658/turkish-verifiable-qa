@@ -1,0 +1,72 @@
+id: gen-s-4024-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  yorumlar.txt dosyasındaki sabit genişlikli satırlardan ürün adını, yorum metnini ve puanı ayrıştır; her yorumun puan alanını ters çevir; sonucu ürün adı, ters yorum ve puan içeren bir JSON nesnesi dizisi olarak yorumlar.json dosyasına yaz.
+
+  Şu şartlar sağlanmalı:
+  - yorumlar.txt dosyasındaki her satır ayrıştırılmalı ve her satır için bir JSON nesnesi üretilmeli.
+  - Her JSON nesnesi ürün adı, ters yorum ve puan alanlarını içermeli.
+  - Yorum metni ters çevrilmiş olarak yazılmalı.
+  - Puan alanındaki değer ters çevrilmiş olarak yazılmalı.
+  - Çıktı, yorumlar.json dosyasına bir JSON nesnesi dizisi olarak yazılmalı.
+  - yorumlar.txt dosyasındaki tüm satırlar (UrunA, UrunB, UrunC, UrunD, UrunE) sonuçta yer almalı.
+
+setup: |
+  cat > yorumlar.txt <<'DATA'
+  UrunA      cok iyi       5
+  UrunB      fena degil    3
+  UrunC      harika        5
+  UrunD      kotu          1
+  UrunE      idare eder    3
+  DATA
+
+goal_tr: >
+  yorumlar.txt sabit genislikli satirlarindaki urun adini, yorum metnini ve
+  puani ayristirip puan alanini ters cevirip urun adi, ters yorum ve puan
+  iceren bir JSON nesnesi dizisi olarak yorumlar.json dosyasina yaz
+
+reference_solution: |
+  cut -c1-11 yorumlar.txt | sed 's/ *$//' > adlar.txt
+  cut -c12-25 yorumlar.txt | sed 's/^ *//;s/ *$//' > yorum.tmp
+  cut -c26- yorumlar.txt | sed 's/^ *//' > puanlar.txt
+  rev yorum.tmp > ters.txt
+  paste -d'|' adlar.txt ters.txt puanlar.txt | awk -F'|' 'BEGIN{printf "["} {printf "%s{\"urun\":\"%s\",\"yorum\":\"%s\",\"puan\":%s}", (NR>1?",":""), $1, $2, $3} END{printf "]"}' > yorumlar.json
+  printf '\n' >> yorumlar.json
+  rm -f adlar.txt yorum.tmp puanlar.txt ters.txt
+
+outputs:
+  - {path: yorumlar.json, kind: json}
+
+checks:
+  - {op: json_eq, path: yorumlar.json, value: [{urun: UrunA, yorum: iyi koc, puan: 5}, {urun: UrunB, yorum: liged anef, puan: 3}, {urun: UrunC, yorum: akirah, puan: 5}, {urun: UrunD, yorum: utok, puan: 1}, {urun: UrunE, yorum: rede eradi, puan: 3}]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4024
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: urun-yorumlari
+    hedef: donustur
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: json
+    kesif: dolayli-hedef
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

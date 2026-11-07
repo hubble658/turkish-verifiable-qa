@@ -1,0 +1,141 @@
+id: gen-k-8189-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) pkg/report/accounts.py dosyasındaki AccountSet sınıfını tamamla; context manager olarak kullanıldığında accounts() metodu, defterde işlem gören tüm hesap adlarını bir küme olarak döndürsün.
+
+  2) Aynı AccountSet sınıfındaki shared_accounts(other_path) metodu, kendi defteri ile other_path ile verilen defterin ikisinde de geçen hesap adlarını bir küme olarak döndürsün.
+
+setup: |
+  mkdir -p bank pkg/report
+  cat > bank/__init__.py <<'EOF'
+  EOF
+  cat > bank/ledger.py <<'LEDGER'
+  def load_rows(path):
+      rows = []
+      with open(path, "r", encoding="utf-8") as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              parts = line.split(";")
+              rows.append((parts[0], parts[1], int(parts[2])))
+      return rows
+  LEDGER
+  cat > pkg/__init__.py <<'EOF'
+  EOF
+  cat > pkg/report/__init__.py <<'EOF'
+  EOF
+  cat > pkg/report/accounts.py <<'ACC'
+  from bank.ledger import load_rows
+
+
+  class AccountSet:
+      def __init__(self, path):
+          self.path = path
+          self._rows = None
+
+      def __enter__(self):
+          self._rows = load_rows(self.path)
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self._rows = None
+          return False
+
+      def accounts(self):
+          raise NotImplementedError
+
+      def shared_accounts(self, other_path):
+          raise NotImplementedError
+  ACC
+  cat > ledger_a.txt <<'DATA'
+  alice;deposit;100
+  bob;withdraw;40
+  carol;deposit;70
+  dave;deposit;25
+  DATA
+  cat > ledger_b.txt <<'DATA'
+  bob;deposit;10
+  carol;withdraw;5
+  erin;deposit;60
+  alice;withdraw;3
+  DATA
+
+goal_tr: >
+  pkg/report/accounts.py dosyasindaki AccountSet sinifini oyle tamamla ki
+  context manager olarak kullanildiginda accounts() islemi goren tum hesap
+  adlarini kumesi olarak, shared_accounts(other_path) ise iki defterde de
+  gecen hesap adlarini kumesi olarak dondursun.
+
+reference_solution: |
+  cat > pkg/report/accounts.py <<'ACC'
+  from bank.ledger import load_rows
+
+
+  class AccountSet:
+      def __init__(self, path):
+          self.path = path
+          self._rows = None
+
+      def __enter__(self):
+          self._rows = load_rows(self.path)
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self._rows = None
+          return False
+
+      def accounts(self):
+          return {row[0] for row in self._rows}
+
+      def shared_accounts(self, other_path):
+          mine = self.accounts()
+          with AccountSet(other_path) as other:
+              theirs = other.accounts()
+          return mine & theirs
+  ACC
+
+outputs:
+  - {path: pkg/report/accounts.py, kind: program, run: 'python3 -c ''from pkg.report.accounts import AccountSet as A; c=A("ledger_a.txt"); assert c.__enter__() is c; assert c.accounts()=={"alice","bob","carol","dave"}, c.accounts(); assert c.shared_accounts("ledger_b.txt")=={"alice","bob","carol"}, c.shared_accounts("ledger_b.txt"); c.__exit__(None,None,None); assert c.accounts() if False else True; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from pkg.report.accounts import AccountSet as A; c=A("ledger_a.txt"); assert c.__enter__() is c; assert c.accounts()=={"alice","bob","carol","dave"}, c.accounts(); assert c.shared_accounts("ledger_b.txt")=={"alice","bob","carol"}, c.shared_accounts("ledger_b.txt"); c.__exit__(None,None,None); assert c.accounts() if False else True; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8189
+    bundle: yarisma
+    tools:
+    - python3
+    konu: banka-hareketleri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kume-islemleri
+      karmasiklik: duz
+      kalip: context-manager
+      akis: dosya-okuma
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

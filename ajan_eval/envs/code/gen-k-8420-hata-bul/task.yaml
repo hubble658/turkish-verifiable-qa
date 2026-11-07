@@ -1,0 +1,149 @@
+id: gen-k-8420-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Bugün ekipçe takvim verileriyle ilgili bir sorunu konuşuyorduk; toplantı notlarını günlere göre tarayan küçük bir araç yazmışız ama sonuçlar bir türlü beklendiği gibi çıkmıyor. Öğleden sonra da planner klasöründeki koda tekrar bakarken, bazı kelimelerin birden fazla günde geçtiğini ama aracın bunların yalnızca ilkini gördüğünü fark ettik. Bu yüzden planner/schedule.py dosyasındaki days_containing fonksiyonunu düzeltmeni istiyorum: EventStream üzerinde gezerken verilen anahtar kelimeyi içeren tüm günleri, artan sırayla döndürsün. Diğer dosyalara ve fonksiyonlara dokunma, sadece bu fonksiyonun davranışı düzelsin.
+
+setup: |
+  mkdir -p planner
+  cat > planner/events.py <<'EVENTS'
+  def load_events(path):
+      events = []
+      with open(path, "r", encoding="utf-8") as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              day, title = line.split("|", 1)
+              events.append((int(day), title))
+      return events
+
+
+  class EventStream:
+      def __init__(self, path):
+          self._events = load_events(path)
+          self._index = 0
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          if self._index >= len(self._events):
+              raise StopIteration
+          item = self._events[self._index]
+          self._index += 1
+          return item
+
+
+  def iter_days(path):
+      return EventStream(path)
+  EVENTS
+  cat > planner/schedule.py <<'SCHEDULE'
+  from planner.events import iter_days
+
+
+  def group_by_day(path):
+      grouped = {}
+      for day, title in iter_days(path):
+          grouped.setdefault(day, []).append(title)
+      return grouped
+
+
+  def first_day_with(path, keyword):
+      for day, title in iter_days(path):
+          if keyword in title:
+              return day
+      return None
+
+
+  def days_containing(path, keyword):
+      result = []
+      for day, title in iter_days(path):
+          if keyword in title:
+              result.append(day)
+              return result
+      return result
+  SCHEDULE
+  cat > events.txt <<'DATA'
+  3|team sync
+  3|design review
+  5|retro
+  7|design workshop
+  7|team lunch
+  DATA
+
+goal_tr: >
+  planner/schedule.py icindeki days_containing fonksiyonunu, EventStream
+  uzerinde gezerken verilen anahtar kelimeyi iceren TUM gunleri artan sirada
+  dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > planner/schedule.py <<'SCHEDULE'
+  from planner.events import iter_days
+
+
+  def group_by_day(path):
+      grouped = {}
+      for day, title in iter_days(path):
+          grouped.setdefault(day, []).append(title)
+      return grouped
+
+
+  def first_day_with(path, keyword):
+      for day, title in iter_days(path):
+          if keyword in title:
+              return day
+      return None
+
+
+  def days_containing(path, keyword):
+      result = []
+      for day, title in iter_days(path):
+          if keyword in title:
+              result.append(day)
+      return result
+  SCHEDULE
+
+outputs:
+  - {path: planner/schedule.py, kind: program, run: 'python3 -c ''from planner.schedule import group_by_day as g, first_day_with as f, days_containing as d; assert g("events.txt")=={3:["team sync","design review"],5:["retro"],7:["design workshop","team lunch"]}, g("events.txt"); assert f("events.txt","design")==3, f("events.txt","design"); assert d("events.txt","design")==[3,7], d("events.txt","design"); assert d("events.txt","team")==[3,7], d("events.txt","team"); assert d("events.txt","missing")==[]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from planner.schedule import group_by_day as g, first_day_with as f, days_containing as d; assert g("events.txt")=={3:["team sync","design review"],5:["retro"],7:["design workshop","team lunch"]}, g("events.txt"); assert f("events.txt","design")==3, f("events.txt","design"); assert d("events.txt","design")==[3,7], d("events.txt","design"); assert d("events.txt","team")==[3,7], d("events.txt","team"); assert d("events.txt","missing")==[]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8420
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: takvim-etkinlikleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: erken-donus
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,77 @@
+id: gen-s-4129-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  gelen klasöründeki siparisler_*.csv dosyalarını birleştirip adet alanı boş olan satırları eleyerek temiz_siparisler.csv yap. Atanan satır sayısını atlanan.txt içine sadece sayı olarak yaz.
+
+setup: |
+  mkdir -p gelen
+  cat > gelen/siparisler_01.csv <<'CSV'
+  siparis_id,musteri,urun,adet,fiyat
+  1,Ayse,kebap,2,180
+  2,Mehmet,pide,1,90
+  3,Zeynep,kebap,3,180
+  CSV
+  cat > gelen/siparisler_02.csv <<'CSV'
+  siparis_id,musteri,urun,adet,fiyat
+  4,Ali,lahmacun,5,40
+  5,Fatma,pide,2,90
+  6,Can,lahmacun,,40
+  CSV
+  cat > gelen/siparisler_03.csv <<'CSV'
+  siparis_id,musteri,urun,adet,fiyat
+  7,Deniz,kebap,1,180
+  8,Ece,pide,4,90
+  9,Burak,lahmacun,2,40
+  CSV
+
+goal_tr: >
+  gelen klasorundeki siparisler_*.csv dosyalarini birlestirip adet alani bos
+  olan satirlari atlayarak temiz_siparisler.csv olarak yaz ve kac satirin
+  atlandigini atlanan.txt dosyasina sadece sayi olarak kaydet
+
+reference_solution: |
+  cat gelen/siparisler_*.csv | grep -v '^siparis_id' > /tmp/govde.csv
+  grep -v ',,' /tmp/govde.csv > /tmp/temiz_govde.csv
+  wc -l < /tmp/temiz_govde.csv > /tmp/temiz_sayi.txt
+  head -n 1 gelen/siparisler_01.csv > temiz_siparisler.csv
+  cat /tmp/temiz_govde.csv >> temiz_siparisler.csv
+  wc -l < /tmp/govde.csv | awk -v t="$(cat /tmp/temiz_sayi.txt)" '{print $1 - t}' > atlanan.txt
+
+outputs:
+  - {path: temiz_siparisler.csv, kind: file}
+  - {path: atlanan.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: atlanan.txt, value: '1'}
+  - {op: file_lines_eq, path: temiz_siparisler.csv, value: ['siparis_id,musteri,urun,adet,fiyat', '1,Ayse,kebap,2,180', '2,Mehmet,pide,1,90', '3,Zeynep,kebap,3,180', '4,Ali,lahmacun,5,40', '5,Fatma,pide,2,90', '7,Deniz,kebap,1,180', '8,Ece,pide,4,90', '9,Burak,lahmacun,2,40']}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4129
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: restoran-siparisleri
+    hedef: denetle
+    girdi: csv
+    kaynak: cok-dosya
+    cikti: yeniden-adlandirilmis
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

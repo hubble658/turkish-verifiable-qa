@@ -1,0 +1,109 @@
+id: gen-k-8328-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  pricing/avg.py dosyasındaki average_price fonksiyonunu, verilen bir borudan gelen tüm fiyatların ortalamasını doğru şekilde hesaplayacak hale getir. Şu an ilk değerden sonra fonksiyondan çıkıldığı için yalnızca ilk fiyat dönüyor; fonksiyon bunun yerine borudaki her fiyatı okuyup hepsinin ortalamasını döndürmeli. Hiç fiyat yoksa sonuç 0.0 olmalı.
+
+setup: |
+  mkdir -p pricing
+  cat > pricing/stream.py <<'STREAM'
+  def iter_lines(handle):
+      for raw in handle:
+          line = raw.strip()
+          if line:
+              yield line
+  STREAM
+  cat > pricing/parse.py <<'PARSE'
+  from pricing.stream import iter_lines
+
+
+  def iter_prices(handle):
+      for line in iter_lines(handle):
+          name, value = line.split(",")
+          yield (name, float(value))
+  PARSE
+  cat > pricing/avg.py <<'AVG'
+  from pricing.parse import iter_prices
+
+
+  def average_price(handle):
+      running = 0.0
+      count = 0
+      for _name, value in iter_prices(handle):
+          running += value
+          count += 1
+          if count == 1:
+              return running
+      if count == 0:
+          return 0.0
+      return running / count
+  AVG
+  cat > prices.csv <<'CSV'
+  apple,2.0
+  banana,4.0
+  cherry,6.0
+  CSV
+
+goal_tr: >
+  pricing/avg.py icindeki average_price fonksiyonunu, borudan gelen tum
+  fiyatlarin ortalamasini dogru hesaplayacak bicimde duzelt
+
+reference_solution: |
+  cat > pricing/avg.py <<'AVG'
+  from pricing.parse import iter_prices
+
+
+  def average_price(handle):
+      running = 0.0
+      count = 0
+      for _name, value in iter_prices(handle):
+          running += value
+          count += 1
+      if count == 0:
+          return 0.0
+      return running / count
+  AVG
+
+outputs:
+  - {path: pricing/avg.py, kind: program, run: 'python3 -c ''import io; from pricing.avg import average_price as f; assert f(io.StringIO("apple,2.0\nbanana,4.0\ncherry,6.0\n"))==4.0; assert f(io.StringIO("x,1.0\n"))==1.0; assert f(io.StringIO(""))==0.0; assert f(io.StringIO("a,1.0\nb,2.0\nc,3.0\nd,4.0\n"))==2.5; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import io; from pricing.avg import average_price as f; assert f(io.StringIO("apple,2.0\nbanana,4.0\ncherry,6.0\n"))==4.0; assert f(io.StringIO("x,1.0\n"))==1.0; assert f(io.StringIO(""))==0.0; assert f(io.StringIO("a,1.0\nb,2.0\nc,3.0\nd,4.0\n"))==2.5; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8328
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: urun-fiyatlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: erken-donus
+      karmasiklik: duz
+      kalip: generator
+      akis: stdin-boru
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,206 @@
+id: gen-k-5038-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  cargo/tree.py dosyasındaki ShipmentTree sınıfını tam olarak çalışır hale getir. insert metodu kodu ikili arama ağacı kuralına göre yerleştirsin; aynı kod tekrar geldiğinde yeni düğüm eklenmesin, mevcut düğümün ağırlığı güncellensin. total_weight ağaçtaki tüm ağırlıkların toplamını döndürsün. heaviest en ağır kargonun kodunu döndürsün. inorder ise kodları küçükten büyüğe sıralı biçimde döndürsün. Sınıfın dışındaki Node tanımı ve diğer dosyalar olduğu gibi kalmalı; yalnızca cargo/tree.py üzerinde çalış.
+
+setup: |
+  mkdir -p cargo
+  cat > cargo/events.py <<'EVENTS'
+  def parse_events(text):
+      events = []
+      for line in text.strip().splitlines():
+          if not line.strip():
+              continue
+          code, weight = line.split()
+          events.append((code, float(weight)))
+      return events
+  EVENTS
+  cat > cargo/tree.py <<'TREE'
+  class Node:
+      def __init__(self, code, weight):
+          self.code = code
+          self.weight = weight
+          self.left = None
+          self.right = None
+
+
+  class ShipmentTree:
+      def __init__(self):
+          self.root = None
+
+      def insert(self, code, weight):
+          raise NotImplementedError
+
+      def total_weight(self):
+          raise NotImplementedError
+
+      def heaviest(self):
+          raise NotImplementedError
+
+      def inorder(self):
+          raise NotImplementedError
+  TREE
+  cat > cargo/report.py <<'REPORT'
+  from cargo.tree import ShipmentTree
+
+
+  def build_tree(events):
+      tree = ShipmentTree()
+      for code, weight in events:
+          tree.insert(code, weight)
+      return tree
+
+
+  def summarize(events):
+      tree = build_tree(events)
+      return {
+          "total": tree.total_weight(),
+          "heaviest": tree.heaviest(),
+          "codes": tree.inorder(),
+      }
+  REPORT
+  cat > cargo/main.py <<'MAIN'
+  import sys
+
+  from cargo.events import parse_events
+  from cargo.report import summarize
+
+
+  def run(text):
+      events = parse_events(text)
+      result = summarize(events)
+      print("total=%.1f" % result["total"])
+      print("heaviest=%s" % result["heaviest"])
+      print("codes=%s" % ",".join(result["codes"]))
+
+
+  if __name__ == "__main__":
+      run(sys.stdin.read())
+  MAIN
+
+goal_tr: >
+  cargo/tree.py icindeki ShipmentTree sinifini tam olarak gerceklestir:
+  insert kodu ikili arama agaci kuralina gore yerlestirsin (ayni kod tekrar
+  gelirse agirligi guncellensin), total_weight tum agirliklarin toplamini,
+  heaviest en agir kargonun kodunu, inorder ise kodlari kucukten buyuge
+  sirali dondursun.
+
+reference_solution: |
+  cat > cargo/tree.py <<'TREE'
+  class Node:
+      def __init__(self, code, weight):
+          self.code = code
+          self.weight = weight
+          self.left = None
+          self.right = None
+
+
+  class ShipmentTree:
+      def __init__(self):
+          self.root = None
+
+      def insert(self, code, weight):
+          if self.root is None:
+              self.root = Node(code, weight)
+              return
+          node = self.root
+          while True:
+              if code < node.code:
+                  if node.left is None:
+                      node.left = Node(code, weight)
+                      return
+                  node = node.left
+              elif code > node.code:
+                  if node.right is None:
+                      node.right = Node(code, weight)
+                      return
+                  node = node.right
+              else:
+                  node.weight = weight
+                  return
+
+      def total_weight(self):
+          total = 0.0
+          stack = [self.root]
+          while stack:
+              node = stack.pop()
+              if node is None:
+                  continue
+              total += node.weight
+              stack.append(node.left)
+              stack.append(node.right)
+          return total
+
+      def heaviest(self):
+          best_code = None
+          best_weight = None
+          stack = [self.root]
+          while stack:
+              node = stack.pop()
+              if node is None:
+                  continue
+              if best_weight is None or node.weight > best_weight:
+                  best_weight = node.weight
+                  best_code = node.code
+              stack.append(node.left)
+              stack.append(node.right)
+          return best_code
+
+      def inorder(self):
+          codes = []
+          stack = []
+          node = self.root
+          while stack or node is not None:
+              while node is not None:
+                  stack.append(node)
+                  node = node.left
+              node = stack.pop()
+              codes.append(node.code)
+              node = node.right
+          return codes
+  TREE
+
+outputs:
+  - {path: cargo/tree.py, kind: program, run: 'python3 -c ''from cargo.tree import ShipmentTree; t=ShipmentTree(); [t.insert(c,w) for c,w in [("BOLT",2.5),("AXLE",9.0),("CRATE",4.5),("AXLE",1.0)]]; assert t.inorder()==["AXLE","BOLT","CRATE"], t.inorder(); assert abs(t.total_weight()-8.0)<1e-9, t.total_weight(); assert t.heaviest()=="CRATE", t.heaviest(); t2=ShipmentTree(); t2.insert("Z",1.0); t2.insert("A",5.0); t2.insert("M",3.0); assert t2.inorder()==["A","M","Z"], t2.inorder(); assert t2.heaviest()=="A"; assert abs(t2.total_weight()-9.0)<1e-9; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from cargo.tree import ShipmentTree; t=ShipmentTree(); [t.insert(c,w) for c,w in [("BOLT",2.5),("AXLE",9.0),("CRATE",4.5),("AXLE",1.0)]]; assert t.inorder()==["AXLE","BOLT","CRATE"], t.inorder(); assert abs(t.total_weight()-8.0)<1e-9, t.total_weight(); assert t.heaviest()=="CRATE", t.heaviest(); t2=ShipmentTree(); t2.insert("Z",1.0); t2.insert("A",5.0); t2.insert("M",3.0); assert t2.inorder()==["A","M","Z"], t2.inorder(); assert t2.heaviest()=="A"; assert abs(t2.total_weight()-9.0)<1e-9; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5038
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: kargo-takibi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: kolay
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: ikili-arama-agaci
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: stdin-boru
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,96 @@
+id: gen-s-7325-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Sahadaki istasyonlardan gelen ham kayıtlar bazen aynı satırı üst üste tekrarlayabiliyor; sensörlerin takılması ya da bağlantı kopmaları yüzünden aynı ölçüm birden fazla kez düşebiliyor. Bu yüzden arşivi düzenli tutmak için elimizdeki veriyi sadeleştirmemiz gerekiyor, yoksa raporlarda her şey şişiyor. Bu işi de veri dizinindeki istasyonlar üzerinden yapalım.
+
+  veri dizini altındaki her istasyonun olcum.log dosyasındaki tekrar eden satırları, ilk göründükleri sıra korunacak şekilde, her satırdan yalnızca bir tane kalacak biçimde sadeleştir. Sonra sonuc dizininde veri altındaki istasyon yapısının aynısını kur; yani sonuc/istasyon_a/olcum.log, sonuc/istasyon_b/olcum.log ve sonuc/istasyon_c/olcum.log dosyalarını oluşturup her istasyonun sadeleşmiş ölçümlerini kendi olcum.log dosyasına yaz. Son olarak sonuc dizinini sonuc.tar arşivine al.
+
+setup: |
+  mkdir -p veri/istasyon_a veri/istasyon_b veri/istasyon_c
+  cat > veri/istasyon_a/olcum.log <<'LOG'
+  sicaklik 21
+  nem 40
+  sicaklik 22
+  LOG
+  cat > veri/istasyon_b/olcum.log <<'LOG'
+  nem 55
+  sicaklik 19
+  nem 55
+  basinc 1013
+  LOG
+  cat > veri/istasyon_c/olcum.log <<'LOG'
+  sicaklik 25
+  sicaklik 25
+  LOG
+
+goal_tr: >
+  veri dizini altindaki her istasyonun olcum.log dosyasindaki tekrar eden
+  satirlari bir kez kalacak sekilde sirasini koruyarak sadelestir ve sonuc
+  dizininde ayni istasyon alt dizin yapisini kurup her istasyonun sadelesmis
+  olcumlerini olcum.log olarak yaz
+
+reference_solution: |
+  mkdir -p sonuc
+  find veri -type f -name 'olcum.log' | sort | while read -r f; do
+    d=$(dirname "$f")
+    mkdir -p "sonuc/${d#veri/}"
+    awk '!seen[$0]++' "$f" > "sonuc/${d#veri/}/olcum.log"
+  done
+  tar -cf sonuc.tar sonuc
+
+outputs:
+  - {path: sonuc, kind: dir}
+  - {path: sonuc/istasyon_a/olcum.log, kind: file}
+  - {path: sonuc/istasyon_b/olcum.log, kind: file}
+  - {path: sonuc/istasyon_c/olcum.log, kind: file}
+  - {path: sonuc.tar, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: sonuc, value: [istasyon_a, istasyon_b, istasyon_c]}
+  - {op: run_stdout_eq, cmd: tar -tf sonuc.tar | sort, value: 'sonuc/
+
+    sonuc/istasyon_a/
+
+    sonuc/istasyon_a/olcum.log
+
+    sonuc/istasyon_b/
+
+    sonuc/istasyon_b/olcum.log
+
+    sonuc/istasyon_c/
+
+    sonuc/istasyon_c/olcum.log'}
+  - {op: file_lines_eq, path: sonuc/istasyon_a/olcum.log, value: [sicaklik 21, nem 40, sicaklik 22]}
+  - {op: file_lines_eq, path: sonuc/istasyon_b/olcum.log, value: [nem 55, sicaklik 19, basinc 1013]}
+  - {op: file_content_eq, path: sonuc/istasyon_c/olcum.log, value: sicaklik 25}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7325
+    bundle: secerek-arsivle
+    tools:
+    - tar
+    - find
+    konu: sensor-olcumleri
+    hedef: yeniden-duzenle
+    girdi: log-satiri
+    kaynak: dizin-agaci
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: tekrar-eden-kayit
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

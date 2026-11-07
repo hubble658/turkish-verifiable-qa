@@ -1,0 +1,81 @@
+id: gen-s-7238-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) vardiya klasöründeki tüm .dat dosyalarını oku; her satırdaki sabit genişlikli alanlardan personel kimliğini, adını ve vardiya başlangıç-bitiş saatlerini çıkar.
+
+  2) Başlangıç saati geçerli olan satırları tut, geçersiz saat içeren satırları atla.
+
+  3) Kalan kayıtları personel kimliğine göre grupla; her personel için toplam vardiya sayısını ve o personelin geçtiği dosya adlarını topla.
+
+  4) Gruplanmış bu bilgileri JSON nesnesi olarak vardiya.json dosyasına yaz.
+
+setup: |
+  mkdir -p vardiya
+  cat > vardiya/pazartesi.dat <<'DAT'
+  0012 ALI     08:00 16:00
+  0013 AYSE    09:00 17:00
+  0014 CAN     10:00 18:00
+  0015 DENIZ   XX:XX 17:00
+  DAT
+  cat > vardiya/sali.dat <<'DAT'
+  0012 ALI     08:00 16:00
+  0013 AYSE    09:00 17:00
+  0016 EFE     11:00 19:00
+  0017 FATMA   08:30 16:30
+  DAT
+  cat > vardiya/carsamba.dat <<'DAT'
+  0012 ALI     08:00 16:00
+  0014 CAN     10:00 18:00
+  0016 EFE     11:00 19:00
+  0018 GIZEM   XX:XX XX:XX
+  DAT
+
+goal_tr: >
+  vardiya klasorundeki tum .dat dosyalarindaki sabit genislikli satirlardan
+  personel kimligi, adi ve vardiya baslangic-bitis saatlerini cikarip,
+  baslangic saati gecerli olan personelin kimligine gore gruplanmis ve her
+  personel icin toplam vardiya sayisi ile dosya adlarindan olusan JSON
+  nesnesini vardiya.json dosyasina yaz; gecersiz saat iceren satirlar
+  atlanir.
+
+reference_solution: |
+  find vardiya -name '*.dat' | sort | xargs awk '{ id=substr($0,1,4); ad=substr($0,6,7); bas=substr($0,14,5); bit=substr($0,20,5); if (bas ~ /^[0-9][0-9]:[0-9][0-9]$/) print id, ad, bas, bit, FILENAME }' > gecerli.txt
+  awk '{ sayi[$1]++; ad[$1]=$2; dosya[$1]=dosya[$1] (dosya[$1]?",":"") $5 } END { for (k in sayi) printf "%s %s %d %s\n", k, ad[k], sayi[k], dosya[k] }' gecerli.txt | sort > ozet.txt
+  awk 'BEGIN { print "{" } { printf "  \"%s\": {\"ad\": \"%s\", \"vardiya\": %d, \"dosyalar\": [", $1, $2, $3; n=split($4, d, ","); for (i=1;i<=n;i++) { printf "\"%s\"", d[i]; if (i<n) printf ", " } printf "]}" ; if (NR<toplam) printf ","; print "" } END { print "}" }' toplam=$(wc -l < ozet.txt) ozet.txt > vardiya.json
+
+outputs:
+  - {path: vardiya.json, kind: json}
+
+checks:
+  - {op: json_eq, path: vardiya.json, value: {'0012': {ad: ALI, vardiya: 3, dosyalar: [vardiya/carsamba.dat, vardiya/pazartesi.dat, vardiya/sali.dat]}, '0013': {ad: AYSE, vardiya: 2, dosyalar: [vardiya/pazartesi.dat, vardiya/sali.dat]}, '0014': {ad: CAN, vardiya: 2, dosyalar: [vardiya/carsamba.dat, vardiya/pazartesi.dat]}, '0016': {ad: EFE, vardiya: 2, dosyalar: [vardiya/carsamba.dat, vardiya/sali.dat]}, '0017': {ad: FATMA, vardiya: 1, dosyalar: [vardiya/sali.dat]}}}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7238
+    bundle: bul-tasi
+    tools:
+    - find
+    - xargs
+    konu: personel-vardiyalari
+    hedef: denetle
+    girdi: sabit-genislik
+    kaynak: cok-dosya
+    cikti: json
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

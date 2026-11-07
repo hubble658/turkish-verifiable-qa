@@ -1,0 +1,109 @@
+id: gen-k-8114-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) orders/reports/counts.py dosyasındaki product_counts fonksiyonunu, orders/core/events.py içindeki EventStream iterator protokolünü kullanarak iç içe kayıtlardan ürün bazında sayımları doğru döndürecek biçimde gerçekleştir.
+
+  2) orders/reports/counts.py dosyasındaki customer_product_counts fonksiyonunu, orders/core/events.py içindeki EventStream iterator protokolünü kullanarak iç içe kayıtlardan müşteri-ürün bazında sayımları doğru döndürecek biçimde gerçekleştir.
+
+setup: |
+  mkdir -p orders/core orders/reports
+  cat > orders/core/__init__.py <<'PY'
+  PY
+  cat > orders/reports/__init__.py <<'PY'
+  PY
+  cat > orders/core/events.py <<'PY'
+  class EventStream:
+      """Yields (customer, product, qty) tuples from nested raw records."""
+
+      def __init__(self, records):
+          self._records = records
+
+      def __iter__(self):
+          for rec in self._records:
+              customer = rec["customer"]
+              for line in rec["lines"]:
+                  yield (customer, line["product"], int(line["qty"]))
+  PY
+  cat > orders/reports/counts.py <<'PY'
+  from orders.core.events import EventStream
+
+
+  def product_counts(records):
+      raise NotImplementedError
+
+
+  def customer_product_counts(records):
+      raise NotImplementedError
+  PY
+
+goal_tr: >
+  orders/reports/counts.py icindeki product_counts ve
+  customer_product_counts fonksiyonlarini, orders/core/events.py'deki
+  EventStream iterator protokolunu kullanarak ic ice kayitlardan urun
+  bazinda ve musteri-urun bazinda sayimlari dogru dondurecek bicimde
+  gerceklestir.
+
+reference_solution: |
+  cat > orders/reports/counts.py <<'PY'
+  from orders.core.events import EventStream
+
+
+  def product_counts(records):
+      counts = {}
+      for _customer, product, qty in EventStream(records):
+          counts[product] = counts.get(product, 0) + qty
+      return counts
+
+
+  def customer_product_counts(records):
+      counts = {}
+      for customer, product, qty in EventStream(records):
+          key = (customer, product)
+          counts[key] = counts.get(key, 0) + qty
+      return counts
+  PY
+
+outputs:
+  - {path: orders/reports/counts.py, kind: program, run: 'python3 -c ''from orders.reports.counts import product_counts as p, customer_product_counts as c; r=[{"customer":"ada","lines":[{"product":"bolt","qty":2},{"product":"nut","qty":3}]},{"customer":"bob","lines":[{"product":"bolt","qty":5},{"product":"bolt","qty":1}]}]; assert p(r)=={"bolt":8,"nut":3}, p(r); assert c(r)=={("ada","bolt"):2,("ada","nut"):3,("bob","bolt"):6}, c(r); assert p([])=={}; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from orders.reports.counts import product_counts as p, customer_product_counts as c; r=[{"customer":"ada","lines":[{"product":"bolt","qty":2},{"product":"nut","qty":3}]},{"customer":"bob","lines":[{"product":"bolt","qty":5},{"product":"bolt","qty":1}]}]; assert p(r)=={"bolt":8,"nut":3}, p(r); assert c(r)=={("ada","bolt"):2,("ada","nut"):3,("bob","bolt"):6}, c(r); assert p([])=={}; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8114
+    bundle: yarisma
+    tools:
+    - python3
+    konu: siparis-kayitlari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sayma
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: ic-ice-yapi
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,175 @@
+id: gen-k-6026-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 20
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) depot/core/ledger.py içindeki sorted_items metodunu, kalemleri toplam miktara göre büyükten küçüğe sıralayacak biçimde düzelt; sıralama Quantity nesnelerinin miktar değerleri üzerinden yapılsın.
+
+  2) depot/ops/report.py içindeki summarize fonksiyonunu, en yüksek stoklu ilk `top` kalemi eksiksiz listeleyecek şekilde düzelt; fonksiyon tam olarak `top` adet satır döndürsün ve her satır "ad=miktarbirim" biçiminde olsun.
+
+  3) depot/core/units.py dosyasındaki Quantity sınıfını, iki Quantity nesnesinin miktarlarının karşılaştırılabilmesini sağlayacak şekilde genişlet; böylece ledger.py içindeki sıralama doğru çalışsın.
+
+setup: |
+  mkdir -p depot/core depot/ops
+  cat > depot/core/units.py <<'UNITS'
+  class Quantity:
+      """Wraps an integer amount together with its unit name."""
+
+      def __init__(self, amount, unit):
+          self.amount = amount
+          self.unit = unit
+
+      def __add__(self, other):
+          if self.unit != other.unit:
+              raise ValueError("unit mismatch")
+          return Quantity(self.amount + other.amount, self.unit)
+
+      def __eq__(self, other):
+          return self.amount == other.amount and self.unit == other.unit
+
+      def __repr__(self):
+          return "Quantity(%d,%s)" % (self.amount, self.unit)
+  UNITS
+  cat > depot/core/ledger.py <<'LEDGER'
+  from depot.core.units import Quantity
+
+
+  class Ledger:
+      """Accumulates per-item quantities from a list of move records."""
+
+      def __init__(self):
+          self.totals = {}
+
+      def apply(self, moves):
+          for item, amount, unit in moves:
+              q = Quantity(amount, unit)
+              if item in self.totals:
+                  self.totals[item] = self.totals[item] + q
+              else:
+                  self.totals[item] = q
+          return self.totals
+
+      def sorted_items(self):
+          return sorted(self.totals)
+  LEDGER
+  cat > depot/ops/report.py <<'REPORT'
+  from depot.core.ledger import Ledger
+
+
+  def summarize(moves, top):
+      ledger = Ledger()
+      ledger.apply(moves)
+      names = ledger.sorted_items()
+      lines = []
+      for name in names[:top - 1]:
+          q = ledger.totals[name]
+          lines.append("%s=%d%s" % (name, q.amount, q.unit))
+      return lines
+  REPORT
+
+goal_tr: >
+  1) depot/ops/report.py icindeki summarize fonksiyonunun en yuksek stoklu
+  ilk `top` kalemi eksiksiz listelemesini sagla; 2) ardindan
+  depot/core/ledger.py icindeki sorted_items metodunu, kalemleri toplam
+  miktara gore buyukten kucuge siralayacak bicimde duzelt.
+
+reference_solution: |
+  cat > depot/core/ledger.py <<'LEDGER'
+  from depot.core.units import Quantity
+
+
+  class Ledger:
+      """Accumulates per-item quantities from a list of move records."""
+
+      def __init__(self):
+          self.totals = {}
+
+      def apply(self, moves):
+          for item, amount, unit in moves:
+              q = Quantity(amount, unit)
+              if item in self.totals:
+                  self.totals[item] = self.totals[item] + q
+              else:
+                  self.totals[item] = q
+          return self.totals
+
+      def sorted_items(self):
+          return sorted(self.totals, key=lambda n: self.totals[n].amount, reverse=True)
+  LEDGER
+  cat > depot/ops/report.py <<'REPORT'
+  from depot.core.ledger import Ledger
+
+
+  def summarize(moves, top):
+      ledger = Ledger()
+      ledger.apply(moves)
+      names = ledger.sorted_items()
+      lines = []
+      for name in names[:top]:
+          q = ledger.totals[name]
+          lines.append("%s=%d%s" % (name, q.amount, q.unit))
+      return lines
+  REPORT
+
+ara_adim: |
+  cat > depot/ops/report.py <<'REPORT'
+  from depot.core.ledger import Ledger
+
+
+  def summarize(moves, top):
+      ledger = Ledger()
+      ledger.apply(moves)
+      names = ledger.sorted_items()
+      lines = []
+      for name in names[:top]:
+          q = ledger.totals[name]
+          lines.append("%s=%d%s" % (name, q.amount, q.unit))
+      return lines
+  REPORT
+
+outputs:
+  - {path: depot/ops/report.py, kind: program, run: 'python3 -c ''from depot.ops.report import summarize as f; m=[("bolt",3,"pc"),("nut",5,"pc"),("bolt",4,"pc"),("washer",2,"pc")]; assert f(m,2)==["bolt=7pc","nut=5pc"], f(m,2); assert f(m,3)==["bolt=7pc","nut=5pc","washer=2pc"], f(m,3); print("TAMAM")'''}
+  - {path: depot/core/ledger.py, kind: program, run: 'python3 -c ''from depot.core.ledger import Ledger as L; from depot.core.units import Quantity as Q; l=L(); l.apply([("x",1,"pc"),("y",9,"pc"),("z",4,"pc")]); assert l.sorted_items()==["y","z","x"], l.sorted_items(); assert l.totals["y"]==Q(9,"pc"); print("ILERLEME-TAMAM")'''}
+  - {path: depot/core/units.py, kind: program, run: 'python3 -c ''from depot.core.units import Quantity as Q; assert Q(2,"pc")+Q(3,"pc")==Q(5,"pc"); assert (Q(2,"pc")+Q(3,"pc")).unit=="pc"; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depot.core.ledger import Ledger as L; from depot.core.units import Quantity as Q; l=L(); l.apply([("x",1,"pc"),("y",9,"pc"),("z",4,"pc")]); assert l.sorted_items()==["y","z","x"], l.sorted_items(); assert l.totals["y"]==Q(9,"pc"); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depot.ops.report import summarize as f; m=[("bolt",3,"pc"),("nut",5,"pc"),("bolt",4,"pc"),("washer",2,"pc")]; assert f(m,2)==["bolt=7pc","nut=5pc"], f(m,2); assert f(m,3)==["bolt=7pc","nut=5pc","washer=2pc"], f(m,3); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depot.core.units import Quantity as Q; assert Q(2,"pc")+Q(3,"pc")==Q(5,"pc"); assert (Q(2,"pc")+Q(3,"pc")).unit=="pc"; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-6026
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: depo-envanteri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 7
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: off-by-one
+      karmasiklik: orta
+      kalip: operator-asiri-yukleme
+      akis: bellek-ici
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

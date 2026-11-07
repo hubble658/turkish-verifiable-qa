@@ -1,0 +1,79 @@
+id: gen-s-7309-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  notlar dizinindeki uzantısı .txt olan dosyalardan her öğrencinin not toplamını hesapla. Toplamı büyükten küçüğe sıralı olarak "öğrenci toplam" biçiminde, her satırda bir öğrenci olacak şekilde ozet.txt dosyasına yaz. Boş dosyaları atla ve .txt dışındaki dosyaları dikkate alma.
+
+  Şu şartlar sağlanmalı:
+  - notlar dizinindeki yalnızca .txt uzantılı dosyalar işlenmeli; .txt dışındaki dosyalar (örneğin tuzak.txt.bak) hesaba katılmamalı.
+  - Boş dosyalar (örneğin bos.txt) atlanmalı.
+  - Her öğrenci için notların toplamı hesaplanmalı.
+  - Sonuçlar ozet.txt dosyasına yazılmalı.
+  - Her satır "öğrenci toplam" biçiminde olmalı.
+  - Satırlar toplama göre büyükten küçüğe sıralı olmalı.
+  - Çalışma dizini /workspace.
+
+setup: |
+  mkdir -p notlar
+  cat > notlar/ali.txt <<'TXT'
+  matematik 90
+  fizik 75
+  kimya 85
+  TXT
+  cat > notlar/ayse.txt <<'TXT'
+  matematik 95
+  fizik 80
+  kimya 70
+  TXT
+  cat > notlar/bos.txt <<'TXT'
+  TXT
+  cat > notlar/tuzak.txt.bak <<'TXT'
+  matematik 0
+  fizik 0
+  kimya 0
+  TXT
+
+goal_tr: >
+  notlar dizinindeki uzantisi .txt olan dosyalardan her ogrencinin not
+  toplamini hesaplayip, toplami buyukten kucuge sirali olarak "ogrenci
+  toplam" biciminde satir-listesi halinde ozet.txt dosyasina yaz; bos
+  dosyalari atla ve .txt disindaki dosyalari dikkate alma.
+
+reference_solution: |
+  find notlar -maxdepth 1 -type f -name '*.txt' | sort | xargs grep -H -E '[0-9]+$' | awk -F'[: ]' '{sum[$1]+=$NF} END {for (f in sum) print f, sum[f]}' | sed 's|notlar/||; s|\.txt||' | sort -k2,2nr > ozet.txt
+
+outputs:
+  - {path: ozet.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: ozet.txt, value: [ali 250, ayse 245]}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7309
+    bundle: cok-dosya-ara
+    tools:
+    - xargs
+    - grep
+    konu: ogrenci-notlari
+    hedef: ozetle
+    girdi: duz-metin
+    kaynak: cok-dosya
+    cikti: satir-listesi
+    kesif: dosyayi-bul
+    uslup: kabul-kriteri
+    direnc: bos-dosya
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

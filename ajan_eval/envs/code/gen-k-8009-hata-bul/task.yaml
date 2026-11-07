@@ -1,0 +1,116 @@
+id: gen-k-8009-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) stock/report.py dosyasındaki running_balance fonksiyonunu, verilen sku için stock/ledger.py içindeki normalize fonksiyonundan geçen tüm hareketlerin toplamını doğru biçimde döndürecek şekilde düzelt.
+
+  2) Fonksiyonun, sku ile eşleşen her hareketin delta değerini toplama kattığından ve eşleşmeyen hareketlerin toplamı etkilemediğinden emin ol.
+
+  3) Toplam sonucu sadece bir sayı olarak döndür.
+
+setup: |
+  mkdir -p stock
+  cat > stock/ledger.py <<'LEDGER'
+  def normalize(moves):
+      out = []
+      for m in moves:
+          out.append((m["sku"], int(m["delta"])))
+      return out
+  LEDGER
+  cat > stock/report.py <<'REPORT'
+  from stock.ledger import normalize
+
+
+  def running_balance(moves, sku):
+      rows = normalize(moves)
+      total = 0
+
+      def walk(i):
+          if i >= len(rows):
+              return 0
+          name, delta = rows[i]
+          if name == sku:
+              return delta + walk(i + 1)
+          return walk(i)
+
+      total = walk(0)
+      return total
+  REPORT
+  cat > moves.json <<'JSON'
+  [
+    {"sku": "bolt", "delta": 5},
+    {"sku": "nut", "delta": 3},
+    {"sku": "bolt", "delta": -2},
+    {"sku": "bolt", "delta": 7},
+    {"sku": "nut", "delta": -1}
+  ]
+  JSON
+
+goal_tr: >
+  stock/report.py icindeki running_balance fonksiyonunu, verilen sku icin
+  tum hareketlerin toplamini dogru dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > stock/report.py <<'REPORT'
+  from stock.ledger import normalize
+
+
+  def running_balance(moves, sku):
+      rows = normalize(moves)
+      total = 0
+
+      def walk(i, acc):
+          if i >= len(rows):
+              return acc
+          name, delta = rows[i]
+          if name == sku:
+              return walk(i + 1, acc + delta)
+          return walk(i + 1, acc)
+
+      total = walk(0, 0)
+      return total
+  REPORT
+
+outputs:
+  - {path: stock/report.py, kind: program, run: 'python3 -c ''import json; from stock.report import running_balance as f; m=json.load(open("moves.json")); assert f(m,"bolt")==10, f(m,"bolt"); assert f(m,"nut")==2, f(m,"nut"); assert f(m,"washer")==0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import json; from stock.report import running_balance as f; m=json.load(open("moves.json")); assert f(m,"bolt")==10, f(m,"bolt"); assert f(m,"nut")==2, f(m,"nut"); assert f(m,"washer")==0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8009
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: stok-hareketleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kapsam-hatasi
+      karmasiklik: duz
+      kalip: ozyineleme
+      akis: cok-dosya-birlestirme
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

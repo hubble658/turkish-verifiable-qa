@@ -1,0 +1,183 @@
+id: gen-k-5080-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  maintenance/wbs.py dosyasını oluştur. Bu dosyada iki fonksiyon tanımla:
+
+  - longest_by_machine(path): maintenance.stream.records_from_file ile kayıtları parçalı okuyup her makinenin en uzun bakım süresini hesaplasın.
+  - busiest_machine(path): en yüksek toplam süreye sahip makineyi döndürsün.
+
+  Bozuk kayıtlar için maintenance.errors.MaintenanceError alt sınıfları yükseltilsin.
+
+  Şu şartlar sağlanmalı:
+  - maintenance/wbs.py dosyası oluşturulmuş olmalı.
+  - longest_by_machine(path) fonksiyonu maintenance.stream.records_from_file üzerinden kayıtları parçalı okuyup her makinenin en uzun bakım süresini hesaplamalı.
+  - busiest_machine(path) fonksiyonu en yüksek toplam süreye sahip makineyi döndürmeli.
+  - Bozuk kayıtlar için maintenance.errors.MaintenanceError alt sınıfları yükseltilmeli.
+
+setup: |
+  mkdir -p maintenance
+  cat > maintenance/errors.py <<'ERRORS'
+  class MaintenanceError(Exception):
+      pass
+
+
+  class RecordError(MaintenanceError):
+      pass
+
+
+  class FieldError(RecordError):
+      pass
+
+
+  class DurationError(RecordError):
+      pass
+  ERRORS
+  cat > maintenance/parser.py <<'PARSER'
+  from maintenance.errors import FieldError, DurationError
+
+
+  def parse_line(line):
+      parts = line.strip().split(";")
+      if len(parts) != 3:
+          raise FieldError("expected 3 fields: " + line)
+      machine, hours, kind = parts
+      if not machine:
+          raise FieldError("empty machine name")
+      try:
+          hours = int(hours)
+      except ValueError:
+          raise DurationError("not an integer: " + hours)
+      if hours < 0:
+          raise DurationError("negative hours: " + str(hours))
+      return (machine, hours, kind)
+
+
+  def parse_records(text):
+      records = []
+      for line in text.splitlines():
+          line = line.strip()
+          if not line:
+              continue
+          records.append(parse_line(line))
+      return records
+  PARSER
+  cat > maintenance/stream.py <<'STREAM'
+  from maintenance.parser import parse_records
+  from maintenance.errors import MaintenanceError
+
+
+  def read_chunks(path, size=4):
+      with open(path, "r") as handle:
+          while True:
+              chunk = handle.read(size)
+              if not chunk:
+                  return
+              yield chunk
+
+
+  def records_from_file(path, size=4):
+      buffer = ""
+      for chunk in read_chunks(path, size):
+          buffer += chunk
+      yield from parse_records(buffer)
+  STREAM
+  cat > data.txt <<'DATA'
+  press;12;repair
+  lathe;5;inspect
+  mill;7;repair
+  drill;3;inspect
+  press;2;inspect
+  DATA
+
+goal_tr: >
+  maintenance/wbs.py dosyasini yaz: maintenance.stream.records_from_file ile
+  kayitlari parcali okuyup her makinenin en uzun bakim suresini hesaplayan
+  longest_by_machine(path) ve en yuksek toplam sureli makineyi donduren
+  busiest_machine(path) fonksiyonlarini tanimla; bozuk kayitlar icin
+  maintenance.errors.MaintenanceError alt siniflari yukseltilsin.
+
+reference_solution: |
+  cat > maintenance/wbs.py <<'WBS'
+  from maintenance.stream import records_from_file
+  from maintenance.errors import MaintenanceError
+
+
+  def _load(path):
+      try:
+          records = list(records_from_file(path))
+      except MaintenanceError:
+          raise
+      except OSError as exc:
+          raise MaintenanceError(str(exc))
+      if not records:
+          raise MaintenanceError("no records in " + path)
+      return records
+
+
+  def longest_by_machine(path):
+      best = {}
+      for machine, hours, _kind in _load(path):
+          prev = best.get(machine, 0)
+          best[machine] = hours if hours > prev else prev
+      return best
+
+
+  def busiest_machine(path):
+      totals = {}
+      for machine, hours, _kind in _load(path):
+          totals[machine] = totals.get(machine, 0) + hours
+      if not totals:
+          raise MaintenanceError("no records in " + path)
+      chosen = None
+      chosen_total = -1
+      for machine in sorted(totals):
+          if totals[machine] > chosen_total:
+              chosen = machine
+              chosen_total = totals[machine]
+      return chosen
+  WBS
+
+outputs:
+  - {path: maintenance/wbs.py, kind: program, run: 'python3 -c ''from maintenance.wbs import longest_by_machine as L, busiest_machine as B; from maintenance.errors import MaintenanceError; d=L("data.txt"); assert d=={"press":12,"lathe":5,"mill":7,"drill":3}, d; assert B("data.txt")=="press", B("data.txt"); import os; os.makedirs("tmpchk", exist_ok=True); open("tmpchk/bad.txt","w").write("press;xx;repair\n"); ok=False; exec("try:\n L(\"tmpchk/bad.txt\")\nexcept MaintenanceError:\n ok=True"); assert ok; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from maintenance.wbs import longest_by_machine as L, busiest_machine as B; from maintenance.errors import MaintenanceError; d=L("data.txt"); assert d=={"press":12,"lathe":5,"mill":7,"drill":3}, d; assert B("data.txt")=="press", B("data.txt"); import os; os.makedirs("tmpchk", exist_ok=True); open("tmpchk/bad.txt","w").write("press;xx;repair\n"); ok=False; exec("try:\n L(\"tmpchk/bad.txt\")\nexcept MaintenanceError:\n ok=True"); assert ok; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5080
+    bundle: yarisma
+    tools:
+    - python3
+    konu: makine-bakim-kayitlari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: dinamik-programlama
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: parcali-akis
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

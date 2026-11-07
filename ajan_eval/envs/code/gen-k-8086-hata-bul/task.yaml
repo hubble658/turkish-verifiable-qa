@@ -1,0 +1,123 @@
+id: gen-k-8086-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  billing/ledger.py içindeki settled metodunu düzelt: net bakiyesi tam sıfır olan sipariş kimliklerini küçükten büyüğe sıralı döndürsün.
+
+setup: |
+  mkdir -p billing
+  cat > billing/events.py <<'EVENTS'
+  def iter_events(lines):
+      for line in lines:
+          line = line.strip()
+          if not line:
+              continue
+          order_id, kind, amount = line.split('|')
+          yield order_id, kind, float(amount)
+  EVENTS
+  cat > billing/ledger.py <<'LEDGER'
+  class Ledger:
+      def __init__(self):
+          self.totals = {}
+
+      def apply(self, order_id, kind, amount):
+          if kind == "charge":
+              self.totals[order_id] = self.totals.get(order_id, 0.0) + amount
+          elif kind == "refund":
+              self.totals[order_id] = self.totals.get(order_id, 0.0) - amount
+          return self.totals[order_id]
+
+      def summary(self):
+          return dict(self.totals)
+
+      def settled(self):
+          return [oid for oid in self.totals if self.totals[oid] < 0.0]
+  LEDGER
+  cat > billing/runner.py <<'RUNNER'
+  from billing.events import iter_events
+  from billing.ledger import Ledger
+
+
+  def run(lines):
+      ledger = Ledger()
+      for order_id, kind, amount in iter_events(lines):
+          ledger.apply(order_id, kind, amount)
+      return ledger
+  RUNNER
+  cat > stream.txt <<'STREAM'
+  o1|charge|10.00
+  o2|charge|5.50
+  o1|refund|10.00
+  o2|charge|4.50
+  o3|charge|7.25
+  o3|refund|7.25
+  STREAM
+
+goal_tr: >
+  billing/ledger.py icindeki settled metodunu, net bakiyesi tam olarak sifir
+  olan siparislerin kimliklerini kucukten buyuge sirali dondurecek bicimde
+  duzelt.
+
+reference_solution: |
+  cat > billing/ledger.py <<'LEDGER'
+  class Ledger:
+      def __init__(self):
+          self.totals = {}
+
+      def apply(self, order_id, kind, amount):
+          if kind == "charge":
+              self.totals[order_id] = self.totals.get(order_id, 0.0) + amount
+          elif kind == "refund":
+              self.totals[order_id] = self.totals.get(order_id, 0.0) - amount
+          return self.totals[order_id]
+
+      def summary(self):
+          return dict(self.totals)
+
+      def settled(self):
+          return sorted(oid for oid, total in self.totals.items() if abs(total) < 1e-9)
+  LEDGER
+
+outputs:
+  - {path: billing/ledger.py, kind: program, run: 'python3 -c ''from billing.runner import run; L=run(open("stream.txt").read().splitlines()); assert L.summary()=={"o1":0.0,"o2":10.0,"o3":0.0}, L.summary(); assert L.settled()==["o1","o3"], L.settled(); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from billing.runner import run; L=run(open("stream.txt").read().splitlines()); assert L.summary()=={"o1":0.0,"o2":10.0,"o3":0.0}, L.summary(); assert L.settled()==["o1","o3"], L.settled(); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8086
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: siparis-kayitlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-karsilastirma
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: parcali-akis
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

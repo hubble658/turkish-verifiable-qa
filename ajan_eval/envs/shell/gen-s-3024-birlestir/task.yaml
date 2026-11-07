@@ -1,0 +1,61 @@
+id: gen-s-3024-birlestir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi/bolge*/parca.csv dosyalarındaki gönderi kodlarını girdi/agirlik.csv'deki ağırlıklarla birleştir; kod ve şehir sütunlarını içeren, ağırlığa göre artan sıralı sonuc.csv üret. Dosya sonunda newline olmasın.
+
+setup: |
+  mkdir -p girdi/bolge1 girdi/bolge2 girdi/bolge3
+  printf 'A100,Ankara\nA101,Izmir\nA102,Bursa' > girdi/bolge1/parca.csv
+  printf 'B200,Adana\nB201,Konya' > girdi/bolge2/parca.csv
+  printf 'C300,Antalya\nC301,Trabzon' > girdi/bolge3/parca.csv
+  printf 'A100,12.5\nA101,3.0\nA102,7.25\nB200,9.0\nB201,4.5\nC300,15.0\nC301,6.75' > girdi/agirlik.csv
+
+goal_tr: >
+  girdi dizini altindaki bolge*/parca.csv dosyalarindaki her gonderi kodunu
+  girdi/agirlik.csv icindeki agirligiyla birlestirip kodu ve sehri iceren,
+  agirliga gore artan sirada sonuc.csv dosyasini uret; dosya sonunda newline
+  olmasin.
+
+reference_solution: |
+  find girdi -name parca.csv | sort | xargs cat > /tmp/parcalar.csv
+  sort -t, -k1,1 /tmp/parcalar.csv > /tmp/parcalar_sirali.csv
+  sort -t, -k1,1 girdi/agirlik.csv > /tmp/agirlik_sirali.csv
+  join -t, -1 1 -2 1 /tmp/parcalar_sirali.csv /tmp/agirlik_sirali.csv | sort -t, -k3,3n | cut -d, -f1,2,3 > /tmp/birlesik.csv
+  printf '%s' "$(cat /tmp/birlesik.csv)" > sonuc.csv
+
+outputs:
+  - {path: sonuc.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: sonuc.csv, value: ['A102,BursaB200,Adana', 'B201,KonyaC300,Antalya', 'A101,Izmir,3.0', 'C301,Trabzon,6.75', 'A100,Ankara,12.5']}
+
+metadata:
+  domain: birlestir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3024
+    bundle: birlestir
+    tools:
+    - join
+    - sort
+    konu: kargo-takibi
+    hedef: birlestir
+    girdi: json
+    kaynak: dizin-agaci
+    cikti: csv
+    kesif: dolayli-hedef
+    uslup: terse
+    direnc: son-newline-yok
+    bukulme: olcek
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

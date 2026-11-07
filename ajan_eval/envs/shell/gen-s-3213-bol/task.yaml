@@ -1,0 +1,77 @@
+id: gen-s-3213-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kutuphane.tar.gz arşivini aç ve içindeki kitaplar.txt dosyasını incele. Bu dosyada ödünç_alma sayısı 2'den büyük olan satır sayısını bul ve bu sayıyı sonuc.txt dosyasına sadece sayı olarak yaz.
+
+  Şu şartlar sağlanmalı:
+  - kutuphane.tar.gz arşivi kullanılmalı ve içindeki kitaplar.txt değerlendirilmeli.
+  - Ödünç_alma sayısı 2'den büyük olan satırlar sayılmalı.
+  - sonuc.txt dosyası oluşturulmalı ve içinde yalnızca bu sayı yer almalı.
+  - sonuc.txt içinde sayı dışında hiçbir metin, etiket veya açıklama bulunmamalı.
+
+setup: |
+  mkdir -p arsiv
+  cat > arsiv/kitaplar.txt <<'TXT'
+  Ayse Kaya|Kirmizi Kitap|roman|2001|3
+  Mehmet Demir|Mavi Kitap|siir|1999|1
+  Zeynep Arslan|Yesil Kitap|roman|2010|5
+  Ali Celik|Sari Kitap|tarih|1985|2
+  Fatma Yildiz|Beyaz Kitap|siir|2020|4
+  TXT
+  cat > arsiv/uyeler.txt <<'TXT'
+  101|Ayse Kaya|aktif
+  102|Mehmet Demir|pasif
+  103|Zeynep Arslan|aktif
+  104|Ali Celik|aktif
+  TXT
+  tar -czf kutuphane.tar.gz arsiv
+  rm -rf arsiv
+
+goal_tr: >
+  kutuphane.tar.gz arsivindeki kitaplar.txt dosyasinda odunc_alma sayisi
+  2'den buyuk olan satir sayisini sonuc.txt dosyasina sadece sayi olarak
+  yaz.
+
+reference_solution: |
+  mkdir -p calisma
+  gzip -dc kutuphane.tar.gz | tar -xf - -C calisma
+  awk -F'|' '$5 > 2' calisma/arsiv/kitaplar.txt > calisma/filtre.txt
+  wc -l < calisma/filtre.txt | tr -d ' ' > sonuc.txt
+  rm -rf calisma
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '3'}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3213
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: kutuphane-kayitlari
+    hedef: bol
+    girdi: duz-metin
+    kaynak: tarball
+    cikti: tek-sayi
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

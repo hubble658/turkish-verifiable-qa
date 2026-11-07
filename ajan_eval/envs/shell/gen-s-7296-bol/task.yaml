@@ -1,0 +1,73 @@
+id: gen-s-7296-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  siparisler dizinindeki .log dosyalarını tara; içlerinde "saat|masa|urun|adet|birimfiyat" biçimine uyan geçerli satırlardan her ürün için toplam adedi ve toplam tutarı (adet çarpı birimfiyat) hesapla. Bicime uymayan satırları atla. Sonucu ürün adına göre artan sırada, urun,toplam_adet,toplam_tutar başlıklı bir CSV olarak rapor.csv dosyasına yaz.
+
+setup: |
+  mkdir -p siparisler
+  cat > siparisler/ocak.log <<'LOG'
+  12:01|masa3|kofte|2|45
+  12:05|masa1|salata|1|20
+  12:09|masa3|ayran|3|6
+  12:14|masa2|pizza|1|55
+  LOG
+  cat > siparisler/subat.log <<'LOG'
+  13:02|masa4|cay|4|4
+  13:07|masa1|kofte|1|45
+  13:11|masa4|baklava|2|30
+  13:15|masa2|salata|2|20
+  LOG
+  cat > siparisler/bozuk.log <<'LOG'
+  bu satir bicimsiz
+  14:01|masa5|pizza|1|55
+  |eksik|alan||
+  14:09|masa5|ayran|2|6
+  LOG
+
+goal_tr: >
+  siparisler dizinindeki .log dosyalarindaki
+  "saat|masa|urun|adet|birimfiyat" bicimli gecerli satirlardan her urun icin
+  toplam adedi ve toplam tutari (adet*birimfiyat) hesaplayip urun adina gore
+  artan sirada urun,toplam_adet,toplam_tutar baslikli CSV olarak rapor.csv
+  dosyasina yaz; bicime uymayan satirlari atla.
+
+reference_solution: |
+  cat siparisler/*.log | cut -d'|' -f3,4,5 | awk -F'|' 'NF==3 && $1!="" && $2 ~ /^[0-9]+$/ && $3 ~ /^[0-9]+$/ {adet[$1]+=$2; tutar[$1]+=$2*$3} END {print "urun,toplam_adet,toplam_tutar"; for (u in adet) print u","adet[u]","tutar[u]}' | { read -r h; echo "$h"; sort; } | tee rapor.csv >/dev/null
+
+outputs:
+  - {path: rapor.csv, kind: file}
+  - {path: siparisler, kind: dir}
+
+checks:
+  - {op: file_lines_eq, path: rapor.csv, value: ['urun,toplam_adet,toplam_tutar', 'ayran,5,30', 'baklava,2,60', 'cay,4,16', 'kofte,3,135', 'pizza,2,110', 'salata,3,60']}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7296
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: restoran-siparisleri
+    hedef: bol
+    girdi: log-satiri
+    kaynak: dizin-agaci
+    cikti: csv
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

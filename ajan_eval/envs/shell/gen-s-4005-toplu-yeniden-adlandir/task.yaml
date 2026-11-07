@@ -1,0 +1,71 @@
+id: gen-s-4005-toplu-yeniden-adlandir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) girdi/kanal_a.tsv ve girdi/kanal_b.tsv dosyalarındaki sensor_id değerlerinin birleşimini al.
+
+  2) Birleşimdeki her sensor_id için, dosya adlarının dirname ile elde edilen klasör adını ve basename ile elde edilen dosya adını kullanarak "kanal_a/<id>.tsv" veya "kanal_b/<id>.tsv" biçiminde yeni adlar üret.
+
+  3) Üretilen yeni adları sensor_id'ye göre artan sırada, her satırda bir tane olacak şekilde yeniden_adlar.txt dosyasına yaz.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/kanal_a.tsv <<'TSV'
+  sensor_id	olcum
+  S01	12.5
+  S02	13.1
+  S03	9.8
+  TSV
+  cat > girdi/kanal_b.tsv <<'TSV'
+  sensor_id	olcum
+  S02	13.4
+  S04	11.0
+  S05	7.7
+  TSV
+
+goal_tr: >
+  girdi/kanal_a.tsv ve girdi/kanal_b.tsv dosyalarindaki sensor_id
+  degerlerinin birlesimini, her satirda "kanal_a/<id>.tsv" veya
+  "kanal_b/<id>.tsv" biciminde, dosya adlarinin dirname ile elde edilen
+  klasor adi ve basename ile elde edilen dosya adi kullanilarak uretilen
+  yeni adlarla, sensor_id'ye gore artan sirada yeniden_adlar.txt dosyasina
+  yaz.
+
+reference_solution: |
+  { awk -F'\t' 'NR>1{print $1"\tkanal_a"}' girdi/kanal_a.tsv; awk -F'\t' 'NR>1{print $1"\tkanal_b"}' girdi/kanal_b.tsv; } | sort -k1,1 -k2,2 | while IFS=$'\t' read -r sid kanal; do printf '%s/%s.tsv\n' "$(dirname "$kanal")" "$(basename "$sid")"; done > yeniden_adlar.txt
+
+outputs:
+  - {path: yeniden_adlar.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: yeniden_adlar.txt, value: [./S01.tsv, ./S02.tsv, ./S02.tsv, ./S03.tsv, ./S04.tsv, ./S05.tsv]}
+
+metadata:
+  domain: toplu-yeniden-adlandir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4005
+    bundle: yol-parcala
+    tools:
+    - basename
+    - dirname
+    konu: sensor-olcumleri
+    hedef: toplu-yeniden-adlandir
+    girdi: tsv
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

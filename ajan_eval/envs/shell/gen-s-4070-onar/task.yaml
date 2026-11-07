@@ -1,0 +1,60 @@
+id: gen-s-4070-onar
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Bugün epey yoğun bir gündü; sabah toplantılar, öğleden sonra da müşteri geri bildirimleriyle uğraştım. Elimizde ürün değerlendirmelerini topladığımız bir dosya var ama onu başka bir aracın okuyabileceği hale getirmem gerekiyor. Bu yüzden senden şunu rica ediyorum: /workspace dizinindeki yorumlar.csv dosyasındaki her veri satırını, yorum alanındaki boşluklar alt çizgi ile değiştirilmiş halde, ürün, şehir, puan ve yorum anahtarlarını içeren nesnelerden oluşan geçerli bir JSON dizisi olarak yorumlar.json dosyasına yaz.
+
+setup: |
+  cat > yorumlar.csv <<'CSV'
+  urun,sehir,puan,yorum
+  A1,ankara,5,"cok iyi, tavsiye ederim"
+  A2,izmir,3,"idare eder"
+  A3,istanbul,4,"hizli kargo, saglam paket"
+  A4,bursa,2,"gec geldi"
+  A5,ankara,5,"mukemmel"
+  CSV
+
+goal_tr: >
+  yorumlar.csv dosyasindaki her veri satirini, yorum alanindaki bosluklar
+  alt cizgi ile degistirilmis halde, urun/sehir/puan/yorum anahtarlarini
+  iceren nesnelerden olusan gecerli bir JSON dizisi olarak yorumlar.json
+  dosyasina yaz.
+
+reference_solution: |
+  tail -n +2 yorumlar.csv | sed 's/"//g' | tr ' ' '_' | sed 's/^\([^,]*\),\([^,]*\),\([^,]*\),\(.*\)$/{"urun":"\1","sehir":"\2","puan":\3,"yorum":"\4"}/' | sed '1s/^/[\n  /; $s/$/\n]/; $!s/$/,/' > yorumlar.json
+
+outputs:
+  - {path: yorumlar.json, kind: json}
+
+checks:
+  - {op: json_eq, path: yorumlar.json, value: [{urun: A1, sehir: ankara, puan: 5, yorum: 'cok_iyi,_tavsiye_ederim'}, {urun: A2, sehir: izmir, puan: 3, yorum: idare_eder}, {urun: A3, sehir: istanbul, puan: 4, yorum: 'hizli_kargo,_saglam_paket'}, {urun: A4, sehir: bursa, puan: 2, yorum: gec_geldi}, {urun: A5, sehir: ankara, puan: 5, yorum: mukemmel}]}
+
+metadata:
+  domain: onar
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4070
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: urun-yorumlari
+    hedef: onar
+    girdi: csv
+    kaynak: tek-dosya
+    cikti: json
+    kesif: veriye-bak
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

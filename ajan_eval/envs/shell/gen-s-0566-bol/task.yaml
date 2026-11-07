@@ -1,0 +1,94 @@
+id: gen-s-0566-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+prompt: 'randevular.json dosyasını inceleyerek durum değeri "onaylandi" olan randevuların bölüm değerlerini tekrarsız ve alfabetik
+  sıralı biçimde, her satırda bir bölüm olacak şekilde bolumler.txt dosyasına yaz. Ayrıca bu bölümlerin toplam sayısını yalnızca
+  sayı olarak bolum_sayisi.txt dosyasına kaydet; başka hiçbir açıklama veya etiket ekleme.
+
+  '
+setup: 'cat > randevular.json <<''JSON''
+
+  {"hastane":"Merkez","randevular":[
+
+  {"id":1,"hasta":"Ali Veli","bolum":"Kardiyoloji","durum":"onaylandi"},
+
+  {"id":2,"hasta":"Ayse Yilmaz","bolum":"Dermatoloji","durum":"beklemede"},
+
+  {"id":3,"hasta":"Mehmet Kaya","bolum":"Kardiyoloji","durum":"iptal"},
+
+  {"id":4,"hasta":"Fatma Demir","bolum":"Noroloji","durum":"onaylandi"},
+
+  {"id":5,"hasta":"Hasan Celik","bolum":"Dermatoloji","durum":"onaylandi"},
+
+  {"id":6,"hasta":"Zeynep Arslan","bolum":"Kardiyoloji","durum":"beklemede"},
+
+  {"id":7,"hasta":"Emre Sahin","bolum":"Noroloji","durum":"onaylandi"},
+
+  {"id":8,"hasta":"Elif Ozturk","bolum":"Kardiyoloji","durum":"onaylandi"}
+
+  ]}
+
+  JSON
+
+  '
+goal_tr: 'randevular.json icindeki durum degeri "onaylandi" olan randevularin bolum degerlerini tekrarsiz ve alfabetik sirali
+  olarak, her satirda bir bolum olacak sekilde bolumler.txt dosyasina yaz; ayrica bu bolumlerin toplam sayisini sadece sayi
+  olarak bolum_sayisi.txt dosyasina yaz.
+
+  '
+reference_solution: 'python3 - <<''PY''
+
+  import json
+
+  r = json.load(open("randevular.json"))["randevular"]
+
+  b = sorted({x["bolum"] for x in r if x["durum"] == "onaylandi"})
+
+  open("bolumler.txt", "w").write("".join(k + "\n" for k in b))
+
+  open("bolum_sayisi.txt", "w").write(f"{len(b)}\n")
+
+  PY
+
+  '
+outputs: []
+checks:
+- op: file_lines_eq
+  path: bolumler.txt
+  as_set: false
+  value:
+  - Dermatoloji
+  - Kardiyoloji
+  - Noroloji
+- op: file_content_eq
+  path: bolum_sayisi.txt
+  value: '3'
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-0566
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: hastane-randevulari
+    hedef: bol
+    girdi: json
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}
+  duzeltme:
+    neden: altin_yanlis
+    not: Referans JSON'u cut ile ayrıştırıp hiçbir satır bulamıyor; altın '0' ve boş dosyaydı.

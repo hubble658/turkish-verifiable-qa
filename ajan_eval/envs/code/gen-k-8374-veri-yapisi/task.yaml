@@ -1,0 +1,101 @@
+id: gen-k-8374-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Bugün erişim kayıtlarını analiz eden betiklerle uğraşıyordum; fark ettim ki elimizdeki zaman aralıkları sürekli iç içe geçiyor ve her seferinde aynı birleştirme mantığını elle yazmak zorunda kalıyoruz. Bu yüzden artık bunu tek bir yerde, düzgün bir sınıf olarak toplamak istiyorum.
+
+  weblog/pkg/core/spans.py dosyasındaki SpanMerger sınıfını, (başlangıç, bitiş) ikililerinden oluşan aralıkları alıp birbirleriyle çakışanları birleştiren ve geriye kapsayan aralıkları döndüren bir yapıya dönüştür. Sınıf hem merged metodunu hem de iterator protokolünü uygulasın; yani üzerinde döngü kurulabilsin.
+
+setup: |
+  mkdir -p weblog/pkg weblog/pkg/core
+  cat > weblog/pkg/core/spans.py <<'SPANS'
+  class SpanMerger:
+      """Merge overlapping access-log time spans."""
+
+      def __init__(self, spans):
+          self._spans = spans
+
+      def merged(self):
+          raise NotImplementedError
+
+      def __iter__(self):
+          raise NotImplementedError
+  SPANS
+  cat > weblog/access.log <<'LOG'
+  GET /a 100 130
+  GET /b 120 160
+  GET /c 200 210
+  GET /d 205 260
+  GET /e 300 310
+  LOG
+
+goal_tr: >
+  weblog/pkg/core/spans.py icindeki SpanMerger sinifini, (baslangic, bitis)
+  ikililerinden olusan araliklari birlestirip kapsayan araliklari donduren
+  ve iterator protokolunu uygulayan bicimde gerceklestir.
+
+reference_solution: |
+  cat > weblog/pkg/core/spans.py <<'SPANS'
+  class SpanMerger:
+      """Merge overlapping access-log time spans."""
+
+      def __init__(self, spans):
+          self._spans = sorted(tuple(s) for s in spans)
+
+      def merged(self):
+          result = []
+          for start, end in self._spans:
+              if result and start <= result[-1][1]:
+                  if end > result[-1][1]:
+                      result[-1] = (result[-1][0], end)
+              else:
+                  result.append((start, end))
+          return [tuple(s) for s in result]
+
+      def __iter__(self):
+          return iter(self.merged())
+  SPANS
+
+outputs:
+  - {path: weblog/pkg/core/spans.py, kind: program, run: 'python3 -c ''from weblog.pkg.core.spans import SpanMerger as M; s=[(100,130),(120,160),(200,210),(205,260),(300,310)]; m=M(s); assert m.merged()==[(100,160),(200,260),(300,310)], m.merged(); assert list(m)==[(100,160),(200,260),(300,310)]; assert M([(5,9),(1,3)]).merged()==[(1,3),(5,9)]; assert M([(1,10),(2,3)]).merged()==[(1,10)]; assert M([]).merged()==[]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from weblog.pkg.core.spans import SpanMerger as M; s=[(100,130),(120,160),(200,210),(205,260),(300,310)]; m=M(s); assert m.merged()==[(100,160),(200,260),(300,310)], m.merged(); assert list(m)==[(100,160),(200,260),(300,310)]; assert M([(5,9),(1,3)]).merged()==[(1,3),(5,9)]; assert M([(1,10),(2,3)]).merged()==[(1,10)]; assert M([]).merged()==[]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8374
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: web-erisim-loglari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: aralik-birlestirme
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: dosya-okuma
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

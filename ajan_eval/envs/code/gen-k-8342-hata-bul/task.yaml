@@ -1,0 +1,122 @@
+id: gen-k-8342-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) fleet/trips/aggregate.py dosyasındaki total_distance fonksiyonunu düzelt: aynı plakadan birden fazla satır geldiğinde her plakanın mesafesi önceki değerin üzerine eklenerek birikmeli, son gelen satır önceki değerleri ezmemeli.
+
+  2) Düzeltme sonrasında fleet/trips/summary.py içindeki fleet_report fonksiyonunun "distance" alanı, her aracın kendi mesafesinin toplamı üzerinden tüm araçların toplam mesafesini döndürmelidir.
+
+  3) Değişiklik yalnızca fleet/trips/aggregate.py içinde yapılmalı; fleet/trips/records.py ve fleet/trips/summary.py dosyalarına dokunulmamalıdır.
+
+setup: |
+  mkdir -p fleet/trips
+  cat > fleet/trips/records.py <<'RECORDS'
+  def parse_log(lines):
+      for line in lines:
+          line = line.strip()
+          if not line:
+              continue
+          parts = line.split("|")
+          if len(parts) != 3:
+              continue
+          plate, distance, fuel = parts
+          yield (plate, float(distance), float(fuel))
+  RECORDS
+  cat > fleet/trips/aggregate.py <<'AGG'
+  from fleet.trips.records import parse_log
+
+
+  def total_distance(lines):
+      totals = {}
+      for plate, distance, fuel in parse_log(lines):
+          totals[plate] = distance
+      total = 0
+      for value in totals.values():
+          total += value
+      return total
+  AGG
+  cat > fleet/trips/summary.py <<'SUMMARY'
+  from fleet.trips.records import parse_log
+  from fleet.trips.aggregate import total_distance
+
+
+  def per_vehicle(lines):
+      totals = {}
+      for plate, distance, fuel in parse_log(lines):
+          totals[plate] = totals.get(plate, 0) + distance
+      return totals
+
+
+  def fleet_report(lines):
+      totals = per_vehicle(lines)
+      overall = total_distance(lines)
+      return {"vehicles": len(totals), "distance": overall}
+  SUMMARY
+  cat > log.txt <<'LOG'
+  34ABC12|120.5|8.0
+  34ABC12|80.0|5.5
+  06XYZ99|200.0|13.0
+  LOG
+
+goal_tr: >
+  fleet/trips/aggregate.py icindeki total_distance fonksiyonundaki hatayi
+  duzelt: ayni plakadan birden fazla satir geldiginde mesafeler toplanmali,
+  sonuncusu digerlerini ezmemeli; boylece fleet/trips/summary.py icindeki
+  fleet_report "distance" alanini her aracin mesafesinin toplami olarak
+  dondurur.
+
+reference_solution: |
+  cat > fleet/trips/aggregate.py <<'AGG'
+  from fleet.trips.records import parse_log
+
+
+  def total_distance(lines):
+      total = 0
+      for plate, distance, fuel in parse_log(lines):
+          total += distance
+      return total
+  AGG
+
+outputs:
+  - {path: fleet/trips/aggregate.py, kind: program, run: 'python3 -c ''from fleet.trips.aggregate import total_distance as g; from fleet.trips.summary import fleet_report as f; assert abs(g(["AA|1|0","AA|2|0"])-3.0)<1e-9, g(["AA|1|0","AA|2|0"]); assert abs(g(["AA|5|0","AA|5|0","BB|1|0"])-11.0)<1e-9; lines=["34ABC12|120.5|8.0","34ABC12|80.0|5.5","06XYZ99|200.0|13.0"]; r=f(lines); assert r["vehicles"]==2, r; assert abs(r["distance"]-400.5)<1e-9, r; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.trips.aggregate import total_distance as g; from fleet.trips.summary import fleet_report as f; assert abs(g(["AA|1|0","AA|2|0"])-3.0)<1e-9, g(["AA|1|0","AA|2|0"]); assert abs(g(["AA|5|0","AA|5|0","BB|1|0"])-11.0)<1e-9; lines=["34ABC12|120.5|8.0","34ABC12|80.0|5.5","06XYZ99|200.0|13.0"]; r=f(lines); assert r["vehicles"]==2, r; assert abs(r["distance"]-400.5)<1e-9, r; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8342
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: arac-filosu
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: tip-karismasi
+      karmasiklik: duz
+      kalip: generator
+      akis: cok-dosya-birlestirme
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

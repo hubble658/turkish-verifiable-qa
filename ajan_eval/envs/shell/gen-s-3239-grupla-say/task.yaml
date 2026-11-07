@@ -1,0 +1,71 @@
+id: gen-s-3239-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Hastane randevu sisteminde farklı kliniklerin kayıtları ayrı ayrı tutuluyor ve her klinik kendi sabit genişlikli kayıt dosyasını üretiyor. Ay sonu raporu için hangi hizmetten kaç farklı hastanın yararlandığını görmek istiyoruz, ama aynı hasta aynı hizmet için birden fazla kez görünse bile bu hasta yalnızca bir kez sayılmalı. Bu yüzden randevular dizin ağacındaki tüm sabit genişlikli kayıt dosyalarını tarayıp, tekrar eden hasta-hizmet kayıtlarını tek sayarak her hizmet için benzersiz hasta sayısını ozet.json dosyasına geçerli bir JSON nesnesi olarak yaz.
+
+setup: |
+  mkdir -p randevular/klinik_a randevular/klinik_b randevular/klinik_c
+  cat > randevular/klinik_a/01.txt <<'T'
+  K001 2024-03-01 09:00 kardiyoloji
+  K002 2024-03-01 09:30 dahiliye
+  K003 2024-03-01 10:00 kardiyoloji
+  K004 2024-03-02 11:00 dahiliye
+  K001 2024-03-02 09:00 kardiyoloji
+  T
+  cat > randevular/klinik_b/02.txt <<'T'
+  K005 2024-03-01 09:15 dahiliye
+  K006 2024-03-01 09:45 ortopedi
+  K007 2024-03-02 10:30 kardiyoloji
+  K005 2024-03-02 09:15 dahiliye
+  T
+  cat > randevular/klinik_c/03.txt <<'T'
+  K008 2024-03-01 08:30 ortopedi
+  K009 2024-03-01 08:45 dahiliye
+  K010 2024-03-02 12:00 ortopedi
+  K008 2024-03-02 08:30 ortopedi
+  K011 2024-03-03 13:00 kardiyoloji
+  T
+
+goal_tr: >
+  randevular dizin agacindaki tum sabit genislikli kayit dosyalarindaki
+  tekrar eden hasta-hizmet kayitlarini tek sayarak her hizmet icin benzersiz
+  hasta sayisini ozet.json dosyasina gecerli JSON nesnesi olarak yaz.
+
+reference_solution: |
+  find randevular -type f -name '*.txt' -print0 | xargs -0 awk '{print $1" "$4}' | sort -u | awk '{sayi[$2]++} END {printf "{"; n=0; for (h in sayi) {n++; printf "%s\"%s\": %d", (n>1?", ":""), h, sayi[h]} printf "}\n"}' > ozet.json
+
+outputs:
+  - {path: ozet.json, kind: json}
+
+checks:
+  - {op: json_eq, path: ozet.json, value: {ortopedi: 3, kardiyoloji: 4, dahiliye: 4}}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3239
+    bundle: awk
+    tools:
+    - awk
+    konu: hastane-randevulari
+    hedef: grupla-say
+    girdi: sabit-genislik
+    kaynak: dizin-agaci
+    cikti: json
+    kesif: veriye-bak
+    uslup: baglam-gomulu
+    direnc: tekrar-eden-kayit
+    bukulme: olcek
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

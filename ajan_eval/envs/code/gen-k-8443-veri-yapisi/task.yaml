@@ -1,0 +1,168 @@
+id: gen-k-8443-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) depo/raf.py dosyasındaki raf_yerlesimi fonksiyonunu tamamla; stdin'den okunan yönlü depo-raf bağlantı listesini girdi olarak alıp her depo için erişilebilen rafları genişlik-öncelikli sırada döndürsün.
+
+  2) depo/raf.py dosyasındaki en_yakin_depo fonksiyonunu tamamla; başlangıç deposundan her rafa olan en kısa mesafeyi hesaplayıp rafları en yakından en uzağa doğru mesafeyle birlikte döndürsün.
+
+  3) depo/akis.py dosyasındaki calistir fonksiyonunu tamamla; raf_yerlesimi ve en_yakin_depo fonksiyonlarını kullanarak girdiyi işleyip her depo için erişilebilen rafları genişlik-öncelikli sırada ve başlangıç deposundan en yakın raftan uzaga doğru mesafeyle birlikte hesaplasın.
+
+setup: |
+  mkdir -p depo
+  cat > depo/graph.py <<'GRAPH'
+  def build_graph(edges):
+      graph = {}
+      for src, dst in edges:
+          graph.setdefault(src, [])
+          graph.setdefault(dst, [])
+          graph[src].append(dst)
+      return graph
+  GRAPH
+  cat > depo/raf.py <<'RAF'
+  from depo.graph import build_graph
+
+
+  def raf_yerlesimi(text):
+      raise NotImplementedError
+
+
+  def en_yakin_depo(text, start):
+      raise NotImplementedError
+  RAF
+  cat > depo/akis.py <<'AKIS'
+  from depo.raf import raf_yerlesimi, en_yakin_depo
+
+
+  def calistir(text):
+      raise NotImplementedError
+  AKIS
+
+goal_tr: >
+  depo/raf.py icindeki raf_yerlesimi ve en_yakin_depo fonksiyonlarini,
+  depo/akis.py icindeki calistir fonksiyonunu da tamamlayarak, stdin'den
+  okunan yonlu depo-raf baglanti listesinden her depo icin erisilebilen
+  raflari genislik-oncelikli sirada ve baslangic deposundan en yakin raftan
+  uzaga dogru mesafeyle birlikte hesaplayacak bicimde doldur.
+
+reference_solution: |
+  cat > depo/raf.py <<'RAF'
+  from collections import deque
+
+  from depo.graph import build_graph
+
+
+  def raf_yerlesimi(text):
+      edges = []
+      for line in text.strip().splitlines():
+          line = line.strip()
+          if not line:
+              continue
+          src, dst = line.split("->")
+          edges.append((src.strip(), dst.strip()))
+      graph = build_graph(edges)
+      result = {}
+      for node in sorted(graph):
+          seen = []
+          visited = {node}
+          queue = deque([node])
+          while queue:
+              cur = queue.popleft()
+              for nxt in graph[cur]:
+                  if nxt not in visited:
+                      visited.add(nxt)
+                      seen.append(nxt)
+                      queue.append(nxt)
+          result[node] = seen
+      return result
+
+
+  def en_yakin_depo(text, start):
+      edges = []
+      for line in text.strip().splitlines():
+          line = line.strip()
+          if not line:
+              continue
+          src, dst = line.split("->")
+          edges.append((src.strip(), dst.strip()))
+      graph = build_graph(edges)
+      dist = {start: 0}
+      order = []
+      queue = deque([start])
+      while queue:
+          cur = queue.popleft()
+          for nxt in graph[cur]:
+              if nxt not in dist:
+                  dist[nxt] = dist[cur] + 1
+                  order.append((nxt, dist[nxt]))
+                  queue.append(nxt)
+      return order
+  RAF
+  cat > depo/akis.py <<'AKIS'
+  import sys
+
+  from depo.raf import raf_yerlesimi, en_yakin_depo
+
+
+  def calistir(text):
+      lines = text.strip().splitlines()
+      if not lines:
+          return ""
+      start = lines[0].strip()
+      body = "\n".join(lines[1:])
+      out = []
+      for node, raflar in raf_yerlesimi(body).items():
+          out.append(node + ":" + ",".join(raflar))
+      out.append("BASLANGIC " + start)
+      for raf, d in en_yakin_depo(body, start):
+          out.append("  " + raf + " " + str(d))
+      return "\n".join(out)
+
+
+  if __name__ == "__main__":
+      sys.stdout.write(calistir(sys.stdin.read()))
+  AKIS
+
+outputs:
+  - {path: depo/raf.py, kind: program, run: 'python3 -c ''import io,sys; from depo.akis import calistir; data="A\nA->B\nA->C\nB->D\nC->D\nD->E\n"; assert calistir(data)=="A:B,C,D,E\nB:D,E\nC:D,E\nD:E\nE:\nBASLANGIC A\n  B 1\n  C 1\n  D 2\n  E 3", repr(calistir(data)); assert calistir("X\nX->Y\nY->Z\n")=="X:Y,Z\nY:Z\nZ:\nBASLANGIC X\n  Y 1\n  Z 2", repr(calistir("X\nX->Y\nY->Z\n")); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import io,sys; from depo.akis import calistir; data="A\nA->B\nA->C\nB->D\nC->D\nD->E\n"; assert calistir(data)=="A:B,C,D,E\nB:D,E\nC:D,E\nD:E\nE:\nBASLANGIC A\n  B 1\n  C 1\n  D 2\n  E 3", repr(calistir(data)); assert calistir("X\nX->Y\nY->Z\n")=="X:Y,Z\nY:Z\nZ:\nBASLANGIC X\n  Y 1\n  Z 2", repr(calistir("X\nX->Y\nY->Z\n")); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8443
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: depo-raf-yerlesimi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: graf-gezinme
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: stdin-boru
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

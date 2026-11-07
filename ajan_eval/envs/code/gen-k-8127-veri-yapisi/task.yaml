@@ -1,0 +1,156 @@
+id: gen-k-8127-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  weblog/stream.py dosyasını oluştur. Bu dosyada chunk_stream adında bir generator fonksiyonu tanımla; bu fonksiyon kendisine verilen dosya yollarını sırayla okuyup içeriklerini parça parça yield etsin. Ayrıca chunked_source adında bir dekoratör tanımla; bu dekoratör, sardığı fonksiyonun ürettiği her parçayı chunk_stream üzerinden alıp weblog.ingest.build_chain ile tek bir LogChain'e eklesin ve zincirin head düğümünden başlayan bir iterator döndürsün. Böylece zincir üzerinde gezinildiğinde aynı IP'nin tüm istekleri sırayla elde edilebilsin.
+
+  Şu şartlar sağlanmalı:
+  - weblog/stream.py dosyası mevcut olmalı.
+  - chunk_stream(paths) bir generator olmalı ve verilen dosya yollarını sırayla okuyup içeriklerini parça parça yield etmeli.
+  - chunk_stream, dosyaları verilen sırayla işlemeli.
+  - chunked_source dekoratörü, sardığı fonksiyonun döndürdüğü her parçayı weblog.ingest.build_chain ile tek bir LogChain'e eklemeli.
+  - chunked_source, zincirin head düğümünden başlayan bir iterator döndürmeli.
+  - Döndürülen iterator üzerinde gezinildiğinde aynı IP'nin tüm istekleri sırayla gelmeli.
+  - weblog/records.py içindeki LogChain ve LogNode ile weblog/ingest.py içindeki build_chain kullanılmalı; bu dosyalar değiştirilmemeli.
+  - log_a.txt ve log_b.txt dosyaları girdi olarak kullanılabilmeli.
+
+setup: |
+  mkdir -p weblog
+  cat > weblog/records.py <<'RECORDS'
+  class LogNode:
+      __slots__ = ("ip", "path", "next")
+
+      def __init__(self, ip, path, next=None):
+          self.ip = ip
+          self.path = path
+          self.next = next
+
+
+  class LogChain:
+      def __init__(self):
+          self.head = None
+          self._tail = None
+
+      def append(self, ip, path):
+          node = LogNode(ip, path)
+          if self.head is None:
+              self.head = node
+              self._tail = node
+          else:
+              self._tail.next = node
+              self._tail = node
+
+      def __iter__(self):
+          cur = self.head
+          while cur is not None:
+              yield cur
+              cur = cur.next
+
+
+  def parse_chunk(text):
+      for line in text.splitlines():
+          line = line.strip()
+          if not line:
+              continue
+          ip, path = line.split(" ", 1)
+          yield ip, path
+  RECORDS
+  cat > weblog/ingest.py <<'INGEST'
+  from weblog.records import LogChain, parse_chunk
+
+
+  def build_chain(chunks):
+      chain = LogChain()
+      for chunk in chunks:
+          for ip, path in parse_chunk(chunk):
+              chain.append(ip, path)
+      return chain
+  INGEST
+  cat > log_a.txt <<'A'
+  10.0.0.1 /index
+  10.0.0.2 /about
+  A
+  cat > log_b.txt <<'B'
+  10.0.0.1 /index
+  10.0.0.3 /contact
+  10.0.0.2 /about
+  B
+
+goal_tr: >
+  weblog/stream.py dosyasini yaz: chunk_stream(paths) verilen dosya
+  yollarini sirayla okuyup iceriklerini parca parca yield eden bir generator
+  olsun, ve @chunked_source dekoratori chunk_stream'i cagirip dondurdugu her
+  parcayi weblog.ingest.build_chain ile tek bir LogChain'e ekleyip zincirin
+  head dugumunden baslayan bir iterator dondursun; boylece zincir uzerinde
+  gezinmek ayni IP'nin tum isteklerini sirayla versin.
+
+reference_solution: |
+  cat > weblog/stream.py <<'STREAM'
+  from weblog.ingest import build_chain
+
+
+  def chunk_stream(paths):
+      for path in paths:
+          with open(path, "r", encoding="ascii") as handle:
+              text = handle.read()
+          for line in text.splitlines():
+              line = line.strip()
+              if line:
+                  yield line + "\n"
+
+
+  def chunked_source(func):
+      def wrapper(paths):
+          chain = build_chain(func(paths))
+          return iter(chain)
+      return wrapper
+
+
+  @chunked_source
+  def load_logs(paths):
+      return chunk_stream(paths)
+  STREAM
+
+outputs:
+  - {path: weblog/stream.py, kind: program, run: 'python3 -c ''from weblog.stream import load_logs; it=load_logs(["log_a.txt","log_b.txt"]); seen=[(n.ip,n.path) for n in it]; assert seen==[("10.0.0.1","/index"),("10.0.0.2","/about"),("10.0.0.1","/index"),("10.0.0.3","/contact"),("10.0.0.2","/about")], seen; it2=load_logs(["log_a.txt"]); assert next(it2).ip=="10.0.0.1"; assert next(it2).path=="/about"; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from weblog.stream import load_logs; it=load_logs(["log_a.txt","log_b.txt"]); seen=[(n.ip,n.path) for n in it]; assert seen==[("10.0.0.1","/index"),("10.0.0.2","/about"),("10.0.0.1","/index"),("10.0.0.3","/contact"),("10.0.0.2","/about")], seen; it2=load_logs(["log_a.txt"]); assert next(it2).ip=="10.0.0.1"; assert next(it2).path=="/about"; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8127
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: web-erisim-loglari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: bagli-liste
+      karmasiklik: duz
+      kalip: dekorator
+      akis: parcali-akis
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

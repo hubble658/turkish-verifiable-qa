@@ -1,0 +1,77 @@
+id: gen-s-7130-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kitaplik dizinindeki .ini uzantılı dosyaların her birinden tür değerini oku ve her satırda bir dosya olacak şekilde tür:dosya biçiminde alt alta yazdırarak turler.txt dosyasını oluştur. Satır sonlarında CRLF kalıntısı olmasın; .txt dosyaları dikkate alınmasın.
+
+setup: |
+  mkdir -p kitaplik
+  cat > kitaplik/roman.ini <<'INI'
+  [kitap]
+  ad=Kirmizi Kule
+  yazar=Ali Veli
+  yil=1999
+  tur=roman
+  INI
+  cat > kitaplik/siir.ini <<'INI'
+  [kitap]
+  ad=Beyaz Gece
+  yazar=Ayse Demir
+  yil=2004
+  tur=siir
+  INI
+  printf '[kitap]\r\nad=Mavi Deniz\r\nyazar=Can Yilmaz\r\nyil=2011\r\ntur=roman\r\n' > kitaplik/roman2.ini
+  cat > kitaplik/notlar.txt <<'TXT'
+  [kitap]
+  ad=Sahte Kayit
+  yazar=Yok
+  yil=0000
+  tur=deneme
+  TXT
+
+goal_tr: >
+  kitaplik dizinindeki .ini uzantili dosyalardan tur degerini okuyup her
+  birini tur:dosya biciminde alt alta yazan turler.txt dosyasini olustur
+  (CRLF satir sonlari temizlenmeli, .txt dosyalari dikkate alinmamali).
+
+reference_solution: |
+  find kitaplik -type f -name '*.ini' | sort | while read -r f; do
+    t=$(tr -d '\r' < "$f" | cut -d= -f2 | grep -v '^$' | sed -n '4p')
+    printf '%s:%s\n' "$t" "$(basename "$f")"
+  done | tee turler.txt > /dev/null
+
+outputs:
+  - {path: turler.txt, kind: lines, run: cat turler.txt}
+
+checks:
+  - {op: file_lines_eq, path: turler.txt, value: ['1999:roman.ini', '2011:roman2.ini', '2004:siir.ini']}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7130
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: kutuphane-kayitlari
+    hedef: ayikla
+    girdi: ini
+    kaynak: cok-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: crlf
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

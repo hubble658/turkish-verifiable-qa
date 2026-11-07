@@ -1,0 +1,178 @@
+id: gen-k-6012-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  relpack/versions.py içindeki parse_stream'i sürümün tüm bileşenlerini (major.minor.patch) koruyacak şekilde düzelt. relpack/stack.py içindeki latest'i, her paket için en büyük sürümü döndüren @max_version dekoratörüyle çalışacak biçimde düzelt; relpack/report.py doğru raporu üretsin.
+
+setup: |
+  mkdir -p relpack
+  cat > relpack/versions.py <<'VERS'
+  def parse_stream(lines):
+      out = []
+      for line in lines:
+          line = line.strip()
+          if not line:
+              continue
+          name, ver = line.split("=")
+          parts = ver.split(".")
+          out.append((name, [int(p) for p in parts[:2]]))
+      return out
+  VERS
+  cat > relpack/stack.py <<'STACK'
+  from relpack.versions import parse_stream
+
+
+  def build_history(pairs):
+      history = {}
+      for name, ver in pairs:
+          history.setdefault(name, []).append(ver)
+      return history
+
+
+  def latest(pairs):
+      hist = build_history(pairs)
+      out = {}
+      for name, versions in hist.items():
+          out[name] = versions[0]
+      return out
+
+
+  def from_stream(lines):
+      return latest(parse_stream(lines))
+  STACK
+  cat > relpack/report.py <<'REPORT'
+  from relpack.stack import from_stream
+
+
+  def render(lines):
+      cur = from_stream(lines)
+      lines_out = []
+      for name in sorted(cur):
+          lines_out.append(name + ":" + ".".join(str(p) for p in cur[name]))
+      return "\n".join(lines_out)
+  REPORT
+  cat > input.txt <<'TXT'
+  alpha=1.2.0
+  beta=2.0.1
+  alpha=1.3.0
+  TXT
+
+goal_tr: >
+  relpack/versions.py icindeki parse_stream'i surumun TUM bilesenlerini
+  (major.minor.patch) koruyacak sekilde duzelt ve relpack/stack.py icindeki
+  latest'i, her paket icin surum listesindeki en buyuk surumu donduren bir
+  `@max_version` dekoratoru kullanacak bicimde duzelt; boylece
+  relpack/report.py dogru raporu uretsin.
+
+reference_solution: |
+  cat > relpack/versions.py <<'VERS'
+  def parse_stream(lines):
+      out = []
+      for line in lines:
+          line = line.strip()
+          if not line:
+              continue
+          name, ver = line.split("=")
+          parts = ver.split(".")
+          out.append((name, [int(p) for p in parts]))
+      return out
+  VERS
+  cat > relpack/stack.py <<'STACK'
+  from relpack.versions import parse_stream
+
+
+  def build_history(pairs):
+      history = {}
+      for name, ver in pairs:
+          history.setdefault(name, []).append(ver)
+      return history
+
+
+  def max_version(func):
+      def wrapper(versions):
+          best = versions[0]
+          for ver in versions:
+              if ver > best:
+                  best = ver
+          return func(best)
+      return wrapper
+
+
+  @max_version
+  def pick(best):
+      return best
+
+
+  def latest(pairs):
+      hist = build_history(pairs)
+      out = {}
+      for name, versions in hist.items():
+          out[name] = pick(versions)
+      return out
+
+
+  def from_stream(lines):
+      return latest(parse_stream(lines))
+  STACK
+
+ara_adim: |
+  cat > relpack/versions.py <<'VERS'
+  def parse_stream(lines):
+      out = []
+      for line in lines:
+          line = line.strip()
+          if not line:
+              continue
+          name, ver = line.split("=")
+          parts = ver.split(".")
+          out.append((name, [int(p) for p in parts]))
+      return out
+  VERS
+
+outputs:
+  - {path: relpack/stack.py, kind: program, run: 'python3 -c ''from relpack.stack import latest as f; assert f([("a",[1,2,0]),("b",[2,0,1]),("a",[1,3,0])])=={"a":[1,3,0],"b":[2,0,1]}, f([("a",[1,2,0]),("b",[2,0,1]),("a",[1,3,0])]); assert f([("x",[9,0]),("x",[10,0])])=={"x":[10,0]}; assert f([("y",[1,0,0]),("y",[1,0,1])])=={"y":[1,0,1]}; print("ZINCIR-TAMAM")'''}
+  - {path: relpack/versions.py, kind: program, run: 'python3 -c ''from relpack.versions import parse_stream as f; assert f(["a=1.2.0","","b=2.0.1"])==[("a",[1,2,0]),("b",[2,0,1])], f(["a=1.2.0","","b=2.0.1"]); print("ILERLEME-TAMAM")'''}
+  - {path: relpack/report.py, kind: program, run: 'python3 -c ''from relpack.report import render as f; assert f(["a=1.2.0","b=2.0.1"])==("a:1.2.0\nb:2.0.1"), repr(f(["a=1.2.0","b=2.0.1"])); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from relpack.stack import latest as f; assert f([("a",[1,2,0]),("b",[2,0,1]),("a",[1,3,0])])=={"a":[1,3,0],"b":[2,0,1]}, f([("a",[1,2,0]),("b",[2,0,1]),("a",[1,3,0])]); assert f([("x",[9,0]),("x",[10,0])])=={"x":[10,0]}; assert f([("y",[1,0,0]),("y",[1,0,1])])=={"y":[1,0,1]}; print("ZINCIR-TAMAM")''', value: ZINCIR-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from relpack.versions import parse_stream as f; assert f(["a=1.2.0","","b=2.0.1"])==[("a",[1,2,0]),("b",[2,0,1])], f(["a=1.2.0","","b=2.0.1"]); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from relpack.report import render as f; assert f(["a=1.2.0","b=2.0.1"])==("a:1.2.0\nb:2.0.1"), repr(f(["a=1.2.0","b=2.0.1"])); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-6012
+    bundle: yarisma
+    tools:
+    - python3
+    konu: yazilim-surumleri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin-kullanimi
+      karmasiklik: orta
+      kalip: dekorator
+      akis: stdin-boru
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

@@ -1,0 +1,86 @@
+id: gen-s-4053-donustur
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  BOM.csv dosyasındaki her satırı işleyerek, noktalı virgülle ayrılmış alanları (hasta no, ad, tarih, saat, bölüm) sırasıyla kullanarak her randevu için ayrı bir metin dosyası oluştur. Her randevu için dosya adı randevu_<no>.txt biçiminde olsun; örneğin hasta numarası 201 için randevu_201.txt, 202 için randevu_202.txt, 203 için randevu_203.txt, 204 için randevu_204.txt ve 205 için randevu_205.txt üretilsin. Her dosyanın içeriği şu biçimde olsun:
+
+  no: <no>
+  ad: <ad>
+  tarih: <tarih>
+  saat: <saat>
+  bolum: <bolum>
+
+  Ayrıca BOM.csv dosyasının satır başlarındaki BOM baytları temizlenerek işlensin.
+
+  Şu şartlar sağlanmalı:
+  - BOM.csv dosyasındaki her satır için bir çıktı dosyası üretilmiş olmalı.
+  - Üretilen dosyalar randevu_201.txt, randevu_202.txt, randevu_203.txt, randevu_204.txt ve randevu_205.txt adlarında olmalı.
+  - Her dosyada beş satır bulunmalı ve sırasıyla no:, ad:, tarih:, saat:, bolum: etiketleriyle başlamalı.
+  - Her etiketten sonra iki nokta ve bir boşluk gelmeli, ardından ilgili alan değeri yazılmalı.
+  - Satır başındaki BOM baytları çıktıya yansımamalı.
+
+setup: |
+  cat > randevular.csv <<'CSV'
+  201;Ayse Yilmaz;01012024;1015;Kardiyoloji
+  202;Mehmet Demir;02012024;0930;Dermatoloji
+  203;Zeynep Kaya;03012024;1400;Noroloji
+  204;Ali Celik;04012024;1115;Ortopedi
+  205;Fatma Sahin;05012024;0830;Goz
+  CSV
+  printf '\xef\xbb\xbf' > BOM.csv
+  cat randevular.csv >> BOM.csv
+
+goal_tr: >
+  BOM.csv dosyasindaki her satirdaki noktali virgulle ayrilmis alanlari
+  (hasta no, ad, tarih, saat, bolum) sirasiyla "no: <no>\n" ve "ad: <ad>\n"
+  ve "tarih: <tarih>\n" ve "saat: <saat>\n" ve "bolum: <bolum>\n" biciminde
+  yazarak her randevu icin randevu_<no>.txt dosyasi uret ve satir basindaki
+  BOM baytlarini temizle
+
+reference_solution: |
+  sed '1s/^\xef\xbb\xbf//' BOM.csv | tr ';' '\n' | sed 's/^/:/' | awk -F: 'BEGIN{RS="";FS="\n"} {print > "tmp_" NR}' 
+  sed '1s/^\xef\xbb\xbf//' BOM.csv | tr ';' '\n' | paste - - - - - | while IFS=$'\t' read -r no ad tarih saat bolum; do printf 'no: %s\nad: %s\ntarih: %s\nsaat: %s\nbolum: %s\n' "$no" "$ad" "$tarih" "$saat" "$bolum" > "randevu_${no}.txt"; done
+
+outputs:
+  - {path: randevu_201.txt, kind: file}
+  - {path: randevu_202.txt, kind: file}
+  - {path: randevu_203.txt, kind: file}
+  - {path: randevu_204.txt, kind: file}
+  - {path: randevu_205.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: randevu_201.txt, value: ['no: 201', 'ad: Ayse Yilmaz', 'tarih: 01012024', 'saat: 1015', 'bolum: Kardiyoloji']}
+  - {op: file_lines_eq, path: randevu_202.txt, value: ['no: 202', 'ad: Mehmet Demir', 'tarih: 02012024', 'saat: 0930', 'bolum: Dermatoloji']}
+  - {op: file_lines_eq, path: randevu_203.txt, value: ['no: 203', 'ad: Zeynep Kaya', 'tarih: 03012024', 'saat: 1400', 'bolum: Noroloji']}
+  - {op: file_lines_eq, path: randevu_204.txt, value: ['no: 204', 'ad: Ali Celik', 'tarih: 04012024', 'saat: 1115', 'bolum: Ortopedi']}
+  - {op: file_lines_eq, path: randevu_205.txt, value: ['no: 205', 'ad: Fatma Sahin', 'tarih: 05012024', 'saat: 0830', 'bolum: Goz']}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4053
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: hastane-randevulari
+    hedef: donustur
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: bom
+    bukulme: tuzak-dosya
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

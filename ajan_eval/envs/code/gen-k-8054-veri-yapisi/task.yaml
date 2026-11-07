@@ -1,0 +1,193 @@
+id: gen-k-8054-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  cargo/prefix.py dosyasındaki PrefixIndex sınıfını gerçek bir trie olacak şekilde tamamla; insert, count_with_prefix ve complete metotları çalışsın. Ayrıca cargo/service.py dosyasındaki TrackingService sınıfını, kayıt kodlarını bu trie üzerinde tutacak biçimde tamamla; register, count ve suggest metotları doğru sonuç versin. count_with_prefix ve count, verilen önekle başlayan kayıt kodlarının sayısını döndürsün. complete ve suggest, verilen önekle başlayan kodları öneri olarak döndürsün ve limit ile verilen sayıdan fazlasını döndürmesin. Mevcut CargoStore ve PrefixIndex yapılarını koru; yeni dosya oluşturma, yalnızca cargo/prefix.py ve cargo/service.py üzerinde çalış.
+
+  Şu şartlar sağlanmalı:
+  - cargo/prefix.py içindeki PrefixIndex sınıfı NotImplementedError fırlatmadan çalışır durumda olmalı.
+  - insert, count_with_prefix ve complete metotları trie yapısı üzerinde doğru çalışmalı.
+  - count_with_prefix, verilen önekle başlayan tüm kayıt kodlarının sayısını doğru döndürmeli.
+  - complete, verilen önekle başlayan kodları döndürmeli ve limit sayısını aşmamalı.
+  - cargo/service.py içindeki TrackingService sınıfı NotImplementedError fırlatmadan çalışır durumda olmalı.
+  - register, count ve suggest metotları CargoStore ve PrefixIndex ile doğru biçimde bağlanmalı.
+  - count, count_with_prefix ile aynı sayım sonucunu vermeli; suggest, complete ile aynı öneri davranışını vermeli.
+  - CargoStore ve PrefixIndex sınıflarının mevcut arayüzleri korunmalı.
+
+setup: |
+  mkdir -p cargo
+  cat > cargo/__init__.py <<'INIT'
+  INIT
+  cat > cargo/store.py <<'STORE'
+  class CargoStore:
+      """In-memory store for tracking codes."""
+
+      def __init__(self):
+          self._codes = []
+
+      def add(self, code):
+          self._codes.append(code)
+
+      def all_codes(self):
+          return list(self._codes)
+  STORE
+  cat > cargo/prefix.py <<'PREFIX'
+  class PrefixIndex:
+      """Skeleton: maps tracking codes to a prefix tree."""
+
+      def __init__(self):
+          raise NotImplementedError
+
+      def insert(self, code):
+          raise NotImplementedError
+
+      def count_with_prefix(self, prefix):
+          raise NotImplementedError
+
+      def complete(self, prefix, limit):
+          raise NotImplementedError
+  PREFIX
+  cat > cargo/service.py <<'SERVICE'
+  from cargo.store import CargoStore
+  from cargo.prefix import PrefixIndex
+
+
+  class TrackingService:
+      """Skeleton: wires the store and the prefix index together."""
+
+      def __init__(self):
+          raise NotImplementedError
+
+      def register(self, code):
+          raise NotImplementedError
+
+      def count(self, prefix):
+          raise NotImplementedError
+
+      def suggest(self, prefix, limit):
+          raise NotImplementedError
+  SERVICE
+
+goal_tr: >
+  cargo/prefix.py icindeki PrefixIndex sinifini (insert, count_with_prefix,
+  complete) ve cargo/service.py icindeki TrackingService sinifini, kayit
+  kodlarini bir trie uzerinde tutup onek sayimi ve onek onerisi dogru
+  calisacak bicimde gerceklestir.
+
+reference_solution: |
+  cat > cargo/prefix.py <<'PREFIX'
+  class PrefixIndex:
+      """Maps tracking codes to a prefix tree."""
+
+      def __init__(self):
+          self._root = {}
+
+      def insert(self, code):
+          node = self._root
+          for ch in code:
+              node = node.setdefault(ch, {})
+          node.setdefault("", None)
+
+      def count_with_prefix(self, prefix):
+          node = self._root
+          for ch in prefix:
+              if ch not in node:
+                  return 0
+              node = node[ch]
+          return self._count_terminals(node)
+
+      def _count_terminals(self, node):
+          total = 1 if "" in node else 0
+          for key, child in node.items():
+              if key == "":
+                  continue
+              total += self._count_terminals(child)
+          return total
+
+      def complete(self, prefix, limit):
+          node = self._root
+          for ch in prefix:
+              if ch not in node:
+                  return []
+              node = node[ch]
+          out = []
+          self._collect(node, prefix, out, limit)
+          out.sort()
+          return out[:limit]
+
+      def _collect(self, node, acc, out, limit):
+          if len(out) >= limit:
+              return
+          if "" in node:
+              out.append(acc)
+          for key in sorted(node):
+              if key == "":
+                  continue
+              self._collect(node[key], acc + key, out, limit)
+  PREFIX
+  cat > cargo/service.py <<'SERVICE'
+  from cargo.store import CargoStore
+  from cargo.prefix import PrefixIndex
+
+
+  class TrackingService:
+      """Wires the store and the prefix index together."""
+
+      def __init__(self):
+          self._store = CargoStore()
+          self._index = PrefixIndex()
+
+      def register(self, code):
+          self._store.add(code)
+          self._index.insert(code)
+
+      def count(self, prefix):
+          return self._index.count_with_prefix(prefix)
+
+      def suggest(self, prefix, limit):
+          return self._index.complete(prefix, limit)
+  SERVICE
+
+outputs:
+  - {path: cargo/prefix.py, kind: program, run: 'python3 -c ''from cargo.service import TrackingService as S; s=S(); [s.register(c) for c in ["TRK100","TRK101","TRK200","ABC300","ABD400"]]; assert s.count("TRK")==3; assert s.count("TRK1")==2; assert s.count("TRK10")==2; assert s.count("XYZ")==0; assert s.count("")==5; assert s.suggest("AB",10)==["ABC300","ABD400"]; assert s.suggest("TRK1",10)==["TRK100","TRK101"]; assert s.suggest("TRK1",1)==["TRK100"]; assert s.suggest("ZZ",5)==[]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from cargo.service import TrackingService as S; s=S(); [s.register(c) for c in ["TRK100","TRK101","TRK200","ABC300","ABD400"]]; assert s.count("TRK")==3; assert s.count("TRK1")==2; assert s.count("TRK10")==2; assert s.count("XYZ")==0; assert s.count("")==5; assert s.suggest("AB",10)==["ABC300","ABD400"]; assert s.suggest("TRK1",10)==["TRK100","TRK101"]; assert s.suggest("TRK1",1)==["TRK100"]; assert s.suggest("ZZ",5)==[]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8054
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: kargo-takibi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: trie
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: bellek-ici
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

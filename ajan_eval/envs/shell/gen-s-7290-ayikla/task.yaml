@@ -1,0 +1,109 @@
+id: gen-s-7290-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  muhasebe/kalemler.tsv ve muhasebe/gecerli.txt dosyalarını kullanarak bir işlem yap. muhasebe/kalemler.tsv içindeki satırlardan ilk sütunu muhasebe/gecerli.txt içinde geçenleri seç. Bu satırlardan türü gelir olanların tutar sütununu topla. Toplamı sonuc.txt dosyasına sadece toplam sayı olarak yaz.
+
+  Şu şartlar sağlanmalı:
+  - muhasebe/kalemler.tsv ve muhasebe/gecerli.txt dosyaları okunmalı.
+  - Yalnızca ilk sütunu muhasebe/gecerli.txt içinde geçen satırlar dikkate alınmalı.
+  - Bu satırlardan yalnızca türü gelir olanların tutar sütunu toplanmalı.
+  - Toplam, sonuc.txt dosyasına yazılmalı.
+  - sonuc.txt içinde yalnızca toplam sayı bulunmalı; başka metin, etiket veya açıklama olmamalı.
+
+setup: |
+  mkdir -p muhasebe
+  cat > muhasebe/kalemler.tsv <<'TSV'
+  k001	gelir	1200
+  k002	gider	300
+  k003	gelir	450
+  k004	gider	700
+  k005	gelir	900
+  k006	gider	150
+  k007	gelir	600
+  k008	gider	250
+  k009	gelir	1100
+  k010	gider	400
+  k011	gelir	750
+  k012	gider	500
+  k013	gelir	320
+  k014	gider	180
+  k015	gelir	990
+  k016	gider	610
+  k017	gelir	410
+  k018	gider	270
+  k019	gelir	830
+  k020	gider	360
+  k021	gelir	540
+  k022	gider	220
+  k023	gelir	680
+  k024	gider	490
+  k025	gelir	1500
+  k026	gider	820
+  k027	gelir	370
+  k028	gider	140
+  k029	gelir	920
+  k030	gider	560
+  TSV
+  cat > muhasebe/gecerli.txt <<'TXT'
+  k001
+  k003
+  k005
+  k007
+  k009
+  k011
+  k013
+  k015
+  k017
+  k019
+  k021
+  k023
+  k025
+  k027
+  k029
+  TXT
+
+goal_tr: >
+  muhasebe/kalemler.tsv icindeki, ilk sutunu muhasebe/gecerli.txt icinde
+  gecen satirlardan turu gelir olanlarin tutar sutununu toplayip sonuc.txt
+  dosyasina sadece toplam sayi olarak yaz
+
+reference_solution: |
+  cut -f1 muhasebe/gecerli.txt | sort > /tmp/gecerli.sorted
+  awk -F'\t' 'NR==FNR{v[$1]=1;next} ($1 in v) && $2=="gelir"{s+=$3} END{print s}' /tmp/gecerli.sorted muhasebe/kalemler.tsv | tee sonuc.txt > /dev/null
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '11560'}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7290
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: muhasebe-kalemleri
+    hedef: ayikla
+    girdi: tsv
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: baslik-yok
+    bukulme: olcek
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

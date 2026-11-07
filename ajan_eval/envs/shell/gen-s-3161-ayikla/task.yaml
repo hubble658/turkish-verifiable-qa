@@ -1,0 +1,75 @@
+id: gen-s-3161-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) arsiv/odunc.tsv ve arsiv/iade.tsv dosyalarını karşılaştır.
+  2) Ödünç alınıp henüz iade edilmemiş her kayıt numarasını, ilgili kitap koduyla birlikte belirle.
+  3) Her kayıt numarası yalnızca bir kez görünecek şekilde ve artan sayısal sırada listele.
+  4) Sonucu arsiv/gecikmis.tsv dosyasına yaz.
+
+setup: |
+  mkdir -p arsiv
+  cat > arsiv/odunc.tsv <<'TSV'
+  101	K001	KURT
+  102	K002	KURT
+  103	K003	KURT
+  104	K001	KURT
+  105	K004	KURT
+  TSV
+  cat > arsiv/iade.tsv <<'TSV'
+  101	K001
+  103	K003
+  104	K001
+  105	K004
+  TSV
+
+goal_tr: >
+  arsiv altindaki odunc.tsv ve iade.tsv dosyalarini karsilastirip, odunc
+  alinip henuz iade edilmemis her kayit numarasini bir kez, artan sayisal
+  sirada, ilgili kitap kodunun yaninda tut; sonucu arsiv/gecikmis.tsv olarak
+  yaz.
+
+reference_solution: |
+  find arsiv -name 'odunc.tsv' -o -name 'iade.tsv' > /tmp/dosyalar.txt
+  odunc=$(grep 'odunc.tsv' /tmp/dosyalar.txt)
+  iade=$(grep 'iade.tsv' /tmp/dosyalar.txt)
+  cut -f1 "$odunc" | sort -n | uniq > /tmp/odunc_kayit.txt
+  cut -f1 "$iade" | sort -n | uniq > /tmp/iade_kayit.txt
+  comm -23 /tmp/odunc_kayit.txt /tmp/iade_kayit.txt > /tmp/gecikmis_kayit.txt
+  awk -F'\t' 'NR==FNR{seen[$1]=1; next} ($1 in seen) && !done[$1]++ {print $1 "\t" $2}' /tmp/gecikmis_kayit.txt "$odunc" | sort -n > arsiv/gecikmis.tsv
+
+outputs:
+  - {path: arsiv/gecikmis.tsv, kind: file}
+
+checks:
+  - {op: file_content_eq, path: arsiv/gecikmis.tsv, value: "102\tK002"}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3161
+    bundle: kume-farki
+    tools:
+    - comm
+    - sort
+    konu: kutuphane-kayitlari
+    hedef: ayikla
+    girdi: tsv
+    kaynak: iki-dosya-capraz
+    cikti: yeniden-adlandirilmis
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: tekrar-eden-kayit
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,141 @@
+id: gen-k-8157-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  exam/queue.py dosyasındaki ScoreQueue sınıfını, en yüksek puanlı öğrenciyi önce verecek şekilde çalışan bir öncelik kuyruğu olarak gerçekleştir. Eşit puan durumunda adı alfabetik olarak önce gelen öğrenci önce gelsin. Bu sayede exam/rank.py doğru sıralamayı üretsin.
+
+  Şu şartlar sağlanmalı:
+  - exam/queue.py içindeki ScoreQueue sınıfı push, peek, pop ve __len__ metotlarını NotImplementedError fırlatmadan çalışır biçimde gerçeklemeli.
+  - Kuyruktan çekilen öğeler en yüksek puandan en düşük puana doğru sıralanmış olmalı.
+  - Puanlar eşit olduğunda ada göre alfabetik olarak önce gelen öğrenci önce gelmeli.
+  - exam/rank.py içindeki rank_students fonksiyonu, ScoreQueue üzerinden öğrencileri doğru sırada döndürmeli.
+  - scores.txt içeriği (ayse,91; mehmet,74; zeynep,88; can,74; elif,95) ile çalıştırıldığında beklenen sıra: elif (95), ayse (91), zeynep (88), can (74), mehmet (74) olmalı.
+
+setup: |
+  mkdir -p exam
+  cat > exam/records.py <<'RECORDS'
+  def load_scores(path):
+      entries = []
+      with open(path, "r", encoding="ascii") as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              name, score = line.split(",")
+              entries.append((name, int(score)))
+      return entries
+  RECORDS
+  cat > exam/queue.py <<'QUEUE'
+  import heapq
+
+
+  class ScoreQueue:
+      def __init__(self):
+          self._heap = []
+
+      def push(self, name, score):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+  QUEUE
+  cat > exam/rank.py <<'RANK'
+  from exam.queue import ScoreQueue
+
+
+  def rank_students(entries):
+      queue = ScoreQueue()
+      for name, score in entries:
+          queue.push(name, score)
+      ordered = []
+      while queue:
+          ordered.append(queue.pop())
+      return ordered
+  RANK
+  cat > scores.txt <<'TXT'
+  ayse,91
+  mehmet,74
+  zeynep,88
+  can,74
+  elif,95
+  TXT
+
+goal_tr: >
+  exam/queue.py icindeki ScoreQueue sinifini, en yuksek puanli ogrenciyi
+  once verecek sekilde (esit puanda adi alfabetik once olan once) calisan
+  bir oncelik kuyrugu olarak gerceklestir; boylece exam/rank.py dogru
+  siralama uretsin.
+
+reference_solution: |
+  cat > exam/queue.py <<'QUEUE'
+  import heapq
+
+
+  class ScoreQueue:
+      def __init__(self):
+          self._heap = []
+
+      def push(self, name, score):
+          heapq.heappush(self._heap, (-score, name))
+
+      def peek(self):
+          score, name = self._heap[0]
+          return (name, -score)
+
+      def pop(self):
+          score, name = heapq.heappop(self._heap)
+          return (name, -score)
+
+      def __len__(self):
+          return len(self._heap)
+  QUEUE
+
+outputs:
+  - {path: exam/queue.py, kind: program, run: 'python3 -c ''from exam.records import load_scores; from exam.rank import rank_students; e=load_scores("scores.txt"); r=rank_students(e); assert r==[("elif",95),("ayse",91),("zeynep",88),("can",74),("mehmet",74)], r; from exam.queue import ScoreQueue; q=ScoreQueue(); q.push("b",50); q.push("a",50); assert q.peek()==("a",50), q.peek(); assert len(q)==2; assert q.pop()==("a",50); assert q.pop()==("b",50); assert len(q)==0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from exam.records import load_scores; from exam.rank import rank_students; e=load_scores("scores.txt"); r=rank_students(e); assert r==[("elif",95),("ayse",91),("zeynep",88),("can",74),("mehmet",74)], r; from exam.queue import ScoreQueue; q=ScoreQueue(); q.push("b",50); q.push("a",50); assert q.peek()==("a",50), q.peek(); assert len(q)==2; assert q.pop()==("a",50); assert q.pop()==("b",50); assert len(q)==0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8157
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: sinav-sonuclari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: oncelik-kuyrugu
+      karmasiklik: duz
+      kalip: ozyineleme
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

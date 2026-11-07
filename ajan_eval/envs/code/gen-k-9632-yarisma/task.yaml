@@ -1,0 +1,211 @@
+id: gen-k-9632-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 28
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) clinic/records.py, clinic/schedule.py ve clinic/report.py dosyalarının bulunduğu yapıyı koruyarak, randevu defterine kayıtların gerçekleşme sırasına göre değil, ters sıralamayla işlenmesine neden olan sorunu gider; deftere işlenen kayıtlar öncelik değeri büyük olan hastalar önce gelecek, öncelik değerleri eşit olduğunda ise daha önce başvuran hasta önce gelecek biçimde sıralansın.
+
+  2) clinic/report.py içinde döndürülen hasta listesi, bu doğru sıralamayı yansıtacak şekilde üretilsin; liste ters sıralanmış kayıtlardan değil, öncelik ve başvuru sırasına göre doğru biçimde sıralanmış kayıtlardan oluşsun.
+
+  3) clinic/records.py ve clinic/schedule.py dosyalarındaki mevcut yapıyı bozmadan, gerekli düzeltmeler yalnızca bu üç dosya üzerinde yapılsın; başka dosya ya da dizin oluşturulmasın.
+
+setup: |
+  mkdir -p clinic
+  cat > clinic/records.py <<'REC'
+  class Record:
+      def __init__(self, patient, slot, priority):
+          self.patient = patient
+          self.slot = slot
+          self.priority = priority
+
+
+  class RecordBook:
+      def __init__(self):
+          self._by_patient = {}
+
+      def add(self, record):
+          self._by_patient[record.patient] = record
+
+      def get(self, patient):
+          return self._by_patient.get(patient)
+
+      def patients(self):
+          return list(self._by_patient.keys())
+  REC
+  cat > clinic/schedule.py <<'SCH'
+  from clinic.records import Record
+
+
+  class Schedule:
+      def __init__(self):
+          self._stack = []
+
+      def push(self, patient, slot, priority):
+          self._stack.append(Record(patient, slot, priority))
+
+      def pop(self):
+          return self._stack.pop()
+
+      def is_empty(self):
+          return not self._stack
+  SCH
+  cat > clinic/report.py <<'REP'
+  from clinic.records import RecordBook
+  from clinic.schedule import Schedule
+
+
+  def build_schedule(book, requests):
+      sched = Schedule()
+      for patient, slot, priority in requests:
+          sched.push(patient, slot, priority)
+      return sched
+
+
+  def finalize(book, requests):
+      sched = build_schedule(book, requests)
+      order = []
+      while not sched.is_empty():
+          rec = sched.pop()
+          book.add(rec)
+          order.append(rec.patient)
+      return order
+  REP
+
+goal_tr: >
+  Randevu defterindeki kayitlar gerceklesme sirasina gore degil, en son
+  alinan randevu en once olacak bicimde ters siralaniyor; bunu duzelt ki
+  oncelik degeri buyuk olan hastalar once, esitlikte ise once basvuran once
+  olacak sekilde deftere islensin ve dondurulen hasta listesi bu dogru
+  siralamayla uretilsin.
+
+reference_solution: |
+  cat > clinic/records.py <<'REC'
+  class Record:
+      def __init__(self, patient, slot, priority):
+          self.patient = patient
+          self.slot = slot
+          self.priority = priority
+
+
+  class RecordBook:
+      def __init__(self):
+          self._by_patient = {}
+
+      def add(self, record):
+          self._by_patient[record.patient] = record
+
+      def get(self, patient):
+          return self._by_patient.get(patient)
+
+      def patients(self):
+          return list(self._by_patient.keys())
+  REC
+  cat > clinic/schedule.py <<'SCH'
+  from clinic.records import Record
+
+
+  class Schedule:
+      def __init__(self):
+          self._stack = []
+
+      def push(self, patient, slot, priority):
+          self._stack.append(Record(patient, slot, priority))
+
+      def pop(self):
+          return self._stack.pop()
+
+      def is_empty(self):
+          return not self._stack
+
+      def ordered(self):
+          return sorted(self._stack, key=lambda r: (-r.priority, r.slot))
+  SCH
+  cat > clinic/report.py <<'REP'
+  from clinic.records import RecordBook
+  from clinic.schedule import Schedule
+
+
+  def build_schedule(book, requests):
+      sched = Schedule()
+      for patient, slot, priority in requests:
+          sched.push(patient, slot, priority)
+      return sched
+
+
+  def finalize(book, requests):
+      sched = build_schedule(book, requests)
+      order = []
+      for rec in sched.ordered():
+          book.add(rec)
+          order.append(rec.patient)
+      return order
+  REP
+
+ara_adim: |
+  cat > clinic/schedule.py <<'SCH'
+  from clinic.records import Record
+
+
+  class Schedule:
+      def __init__(self):
+          self._stack = []
+
+      def push(self, patient, slot, priority):
+          self._stack.append(Record(patient, slot, priority))
+
+      def pop(self):
+          return self._stack.pop()
+
+      def is_empty(self):
+          return not self._stack
+
+      def ordered(self):
+          return sorted(self._stack, key=lambda r: (-r.priority, r.slot))
+  SCH
+
+outputs:
+  - {path: clinic/report.py, kind: program, run: 'python3 -c ''from clinic.records import RecordBook; from clinic.report import finalize; b=RecordBook(); req=[("ali",1,5),("ayse",2,9),("can",3,5)]; assert finalize(b,req)==["ayse","ali","can"], finalize(b,req); assert b.get("ayse").priority==9; print("TAMAM")'''}
+  - {path: clinic/schedule.py, kind: program, run: 'python3 -c ''from clinic.schedule import Schedule; s=Schedule(); s.push("a",1,2); s.push("b",2,7); s.push("c",3,2); assert [r.patient for r in s.ordered()]==["b","a","c"], [r.patient for r in s.ordered()]; print("ILERLEME-TAMAM")'''}
+  - {path: clinic/records.py, kind: program, run: 'python3 -c ''from clinic.records import Record, RecordBook; r=Record("x",4,1); b=RecordBook(); b.add(r); assert b.get("x") is r; assert b.patients()==["x"]; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from clinic.records import RecordBook; from clinic.report import finalize; b=RecordBook(); req=[("ali",1,5),("ayse",2,9),("can",3,5)]; assert finalize(b,req)==["ayse","ali","can"], finalize(b,req); assert b.get("ayse").priority==9; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from clinic.schedule import Schedule; s=Schedule(); s.push("a",1,2); s.push("b",2,7); s.push("c",3,2); assert [r.patient for r in s.ordered()]==["b","a","c"], [r.patient for r in s.ordered()]; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from clinic.records import Record, RecordBook; r=Record("x",4,1); b=RecordBook(); b.add(r); assert b.get("x") is r; assert b.patients()==["x"]; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9632
+    bundle: yarisma
+    tools:
+    - python3
+    konu: hastane-randevulari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 11
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin-kullanimi
+      karmasiklik: derin
+      kalip: durumlu-sinif
+      akis: ic-ice-yapi
+      topoloji: elmas
+      zincir: 3
+      regresyon: true
+      bagimli: true
+      kesif_zor: true

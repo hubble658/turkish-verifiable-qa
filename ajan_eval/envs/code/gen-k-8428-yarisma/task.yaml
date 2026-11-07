@@ -1,0 +1,127 @@
+id: gen-k-8428-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  pricing klasöründe üç modüllü bir fiyat zinciri kur. pricing/catalog.py içindeki load_catalog fonksiyonuyla iç içe katalog verisini yükleyen pricing/index.py, her ürün için kategori, ad ve indirimli fiyattan oluşan bir üçlü üreten ve bu üçlüleri fiyata göre artan sırada döndüren build_index fonksiyonunu tanımlasın. pricing/query.py ise bu sıralı liste üzerinde özyinelemeli ikili arama yapan find_price fonksiyonunu ve verilen bütçeye uyan ürünleri döndüren within_budget fonksiyonunu tanımlasın.
+
+setup: |
+  mkdir -p pricing
+  cat > pricing/catalog.py <<'CATALOG'
+  def load_catalog():
+      return {
+          "electronics": {
+              "phone": {"base": 120.0, "tiers": [0.9, 0.85, 0.8]},
+              "tablet": {"base": 80.0, "tiers": [0.95, 0.9, 0.85]},
+          },
+          "home": {
+              "lamp": {"base": 20.0, "tiers": [1.0, 0.95, 0.9]},
+              "chair": {"base": 45.0, "tiers": [0.9, 0.85, 0.8]},
+          },
+      }
+  CATALOG
+  cat > data.txt <<'DATA'
+  electronics phone 150
+  home lamp 30
+  home chair 10
+  electronics tablet 60
+  DATA
+
+goal_tr: >
+  pricing klasorunde, urun fiyatlarini siralayip ikili arama yapan uc
+  modullu zinciri kur: pricing/catalog.py icindeki load_catalog ile ic ice
+  katalog verisini yukleyen pricing/index.py, her urun icin (kategori, ad,
+  indirimli fiyat) uclusu ureten ve fiyata gore artan sirali liste donduren
+  bir build_index fonksiyonu tanimlasin; pricing/query.py ise bu sirali
+  liste uzerinde ozyinelemeli ikili arama yapan find_price fonksiyonunu ve
+  verilen butceye uyan urunleri donduren within_budget fonksiyonunu
+  tanimlasin.
+
+reference_solution: |
+  cat > pricing/index.py <<'INDEX'
+  from pricing.catalog import load_catalog
+
+
+  def _discounted_price(base, qty, tiers):
+      if qty <= 0:
+          return base
+      level = min(qty // 50, len(tiers) - 1)
+      return round(base * tiers[level], 2)
+
+
+  def build_index():
+      catalog = load_catalog()
+      rows = []
+      for category, items in catalog.items():
+          for name, info in items.items():
+              price = _discounted_price(info["base"], 0, info["tiers"])
+              rows.append((category, name, price))
+      rows.sort(key=lambda row: (row[2], row[1]))
+      return rows
+  INDEX
+  cat > pricing/query.py <<'QUERY'
+  from pricing.index import build_index
+
+
+  def _binary_search(rows, target, lo, hi):
+      if lo > hi:
+          return None
+      mid = (lo + hi) // 2
+      price = rows[mid][2]
+      if price == target:
+          return rows[mid]
+      if target < price:
+          return _binary_search(rows, target, lo, mid - 1)
+      return _binary_search(rows, target, mid + 1, hi)
+
+
+  def find_price(rows, target):
+      return _binary_search(rows, target, 0, len(rows) - 1)
+
+
+  def within_budget(rows, budget):
+      return [row for row in rows if row[2] <= budget]
+  QUERY
+
+outputs:
+  - {path: pricing/index.py, kind: program, run: 'python3 -c ''from pricing.index import build_index; from pricing.query import find_price, within_budget; rows=build_index(); assert [r[2] for r in rows]==sorted(r[2] for r in rows), rows; assert find_price(rows,80.0)==("electronics","tablet",80.0), find_price(rows,80.0); assert find_price(rows,999.0) is None; assert within_budget(rows,45.0)==[("home","lamp",20.0),("home","chair",45.0)], within_budget(rows,45.0); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from pricing.index import build_index; from pricing.query import find_price, within_budget; rows=build_index(); assert [r[2] for r in rows]==sorted(r[2] for r in rows), rows; assert find_price(rows,80.0)==("electronics","tablet",80.0), find_price(rows,80.0); assert find_price(rows,999.0) is None; assert within_budget(rows,45.0)==[("home","lamp",20.0),("home","chair",45.0)], within_budget(rows,45.0); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8428
+    bundle: yarisma
+    tools:
+    - python3
+    konu: urun-fiyatlari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-ikili-arama
+      karmasiklik: duz
+      kalip: ozyineleme
+      akis: ic-ice-yapi
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

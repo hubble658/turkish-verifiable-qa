@@ -1,0 +1,71 @@
+id: gen-s-3195-birlestir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  olcumler klasöründeki s1.csv ve s2.csv dosyalarını başlık satırları olmadan birleştirip, her satırı "zaman sensor deger" biçiminde boşlukla ayrılmış tek bir liste olarak birlesik.txt dosyasına yaz; olcumler içindeki notlar.txt dosyasını bu birleştirmeye dahil etme.
+
+setup: |
+  mkdir -p olcumler
+  cat > olcumler/s1.csv <<'CSV'
+  zaman,sensor,deger
+  01:00,isi,21
+  02:00,isi,22
+  CSV
+  cat > olcumler/s2.csv <<'CSV'
+  zaman,sensor,deger
+  01:00,nem,45
+  02:00,nem,47
+  CSV
+  cat > olcumler/notlar.txt <<'TXT'
+  bu dosya bir olcum degil, dikkate alma
+  zaman,sensor,deger
+  09:00,isi,99
+  TXT
+
+goal_tr: >
+  olcumler klasorundeki s1.csv ve s2.csv dosyalarini basliksiz olarak
+  birlestirip her satiri "zaman sensor deger" biciminde boslukla ayrilmis
+  tek liste halinde birlesik.txt dosyasina yaz; notlar.txt dosyasini dahil
+  etme
+
+reference_solution: |
+  cut -d, -f1-3 olcumler/s1.csv | tail -n +2 > birlesik.txt
+  cut -d, -f1-3 olcumler/s2.csv | tail -n +2 >> birlesik.txt
+  paste -d' ' <(cut -d, -f1 birlesik.txt) <(cut -d, -f2 birlesik.txt) <(cut -d, -f3 birlesik.txt) > gecici.txt
+  mv gecici.txt birlesik.txt
+
+outputs:
+  - {path: birlesik.txt, kind: lines, run: cat birlesik.txt}
+
+checks:
+  - {op: file_lines_eq, path: birlesik.txt, value: ['01:00 isi 21', '02:00 isi 22', '01:00 nem 45', '02:00 nem 47']}
+
+metadata:
+  domain: birlestir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3195
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: sensor-olcumleri
+    hedef: birlestir
+    girdi: json
+    kaynak: cok-dosya
+    cikti: satir-listesi
+    kesif: veriye-bak
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

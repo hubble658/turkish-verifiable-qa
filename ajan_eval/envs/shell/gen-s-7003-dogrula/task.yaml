@@ -1,0 +1,71 @@
+id: gen-s-7003-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  logs/sunucu.log ve logs/kimlik.log dosyalarındaki kayıtları kayıt numarasına göre birleştir. Durumu HATA olan kayıtlar için numara, kullanıcı, durum ve ip sütunlarından oluşan hatalar.csv dosyasını üret.
+
+setup: |
+  mkdir -p logs
+  cat > logs/sunucu.log <<'LOG'
+  0001 OK   10.0.0.1
+  0002 HATA 10.0.0.2
+  0003 OK   10.0.0.3
+  0004 HATA 10.0.0.4
+  0005 UYARI 10.0.0.5
+  0006 HATA 10.0.0.6
+  LOG
+  cat > logs/kimlik.log <<'LOG'
+  0001 ali
+  0002 veli
+  0003 ayse
+  0004 can
+  0005 deniz
+  0006 ece
+  LOG
+
+goal_tr: >
+  logs/sunucu.log ve logs/kimlik.log dosyalarini kayit numarasina gore
+  birlestirip, durumu HATA olan kayitlar icin numara,kullanici,durum,ip
+  sutunlarindan olusan hatalar.csv dosyasini uret
+
+reference_solution: |
+  awk 'NR==FNR { k[$1]=$2; next } $2=="HATA" { print $1 "," k[$1] "," $2 "," $3 }' logs/kimlik.log logs/sunucu.log > hatalar.csv
+  sed -i '1i numara,kullanici,durum,ip' hatalar.csv
+  awk -F, 'NR>1 && $2=="" { $2="bilinmeyen" } { print }' OFS=, hatalar.csv > tmp && mv tmp hatalar.csv
+  awk -F, 'NR>1 { c++ } END { print "toplam," c }' hatalar.csv >> hatalar.csv
+  awk '!seen[$0]++' hatalar.csv > tmp && mv tmp hatalar.csv
+
+outputs:
+  - {path: hatalar.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: hatalar.csv, value: ['numara,kullanici,durum,ip', '0002,veli,HATA,10.0.0.2', '0004,can,HATA,10.0.0.4', '0006,ece,HATA,10.0.0.6', 'toplam,3']}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7003
+    bundle: awk
+    tools:
+    - awk
+    konu: sunucu-loglari
+    hedef: dogrula
+    girdi: sabit-genislik
+    kaynak: iki-dosya-capraz
+    cikti: csv
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

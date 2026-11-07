@@ -1,0 +1,58 @@
+id: gen-s-4099-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  randevular.tsv dosyasındaki sekmeyle ayrılmış satırları oku ve her satırdaki her alanı ters çevir, ardından alanları virgülle birleştirerek randevular.csv dosyasına yaz.
+
+setup: |
+  cat > randevular.tsv <<'TSV'
+  1001	Ayse	Kardiyoloji	2024-03-04	09:30
+  1002	Mehmet	Dahiliye	2024-03-04	10:15
+  1003	Zeynep	Noroloji	2024-03-05	11:00
+  1004	Ali	Ortopedi	2024-03-06	13:45
+  1005	Fatma	Dermatoloji	2024-03-07	08:20
+  TSV
+
+goal_tr: >
+  randevular.tsv dosyasindaki sekmeyle ayrilmis satirlari, her alani ters
+  cevrilmis halde ve alanlar virgulle ayrilmis olarak randevular.csv
+  dosyasina yaz.
+
+reference_solution: |
+  cut -f1-5 randevular.tsv | rev | sed 's/\t/,/g' > randevular.csv
+
+outputs:
+  - {path: randevular.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: randevular.csv, value: ['03:90,40-30-4202,ijoloyidraK,esyA,1001', '51:01,40-30-4202,eyilihaD,temheM,2001', '00:11,50-30-4202,ijoloroN,penyeZ,3001', '54:31,60-30-4202,idepotrO,ilA,4001', '02:80,70-30-4202,ijolotamreD,amtaF,5001']}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4099
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: hastane-randevulari
+    hedef: donustur
+    girdi: tsv
+    kaynak: tek-dosya
+    cikti: csv
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,87 @@
+id: gen-s-7049-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Hafta sonu küçük bir market zincirinin şube müdürüyle konuştum; ürünler hakkında müşterilerin bıraktığı yorumları tek tek okuyup hangi ürünlerin konuşulduğunu çıkarmaya çalışıyorlarmış, ama dosyalar farklı klasörlere dağılmış durumda. Ben de dedim ki bunu bir kerede toparlayabiliriz. /workspace altındaki girdi dizinini ve alt klasörlerini dolaş; içinde adı urun_yorumlari.txt olan dosyaları bul. Bu dosyalarda "urun " ile başlayan satırlardan ürün adlarını çıkar. Sonra her ürün adı yalnızca bir kez görünecek şekilde sıralı olarak cikti/urunler.txt dosyasına yaz; cikti klasörü yoksa oluştur.
+
+setup: |
+  mkdir -p girdi/alt girdi/ust
+  cat > girdi/urun_yorumlari.txt <<'EOF'
+  urun elma
+  yorum iyi
+  urun armut
+  yorum kotu
+  urun elma
+  yorum mukemmel
+  urun uzum
+  yorum berbat
+  urun armut
+  yorum fena
+  urun elma
+  yorum harika
+  EOF
+  cat > girdi/alt/urun_yorumlari.txt <<'EOF'
+  urun kiraz
+  yorum guzel
+  urun kiraz
+  yorum idare eder
+  urun erik
+  yorum kotu
+  EOF
+  cat > girdi/ust/notlar.txt <<'EOF'
+  urun seftali
+  yorum iyi
+  urun seftali
+  yorum berbat
+  EOF
+  cat > girdi/alt/yorumlar.log <<'EOF'
+  urun elma
+  yorum iyi
+  urun armut
+  yorum kotu
+  EOF
+
+goal_tr: >
+  girdi dizini agacinda adi urun_yorumlari.txt olan dosyalardaki "urun " ile
+  baslayan satirlardan urun adlarini cikarip, her urun adini bir kez iceren
+  sirali satirlari cikti/urunler.txt dosyasina yaz
+
+reference_solution: |
+  mkdir -p cikti
+  find girdi -type f -name 'urun_yorumlari.txt' | xargs grep -h '^urun ' | sed 's/^urun //' | sort -u > cikti/urunler.txt
+
+outputs:
+  - {path: cikti/urunler.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: cikti/urunler.txt, value: [armut, elma, erik, kiraz, uzum]}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7049
+    bundle: cok-dosya-ara
+    tools:
+    - xargs
+    - grep
+    konu: urun-yorumlari
+    hedef: ayikla
+    girdi: log-satiri
+    kaynak: dizin-agaci
+    cikti: dizin-yapisi
+    kesif: dolayli-hedef
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,132 @@
+id: gen-k-5099-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  logs/analytics.py dosyasındaki make_counter fonksiyonunu, son chunk_size kadar farklı IP adresini akılda tutan bir LRU önbelleği kullanan bir closure döndürecek şekilde gerçekleştir. Bu closure, count_status fonksiyonunda kullanıldığında verilen status kodu için önbellekte kalan farklı IP sayısını doğru hesaplamalı. Log satırlarını ayrıştırmak için logs/access.py içindeki parse_lines ve iter_chunks fonksiyonlarından yararlanılıyor; mevcut count_status akışı ve dosya yapısı korunmalı, yalnızca make_counter içindeki eksik gerçekleştirme tamamlanmalı.
+
+setup: |
+  mkdir -p logs
+  touch logs/__init__.py
+  cat > logs/access.py <<'ACCESS'
+  def parse_lines(lines):
+      records = []
+      for line in lines:
+          line = line.strip()
+          if not line:
+              continue
+          ip, path, status = line.split()
+          records.append((ip, path, int(status)))
+      return records
+
+
+  def iter_chunks(text, size):
+      lines = text.splitlines()
+      for i in range(0, len(lines), size):
+          yield lines[i:i + size]
+  ACCESS
+  cat > logs/analytics.py <<'ANALYTICS'
+  from logs.access import iter_chunks, parse_lines
+
+
+  def make_counter(chunk_size):
+      raise NotImplementedError
+
+
+  def count_status(text, chunk_size, status):
+      counter = make_counter(chunk_size)
+      for chunk in iter_chunks(text, chunk_size):
+          for ip, path, st in parse_lines(chunk):
+              counter(ip, st)
+      return counter.count(status)
+  ANALYTICS
+  cat > access.txt <<'TXT'
+  10.0.0.1 /index 200
+  10.0.0.2 /about 404
+  10.0.0.1 /index 200
+  10.0.0.3 /login 500
+  10.0.0.2 /about 404
+  10.0.0.1 /cart 200
+  10.0.0.4 /index 200
+  10.0.0.3 /login 500
+  TXT
+
+goal_tr: >
+  logs/analytics.py icindeki make_counter fonksiyonunu, son chunk_size kadar
+  farkli IP'yi akilda tutan bir LRU onbellek kullanan closure dondurecek ve
+  count_status ile verilen status kodu icin onbellekte kalan farkli IP
+  sayisini dogru hesaplayacak bicimde gerceklestir.
+
+reference_solution: |
+  cat > logs/analytics.py <<'ANALYTICS'
+  from collections import OrderedDict
+
+  from logs.access import iter_chunks, parse_lines
+
+
+  def make_counter(chunk_size):
+      seen = OrderedDict()
+
+      def counter(ip, status):
+          seen[ip] = status
+          seen.move_to_end(ip)
+          if len(seen) > chunk_size:
+              seen.popitem(last=False)
+
+      def count(status):
+          return sum(1 for st in seen.values() if st == status)
+
+      counter.count = count
+      return counter
+
+
+  def count_status(text, chunk_size, status):
+      counter = make_counter(chunk_size)
+      for chunk in iter_chunks(text, chunk_size):
+          for ip, path, st in parse_lines(chunk):
+              counter(ip, st)
+      return counter.count(status)
+  ANALYTICS
+
+outputs:
+  - {path: logs/analytics.py, kind: program, run: 'python3 -c ''from logs.analytics import count_status as f; t=open("access.txt").read(); assert f(t,8,200)==2, f(t,8,200); assert f(t,8,404)==1, f(t,8,404); assert f(t,8,500)==1, f(t,8,500); assert f(t,3,200)==2, f(t,3,200); assert f(t,3,500)==1, f(t,3,500); assert f(t,2,200)==1, f(t,2,200); assert f(t,2,404)==0, f(t,2,404); assert f(t,2,500)==1, f(t,2,500); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from logs.analytics import count_status as f; t=open("access.txt").read(); assert f(t,8,200)==2, f(t,8,200); assert f(t,8,404)==1, f(t,8,404); assert f(t,8,500)==1, f(t,8,500); assert f(t,3,200)==2, f(t,3,200); assert f(t,3,500)==1, f(t,3,500); assert f(t,2,200)==1, f(t,2,200); assert f(t,2,404)==0, f(t,2,404); assert f(t,2,500)==1, f(t,2,500); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5099
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: web-erisim-loglari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: lru-onbellek
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: parcali-akis
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

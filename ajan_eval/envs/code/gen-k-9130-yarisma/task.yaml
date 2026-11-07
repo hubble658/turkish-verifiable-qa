@@ -1,0 +1,141 @@
+id: gen-k-9130-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Depodaki stok dosyalarını okuyup bütçeye göre ürün seçen küçük bir araç üzerinde çalışıyoruz; geçenlerde fark ettik ki seçim mantığı bütçeyi verimli kullanmıyor ve plan çıktısı da beklediğimiz biçimde gelmiyor. Bugünün işi bunları toparlamak oldu.
+
+  depot/picker.py dosyasındaki greedy_pick fonksiyonunu, ürünleri birim fiyatı en düşük olandan başlayacak şekilde sıralayıp bütçe elverdiği ölçüde seçim yapacak biçimde düzelt; şu anki sürümde sıralama eksik. Ayrıca depot/plan.py içindeki build_plan fonksiyonunda seçilen ürünleri birleştirirken kullanılan ayırıcı "|" yerine "," olsun, yani plan çıktısı virgülle ayrılmış tek bir satır olarak gelsin. depot/reader.py dosyasındaki okuma davranışı olduğu gibi kalsın.
+
+setup: |
+  mkdir -p depot
+  cat > depot/reader.py <<'READER'
+  def read_stock(path):
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              sku, qty, price = line.split(',')
+              yield sku, int(qty), float(price)
+  READER
+  cat > depot/picker.py <<'PICKER'
+  from depot.reader import read_stock
+
+
+  def greedy_pick(path, budget):
+      remaining = budget
+      picked = []
+      for sku, qty, price in read_stock(path):
+          if price <= remaining:
+              picked.append(sku)
+              remaining = remaining - price
+      return picked
+  PICKER
+  cat > depot/plan.py <<'PLAN'
+  from depot.picker import greedy_pick
+
+
+  def build_plan(path, budget):
+      items = greedy_pick(path, budget)
+      return "|".join(items)
+  PLAN
+  cat > stock.csv <<'CSV'
+  bolt,5,3.0
+  nut,2,1.0
+  gear,1,7.0
+  cam,4,2.0
+  CSV
+
+goal_tr: >
+  depot/picker.py icindeki greedy_pick fonksiyonunu birim fiyati en dusuk
+  urunlerden butceye gore secim yapacak sekilde duzelt (siralama eksik) ve
+  depot/plan.py icindeki build_plan fonksiyonundaki birlestirme ayiricisini
+  "|" yerine "," yap; boylece plan ciktisi virgulle ayrilmis olsun.
+
+reference_solution: |
+  cat > depot/picker.py <<'PICKER'
+  from depot.reader import read_stock
+
+
+  def greedy_pick(path, budget):
+      remaining = budget
+      picked = []
+      rows = sorted(read_stock(path), key=lambda r: r[2])
+      for sku, qty, price in rows:
+          if price <= remaining:
+              picked.append(sku)
+              remaining = remaining - price
+      return picked
+  PICKER
+  cat > depot/plan.py <<'PLAN'
+  from depot.picker import greedy_pick
+
+
+  def build_plan(path, budget):
+      items = greedy_pick(path, budget)
+      return ",".join(items)
+  PLAN
+
+ara_adim: |
+  cat > depot/picker.py <<'PICKER'
+  from depot.reader import read_stock
+
+
+  def greedy_pick(path, budget):
+      remaining = budget
+      picked = []
+      rows = sorted(read_stock(path), key=lambda r: r[2])
+      for sku, qty, price in rows:
+          if price <= remaining:
+              picked.append(sku)
+              remaining = remaining - price
+      return picked
+  PICKER
+
+outputs:
+  - {path: depot/plan.py, kind: program, run: 'python3 -c ''from depot.plan import build_plan as f; assert f("stock.csv",4.0)=="nut,cam", f("stock.csv",4.0); assert f("stock.csv",1.0)=="nut"; assert f("stock.csv",20.0)=="nut,cam,bolt,gear"; print("TAMAM")'''}
+  - {path: depot/picker.py, kind: program, run: 'python3 -c ''from depot.picker import greedy_pick as f; assert f("stock.csv",4.0)==["nut","cam"], f("stock.csv",4.0); assert f("stock.csv",3.0)==["nut","cam"]; print("ILERLEME-TAMAM")'''}
+  - {path: depot/reader.py, kind: program, run: 'python3 -c ''from depot.reader import read_stock as f; rows=list(f("stock.csv")); assert rows[0]==("bolt",5,3.0), rows[0]; assert len(rows)==4; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depot.picker import greedy_pick as f; assert f("stock.csv",4.0)==["nut","cam"], f("stock.csv",4.0); assert f("stock.csv",3.0)==["nut","cam"]; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depot.plan import build_plan as f; assert f("stock.csv",4.0)=="nut,cam", f("stock.csv",4.0); assert f("stock.csv",1.0)=="nut"; assert f("stock.csv",20.0)=="nut,cam,bolt,gear"; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depot.reader import read_stock as f; rows=list(f("stock.csv")); assert rows[0]==("bolt",5,3.0), rows[0]; assert len(rows)==4; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9130
+    bundle: yarisma
+    tools:
+    - python3
+    konu: depo-envanteri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kolay
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: acgozlu
+      karmasiklik: orta
+      kalip: generator
+      akis: cok-dosya-birlestirme
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

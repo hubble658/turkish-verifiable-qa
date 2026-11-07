@@ -1,0 +1,130 @@
+id: gen-k-8106-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  exam/validator.py dosyasındaki ExamResult sınıfında yer alan history alanını her örneğe özel hale getir; öyle ki exam/report.py içindeki build_report fonksiyonu her öğrenci için yalnızca kendi skorunu içeren bir geçmiş döndürsün.
+
+setup: |
+  mkdir -p exam
+  cat > exam/loader.py <<'LOADER'
+  def load_scores(text):
+      rows = []
+      for line in text.strip().splitlines():
+          sid, name, score = line.split(',')
+          rows.append({"sid": sid, "name": name, "score": int(score)})
+      return rows
+  LOADER
+  cat > exam/validator.py <<'VALIDATOR'
+  from dataclasses import dataclass, field
+
+
+  @dataclass
+  class ExamResult:
+      sid: str
+      name: str
+      score: int
+      history: list = []
+
+      def add_history(self, value):
+          self.history.append(value)
+          return self
+
+
+  def validate(rows):
+      results = []
+      for row in rows:
+          results.append(ExamResult(row["sid"], row["name"], row["score"]))
+      return results
+  VALIDATOR
+  cat > exam/report.py <<'REPORT'
+  from exam.loader import load_scores
+  from exam.validator import validate
+
+
+  def build_report(text):
+      rows = load_scores(text)
+      results = validate(rows)
+      out = []
+      for r in results:
+          r.add_history(r.score)
+          out.append((r.sid, r.score, list(r.history)))
+      return out
+  REPORT
+  cat > scores.txt <<'DATA'
+  s1,ada,90
+  s2,bora,70
+  s3,cem,55
+  DATA
+
+goal_tr: >
+  exam/validator.py icindeki ExamResult sinifinda history alanini her ornege
+  ozel hale getirerek exam/report.py'deki build_report fonksiyonunun her
+  ogrenci icin yalnizca kendi skorunu iceren gecmis dondurmesini sagla.
+
+reference_solution: |
+  cat > exam/validator.py <<'VALIDATOR'
+  from dataclasses import dataclass, field
+
+
+  @dataclass
+  class ExamResult:
+      sid: str
+      name: str
+      score: int
+      history: list = field(default_factory=list)
+
+      def add_history(self, value):
+          self.history.append(value)
+          return self
+
+
+  def validate(rows):
+      results = []
+      for row in rows:
+          results.append(ExamResult(row["sid"], row["name"], row["score"]))
+      return results
+  VALIDATOR
+
+outputs:
+  - {path: exam/validator.py, kind: program, run: 'python3 -c ''from exam.report import build_report as f; t=open("scores.txt").read(); r=f(t); assert r==[("s1",90,[90]),("s2",70,[70]),("s3",55,[55])], r; r2=f(t); assert r2==[("s1",90,[90]),("s2",70,[70]),("s3",55,[55])], r2; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from exam.report import build_report as f; t=open("scores.txt").read(); r=f(t); assert r==[("s1",90,[90]),("s2",70,[70]),("s3",55,[55])], r; r2=f(t); assert r2==[("s1",90,[90]),("s2",70,[70]),("s3",55,[55])], r2; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8106
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: sinav-sonuclari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: mutable-varsayilan
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: cok-dosya-birlestirme
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,66 @@
+id: gen-s-4116-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kitaplik klasörü altındaki kutuphane kayitlari.txt dosyasındaki her JSON satırından yazar alanını çıkar; yazarları ters çevirip her yazarı yalnızca bir kez ve alfabetik sırada olacak şekilde, her satırda bir yazar bulunacak biçimde yazarlar.txt dosyasına yaz.
+
+setup: |
+  mkdir -p kitaplik
+  cat > "kitaplik/kutuphane kayitlari.txt" <<'KAYIT'
+  {"id":1,"ad":"Kurmaylar","yazar":"Nazim Hikmet","yil":1950,"tur":"siir"}
+  {"id":2,"ad":"Ince Memed","yazar":"Yasar Kemal","yil":1955,"tur":"roman"}
+  {"id":3,"ad":"Saatleri Ayarlama Enstitusu","yazar":"Ahmet Hamdi Tanpinar","yil":1961,"tur":"roman"}
+  {"id":4,"ad":"Huzur","yazar":"Ahmet Hamdi Tanpinar","yil":1949,"tur":"roman"}
+  {"id":5,"ad":"Yaban","yazar":"Yakup Kadri","yil":1932,"tur":"roman"}
+  KAYIT
+  for i in $(seq 1 30); do
+    printf '{"id":%d,"ad":"Kitap%d","yazar":"Yazar%d","yil":%d,"tur":"deneme"}\n' "$((i+5))" "$i" "$i" "$((1900+i))"
+  done >> "kitaplik/kutuphane kayitlari.txt"
+
+goal_tr: >
+  kitaplik klasoru altinda bulunan kutuphane kayitlari dosyasindaki her JSON
+  satirindan yazar alanini cikarip yazarlari ters cevirip her yazari bir kez
+  ve alfabetik sirada satir listesi olarak yazarlar.txt dosyasina yaz
+
+reference_solution: |
+  find kitaplik -type f -name '*.txt' -print > bulunan.txt
+  cat "$(cat bulunan.txt)" > ham.txt
+  cut -d'"' -f8 ham.txt > yazarlar_ham.txt
+  rev yazarlar_ham.txt > yazarlar_ters.txt
+  sort -u yazarlar_ters.txt > yazarlar.txt
+
+outputs:
+  - {path: yazarlar.txt, kind: lines}
+
+checks:
+  - {op: file_content_eq, path: yazarlar.txt, value: razay}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4116
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: kutuphane-kayitlari
+    hedef: ayikla
+    girdi: json
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: bosluklu-ad
+    bukulme: olcek
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

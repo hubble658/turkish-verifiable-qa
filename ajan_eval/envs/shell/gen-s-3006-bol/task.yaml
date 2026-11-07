@@ -1,0 +1,75 @@
+id: gen-s-3006-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Hastane kayıt sistemini yeni devraldım ve eski ekip geriye pek bir belge bırakmamış; şu an elimde sadece birkaç ham döküm var. Günüm çoğunlukla bu dosyaların içinde ne olduğunu anlamaya çalışmakla geçiyor, çünkü idare bölüm bazında kaç kayıt işlendiğini gösteren bir özet istiyor. Bu yüzden "kayitlar" klasörüne bakıp oradaki tek TSV dosyasını bulmanı istiyorum. O dosyanın ilk satırını başlık saymadan, dosyadaki her bölüm için kaç satır olduğunu say; sonucu "bolum_ozet.json" dosyasına, bölüm adlarını anahtar, satır sayılarını değer yapan geçerli bir JSON nesnesi olarak yaz.
+
+setup: |
+  mkdir -p "kayitlar"
+  cat > "kayitlar/hasta randevu listesi.tsv" <<'TSV'
+  hasta_id	tarih	bolum	durum
+  1001	2024-03-01	Kardiyoloji	tamamlandi
+  1002	2024-03-01	Noroloji	bekliyor
+  1003	2024-03-02	Kardiyoloji	tamamlandi
+  1004	2024-03-02	Ortopedi	iptal
+  1005	2024-03-03	Noroloji	tamamlandi
+  1006	2024-03-03	Kardiyoloji	bekliyor
+  1007	2024-03-04	Ortopedi	tamamlandi
+  1008	2024-03-04	Noroloji	tamamlandi
+  1009	2024-03-05	Kardiyoloji	iptal
+  1010	2024-03-05	Ortopedi	bekliyor
+  1011	2024-03-06	Kardiyoloji	tamamlandi
+  1012	2024-03-06	Noroloji	bekliyor
+  TSV
+
+goal_tr: >
+  "kayitlar" klasoru altindaki tek TSV dosyasini bulup ilk satirini baslik
+  kabul etmeden her bolum icin satir sayisini hesapla ve sonucu
+  bolum_ozet.json dosyasina bolum adlarini anahtar, satir sayilarini deger
+  yapan gecerli bir JSON nesnesi olarak yaz
+
+reference_solution: |
+  f=$(find kayitlar -type f -name '*.tsv')
+  tail -n +2 "$f" | cut -f3 | sort | uniq -c | awk '{print $2 "\t" $1}' > /tmp/sayimlar.tsv
+  {
+    printf '{\n'
+    head -n -1 /tmp/sayimlar.tsv | awk -F'\t' '{printf "  \"%s\": %s,\n", $1, $2}'
+    tail -n 1 /tmp/sayimlar.tsv | awk -F'\t' '{printf "  \"%s\": %s\n", $1, $2}'
+    printf '}\n'
+  } > bolum_ozet.json
+
+outputs:
+  - {path: bolum_ozet.json, kind: json}
+
+checks:
+  - {op: json_eq, path: bolum_ozet.json, value: {Kardiyoloji: 5, Noroloji: 4, Ortopedi: 3}}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3006
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: hastane-randevulari
+    hedef: bol
+    girdi: tsv
+    kaynak: tek-dosya
+    cikti: json
+    kesif: dosyayi-bul
+    uslup: baglam-gomulu
+    direnc: bosluklu-ad
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

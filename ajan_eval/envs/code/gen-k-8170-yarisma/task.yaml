@@ -1,0 +1,139 @@
+id: gen-k-8170-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Mutfağımızda yemek hazırlık sürelerini takip etmeye çalışıyoruz ama elimizdeki notlar hep dağınık halde; kimisi bir tabağın adını ve hazırlık dakikasını yazmış, kimisi araya boş satırlar bırakmış. Gün içinde bu notları tek tek elden geçirmek yerine, akış halinde gelen bu partileri işleyip bize düzenli bir plan çıkaran bir yapıya ihtiyacımız var. Özellikle hazırlığı kısa olan yemekleri öne almak istiyoruz, çünkü acele eden misafirler önce onları istiyor.
+
+  Bu iş için kitchen/planner.py dosyasını yazmanı istiyorum. İçinde yığın tabanlı bir planlayıcı sınıfı tanımlansın: partiler halinde gelen akışı tüketsin, her partide hazırlık süresi en kısa olan yemeği öne alsın ve toplam hazırlık süresi kapasiteyi aşmadan seçilen yemekleri tutsun. Sınıf, karşılaştırmalarını kitchen/dishes.py içindeki Dish üzerinde operatör aşırı yükleme ile yapsın ve planlama sonucunu bir yığın olarak döndürsün.
+
+setup: |
+  mkdir -p kitchen
+  cat > kitchen/__init__.py <<'INIT'
+  INIT
+  cat > kitchen/dishes.py <<'DISHES'
+  class Dish:
+      def __init__(self, name, prep):
+          self.name = name
+          self.prep = prep
+      def __repr__(self):
+          return "Dish(%r,%r)" % (self.name, self.prep)
+  DISHES
+  cat > kitchen/stream.py <<'STREAM'
+  from kitchen.dishes import Dish
+
+
+  def read_batches(lines):
+      batch = []
+      for raw in lines:
+          raw = raw.strip()
+          if raw == "":
+              if batch:
+                  yield batch
+                  batch = []
+              continue
+          name, prep = raw.split(":")
+          batch.append(Dish(name, int(prep)))
+      if batch:
+          yield batch
+  STREAM
+
+goal_tr: >
+  kitchen/planner.py dosyasini yaz: parcali akisi tuketen, her partide
+  hazirlik suresi en kisa yemegi onceleyen ve toplam hazirlik suresi
+  kapasiteyi asmadan secilen yemekleri tutan bir yigin (stack) tabanli
+  planlayici sinifi tanimla; sinif Dish uzerinde operator asiri yukleme ile
+  karsilastirma yapsin ve planlama sonucunu bir yigin olarak dondursun.
+
+reference_solution: |
+  cat > kitchen/planner.py <<'PLANNER'
+  from kitchen.dishes import Dish
+
+
+  class _Node:
+      __slots__ = ("dish", "total")
+
+      def __init__(self, dish, total):
+          self.dish = dish
+          self.total = total
+
+
+  class Plan:
+      def __init__(self):
+          self._stack = []
+
+      def __bool__(self):
+          return bool(self._stack)
+
+      def push(self, dish, total):
+          self._stack.append(_Node(dish, total))
+
+      def pop(self):
+          return self._stack.pop()
+
+      def __iter__(self):
+          return iter(self._stack)
+
+      def __len__(self):
+          return len(self._stack)
+
+
+  class Planner:
+      def __init__(self, capacity):
+          self.capacity = capacity
+
+      def select(self, batches):
+          stack = Plan()
+          for batch in batches:
+              ordered = sorted(batch, key=lambda d: d.prep)
+              for dish in ordered:
+                  total = dish.prep
+                  for node in stack:
+                      total += node.dish.prep
+                  if total <= self.capacity:
+                      stack.push(dish, total)
+          return stack
+  PLANNER
+
+outputs:
+  - {path: kitchen/planner.py, kind: program, run: 'python3 -c ''from kitchen.stream import read_batches; from kitchen.planner import Planner; lines=["soup:5","salad:2","","steak:20","toast:3","","pie:7"]; p=Planner(12); plan=p.select(read_batches(lines)); names=[n.dish.name for n in plan]; assert names==["salad","soup","toast"], names; assert len(plan)==3; assert bool(plan) is True; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from kitchen.stream import read_batches; from kitchen.planner import Planner; lines=["soup:5","salad:2","","steak:20","toast:3","","pie:7"]; p=Planner(12); plan=p.select(read_batches(lines)); names=[n.dish.name for n in plan]; assert names==["salad","soup","toast"], names; assert len(plan)==3; assert bool(plan) is True; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8170
+    bundle: yarisma
+    tools:
+    - python3
+    konu: restoran-siparisleri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin-kullanimi
+      karmasiklik: duz
+      kalip: operator-asiri-yukleme
+      akis: parcali-akis
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

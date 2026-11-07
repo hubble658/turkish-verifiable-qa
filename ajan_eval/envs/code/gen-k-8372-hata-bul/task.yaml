@@ -1,0 +1,110 @@
+id: gen-k-8372-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  inventory/valuation.py içindeki total_value fonksiyonu şu an depodaki ilk satırda durup erken dönüyor; bu yüzden tüm deponun stok değerini vermiyor. Bu fonksiyonu, verilen dosyadaki tüm satırların stok değerini yani her satır için adet ile fiyatın çarpımını toplayıp tek bir toplam değer olarak döndürecek biçimde düzelt. Fonksiyon artık ilk satırda durup erken dönmemeli, depodaki bütün satırları dolaşıp toplamı hesaplamalı. Diğer dosyalar (inventory/storage.py, inventory/report.py ve stock.txt) olduğu gibi kalmalı; yalnızca inventory/valuation.py içindeki total_value fonksiyonunun davranışı düzeltilmeli.
+
+setup: |
+  mkdir -p inventory
+  cat > inventory/storage.py <<'STORAGE'
+  class Storage:
+      def __init__(self, path):
+          self.path = path
+
+      def read_rows(self):
+          rows = []
+          with open(self.path) as fh:
+              for line in fh:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  sku, qty, price = line.split(',')
+                  rows.append((sku, int(qty), float(price)))
+          return rows
+  STORAGE
+  cat > inventory/valuation.py <<'VALUATION'
+  from inventory.storage import Storage
+
+
+  def total_value(path):
+      storage = Storage(path)
+      for sku, qty, price in storage.read_rows():
+          if qty > 0:
+              return qty * price
+      return 0.0
+  VALUATION
+  cat > inventory/report.py <<'REPORT'
+  from inventory.valuation import total_value
+
+
+  def summarize(path, label):
+      value = total_value(path)
+      return "%s: %.2f" % (label, value)
+  REPORT
+  cat > stock.txt <<'STOCK'
+  bolt,10,0.50
+  nut,4,1.25
+  washer,100,0.05
+  STOCK
+
+goal_tr: >
+  inventory/valuation.py icindeki total_value fonksiyonunu, depodaki tum
+  satirlarin stok degerini (adet * fiyat) toplayip dondurecek bicimde
+  duzelt; ilk satirda durup erken donmesin.
+
+reference_solution: |
+  cat > inventory/valuation.py <<'VALUATION'
+  from inventory.storage import Storage
+
+
+  def total_value(path):
+      storage = Storage(path)
+      total = 0.0
+      for sku, qty, price in storage.read_rows():
+          total += qty * price
+      return total
+  VALUATION
+
+outputs:
+  - {path: inventory/valuation.py, kind: program, run: 'python3 -c ''from inventory.valuation import total_value as f; assert abs(f("stock.txt") - 15.0) < 1e-9, f("stock.txt"); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from inventory.valuation import total_value as f; assert abs(f("stock.txt") - 15.0) < 1e-9, f("stock.txt"); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8372
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: depo-envanteri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: erken-donus
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

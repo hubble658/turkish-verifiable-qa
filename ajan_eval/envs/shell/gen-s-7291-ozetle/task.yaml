@@ -1,0 +1,104 @@
+id: gen-s-7291-ozetle
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+prompt: '1) defter dizinindeki ve alt dizinlerindeki tüm .csv dosyalarını tara.
+
+  2) Bulunan her .csv dosyasındaki tutar değerlerinin toplamını hesapla.
+
+  3) Okunan toplam satır sayısını belirle.
+
+  4) Toplam tutarı ve okunan satır sayısını ozet.json dosyasına geçerli JSON olarak yaz.
+
+
+  JSON biçimi: {"toplam": <toplam tutar>, "adet": <satır sayısı>}.
+
+  '
+setup: 'mkdir -p defter/alt kalem
+
+  cat > defter/alt/kayit.csv <<''CSV''
+
+  kalem,tutar
+
+  kira,1200
+
+  yakit,340
+
+  CSV
+
+  cat > "defter/alt/bosluk lu ad.csv" <<''CSV''
+
+  kalem,tutar
+
+  su,80
+
+  elektrik,220
+
+  CSV
+
+  cat > defter/ana.csv <<''CSV''
+
+  kalem,tutar
+
+  kira,1200
+
+  yakit,340
+
+  su,80
+
+  CSV
+
+  '
+goal_tr: 'defter dizini agacindaki tum .csv dosyalarindaki tutar degerlerinin toplamini ve kac satir okundugunu ozet.json
+  dosyasina gecerli JSON olarak yaz
+
+  '
+reference_solution: 'grep -rh ''^[^,]*,[0-9]*$'' defter --include=''*.csv'' | grep -v ''^kalem,'' > satirlar.txt
+
+  wc -l < satirlar.txt > adet.txt
+
+  awk -F, ''{s+=$2} END {print s+0}'' satirlar.txt > toplam.txt
+
+  { printf ''{"toplam": ''; cat toplam.txt; printf '', "adet": ''; cat adet.txt; printf ''}\n''; } > ozet.json
+
+  rm satirlar.txt adet.txt toplam.txt
+
+  '
+outputs:
+- path: ozet.json
+  kind: json
+  run: grep -q '"toplam"' ozet.json && grep -q '"adet"' ozet.json
+checks:
+- op: json_eq
+  path: ozet.json
+  value:
+    toplam: 3460
+    adet: 7
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7291
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: muhasebe-kalemleri
+    hedef: ozetle
+    girdi: csv
+    kaynak: dizin-agaci
+    cikti: json
+    kesif: yok
+    uslup: numarali-emir
+    direnc: bosluklu-ad
+    bukulme: yok
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}
+  duzeltme:
+    neden: gizli_sart
+    not: JSON anahtarları istemde yoktu.

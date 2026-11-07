@@ -1,0 +1,61 @@
+id: gen-s-7107-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  siparisler klasöründeki tüm tsv dosyalarının veri satırlarını (başlık hariç) birleştirip masa numarasına göre artan sırada birlestirilmis.tsv dosyasına yaz. Her satır "masa<TAB>yemek<TAB>adet" biçiminde olsun.
+
+setup: |
+  mkdir -p siparisler
+  printf 'masa\tyemek\tadet\n' > siparisler/001.tsv
+  printf '1\tmercimek\t2\n1\tpilav\t1\n2\tkofte\t3\n' >> siparisler/001.tsv
+  printf 'masa\tyemek\tadet\n' > siparisler/002.tsv
+  printf '3\tcorba\t2\n3\tpilav\t2\n4\tkofte\t1\n' >> siparisler/002.tsv
+  printf 'masa\tyemek\tadet\n' > siparisler/003.tsv
+  printf '5\tmercimek\t1\n5\tcorba\t1\n6\tpilav\t4\n' >> siparisler/003.tsv
+
+goal_tr: >
+  siparisler klasorundeki tum tsv dosyalarindaki veri satirlarini (baslik
+  haric) birlestirip her satiri "masa<TAB>yemek<TAB>adet" biciminde tutarak
+  masa numarasina gore artan sirada birlestirilmis.tsv dosyasina yaz
+
+reference_solution: |
+  seq 1 3 | while read i; do
+    n=$(printf '%03d' "$i")
+    tail -n +2 "siparisler/$n.tsv"
+  done | sort -n -k1,1 > birlestirilmis.tsv
+
+outputs:
+  - {path: birlestirilmis.tsv, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: birlestirilmis.tsv, value: ["1\tmercimek\t2", "1\tpilav\t1", "2\tkofte\t3", "3\tcorba\t2", "3\tpilav\t2", "4\tkofte\t1", "5\tcorba\t1", "5\tmercimek\t1", "6\tpilav\t4"]}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7107
+    bundle: uret
+    tools:
+    - printf
+    - seq
+    konu: restoran-siparisleri
+    hedef: bol
+    girdi: tsv
+    kaynak: cok-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

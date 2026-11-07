@@ -1,0 +1,71 @@
+id: gen-s-7045-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+prompt: 'olcum_a.csv ve olcum_b.csv''deki sensör kodlarını beklenen_sensorler.txt ile karşılaştır; her iki ölçüm dosyasında
+  da bulunan kodları artan sıralı olarak ortak_sensorler.txt dosyasına her satırda bir kod olacak şekilde yaz.
+
+
+  Yalnız beklenen_sensorler.txt içinde de bulunan kodlar yazılsın.
+
+  '
+setup: 'printf ''A1,12.5\r\nA2,13.0\r\nA3,9.8\r\nB1,20.1\r\nB2,20.4\r\n'' > olcum_a.csv
+
+  printf ''A1,12.4\r\nA2,13.1\r\nA3,9.9\r\nB1,20.0\r\nB2,20.5\r\n'' > olcum_b.csv
+
+  printf ''A1\r\nA2\r\nB1\r\nB2\r\n'' > beklenen_sensorler.txt
+
+  '
+goal_tr: 'olcum_a.csv ve olcum_b.csv dosyalarindaki sensor kodlarini beklenen_sensorler.txt ile karsilastir; her iki olcum
+  dosyasinda da bulunan sensor kodlarini artan sirali olarak ortak_sensorler.txt dosyasina her satirda bir kod olacak sekilde
+  yaz
+
+  '
+reference_solution: 'cut -d, -f1 olcum_a.csv | tr -d ''\r'' | sort -u > a_kodlar.txt
+
+  cut -d, -f1 olcum_b.csv | tr -d ''\r'' | sort -u > b_kodlar.txt
+
+  comm -12 a_kodlar.txt b_kodlar.txt > ortak_ham.txt
+
+  comm -12 ortak_ham.txt <(sort -u beklenen_sensorler.txt | tr -d ''\r'') > ortak_sensorler.txt
+
+  '
+outputs:
+- path: ortak_sensorler.txt
+  kind: lines
+checks:
+- op: file_lines_eq
+  path: ortak_sensorler.txt
+  value:
+  - A1
+  - A2
+  - B1
+  - B2
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7045
+    bundle: kume-farki
+    tools:
+    - comm
+    - sort
+    konu: sensor-olcumleri
+    hedef: denetle
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: dolayli-hedef
+    uslup: terse
+    direnc: crlf
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}
+  duzeltme:
+    neden: gizli_sart
+    not: A3 iki ölçümde de var ama beklenen listede yok; süzme açık yazılmamıştı.

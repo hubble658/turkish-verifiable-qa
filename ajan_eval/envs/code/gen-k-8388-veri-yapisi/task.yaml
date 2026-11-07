@@ -1,0 +1,144 @@
+id: gen-k-8388-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  exam/analyze.py dosyasındaki ExamGraph sınıfını tamamla. exam/model.py içindeki Exam, Section ve Score yapılarını temel alan bu sınıf, bir Exam nesnesinin bölümlerinden ve puanlarından yönlü bir graf kuracak. Bölümler düğüm, bölümler arasındaki puan akışı kenar olacak şekilde graf yapısı çıkarılmalı. ExamGraph; __init__, adjacency, reachable ve weighted_total metotlarını eksiksiz ve doğru biçimde gerçekleştirmeli. adjacency grafın komşuluk yapısını, reachable verilen başlangıç noktasından ulaşılabilen düğümleri, weighted_total ise başlangıçtan itibaren ağırlıklı toplamı hesaplamalı. Sınıf, exam.model içindeki Exam ile uyumlu çalışmalı ve metotlar NotImplementedError yerine gerçek sonuç döndürmeli.
+
+setup: |
+  mkdir -p exam
+  cat > exam/model.py <<'MODEL'
+  from dataclasses import dataclass, field
+
+
+  @dataclass
+  class Score:
+      student: str
+      points: int
+      weight: float
+
+
+  @dataclass
+  class Section:
+      name: str
+      scores: list = field(default_factory=list)
+
+
+  @dataclass
+  class Exam:
+      title: str
+      sections: list = field(default_factory=list)
+  MODEL
+  cat > exam/analyze.py <<'ANALYZE'
+  from exam.model import Exam
+
+
+  class ExamGraph:
+      def __init__(self, exam):
+          raise NotImplementedError
+
+      def adjacency(self):
+          raise NotImplementedError
+
+      def reachable(self, start):
+          raise NotImplementedError
+
+      def weighted_total(self, start):
+          raise NotImplementedError
+  ANALYZE
+
+goal_tr: >
+  exam/analyze.py icindeki ExamGraph sinifini; bir Exam'in bolum ve
+  puanlarindan yonlu graf kurup adjacency, reachable ve weighted_total
+  metotlarini dogru gerceklestirecek bicimde tamamla.
+
+reference_solution: |
+  cat > exam/analyze.py <<'ANALYZE'
+  from exam.model import Exam
+
+
+  class ExamGraph:
+      def __init__(self, exam):
+          self.exam = exam
+          self._adj = {}
+          for section in exam.sections:
+              self._adj.setdefault(section.name, [])
+              for score in section.scores:
+                  self._adj.setdefault(score.student, [])
+                  self._adj[section.name].append(score.student)
+
+      def adjacency(self):
+          return {node: list(edges) for node, edges in self._adj.items()}
+
+      def reachable(self, start):
+          seen = []
+          stack = [start]
+          while stack:
+              node = stack.pop()
+              if node in seen:
+                  continue
+              seen.append(node)
+              for nxt in self._adj.get(node, []):
+                  if nxt not in seen:
+                      stack.append(nxt)
+          return seen
+
+      def weighted_total(self, start):
+          total = 0.0
+          stack = [start]
+          seen = set()
+          while stack:
+              node = stack.pop()
+              if node in seen:
+                  continue
+              seen.add(node)
+              for section in self.exam.sections:
+                  if section.name == node:
+                      for score in section.scores:
+                          total += score.points * score.weight
+                          stack.append(score.student)
+          return total
+  ANALYZE
+
+outputs:
+  - {path: exam/analyze.py, kind: program, run: 'python3 -c ''from exam.model import Exam, Section, Score; from exam.analyze import ExamGraph; s1=Section("math",[Score("ada",10,2.0),Score("bora",5,1.0)]); s2=Section("phys",[Score("ada",4,3.0),Score("cem",7,0.5)]); ex=Exam("final",[s1,s2]); g=ExamGraph(ex); a=g.adjacency(); assert a["math"]==["ada","bora"], a; assert a["phys"]==["ada","cem"], a; r=g.reachable("math"); assert set(r)=={"math","ada","bora"}, r; assert r[0]=="math", r; assert g.weighted_total("math")==25.0, g.weighted_total("math"); assert g.weighted_total("phys")==15.5, g.weighted_total("phys"); assert g.weighted_total("ada")==0.0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from exam.model import Exam, Section, Score; from exam.analyze import ExamGraph; s1=Section("math",[Score("ada",10,2.0),Score("bora",5,1.0)]); s2=Section("phys",[Score("ada",4,3.0),Score("cem",7,0.5)]); ex=Exam("final",[s1,s2]); g=ExamGraph(ex); a=g.adjacency(); assert a["math"]==["ada","bora"], a; assert a["phys"]==["ada","cem"], a; r=g.reachable("math"); assert set(r)=={"math","ada","bora"}, r; assert r[0]=="math", r; assert g.weighted_total("math")==25.0, g.weighted_total("math"); assert g.weighted_total("phys")==15.5, g.weighted_total("phys"); assert g.weighted_total("ada")==0.0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8388
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: sinav-sonuclari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: graf-gezinme
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: ic-ice-yapi
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

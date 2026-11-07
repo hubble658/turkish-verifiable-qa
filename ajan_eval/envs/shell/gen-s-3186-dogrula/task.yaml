@@ -1,0 +1,88 @@
+id: gen-s-3186-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) girdi/sensor_a.tsv ve girdi/sensor_b.tsv dosyalarındaki satırları karşılaştır.
+
+  2) Yalnızca girdi/sensor_a.tsv içinde olan satırları cikti/yalniz_a.txt dosyasına yaz.
+
+  3) Yalnızca girdi/sensor_b.tsv içinde olan satırları cikti/yalniz_b.txt dosyasına yaz.
+
+  4) İki dosyada da aynı olan satırları cikti/ortak.txt dosyasına yaz.
+
+  5) cikti dizinini oluştur.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/sensor_a.tsv <<'TSV'
+  sensor_id	tarih	deger
+  S01	2024-01-01	10
+  S02	2024-01-01	20
+  S03	2024-01-01	30
+  S01	2024-01-02	11
+  S02	2024-01-02	21
+  S03	2024-01-02	31
+  TSV
+  cat > girdi/sensor_b.tsv <<'TSV'
+  sensor_id	tarih	deger
+  S01	2024-01-01	10
+  S02	2024-01-01	20
+  S03	2024-01-01	30
+  S01	2024-01-02	11
+  S02	2024-01-02	99
+  S04	2024-01-02	40
+  TSV
+
+goal_tr: >
+  girdi/sensor_a.tsv ve girdi/sensor_b.tsv dosyalarindaki satirlari
+  karsilastirip yalnizca sensor_a icinde olan satirlari cikti/yalniz_a.txt,
+  yalnizca sensor_b icinde olan satirlari cikti/yalniz_b.txt ve iki dosyada
+  da ayni olan satirlari cikti/ortak.txt dosyasina yaz; cikti dizinini
+  olustur
+
+reference_solution: |
+  mkdir -p cikti
+  awk 'NR==FNR{a[$0]++;next} !($0 in a)' girdi/sensor_a.tsv girdi/sensor_b.tsv > cikti/yalniz_a.txt
+  awk 'NR==FNR{a[$0]++;next} !($0 in a)' girdi/sensor_b.tsv girdi/sensor_a.tsv > cikti/yalniz_b.txt
+  awk 'NR==FNR{a[$0]++;next} ($0 in a)' girdi/sensor_a.tsv girdi/sensor_b.tsv > cikti/ortak.txt
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/yalniz_a.txt, kind: file}
+  - {path: cikti/yalniz_b.txt, kind: file}
+  - {path: cikti/ortak.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [ortak.txt, yalniz_a.txt, yalniz_b.txt]}
+  - {op: file_lines_eq, path: cikti/ortak.txt, value: ["sensor_id\ttarih\tdeger", "S01\t2024-01-01\t10", "S02\t2024-01-01\t20", "S03\t2024-01-01\t30", "S01\t2024-01-02\t11"]}
+  - {op: file_lines_eq, path: cikti/yalniz_a.txt, value: ["S02\t2024-01-02\t99", "S04\t2024-01-02\t40"]}
+  - {op: file_lines_eq, path: cikti/yalniz_b.txt, value: ["S02\t2024-01-02\t21", "S03\t2024-01-02\t31"]}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3186
+    bundle: awk
+    tools:
+    - awk
+    konu: sensor-olcumleri
+    hedef: dogrula
+    girdi: tsv
+    kaynak: iki-dosya-capraz
+    cikti: dizin-yapisi
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

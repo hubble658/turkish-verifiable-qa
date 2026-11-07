@@ -1,0 +1,131 @@
+id: gen-k-8394-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  rezervasyon/cekirdek/kume.py dosyasındaki UnionFind sınıfını, add, find, union ve groups metotları çalışacak şekilde gerçekleştir. find yol sıkıştırması yapsın; union küçük kümeyi büyüğe bağlayıp birleştirilen küme sayısını döndürsün; groups ise her kümenin elemanlarını sıralı liste olarak kökün sırasına göre döndürsün. Sınıfın dışa açık arayüzünü değiştirme, mevcut metot imzalarını koru.
+
+setup: |
+  mkdir -p rezervasyon/cekirdek
+  cat > rezervasyon/cekirdek/kume.py <<'PY'
+  class UnionFind:
+      def __init__(self):
+          raise NotImplementedError
+
+      def add(self, x):
+          raise NotImplementedError
+
+      def find(self, x):
+          raise NotImplementedError
+
+      def union(self, a, b):
+          raise NotImplementedError
+
+      def groups(self):
+          raise NotImplementedError
+  PY
+  cat > rezervasyon/cekirdek/__init__.py <<'PY'
+  from rezervasyon.cekirdek.kume import UnionFind
+  PY
+  cat > rezervasyon/ag.py <<'PY'
+  from rezervasyon.cekirdek import UnionFind
+
+
+  def make_network(pairs):
+      def build():
+          uf = UnionFind()
+          for a, b in pairs:
+              uf.add(a)
+              uf.add(b)
+              uf.union(a, b)
+          return uf
+      return build
+  PY
+
+goal_tr: >
+  rezervasyon/cekirdek/kume.py icindeki UnionFind sinifini,
+  add/find/union/groups metotlari calisacak sekilde gerceklestir; find yol
+  sikistirmasi yapsin, union kucuk kumeyi buyuge baglayip birlestirilen kume
+  sayisini dondursun, groups ise her kumenin elemanlarini sirali liste
+  olarak kokun sirasina gore dondursun.
+
+reference_solution: |
+  cat > rezervasyon/cekirdek/kume.py <<'PY'
+  class UnionFind:
+      def __init__(self):
+          self.parent = {}
+          self.rank = {}
+
+      def add(self, x):
+          if x not in self.parent:
+              self.parent[x] = x
+              self.rank[x] = 0
+
+      def find(self, x):
+          root = x
+          while self.parent[root] != root:
+              root = self.parent[root]
+          while self.parent[x] != root:
+              self.parent[x], x = root, self.parent[x]
+          return root
+
+      def union(self, a, b):
+          ra, rb = self.find(a), self.find(b)
+          if ra == rb:
+              return False
+          if self.rank[ra] < self.rank[rb]:
+              ra, rb = rb, ra
+          self.parent[rb] = ra
+          if self.rank[ra] == self.rank[rb]:
+              self.rank[ra] += 1
+          return True
+
+      def groups(self):
+          buckets = {}
+          for x in self.parent:
+              buckets.setdefault(self.find(x), []).append(x)
+          return [sorted(buckets[r]) for r in sorted(buckets)]
+  PY
+
+outputs:
+  - {path: rezervasyon/cekirdek/kume.py, kind: program, run: 'python3 -c ''from rezervasyon.ag import make_network; b=make_network([("A","B"),("B","C"),("D","E")]); uf=b(); assert uf.find("A")==uf.find("C"); assert uf.find("D")==uf.find("E"); assert uf.find("A")!=uf.find("D"); assert uf.union("C","D") is True; assert uf.union("A","E") is False; assert uf.groups()==[["A","B","C","D","E"]]; u2=make_network([("X","Y")])(); u2.add("Z"); assert u2.groups()==[["X","Y"],["Z"]]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from rezervasyon.ag import make_network; b=make_network([("A","B"),("B","C"),("D","E")]); uf=b(); assert uf.find("A")==uf.find("C"); assert uf.find("D")==uf.find("E"); assert uf.find("A")!=uf.find("D"); assert uf.union("C","D") is True; assert uf.union("A","E") is False; assert uf.groups()==[["A","B","C","D","E"]]; u2=make_network([("X","Y")])(); u2.add("Z"); assert u2.groups()==[["X","Y"],["Z"]]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8394
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: ucus-rezervasyonlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: birlesim-bulma
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: ic-ice-yapi
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

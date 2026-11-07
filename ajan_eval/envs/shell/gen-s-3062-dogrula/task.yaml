@@ -1,0 +1,94 @@
+id: gen-s-3062-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri/istasyonlar dizinindeki .tsv uzantılı her dosyayı işle. Her dosyanın başlık satırını atla; geri kalan satırlardan yalnızca ilk alanı tarih, ikinci alanı şehir ve üçüncü alanı tam sayı olan geçerli satırları tut. Geçerli satırları dogrulanmis/ dizini altında aynı dosya adıyla yeniden yaz: dogrulanmis/ankara.tsv, dogrulanmis/istanbul.tsv, dogrulanmis/izmir.tsv ve dogrulanmis/bos.tsv. Boş olan ya da hiç geçerli satırı bulunmayan dosyalar için de dogrulanmis/ altında aynı adla boş bir dosya oluştur. veri/istasyonlar içindeki .tsv uzantılı olmayan dosyalara dokunma.
+
+  Şu şartlar sağlanmalı:
+  - dogrulanmis/ankara.tsv, dogrulanmis/istanbul.tsv, dogrulanmis/izmir.tsv ve dogrulanmis/bos.tsv dosyaları oluşturulmuş olmalı.
+  - Her çıktı dosyasında başlık satırı bulunmamalı.
+  - Çıktı dosyalarındaki her satırda tam olarak üç alan olmalı: tarih, şehir ve tam sayı.
+  - Geçersiz satırlar (tarih ya da şehir biçimine uymayan, üçüncü alanı tam sayı olmayan satırlar) çıktıya alınmamalı.
+  - Hiç geçerli satırı olmayan ya da boş olan dosyalar için boş çıktı dosyası oluşturulmalı; dogrulanmis/bos.tsv boş olmalı.
+  - .tsv uzantılı olmayan dosyalar (örneğin veri/istasyonlar/notlar.txt) işlenmemeli.
+
+setup: |
+  mkdir -p veri/istasyonlar
+  cat > veri/istasyonlar/ankara.tsv <<'TSV'
+  tarih	sehir	olcum
+  2024-01-01	ankara	5
+  2024-01-02	ankara	7
+  2024-01-03	ankara	-2
+  TSV
+  cat > veri/istasyonlar/istanbul.tsv <<'TSV'
+  tarih	sehir	olcum
+  2024-01-01	istanbul	11
+  2024-01-02	istanbul	13
+  2024-01-03	istanbul	9
+  TSV
+  cat > veri/istasyonlar/izmir.tsv <<'TSV'
+  tarih	sehir	olcum
+  2024-01-01	izmir	17
+  2024-01-02	izmir	18
+  2024-01-03	izmir	16
+  TSV
+  : > veri/istasyonlar/bos.tsv
+  cat > veri/istasyonlar/notlar.txt <<'TXT'
+  bu dosya tsv degildir
+  2024-01-01 ankara 99
+  TXT
+
+goal_tr: >
+  veri/istasyonlar dizinindeki .tsv uzantili her dosyadan baslik satirini
+  atlayip gecerli veri satirlarini (ilk alani tarih, ikinci alani sehir,
+  ucuncu alani tam sayi olan satirlar) dogrulanmis/ altinda ayni adla
+  yeniden yaz; bos veya hic gecerli satiri olmayan dosyalar icin bos dosya
+  olustur.
+
+reference_solution: |
+  mkdir -p dogrulanmis
+  find veri/istasyonlar -maxdepth 1 -type f -name '*.tsv' | sort | while read -r f; do
+    sed '1d' "$f" | tr -s '\t' '\t' | sed -n '/^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]\t[^\t]*\t-\{0,1\}[0-9][0-9]*$/p' > "dogrulanmis/$(basename "$f")"
+  done
+
+outputs:
+  - {path: dogrulanmis/ankara.tsv, kind: file}
+  - {path: dogrulanmis/istanbul.tsv, kind: file}
+  - {path: dogrulanmis/izmir.tsv, kind: file}
+  - {path: dogrulanmis/bos.tsv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: dogrulanmis/ankara.tsv, value: ["2024-01-01\tankara\t5", "2024-01-02\tankara\t7", "2024-01-03\tankara\t-2"]}
+  - {op: is_file, path: dogrulanmis/bos.tsv}
+  - {op: file_lines_eq, path: dogrulanmis/istanbul.tsv, value: ["2024-01-01\tistanbul\t11", "2024-01-02\tistanbul\t13", "2024-01-03\tistanbul\t9"]}
+  - {op: file_lines_eq, path: dogrulanmis/izmir.tsv, value: ["2024-01-01\tizmir\t17", "2024-01-02\tizmir\t18", "2024-01-03\tizmir\t16"]}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3062
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: hava-durumu-kayitlari
+    hedef: dogrula
+    girdi: tsv
+    kaynak: dizin-agaci
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: bos-dosya
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

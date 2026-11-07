@@ -1,0 +1,161 @@
+id: gen-k-9145-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  `roster/paths.py` içindeki `find_path` fonksiyonunu, hedefe ulaşılamadığında yanlış değeri döndürecek şekilde düzelt. Ardından `roster/schedule.py` içindeki `reachable_chain` fonksiyonunu, `find_path` fonksiyonuna `(start, goal)` çiftini geçerek doğru sonucu döndürecek biçimde düzelt. `roster/edges.py` dosyasına dokunma. `roster/coverage.py` dosyasındaki `covers_all` fonksiyonunun bu düzeltmelerden sonra beklendiği gibi çalışmasını sağla; `shifts.txt` içindeki kenar tanımları değişmemeli.
+
+setup: |
+  mkdir -p roster
+  cat > roster/edges.py <<'E'
+  def parse_edges(text):
+      edges = []
+      for line in text.strip().splitlines():
+          if not line.strip():
+              continue
+          a, b = line.split("->")
+          edges.append((a.strip(), b.strip()))
+      return edges
+
+
+  def build_adjacency(edges):
+      adj = {}
+      for a, b in edges:
+          adj.setdefault(a, [])
+          adj.setdefault(b, [])
+          adj[a].append(b)
+      return adj
+  E
+  cat > roster/paths.py <<'P'
+  def find_path(adj, start, goal):
+      stack = [start]
+      seen = set()
+      while stack:
+          node = stack.pop()
+          if node in seen:
+              continue
+          seen.add(node)
+          if node == goal:
+              return True
+          for nxt in adj.get(node, []):
+              stack.append(nxt)
+      return True
+  P
+  cat > roster/schedule.py <<'S'
+  from roster.edges import parse_edges, build_adjacency
+  from roster.paths import find_path
+
+
+  def reachable_chain(text, start, goal):
+      adj = build_adjacency(parse_edges(text))
+      return find_path(adj, start)
+  S
+  cat > roster/coverage.py <<'C'
+  from roster.schedule import reachable_chain
+
+
+  def covers_all(text, start, goals):
+      return all(reachable_chain(text, start, g) for g in goals)
+  C
+  cat > shifts.txt <<'T'
+  A -> B
+  B -> C
+  C -> D
+  A -> D
+  T
+
+goal_tr: >
+  roster/paths.py icindeki find_path fonksiyonunun hedefe ulasilamadiginda
+  yanlis (False) dondurmesini sagla, ardindan roster/schedule.py icindeki
+  reachable_chain fonksiyonunu find_path'e (start, goal) ciftini gecirerek
+  dogru sonuc dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > roster/paths.py <<'P'
+  def find_path(adj, start, goal):
+      stack = [start]
+      seen = set()
+      while stack:
+          node = stack.pop()
+          if node in seen:
+              continue
+          seen.add(node)
+          if node == goal:
+              return True
+          for nxt in adj.get(node, []):
+              stack.append(nxt)
+      return False
+  P
+  cat > roster/schedule.py <<'S'
+  from roster.edges import parse_edges, build_adjacency
+  from roster.paths import find_path
+
+
+  def reachable_chain(text, start, goal):
+      adj = build_adjacency(parse_edges(text))
+      return find_path(adj, start, goal)
+  S
+
+ara_adim: |
+  cat > roster/paths.py <<'P'
+  def find_path(adj, start, goal):
+      stack = [start]
+      seen = set()
+      while stack:
+          node = stack.pop()
+          if node in seen:
+              continue
+          seen.add(node)
+          if node == goal:
+              return True
+          for nxt in adj.get(node, []):
+              stack.append(nxt)
+      return False
+  P
+
+outputs:
+  - {path: roster/schedule.py, kind: program, run: 'python3 -c ''from roster.schedule import reachable_chain as f; t=open("shifts.txt").read(); assert f(t,"A","D") is True, f(t,"A","D"); assert f(t,"B","A") is False, f(t,"B","A"); assert f(t,"A","Z") is False, f(t,"A","Z"); print("TAMAM")'''}
+  - {path: roster/paths.py, kind: program, run: 'python3 -c ''from roster.paths import find_path as f; adj={"A":["B"],"B":["C"],"C":[]}; assert f(adj,"A","C") is True, f(adj,"A","C"); assert f(adj,"C","A") is False, f(adj,"C","A"); assert f(adj,"A","Z") is False, f(adj,"A","Z"); print("ILERLEME-TAMAM")'''}
+  - {path: roster/coverage.py, kind: program, run: 'python3 -c ''from roster.coverage import covers_all as f; t=open("shifts.txt").read(); assert f(t,"A",["B","C","D"]) is True; assert f(t,"A",["B","Z"]) is False; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from roster.paths import find_path as f; adj={"A":["B"],"B":["C"],"C":[]}; assert f(adj,"A","C") is True, f(adj,"A","C"); assert f(adj,"C","A") is False, f(adj,"C","A"); assert f(adj,"A","Z") is False, f(adj,"A","Z"); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from roster.schedule import reachable_chain as f; t=open("shifts.txt").read(); assert f(t,"A","D") is True, f(t,"A","D"); assert f(t,"B","A") is False, f(t,"B","A"); assert f(t,"A","Z") is False, f(t,"A","Z"); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from roster.coverage import covers_all as f; t=open("shifts.txt").read(); assert f(t,"A",["B","C","D"]) is True; assert f(t,"A",["B","Z"]) is False; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9145
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: vardiya-cizelgesi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: orta
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: graf-gezinme
+      karmasiklik: orta
+      kalip: duz-fonksiyon
+      akis: cok-dosya-birlestirme
+      topoloji: elmas
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

@@ -1,0 +1,113 @@
+id: gen-k-8034-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) sensors/alarm.py dosyasındaki check_alarms fonksiyonunu, readings.txt dosyasından okunan ölçümleri bir yığın üzerinde gezecek ve limitin üstündeki ölçümlerin adlarını sırayla döndürecek biçimde gerçekleştir.
+
+  2) sensors/alarm.py dosyasındaki alarm_count fonksiyonunu, aynı şekilde yığın üzerinde gezip limitin üstündeki ölçümlerin sayısını döndürecek biçimde gerçekleştir.
+
+setup: |
+  mkdir -p sensors
+  cat > sensors/readings.py <<'READINGS'
+  def load_readings(path):
+      rows = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              name, value = line.split(",")
+              rows.append((name, float(value)))
+      return rows
+  READINGS
+  cat > sensors/alarm.py <<'ALARM'
+  from sensors.readings import load_readings
+
+
+  def check_alarms(path, limit):
+      raise NotImplementedError
+
+
+  def alarm_count(path, limit):
+      raise NotImplementedError
+  ALARM
+  cat > readings.txt <<'DATA'
+  temp,20.0
+  temp,35.0
+  temp,41.5
+  temp,10.0
+  temp,50.0
+  DATA
+
+goal_tr: >
+  sensors/alarm.py icindeki check_alarms ve alarm_count fonksiyonlarini,
+  dosyadan okunan olcumleri bir yigin uzerinde gezip limitin ustundeki
+  olcumlerin adlarini sirayla dondurecek ve sayisini verecek bicimde
+  gerceklestir.
+
+reference_solution: |
+  cat > sensors/alarm.py <<'ALARM'
+  from sensors.readings import load_readings
+
+
+  def check_alarms(path, limit):
+      rows = load_readings(path)
+      stack = []
+      for name, value in rows:
+          stack.append((name, value))
+      triggered = []
+      while stack:
+          name, value = stack.pop()
+          if value > limit:
+              triggered.append(name)
+      triggered.reverse()
+      return triggered
+
+
+  def alarm_count(path, limit):
+      return len(check_alarms(path, limit))
+  ALARM
+
+outputs:
+  - {path: sensors/alarm.py, kind: program, run: 'python3 -c ''from sensors.alarm import check_alarms as f, alarm_count as g; assert f("readings.txt", 30.0) == ["temp", "temp", "temp"], f("readings.txt", 30.0); assert f("readings.txt", 45.0) == ["temp"]; assert f("readings.txt", 100.0) == []; assert g("readings.txt", 30.0) == 3; assert g("readings.txt", 100.0) == 0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensors.alarm import check_alarms as f, alarm_count as g; assert f("readings.txt", 30.0) == ["temp", "temp", "temp"], f("readings.txt", 30.0); assert f("readings.txt", 45.0) == ["temp"]; assert f("readings.txt", 100.0) == []; assert g("readings.txt", 30.0) == 3; assert g("readings.txt", 100.0) == 0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8034
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: sensor-alarm-kurallari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

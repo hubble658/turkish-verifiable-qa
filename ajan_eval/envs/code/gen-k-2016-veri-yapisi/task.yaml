@@ -1,0 +1,213 @@
+id: gen-k-2016-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 20
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  callcenter/stack.py, callcenter/log.py ve callcenter/report.py içindeki NotImplementedError gövdelerini gerçek gerçekleştirmelerle doldur. callcenter/stack.py içindeki CallStack son giren ilk çıkar bir yığın gibi davransın; eleman ekleme, çıkarma, en üstteki elemanı görme, eleman sayısını verme ve yığının boş olup olmadığını söyleme davranışlarını eksiksiz yerine getirsin. callcenter/log.py içindeki CallLog, bu CallStack'i kullanarak çağrıları kaydetsin; bir çağrı kaydetme, en son çağrıyı görme, son çağrıyı geri alma ve toplam çağrı sayısını verme işlemlerini çalışsın. callcenter/report.py içindeki summarize ise girdi olarak bir liste alsın ve bu listedeki çağrıları ters sırada, her biri "agent->caller" biçiminde birer dize olacak şekilde döndürsün.
+
+setup: |
+  mkdir -p callcenter
+  cat > callcenter/stack.py <<'STACK'
+  class CallStack:
+      def __init__(self):
+          self._items = []
+
+      def push(self, item):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def size(self):
+          raise NotImplementedError
+
+      def is_empty(self):
+          raise NotImplementedError
+  STACK
+  cat > callcenter/log.py <<'LOG'
+  from callcenter.stack import CallStack
+
+
+  class CallLog:
+      def __init__(self):
+          self._stack = CallStack()
+
+      def record(self, agent, caller):
+          raise NotImplementedError
+
+      def last_call(self):
+          raise NotImplementedError
+
+      def undo(self):
+          raise NotImplementedError
+
+      def count(self):
+          raise NotImplementedError
+  LOG
+  cat > callcenter/report.py <<'REPORT'
+  from callcenter.log import CallLog
+
+
+  def summarize(entries):
+      raise NotImplementedError
+  REPORT
+  cat > data.txt <<'DATA'
+  alice,bob
+  carol,dave
+  erin,frank
+  DATA
+
+goal_tr: >
+  callcenter/stack.py, callcenter/log.py ve callcenter/report.py
+  zincirindeki NotImplementedError govdelerini gercek gerceklestirmelerle
+  doldur; CallStack son-giren-ilk-cikar bir yigin olsun, CallLog onu
+  kullanarak cagrilari kaydetsin ve summarize girdi listesini alip cagrilari
+  ters sirada "agent->caller" dizeleri olarak dondursun.
+
+reference_solution: |
+  cat > callcenter/stack.py <<'STACK'
+  class CallStack:
+      def __init__(self):
+          self._items = []
+
+      def push(self, item):
+          self._items.append(item)
+
+      def pop(self):
+          return self._items.pop()
+
+      def peek(self):
+          return self._items[-1]
+
+      def size(self):
+          return len(self._items)
+
+      def is_empty(self):
+          return len(self._items) == 0
+  STACK
+  cat > callcenter/log.py <<'LOG'
+  from callcenter.stack import CallStack
+
+
+  class CallLog:
+      def __init__(self):
+          self._stack = CallStack()
+
+      def record(self, agent, caller):
+          self._stack.push((agent, caller))
+
+      def last_call(self):
+          return self._stack.peek()
+
+      def undo(self):
+          return self._stack.pop()
+
+      def count(self):
+          return self._stack.size()
+  LOG
+  cat > callcenter/report.py <<'REPORT'
+  from callcenter.log import CallLog
+
+
+  def summarize(entries):
+      log = CallLog()
+      for agent, caller in entries:
+          log.record(agent, caller)
+      lines = []
+      while not log._stack.is_empty():
+          agent, caller = log.undo()
+          lines.append(agent + "->" + caller)
+      return lines
+  REPORT
+
+ara_adim: |
+  cat > callcenter/stack.py <<'STACK'
+  class CallStack:
+      def __init__(self):
+          self._items = []
+
+      def push(self, item):
+          self._items.append(item)
+
+      def pop(self):
+          return self._items.pop()
+
+      def peek(self):
+          return self._items[-1]
+
+      def size(self):
+          return len(self._items)
+
+      def is_empty(self):
+          return len(self._items) == 0
+  STACK
+  cat > callcenter/log.py <<'LOG'
+  from callcenter.stack import CallStack
+
+
+  class CallLog:
+      def __init__(self):
+          self._stack = CallStack()
+
+      def record(self, agent, caller):
+          self._stack.push((agent, caller))
+
+      def last_call(self):
+          return self._stack.peek()
+
+      def undo(self):
+          return self._stack.pop()
+
+      def count(self):
+          return self._stack.size()
+  LOG
+
+outputs:
+  - {path: callcenter/report.py, kind: program, run: 'python3 -c ''from callcenter.report import summarize as f; d=open("data.txt").read().strip().splitlines(); e=[tuple(x.split(",")) for x in d]; assert f(e)==["erin->frank","carol->dave","alice->bob"], f(e); print("TAMAM")'''}
+  - {path: callcenter/log.py, kind: program, run: 'python3 -c ''from callcenter.log import CallLog; c=CallLog(); c.record("a","b"); c.record("c","d"); assert c.last_call()==("c","d"), c.last_call(); assert c.count()==2; assert c.undo()==("c","d"); assert c.count()==1; print("ILERLEME-TAMAM")'''}
+  - {path: callcenter/stack.py, kind: program, run: python3 -c 'from callcenter.stack import CallStack; s=CallStack(); assert s.is_empty() is True; s.push(1); s.push(2); assert s.peek()==2; assert s.pop()==2; assert s.size()==1; assert s.is_empty() is False; print("REGRESYON-TAMAM")'}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from callcenter.log import CallLog; c=CallLog(); c.record("a","b"); c.record("c","d"); assert c.last_call()==("c","d"), c.last_call(); assert c.count()==2; assert c.undo()==("c","d"); assert c.count()==1; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from callcenter.report import summarize as f; d=open("data.txt").read().strip().splitlines(); e=[tuple(x.split(",")) for x in d]; assert f(e)==["erin->frank","carol->dave","alice->bob"], f(e); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: python3 -c 'from callcenter.stack import CallStack; s=CallStack(); assert s.is_empty() is True; s.push(1); s.push(2); assert s.peek()==2; assert s.pop()==2; assert s.size()==1; assert s.is_empty() is False; print("REGRESYON-TAMAM")', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-2016
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: cagri-merkezi-kayitlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 7
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin
+      karmasiklik: orta
+      kalip: durumlu-sinif
+      akis: cok-dosya-birlestirme
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

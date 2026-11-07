@@ -1,0 +1,67 @@
+id: gen-s-7209-birlestir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  siparisler.tsv ile fiyatlar.tsv'yi yemek adı üzerinden birleştir; her siparişin kimliği, yemek adı, adet ve toplam tutarını tutar.txt'ye yaz.
+
+setup: |
+  cat > siparisler.tsv <<'TSV'
+  101	manti	2
+  102	kebap	1
+  103	corba	3
+  104	kebap	2
+  105	manti	1
+  TSV
+
+  cat > fiyatlar.tsv <<'TSV'
+  kebap	120
+  manti	80
+  corba	45
+  TSV
+
+goal_tr: >
+  siparisler.tsv ve fiyatlar.tsv dosyalarini yemek adi uzerinden birlestirip
+  her siparisin kimligi, yemek adi, adet ve toplam tutarini iceren satirlari
+  tutar.txt'ye yaz
+
+reference_solution: |
+  sort -k2,2 siparisler.tsv > s.tsv
+  sort -k1,1 fiyatlar.tsv > f.tsv
+  join -1 2 -2 1 s.tsv f.tsv | awk '{print $2"\t"$1"\t"$3"\t"$3*$4}' | sort -k1,1 > tutar.txt
+  rm s.tsv f.tsv
+
+outputs:
+  - {path: tutar.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: tutar.txt, value: ["101\tmanti\t2\t160", "102\tkebap\t1\t120", "103\tcorba\t3\t135", "104\tkebap\t2\t240", "105\tmanti\t1\t80"]}
+
+metadata:
+  domain: birlestir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7209
+    bundle: birlestir
+    tools:
+    - join
+    - sort
+    konu: restoran-siparisleri
+    hedef: birlestir
+    girdi: tsv
+    kaynak: iki-dosya-capraz
+    cikti: json
+    kesif: veriye-bak
+    uslup: terse
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

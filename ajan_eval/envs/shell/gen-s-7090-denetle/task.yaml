@@ -1,0 +1,76 @@
+id: gen-s-7090-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) veri/istasyon_a.txt ve veri/istasyon_b.txt dosyalarını oku; her satırı tarih, saat, ölçüm türü ve değer alanlarına ayır.
+
+  2) İki dosyada da aynı tarih, saat ve ölçüm türü için aynı değerin bulunduğu ortak satırları belirle.
+
+  3) Ortak satırları yalnızca tarih, saat, tür ve değer alanları virgülle ayrılmış biçimde, tarih-saat anahtarına göre artan sırada denetim.csv dosyasına yaz.
+
+  4) Dosyalardan biri boş olsa bile denetim.csv dosyasının oluşturulmasını sağla.
+
+setup: |
+  mkdir -p veri
+  cat > veri/istasyon_a.txt <<'A'
+  2024-01-01 12:00 sicaklik 21
+  2024-01-01 13:00 sicaklik 22
+  2024-01-02 12:00 sicaklik 19
+  2024-01-03 12:00 sicaklik 24
+  A
+  cat > veri/istasyon_b.txt <<'B'
+  2024-01-01 12:00 sicaklik 20
+  2024-01-02 12:00 sicaklik 19
+  2024-01-02 13:00 sicaklik 18
+  2024-01-04 12:00 sicaklik 25
+  B
+
+goal_tr: >
+  veri/istasyon_a.txt ve veri/istasyon_b.txt dosyalarindaki "tarih saat
+  olcum turu deger" satirlarini karsilastir; her iki dosyada da ayni
+  tarih-saat-olcum turu icin ayni deger bulunan ortak satirlari, yalnizca
+  "tarih,saat,tur,deger" alanlarini virgulle ayirip tarih-saat anahtarina
+  gore artan sirada denetim.csv dosyasina yaz; iki dosyadan biri bos olsa
+  bile calis.
+
+reference_solution: |
+  cut -d' ' -f1-4 veri/istasyon_a.txt | sort > /tmp/_a.tmp
+  cut -d' ' -f1-4 veri/istasyon_b.txt | sort > /tmp/_b.tmp
+  comm -12 /tmp/_a.tmp /tmp/_b.tmp | sed 's/ /,/g' > denetim.csv
+  rm -f /tmp/_a.tmp /tmp/_b.tmp
+
+outputs:
+  - {path: denetim.csv, kind: file}
+
+checks:
+  - {op: file_content_eq, path: denetim.csv, value: '2024-01-02,12:00,sicaklik,19'}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7090
+    bundle: kume-farki
+    tools:
+    - comm
+    - sort
+    konu: hava-durumu-kayitlari
+    hedef: denetle
+    girdi: log-satiri
+    kaynak: iki-dosya-capraz
+    cikti: csv
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: bos-dosya
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

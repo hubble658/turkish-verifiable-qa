@@ -1,0 +1,149 @@
+id: gen-k-8081-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) maintenance/simulator.py dosyasındaki simulate fonksiyonunu gerçekleştir; fonksiyon her adımda her makinenin hours_run değerini 1 artırsın, hours_run değeri rated_hours değerine ulaşınca failure_count değerini 1 artırıp hours_run değerini sıfırlasın ve sonunda toplam arıza sayısını döndürsün.
+
+  2) maintenance/report.py dosyasındaki summary fonksiyonunu gerçekleştir; fonksiyon log_reader.parse_log ile makine sözlüğünü okusun, simulate fonksiyonunu çalıştırsın ve makine kimliğine göre artan sırada (machine_id, hours_run, failure_count) demetlerinden oluşan bir liste döndürsün.
+
+setup: |
+  mkdir -p maintenance
+  touch maintenance/__init__.py
+  cat > maintenance/machine.py <<'MACHINE'
+  from dataclasses import dataclass
+
+
+  @dataclass
+  class Machine:
+      machine_id: str
+      rated_hours: int
+      hours_run: int = 0
+      failure_count: int = 0
+
+      def is_valid(self):
+          return self.rated_hours > 0 and 0 <= self.hours_run <= self.rated_hours
+  MACHINE
+  cat > maintenance/log_reader.py <<'READER'
+  from maintenance.machine import Machine
+
+
+  def parse_log(path):
+      machines = {}
+      with open(path) as fh:
+          for raw in fh:
+              line = raw.strip()
+              if not line or line.startswith("#"):
+                  continue
+              parts = line.split()
+              kind = parts[0]
+              machine_id = parts[1]
+              if machine_id not in machines:
+                  machines[machine_id] = Machine(machine_id, 1000)
+              m = machines[machine_id]
+              if kind == "run":
+                  m.hours_run += int(parts[2])
+              elif kind == "fail":
+                  m.failure_count += 1
+      return machines
+  READER
+  cat > maintenance/simulator.py <<'SIM'
+  def simulate(machines, steps):
+      raise NotImplementedError
+  SIM
+  cat > maintenance/report.py <<'REPORT'
+  from maintenance.simulator import simulate
+
+
+  def summary(path, steps):
+      raise NotImplementedError
+  REPORT
+  cat > log.txt <<'LOG'
+  # machine maintenance log
+  run M1 200
+  run M2 300
+  fail M1
+  run M1 100
+  run M3 900
+  fail M2
+  run M1 50
+  LOG
+
+goal_tr: >
+  maintenance/simulator.py icindeki simulate fonksiyonunu ve
+  maintenance/report.py icindeki summary fonksiyonunu gerceklestir: simulate
+  her adimda her makinenin hours_run degerini 1 artirsin, hours_run
+  rated_hours degerini asinca failure_count degerini 1 artirip hours_run
+  degerini sifirlasin ve toplam ariza sayisini dondursun; summary ise
+  log_reader.parse_log ile makine sozlugunu okusun, simulate calistirsin ve
+  makine kimligine gore artan sirada (machine_id, hours_run, failure_count)
+  demetlerinden olusan liste dondursun.
+
+reference_solution: |
+  cat > maintenance/simulator.py <<'SIM'
+  def simulate(machines, steps):
+      total_failures = 0
+      for _ in range(steps):
+          for m in machines.values():
+              m.hours_run += 1
+              if m.hours_run > m.rated_hours:
+                  m.failure_count += 1
+                  m.hours_run = 0
+                  total_failures += 1
+      return total_failures
+  SIM
+  cat > maintenance/report.py <<'REPORT'
+  from maintenance.log_reader import parse_log
+  from maintenance.simulator import simulate
+
+
+  def summary(path, steps):
+      machines = parse_log(path)
+      simulate(machines, steps)
+      return [(m.machine_id, m.hours_run, m.failure_count)
+              for m in sorted(machines.values(), key=lambda m: m.machine_id)]
+  REPORT
+
+outputs:
+  - {path: maintenance/simulator.py, kind: program, run: 'python3 -c ''from maintenance.report import summary; r=summary("log.txt",0); assert r==[("M1",350,1),("M2",300,1),("M3",900,0)], r; r2=summary("log.txt",200); assert r2==[("M1",550,1),("M2",500,1),("M3",99,1)], r2; print("TAMAM")'''}
+  - {path: maintenance/report.py, kind: program, run: 'python3 -c ''from maintenance.report import summary; r=summary("log.txt",0); assert r==[("M1",350,1),("M2",300,1),("M3",900,0)], r; r2=summary("log.txt",200); assert r2==[("M1",550,1),("M2",500,1),("M3",99,1)], r2; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from maintenance.report import summary; r=summary("log.txt",0); assert r==[("M1",350,1),("M2",300,1),("M3",900,0)], r; r2=summary("log.txt",200); assert r2==[("M1",550,1),("M2",500,1),("M3",99,1)], r2; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8081
+    bundle: yarisma
+    tools:
+    - python3
+    konu: makine-bakim-kayitlari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: benzetim
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

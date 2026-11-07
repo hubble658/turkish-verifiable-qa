@@ -1,0 +1,79 @@
+id: gen-s-7240-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  olcumler klasöründeki tüm .json dosyalarını oku ve içlerindeki her kaydın sensor ve deger alanlarını "sensor=deger" biçiminde tek satıra yaz. Tüm satırları önce sensor adına göre artan, aynı sensor içinde ise deger sayısal olarak artan sırada birleştir ve sonucu satirlar.txt dosyasına kaydet. Ayrıca olcumler klasörünün bir arşivini arsiv/olcumler.tar olarak oluştur.
+
+setup: |
+  mkdir -p olcumler arsiv
+  cat > olcumler/s1.json <<'EOF'
+  {"sensor":"sicaklik","deger":21}
+  {"sensor":"nem","deger":55}
+  EOF
+  cat > olcumler/s2.json <<'EOF'
+  {"sensor":"sicaklik","deger":23}
+  EOF
+  cat > olcumler/s3.json <<'EOF'
+  {"sensor":"basinc","deger":1013}
+  {"sensor":"nem","deger":60}
+  EOF
+  printf '%s' '{"sensor":"sicaklik","deger":19}' > olcumler/s4.json
+
+goal_tr: >
+  olcumler klasorundeki tum .json dosyalarini okuyup iclerindeki her kaydin
+  sensor ve deger alanlarini "sensor=deger" biciminde tek satira yaz, tum
+  satirlari sensor adina gore artan, ayni sensor icinde deger sayisal olarak
+  artan sirada birlestirip satirlar.txt dosyasina kaydet
+
+reference_solution: |
+  find olcumler -name '*.json' -type f | sort | xargs cat > /tmp/hepsi.txt
+  awk -F'[:,}]' '{s="";v="";for(i=1;i<=NF;i++){if($i ~ /"sensor"/){s=$(i+1)};if($i ~ /"deger"/){v=$(i+1)}};gsub(/"/,"",s);gsub(/ /,"",v);print s"="v}' /tmp/hepsi.txt > /tmp/satirlar.txt
+  sort -t= -k1,1 -k2,2n /tmp/satirlar.txt > satirlar.txt
+  tar -cf arsiv/olcumler.tar olcumler
+  rm -f /tmp/hepsi.txt /tmp/satirlar.txt
+
+outputs:
+  - {path: satirlar.txt, kind: lines}
+  - {path: arsiv/olcumler.tar, kind: file}
+
+checks:
+  - {op: run_stdout_eq, cmd: tar -tf arsiv/olcumler.tar | sort, value: 'olcumler/
+
+    olcumler/s1.json
+
+    olcumler/s2.json
+
+    olcumler/s3.json
+
+    olcumler/s4.json'}
+  - {op: file_lines_eq, path: satirlar.txt, value: [basinc=1013, nem=55, nem=60, sicaklik=19, sicaklik=21, sicaklik=23]}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7240
+    bundle: secerek-arsivle
+    tools:
+    - tar
+    - find
+    konu: sensor-olcumleri
+    hedef: yeniden-duzenle
+    girdi: json
+    kaynak: cok-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: son-newline-yok
+    bukulme: olcek
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

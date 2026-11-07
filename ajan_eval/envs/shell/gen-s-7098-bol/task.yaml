@@ -1,0 +1,83 @@
+id: gen-s-7098-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  subeler/ana.tsv ve subeler/yedek.tsv dosyalarındaki ortak siparis_id değerlerinin tutar sütununu topla ve sonucu sonuc.txt dosyasına yalnızca toplam sayı olarak yaz.
+
+  Şu şartlar sağlanmalı:
+  - subeler/ana.tsv ve subeler/yedek.tsv dosyalarındaki ortak siparis_id değerleri bulunmalı.
+  - Yalnızca ortak siparis_id değerlerine karşılık gelen tutar değerleri toplanmalı.
+  - Toplam sonuç sonuc.txt dosyasına yazılmalı.
+  - sonuc.txt içeriği yalnızca toplam sayı olmalı; başka metin, başlık veya etiket bulunmamalı.
+
+setup: |
+  mkdir -p subeler
+  cat > subeler/ana.tsv <<'TSV'
+  siparis_id	urun	adet	tutar
+  1	corba	2	40
+  2	izgara	1	120
+  3	salata	3	90
+  4	corba	1	20
+  5	izgara	2	240
+  TSV
+  cat > subeler/yedek.tsv <<'TSV'
+  siparis_id	urun	adet	tutar
+  1	corba	2	40
+  2	izgara	1	120
+  3	salata	3	90
+  4	corba	1	20
+  5	izgara	2	240
+  6	corba	5	100
+  TSV
+  cat > subeler/notlar.txt <<'TXT'
+  bu dosya bir tuzak, tsv degil
+  siparis_id urun adet tutar
+  9 corba 9 999
+  TXT
+
+goal_tr: >
+  subeler/ana.tsv ile subeler/yedek.tsv dosyalarindaki ortak siparis_id
+  degerlerinin tutar sutununu toplayip sonuc.txt dosyasina yalnizca toplam
+  sayi olarak yaz
+
+reference_solution: |
+  head -n 1 subeler/ana.tsv > basliklar.txt
+  tail -n +2 subeler/ana.tsv | sort -k1,1 > ana_govde.txt
+  tail -n +2 subeler/yedek.tsv | sort -k1,1 > yedek_govde.txt
+  join -1 1 -2 1 ana_govde.txt yedek_govde.txt | awk '{s+=$4} END {print s}' > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '510'}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7098
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: restoran-siparisleri
+    hedef: bol
+    girdi: tsv
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,61 @@
+id: gen-s-4137-arsivle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi klasöründeki a.log ve b.log dosyalarındaki HATA içeren satırları, CRLF sonlarından arındırılmış hâlde, iki dosyadan gelen satırları sırasıyla birleştirerek arsiv/hatalar.txt dosyasına satır listesi olarak yaz; ayrıca bu iki log dosyasını arsiv/loglar.tar.gz arşivine koy.
+
+setup: |
+  mkdir -p girdi
+  printf 'BILGI sistem basladi\r\nHATA disk dolu\r\nBILGI kullanici giris yapti\r\nUYARI bellek az\r\nHATA zaman asimi\r\n' > girdi/a.log
+  printf 'BILGI servis acildi\r\nHATA baglanti koptu\r\nUYARI gecikme artti\r\nHATA disk dolu\r\nBILGI kapanis\r\n' > girdi/b.log
+  mkdir -p arsiv
+
+goal_tr: >
+  girdi klasorundeki a.log ve b.log dosyalarindaki HATA iceren satirlari
+  (CRLF sonlarindan arindirilmis halde) iki dosyadan gelen satirlari
+  sirasiyla birlestirip arsiv/hatalar.txt dosyasina satir listesi olarak yaz
+  ve bu iki log dosyasini arsiv/loglar.tar.gz arsivine koy
+
+reference_solution: |
+  find girdi -name '*.log' -type f | sort | xargs cat | tr -d '\r' | grep 'HATA' > arsiv/hatalar.txt
+  tar -czf arsiv/loglar.tar.gz girdi/a.log girdi/b.log
+
+outputs:
+  - {path: arsiv/hatalar.txt, kind: lines}
+  - {path: arsiv/loglar.tar.gz, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: arsiv/hatalar.txt, value: [HATA disk dolu, HATA zaman asimi, HATA baglanti koptu, HATA disk dolu]}
+  - {op: run_stdout_eq, cmd: tar -tzf arsiv/loglar.tar.gz | sort, value: 'girdi/a.log
+
+    girdi/b.log'}
+
+metadata:
+  domain: arsivle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4137
+    bundle: secerek-arsivle
+    tools:
+    - tar
+    - find
+    konu: sunucu-loglari
+    hedef: arsivle
+    girdi: duz-metin
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: veriye-bak
+    uslup: kisit-sakli
+    direnc: crlf
+    bukulme: olcek
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

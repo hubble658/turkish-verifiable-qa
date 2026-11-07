@@ -1,0 +1,79 @@
+id: gen-s-7322-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi/vardiya.tsv ile girdi/izin.tsv dosyalarını karşılaştırıp vardiya.tsv'de geçen ve izin.tsv'de de karşılığı olan personelin kimliklerini ve adlarını cikti/izinliler.tsv dosyasına yazmanı istiyorum.
+
+  Şu şartlar sağlanmalı:
+  - Satırlar kimliğe göre artan sırada olmalı.
+  - Kimlik ve ad sekmeyle ayrılmış olmalı.
+  - .bak ile biten dosyalar dikkate alınmamalı.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/vardiya.tsv <<'TSV'
+  p101	Ali	gece
+  p102	Ayse	gunduz
+  p103	Can	gece
+  p104	Deniz	gunduz
+  p105	Ece	gece
+  TSV
+  cat > girdi/izin.tsv <<'TSV'
+  p101	2024-05-01
+  p103	2024-05-02
+  p105	2024-05-03
+  p999	2024-05-04
+  TSV
+  cat > girdi/vardiya.tsv.bak <<'TSV'
+  p101	Ali	gece
+  p102	Ayse	gunduz
+  TSV
+
+goal_tr: >
+  girdi/vardiya.tsv ile girdi/izin.tsv dosyalarini karsilastirip,
+  vardiya.tsv'de gecen ve izin.tsv'de de karsiligi olan personel
+  kimliklerini ve adlarini, kimlik artan sirada, sekmeyle ayrilmis olarak
+  cikti/izinliler.tsv dosyasina yaz; .bak ile biten dosyalari dikkate alma.
+
+reference_solution: |
+  mkdir -p cikti
+  cut -f1 girdi/izin.tsv | sort -u > /tmp/izinli_kimlik.txt
+  cut -f1,2 girdi/vardiya.tsv | sort > /tmp/vardiya_kimlik.txt
+  join -t $'\t' -1 1 -2 1 /tmp/vardiya_kimlik.txt /tmp/izinli_kimlik.txt | sort -k1,1 > cikti/izinliler.tsv
+  tee /dev/null < cikti/izinliler.tsv > /dev/null
+
+outputs:
+  - {path: cikti/izinliler.tsv, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: cikti/izinliler.tsv, value: ["p101\tAli", "p103\tCan", "p105\tEce"]}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7322
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: personel-vardiyalari
+    hedef: ayikla
+    girdi: tsv
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: dolayli-hedef
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,140 @@
+id: gen-k-9113-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) exams/stats.py dosyasındaki average fonksiyonunu, sınav sonuçları dosyasında hiç satır yoksa ZeroDivisionError yerine 0.0 döndürecek biçimde düzelt.
+
+  2) exams/stats.py dosyasındaki passing fonksiyonunu, eşik değere eşit notları da geçmiş sayacak biçimde düzelt.
+
+  3) exams/stats.py dosyasını, average fonksiyonu boş dosyada 0.0 döndürecek ve passing fonksiyonu eşik değere eşit notları geçmiş sayacak şekilde kaydet.
+
+setup: |
+  mkdir -p exams
+  cat > exams/reader.py <<'READER'
+  class ScoreStream:
+      def __init__(self, path):
+          self.path = path
+
+      def __iter__(self):
+          with open(self.path) as fh:
+              for line in fh:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  name, score = line.split(',')
+                  yield (name, int(score))
+  READER
+  cat > exams/stats.py <<'STATS'
+  from exams.reader import ScoreStream
+
+
+  def average(path):
+      total = 0
+      count = 0
+      for name, score in ScoreStream(path):
+          total += score
+          count += 1
+      return total / count
+
+
+  def passing(path, threshold):
+      return [name for name, score in ScoreStream(path) if score > threshold]
+  STATS
+  cat > scores.txt <<'DATA'
+  ayse,70
+  mehmet,55
+  zeynep,90
+  DATA
+
+goal_tr: >
+  exams/stats.py icindeki average fonksiyonunu, sinav sonuclari dosyasinda
+  hic satir yoksa ZeroDivisionError yerine 0.0 dondurecek ve passing
+  fonksiyonunu esik degere esit notlari da gecmis sayacak bicimde duzelt.
+
+reference_solution: |
+  cat > exams/stats.py <<'STATS'
+  from exams.reader import ScoreStream
+
+
+  def average(path):
+      total = 0
+      count = 0
+      for name, score in ScoreStream(path):
+          total += score
+          count += 1
+      if count == 0:
+          return 0.0
+      return total / count
+
+
+  def passing(path, threshold):
+      return [name for name, score in ScoreStream(path) if score >= threshold]
+  STATS
+
+ara_adim: |
+  cat > exams/stats.py <<'STATS'
+  from exams.reader import ScoreStream
+
+
+  def average(path):
+      total = 0
+      count = 0
+      for name, score in ScoreStream(path):
+          total += score
+          count += 1
+      if count == 0:
+          return 0.0
+      return total / count
+
+
+  def passing(path, threshold):
+      return [name for name, score in ScoreStream(path) if score > threshold]
+  STATS
+
+outputs:
+  - {path: exams/stats.py, kind: program, run: 'python3 -c ''from exams.stats import passing as f; assert f("scores.txt",70)==["ayse","zeynep"], f("scores.txt",70); print("TAMAM")'''}
+  - {path: exams/stats.py, kind: program, run: 'python3 -c ''from exams.stats import average as f; open("empty.txt","w").close(); assert f("empty.txt")==0.0, f("empty.txt"); print("ILERLEME-TAMAM")'''}
+  - {path: exams/stats.py, kind: program, run: 'python3 -c ''from exams.stats import average as f; assert f("scores.txt")==(70+55+90)/3, f("scores.txt"); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from exams.stats import passing as f; assert f("scores.txt",70)==["ayse","zeynep"], f("scores.txt",70); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from exams.stats import average as f; open("empty.txt","w").close(); assert f("empty.txt")==0.0, f("empty.txt"); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from exams.stats import average as f; assert f("scores.txt")==(70+55+90)/3, f("scores.txt"); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9113
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: sinav-sonuclari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kenar-durum
+      karmasiklik: orta
+      kalip: iterator-protokolu
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

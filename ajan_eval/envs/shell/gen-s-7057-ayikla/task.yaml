@@ -1,0 +1,61 @@
+id: gen-s-7057-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  vardiya.ini dosyasındaki her personelin gun değerinin basamaklarını ters çevirip elde edilen sayıların toplamını sonuc.txt dosyasına sadece sayı olarak yaz.
+
+setup: |
+  cat > vardiya.ini <<'INI'
+  [ahmet]
+  gun=12
+  [zeynep]
+  gun=3
+  [mehmet]
+  gun=27
+  [elif]
+  gun=8
+  INI
+
+goal_tr: >
+  vardiya.ini dosyasindaki her personelin gun degerinin basamaklarini ters
+  cevirip elde edilen sayilarin toplamini sonuc.txt'ye sadece sayi olarak
+  yaz
+
+reference_solution: |
+  cut -d= -f2 vardiya.ini | grep -E '^[0-9]+$' | rev | paste -sd+ | bc 2>/dev/null || cut -d= -f2 vardiya.ini | grep -E '^[0-9]+$' | rev | awk '{s+=$1} END {print s}' > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '104'}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7057
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: personel-vardiyalari
+    hedef: ayikla
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

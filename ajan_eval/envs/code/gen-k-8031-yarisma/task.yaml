@@ -1,0 +1,97 @@
+id: gen-k-8031-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+prompt: '1) fleet/report.py dosyasındaki FleetReport sınıfını context manager olarak çalışacak şekilde yeniden yaz; sınıf
+  depots.txt dosyasının yolunu alsın.
+
+
+  2) FleetReport sınıfına __init__ metodu ekle; bu metod depots.txt yolunu saklasın.
+
+
+  3) FleetReport sınıfına __enter__ metodu ekle; bu metod depots.txt içeriğini records.load_depots ile yükleyip depo sözlüğünü
+  döndürsün.
+
+
+  4) FleetReport sınıfına __exit__ metodu ekle; bu metod kaynağı kapatsın.
+
+
+  5) FleetReport sınıfına totals(depot) metodu ekle; bu metod verilen depo için prefix.prefix_totals ile biriken mesafe listesini
+  döndürsün.
+
+
+  6) FleetReport sınıfına grand_total() metodu ekle; bu metod tüm depolardaki toplam mesafeyi döndürsün.
+
+
+  Açık dosya nesnesini self._handle alanında tut; __exit__ dosyayı kapatıp bu alanı None yapsın.
+
+  '
+setup: "mkdir -p fleet\ncat > fleet/records.py <<'REC'\ndef load_depots(text):\n    depots = {}\n    for line in text.strip().splitlines():\n\
+  \        name, rest = line.split(':', 1)\n        entries = []\n        for chunk in rest.split(';'):\n            if not\
+  \ chunk.strip():\n                continue\n            vehicle, distance = chunk.split('=')\n            entries.append((vehicle.strip(),\
+  \ int(distance)))\n        depots[name.strip()] = entries\n    return depots\nREC\ncat > fleet/prefix.py <<'PRE'\ndef prefix_totals(entries):\n\
+  \    totals = []\n    running = 0\n    for _, distance in entries:\n        running += distance\n        totals.append(running)\n\
+  \    return totals\nPRE\ncat > fleet/report.py <<'REP'\nfrom fleet.records import load_depots\nfrom fleet.prefix import\
+  \ prefix_totals\n\n\nclass FleetReport:\n    pass\nREP\ncat > depots.txt <<'TXT'\nnorth: truck=120; van=45; bike=10\nsouth:\
+  \ truck=200; van=15\nTXT\n"
+goal_tr: 'fleet/report.py icindeki FleetReport sinifini bir context manager olarak gerceklestir; __init__ depots.txt yolunu
+  alsin, __enter__ dosyayi records.load_depots ile yukleyip sozlugu dondursun, __exit__ kaynagi kapatsin ve her depo icin
+  prefix.prefix_totals ile biriken mesafe listesini ureten totals(depot) metodu ile toplam mesafeyi veren grand_total() metodu
+  bulunsun.
+
+  '
+reference_solution: "cat > fleet/report.py <<'REP'\nfrom fleet.records import load_depots\nfrom fleet.prefix import prefix_totals\n\
+  \n\nclass FleetReport:\n    def __init__(self, path):\n        self.path = path\n        self.depots = None\n        self._handle\
+  \ = None\n\n    def __enter__(self):\n        self._handle = open(self.path)\n        self.depots = load_depots(self._handle.read())\n\
+  \        return self.depots\n\n    def __exit__(self, exc_type, exc, tb):\n        if self._handle is not None:\n      \
+  \      self._handle.close()\n            self._handle = None\n        return False\n\n    def totals(self, depot):\n   \
+  \     return prefix_totals(self.depots[depot])\n\n    def grand_total(self):\n        total = 0\n        for entries in\
+  \ self.depots.values():\n            total += prefix_totals(entries)[-1]\n        return total\nREP\n"
+outputs:
+- path: fleet/report.py
+  kind: program
+  run: python3 -c 'from fleet.report import FleetReport as R; c=R("depots.txt"); d=c.__enter__(); assert d=={"north":[("truck",120),("van",45),("bike",10)],"south":[("truck",200),("van",15)]},
+    d; assert c.totals("north")==[120,165,175], c.totals("north"); assert c.totals("south")==[200,215]; assert c.grand_total()==390,
+    c.grand_total(); c.__exit__(None,None,None); assert c._handle is None; print("TAMAM")'
+checks:
+- op: run_stdout_eq
+  cmd: python3 -c 'from fleet.report import FleetReport as R; c=R("depots.txt"); d=c.__enter__(); assert d=={"north":[("truck",120),("van",45),("bike",10)],"south":[("truck",200),("van",15)]},
+    d; assert c.totals("north")==[120,165,175], c.totals("north"); assert c.totals("south")==[200,215]; assert c.grand_total()==390,
+    c.grand_total(); c.__exit__(None,None,None); assert c._handle is None; print("TAMAM")'
+  value: TAMAM
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8031
+    bundle: yarisma
+    tools:
+    - python3
+    konu: arac-filosu
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: onek-toplam
+      karmasiklik: duz
+      kalip: context-manager
+      akis: ic-ice-yapi
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false
+  duzeltme:
+    neden: gizli_sart
+    not: Kontrol istemde adı geçmeyen _handle alanına bakıyor.

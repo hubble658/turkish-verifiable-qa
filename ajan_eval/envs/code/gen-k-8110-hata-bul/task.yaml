@@ -1,0 +1,166 @@
+id: gen-k-8110-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  roster/plan.py dosyasında ShiftPlan sınıfının hours_for metodu var; bu metot bir işçinin toplam vardiya saatini yanlış hesaplıyor. hours_for metodunu, verilen işçinin tüm vardiyalarındaki toplam çalışma saatini doğru şekilde döndürecek biçimde düzelt. Diğer metotlara, sınıfın geri kalanına ve roster/loader.py ile shifts.txt dosyalarına dokunma; sadece hours_for içindeki hesabı düzelt.
+
+setup: |
+  mkdir -p roster
+  cat > roster/loader.py <<'LOADER'
+  def load_shifts(path):
+      rows = []
+      with open(path, "r", encoding="utf-8") as fh:
+          for line in fh:
+              line = line.strip()
+              if not line or line.startswith("#"):
+                  continue
+              worker, start, end = line.split(",")
+              rows.append((worker, int(start), int(end)))
+      return rows
+  LOADER
+  cat > roster/plan.py <<'PLAN'
+  from roster.loader import load_shifts
+
+
+  class ShiftPlan:
+      def __init__(self, shifts):
+          self.shifts = shifts
+
+      def total_hours(self):
+          total = 0
+          for _, start, end in self.shifts:
+              total += end - start
+          return total
+
+      def hours_for(self, worker):
+          total = 0
+          for name, start, end in self.shifts:
+              if name == worker:
+                  total += end - start - 1
+          return total
+
+      def busiest(self):
+          best = None
+          best_hours = -1
+          for name, start, end in self.shifts:
+              h = self.hours_for(name)
+              if h > best_hours:
+                  best_hours = h
+                  best = name
+          return best
+
+      def __add__(self, other):
+          return ShiftPlan(self.shifts + other.shifts)
+
+      def __len__(self):
+          return len(self.shifts)
+
+      def __repr__(self):
+          return "ShiftPlan(%d shifts)" % len(self.shifts)
+
+
+  def build(path):
+      return ShiftPlan(load_shifts(path))
+  PLAN
+  cat > shifts.txt <<'SHIFTS'
+  # worker,start,end
+  ada,8,16
+  bora,9,13
+  ada,18,22
+  cem,7,15
+  bora,14,20
+  SHIFTS
+
+goal_tr: >
+  roster/plan.py icindeki ShiftPlan.hours_for metodunu, bir iscinin toplam
+  vardiya saatini dogru hesaplayacak bicimde duzelt.
+
+reference_solution: |
+  cat > roster/plan.py <<'PLAN'
+  from roster.loader import load_shifts
+
+
+  class ShiftPlan:
+      def __init__(self, shifts):
+          self.shifts = shifts
+
+      def total_hours(self):
+          total = 0
+          for _, start, end in self.shifts:
+              total += end - start
+          return total
+
+      def hours_for(self, worker):
+          total = 0
+          for name, start, end in self.shifts:
+              if name == worker:
+                  total += end - start
+          return total
+
+      def busiest(self):
+          best = None
+          best_hours = -1
+          for name, start, end in self.shifts:
+              h = self.hours_for(name)
+              if h > best_hours:
+                  best_hours = h
+                  best = name
+          return best
+
+      def __add__(self, other):
+          return ShiftPlan(self.shifts + other.shifts)
+
+      def __len__(self):
+          return len(self.shifts)
+
+      def __repr__(self):
+          return "ShiftPlan(%d shifts)" % len(self.shifts)
+
+
+  def build(path):
+      return ShiftPlan(load_shifts(path))
+  PLAN
+
+outputs:
+  - {path: roster/plan.py, kind: program, run: 'python3 -c ''from roster.plan import build, ShiftPlan; p=build("shifts.txt"); assert p.hours_for("ada")==12, p.hours_for("ada"); assert p.hours_for("bora")==10, p.hours_for("bora"); assert p.hours_for("cem")==8, p.hours_for("cem"); assert p.hours_for("zeynep")==0; assert p.total_hours()==30, p.total_hours(); assert p.busiest()=="ada", p.busiest(); q=ShiftPlan([("ada",10,12)]); assert (p+q).hours_for("ada")==14; assert len(p)==5; assert repr(q)=="ShiftPlan(1 shifts)"; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from roster.plan import build, ShiftPlan; p=build("shifts.txt"); assert p.hours_for("ada")==12, p.hours_for("ada"); assert p.hours_for("bora")==10, p.hours_for("bora"); assert p.hours_for("cem")==8, p.hours_for("cem"); assert p.hours_for("zeynep")==0; assert p.total_hours()==30, p.total_hours(); assert p.busiest()=="ada", p.busiest(); q=ShiftPlan([("ada",10,12)]); assert (p+q).hours_for("ada")==14; assert len(p)==5; assert repr(q)=="ShiftPlan(1 shifts)"; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8110
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: vardiya-cizelgesi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: off-by-one
+      karmasiklik: duz
+      kalip: operator-asiri-yukleme
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

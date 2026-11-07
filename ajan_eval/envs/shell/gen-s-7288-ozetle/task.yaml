@@ -1,0 +1,71 @@
+id: gen-s-7288-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Öğrenci kulübünde not takip işleriyle uğraşıyorum ve bugün bilgisayarın başında epey vakit geçirdim; elimde dağınık halde duran notlar dizinini artık toparlamam gerekiyor. Kulüpteki arkadaşlar her dönem sonunda notları tek tek gözden geçirmekten yoruldu, ben de bu işi tek seferde halledeyim dedim. notlar dizininde farklı kişilere ait .ini dosyaları var; her birinin içinde not= ile başlayan bir satır bulunuyor. Bu dosyalardaki not değerlerini okumam ve hepsini not_degerleri.txt adlı bir dosyada toplamam lazım. Ama şöyle olsun: her not değeri bu dosyada kendi satırında yer alsın, aynı değer birden fazla kez geçmesin ve değerler artan sayısal sırayla dizilsin. notlar dizinindeki .ini dışındaki dosyaları ise hiç karıştırma.
+
+setup: |
+  mkdir -p notlar
+  cat > notlar/ali.ini <<'INI'
+  isim=Ali
+  not=85
+  INI
+  cat > notlar/ayse.ini <<'INI'
+  isim=Ayse
+  not=90
+  INI
+  cat > notlar/mehmet.ini <<'INI'
+  isim=Mehmet
+  not=85
+  INI
+  cat > notlar/zeynep.ini <<'INI'
+  isim=Zeynep
+  not=70
+  INI
+  cat > notlar/README.txt <<'TXT'
+  bu dosya not degil
+  TXT
+
+goal_tr: >
+  notlar dizinindeki .ini dosyalarinin her birinden not= ile baslayan
+  satirin degerini okuyup, bu not degerlerini birer satir olarak, tekrarsiz
+  ve artan sayisal sirada not_degerleri.txt dosyasina yaz.
+
+reference_solution: |
+  grep -h '^not=' notlar/*.ini | cut -d= -f2 | sort -n | uniq > not_degerleri.txt
+
+outputs:
+  - {path: not_degerleri.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: not_degerleri.txt, value: ['70', '85', '90']}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7288
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: ogrenci-notlari
+    hedef: ozetle
+    girdi: ini
+    kaynak: dizin-agaci
+    cikti: satir-listesi
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

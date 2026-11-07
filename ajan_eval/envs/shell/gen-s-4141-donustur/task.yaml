@@ -1,0 +1,90 @@
+id: gen-s-4141-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+prompt: 'Kütüphanedeki üye kayıtlarını tek bir yerde tutmaya çalışıyoruz ama iki ayrı dosyaya dağılmış durumda; biri normal,
+  diğeri başında görünmez bir karakter taşıyor. Bu yüzden hangi şehirde kaç kitap okunduğunu topluca görmek istediğimizde
+  her seferinde elle uğraşmak gerekiyor. Bugün de bu dağınıklığı bir kez olsun derli toplu bir sayıya indirmek istedim.
+
+
+  kutuphane/uyeler.ini ve kutuphane/uyeler_bom.ini dosyalarındaki üye kayıtlarından, kutuphane/hedef_iller.txt içinde geçen
+  şehirlere sahip üyelerin kitap sayılarının toplamını hesapla ve bu toplamı kutuphane/toplam.txt dosyasına sadece sayı olarak
+  yaz; dosyada sayı dışında hiçbir şey bulunmasın.
+
+  '
+setup: 'mkdir -p kutuphane
+
+  cat > kutuphane/uyeler.ini <<''INI''
+
+  [Ahmet]
+
+  sehir=Ankara
+
+  kitap=3
+
+  [Merve]
+
+  sehir=Izmir
+
+  kitap=5
+
+  [Kerem]
+
+  sehir=Ankara
+
+  kitap=2
+
+  INI
+
+  printf ''\xef\xbb\xbf[Zeynep]\nsehir=Bursa\nkitap=4\n'' > kutuphane/uyeler_bom.ini
+
+  cat > kutuphane/hedef_iller.txt <<''TXT''
+
+  Ankara
+
+  Izmir
+
+  TXT
+
+  '
+goal_tr: 'kutuphane/uyeler.ini ve kutuphane/uyeler_bom.ini dosyalarindaki uye kayitlarindan, kutuphane/hedef_iller.txt icinde
+  gecen sehirlere sahip uyelerin kitap sayilarinin toplamini kutuphane/toplam.txt dosyasina sadece sayi olarak yaz.
+
+  '
+reference_solution: "python3 - <<'PY'\nimport configparser\nh = set(open(\"kutuphane/hedef_iller.txt\").read().split())\n\
+  t = 0\nfor f in (\"kutuphane/uyeler.ini\", \"kutuphane/uyeler_bom.ini\"):\n    c = configparser.ConfigParser()\n    c.read(f,\
+  \ encoding=\"utf-8-sig\")\n    t += sum(int(c[s][\"kitap\"]) for s in c.sections() if c[s][\"sehir\"] in h)\nopen(\"kutuphane/toplam.txt\"\
+  , \"w\").write(f\"{t}\\n\")\nPY\n"
+outputs: []
+checks:
+- op: file_content_eq
+  path: kutuphane/toplam.txt
+  value: '10'
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4141
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: kutuphane-kayitlari
+    hedef: donustur
+    girdi: ini
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: dolayli-hedef
+    uslup: baglam-gomulu
+    direnc: bom
+    bukulme: olcek
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}
+  duzeltme:
+    neden: altin_yanlis
+    not: Altın hedefte olmayan Bursa'yı da saymıştı (14); doğrusu 10.

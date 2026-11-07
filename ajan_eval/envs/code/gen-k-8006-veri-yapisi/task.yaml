@@ -1,0 +1,145 @@
+id: gen-k-8006-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  fleet/queue.py dosyasındaki PriorityQueue sınıfını, küçük anahtarın daha yüksek öncelik taşıdığı bir öncelik kuyruğu olacak şekilde gerçekleştir. push, pop, peek, __len__ ve __bool__ metotları çalışsın ve eşit anahtarlarda ekleme sırası korunsun.
+
+  Şu şartlar sağlanmalı:
+  - fleet/queue.py dosyasında PriorityQueue sınıfı tanımlı olmalı.
+  - push, pop, peek, __len__ ve __bool__ metotlarının tümü çalışmalı.
+  - Küçük anahtar daha yüksek öncelik taşımalı; yani pop ve peek en küçük anahtarlı öğeyi döndürmeli.
+  - Eşit anahtarlarda ekleme sırası korunmalı; aynı anahtarla önce eklenen öğe önce çıkmalı.
+  - fleet/dispatch.py ve fleet/registry.py dosyalarındaki mevcut kullanım bozulmadan çalışmaya devam etmeli.
+
+setup: |
+  mkdir -p fleet
+  cat > fleet/queue.py <<'QUEUE'
+  class PriorityQueue:
+      def __init__(self):
+          raise NotImplementedError
+
+      def push(self, key, item):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+
+      def __bool__(self):
+          raise NotImplementedError
+  QUEUE
+  cat > fleet/dispatch.py <<'DISPATCH'
+  from fleet.queue import PriorityQueue
+
+
+  def make_dispatcher():
+      pq = PriorityQueue()
+
+      def add(vehicle, priority):
+          pq.push(priority, vehicle)
+
+      def next_vehicle():
+          return pq.pop()
+
+      def pending():
+          return len(pq)
+
+      def busiest():
+          return pq.peek()
+
+      return {"add": add, "next": next_vehicle, "pending": pending, "busiest": busiest}
+  DISPATCH
+  cat > fleet/registry.py <<'REGISTRY'
+  from fleet.dispatch import make_dispatcher
+
+
+  def build_fleet():
+      dispatcher = make_dispatcher()
+      return dispatcher
+  REGISTRY
+
+goal_tr: >
+  fleet/queue.py icindeki PriorityQueue sinifini, kucuk anahtarin daha
+  yuksek oncelik tasidigi bir oncelik kuyrugu olacak sekilde gerceklestir;
+  push, pop, peek, __len__ ve __bool__ metotlari calissin ve esit
+  anahtarlarda ekleme sirasi korunsun.
+
+reference_solution: |
+  cat > fleet/queue.py <<'QUEUE'
+  import heapq
+
+
+  class PriorityQueue:
+      def __init__(self):
+          self._heap = []
+          self._counter = 0
+
+      def push(self, key, item):
+          heapq.heappush(self._heap, (key, self._counter, item))
+          self._counter += 1
+
+      def pop(self):
+          if not self._heap:
+              raise IndexError("pop from empty priority queue")
+          return heapq.heappop(self._heap)[2]
+
+      def peek(self):
+          if not self._heap:
+              raise IndexError("peek from empty priority queue")
+          return self._heap[0][2]
+
+      def __len__(self):
+          return len(self._heap)
+
+      def __bool__(self):
+          return bool(self._heap)
+  QUEUE
+
+outputs:
+  - {path: fleet/queue.py, kind: program, run: 'python3 -c ''from fleet.registry import build_fleet as b; d=b(); assert d["pending"]()==0; assert not d["pending"](); d["add"]("truck",5); d["add"]("van",1); d["add"]("bus",3); d["add"]("taxi",1); assert d["pending"]()==4; assert d["busiest"]()=="van"; assert d["next"]()=="van"; assert d["next"]()=="taxi"; assert d["busiest"]()=="bus"; assert d["next"]()=="bus"; assert d["next"]()=="truck"; assert d["pending"]()==0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.registry import build_fleet as b; d=b(); assert d["pending"]()==0; assert not d["pending"](); d["add"]("truck",5); d["add"]("van",1); d["add"]("bus",3); d["add"]("taxi",1); assert d["pending"]()==4; assert d["busiest"]()=="van"; assert d["next"]()=="van"; assert d["next"]()=="taxi"; assert d["busiest"]()=="bus"; assert d["next"]()=="bus"; assert d["next"]()=="truck"; assert d["pending"]()==0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8006
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: arac-filosu
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: oncelik-kuyrugu
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: bellek-ici
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

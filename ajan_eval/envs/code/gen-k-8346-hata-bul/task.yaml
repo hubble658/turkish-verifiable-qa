@@ -1,0 +1,103 @@
+id: gen-k-8346-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sensors/accumulator.py dosyasındaki running_sums fonksiyonunu düzelt; fonksiyon artık her okuma için o ana kadarki değerlerin toplamını değil, o ana kadarki değerlerin ortalamasını döndürsün.
+
+setup: |
+  mkdir -p sensors
+  cat > sensors/reader.py <<'READER'
+  def parse_readings(text):
+      readings = []
+      for line in text.strip().splitlines():
+          name, value = line.split(',')
+          readings.append((name, float(value)))
+      return readings
+  READER
+  cat > sensors/accumulator.py <<'ACC'
+  def running_sums(readings):
+      total = 0.0
+      out = []
+      for name, value in readings:
+          total += value
+          out.append((name, total))
+      return out
+  ACC
+  cat > sensors/report.py <<'REPORT'
+  from sensors.reader import parse_readings
+  from sensors.accumulator import running_sums
+
+
+  def summarize(text):
+      readings = parse_readings(text)
+      sums = running_sums(readings)
+      return [name for name, _ in sums]
+  REPORT
+  cat > data.txt <<'DATA'
+  a,10
+  b,20
+  c,30
+  d,40
+  DATA
+
+goal_tr: >
+  sensors/accumulator.py icindeki running_sums fonksiyonunu, her okuma icin
+  o ana kadarki degerlerin toplamini degil, o ana kadarki degerlerin
+  ortalamasini dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > sensors/accumulator.py <<'ACC'
+  def running_sums(readings):
+      total = 0.0
+      count = 0
+      out = []
+      for name, value in readings:
+          total += value
+          count += 1
+          out.append((name, total / count))
+      return out
+  ACC
+
+outputs:
+  - {path: sensors/accumulator.py, kind: program, run: 'python3 -c ''from sensors.accumulator import running_sums as f; r=[("a",10.0),("b",20.0),("c",30.0),("d",40.0)]; assert f(r)==[("a",10.0),("b",15.0),("c",20.0),("d",25.0)], f(r); assert f([])==[]; assert f([("x",5.0)])==[("x",5.0)]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensors.accumulator import running_sums as f; r=[("a",10.0),("b",20.0),("c",30.0),("d",40.0)]; assert f(r)==[("a",10.0),("b",15.0),("c",20.0),("d",25.0)], f(r); assert f([])==[]; assert f([("x",5.0)])==[("x",5.0)]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8346
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: sensor-serisi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-durum-sifirlama
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: bellek-ici
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

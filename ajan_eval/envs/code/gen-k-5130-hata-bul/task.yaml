@@ -1,0 +1,122 @@
+id: gen-k-5130-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) flights/ledger.py dosyasındaki seat_report fonksiyonunu, koltuk toplamları eşit olan uçuşlarda alfabetik uçuş koduna göre kararlı bir sıra döndürecek biçimde düzelt.
+
+  2) Aynı fonksiyonda, seat_report'a aktarılan limit değeri negatif olduğunda NoSeats istisnası yükseltilecek biçimde düzelt.
+
+  3) Bu düzeltmelerden sonra bookings.txt için seat_report(..., 3) çağrısının [("BA2", 10), ("LH3", 10), ("TK1", 10)] döndürdüğünü doğrula.
+
+setup: |
+  mkdir -p flights
+  cat > flights/errors.py <<'ERRORS'
+  class BookingError(Exception):
+      pass
+
+
+  class NoSeats(BookingError):
+      def __init__(self, flight, count):
+          super().__init__("no seats")
+          self.flight = flight
+          self.count = count
+  ERRORS
+  cat > flights/ledger.py <<'LEDGER'
+  from flights.errors import NoSeats
+
+
+  def build_ledger(rows):
+      ledger = {}
+      for row in rows:
+          code, seats = row
+          ledger.setdefault(code, []).append(seats)
+      return ledger
+
+
+  def seat_report(rows, limit):
+      ledger = build_ledger(rows)
+      totals = [(code, sum(v)) for code, v in ledger.items()]
+      totals.sort(key=lambda item: item[1])
+      return totals[:limit]
+  LEDGER
+  cat > bookings.txt <<'DATA'
+  TK1,4
+  TK1,6
+  BA2,9
+  BA2,1
+  LH3,5
+  LH3,5
+  DATA
+
+goal_tr: >
+  flights/ledger.py icindeki seat_report fonksiyonunu, koltuk toplamlari
+  esit olan ucuslarda alfabetik ucus koduna gore kararli bir sira dondurecek
+  ve seat_report'a aktarilan limit degeri negatif oldugunda NoSeats
+  istisnasi yuksetecek bicimde duzelt; boylece bookings.txt icin
+  seat_report(...,3) cagrisi [("BA2",10),("LH3",10),("TK1",10)] dondursun.
+
+reference_solution: |
+  cat > flights/ledger.py <<'LEDGER'
+  from flights.errors import NoSeats
+
+
+  def build_ledger(rows):
+      ledger = {}
+      for row in rows:
+          code, seats = row
+          ledger.setdefault(code, []).append(seats)
+      return ledger
+
+
+  def seat_report(rows, limit):
+      if limit < 0:
+          raise NoSeats("request", limit)
+      ledger = build_ledger(rows)
+      totals = [(code, sum(v)) for code, v in ledger.items()]
+      totals.sort(key=lambda item: (-item[1], item[0]))
+      return totals[:limit]
+  LEDGER
+
+outputs:
+  - {path: flights/ledger.py, kind: program, run: 'python3 -c ''from flights.ledger import seat_report as f; from flights.errors import NoSeats as E; rows=[r.split(",") for r in open("bookings.txt").read().split()]; rows=[(a,int(b)) for a,b in rows]; assert f(rows,3)==[("BA2",10),("LH3",10),("TK1",10)], f(rows,3); assert f(rows,2)==[("BA2",10),("LH3",10)]; assert f(rows,0)==[]; ok=False; exec("try:\n    f(rows,-1)\nexcept E:\n    ok=True"); assert ok; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from flights.ledger import seat_report as f; from flights.errors import NoSeats as E; rows=[r.split(",") for r in open("bookings.txt").read().split()]; rows=[(a,int(b)) for a,b in rows]; assert f(rows,3)==[("BA2",10),("LH3",10),("TK1",10)], f(rows,3); assert f(rows,2)==[("BA2",10),("LH3",10)]; assert f(rows,0)==[]; ok=False; exec("try:\n    f(rows,-1)\nexcept E:\n    ok=True"); assert ok; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5130
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: ucus-rezervasyonlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-kararsizligi
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: parcali-akis
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

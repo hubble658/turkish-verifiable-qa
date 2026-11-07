@@ -1,0 +1,74 @@
+id: gen-s-3173-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi/kalemler.log'daki her satırın ikinci alanındaki kalem adına göre, her kalemin kaç satırda geçtiğini yalnızca sayı olarak içeren dosyaları cikti/ dizini altında kalem adıyla oluştur; cikti dizininde cikti/KIRA, cikti/SATIS, cikti/MAAS ve cikti/TOPLAM dosyaları olsun.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/kalemler.log <<'LOG'
+  2024-03-01|KIRA|4500|gider
+  2024-03-01|SATIS|12000|gelir
+  2024-03-02|KIRA|4500|gider
+  2024-03-02|SATIS|8000|gelir
+  2024-03-03|MAAS|6000|gider
+  2024-03-03|SATIS|15000|gelir
+  2024-03-04|MAAS|6000|gider
+  2024-03-04|KIRA|4500|gider
+  2024-03-05|SATIS|9500|gelir
+  LOG
+
+goal_tr: >
+  girdi/kalemler.log dosyasindaki her satirin ikinci alanindaki kalem adini
+  kullanarak, her kalem icin o kalemin kac satirda gectigini yalnizca sayi
+  olarak iceren ve adi kalem adiyla ayni olan bir dosyayi cikti/ dizini
+  altinda olustur
+
+reference_solution: |
+  mkdir -p cikti
+  cut -d'|' -f2 girdi/kalemler.log | sort | uniq | while read k; do grep -c "|$k|" girdi/kalemler.log > cikti/$k; done
+  wc -l < girdi/kalemler.log > cikti/TOPLAM
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/KIRA, kind: file}
+  - {path: cikti/SATIS, kind: file}
+  - {path: cikti/MAAS, kind: file}
+  - {path: cikti/TOPLAM, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [KIRA, MAAS, SATIS, TOPLAM]}
+  - {op: file_content_eq, path: cikti/KIRA, value: '3'}
+  - {op: file_content_eq, path: cikti/MAAS, value: '2'}
+  - {op: file_content_eq, path: cikti/SATIS, value: '4'}
+  - {op: file_content_eq, path: cikti/TOPLAM, value: '9'}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3173
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: muhasebe-kalemleri
+    hedef: grupla-say
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: dolayli-hedef
+    uslup: terse
+    direnc: yok
+    bukulme: olcek
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

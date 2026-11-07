@@ -1,0 +1,65 @@
+id: gen-s-7243-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  siparisler dizinindeki her masa dosyasını satırlarına ayırıp ürün adına göre sırala ve her masa için iki sütunlu (urun, adet) sekme ayrimli masa01.tsv, masa02.tsv ve masa03.tsv dosyalarını cikti dizininde üret.
+
+setup: |
+  mkdir -p siparisler
+  printf 'M001;Kirmizi Mercimek;2\r\n' > siparisler/masa01.txt
+  printf 'M002;Izgara Tavuk;1\r\nM002;Ayran;2\r\n' > siparisler/masa02.txt
+  printf 'M003;Lahmacun;3\r\nM003;Salata;1\r\nM003;Su;2\r\n' > siparisler/masa03.txt
+
+goal_tr: >
+  siparisler dizinindeki her masa dosyasini satirlara ayirip urun adina gore
+  sirala ve her masa icin masa<no>.tsv adli iki sutunlu (urun, adet) sekme
+  ayrimli dosyayi cikti dizininde uret
+
+reference_solution: |
+  mkdir -p cikti
+  for f in siparisler/*.txt; do
+    b=$(basename "$f" .txt)
+    tr -d '\r' < "$f" | cut -d';' -f2,3 | sort -t';' -k1,1 > "cikti/$b.tmp"
+    join -t';' -1 1 -2 1 "cikti/$b.tmp" "cikti/$b.tmp" | cut -d';' -f1,2 | sort -u > "cikti/$b.tsv"
+    rm -f "cikti/$b.tmp"
+  done
+
+outputs:
+  - {path: cikti/masa01.tsv, kind: file}
+  - {path: cikti/masa02.tsv, kind: file}
+  - {path: cikti/masa03.tsv, kind: file}
+
+checks:
+  - {op: file_content_eq, path: cikti/masa01.tsv, value: Kirmizi Mercimek;2}
+  - {op: file_lines_eq, path: cikti/masa02.tsv, value: [Ayran;2, Izgara Tavuk;1]}
+  - {op: file_lines_eq, path: cikti/masa03.tsv, value: [Lahmacun;3, Salata;1, Su;2]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7243
+    bundle: birlestir
+    tools:
+    - join
+    - sort
+    konu: restoran-siparisleri
+    hedef: donustur
+    girdi: duz-metin
+    kaynak: dizin-agaci
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: crlf
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

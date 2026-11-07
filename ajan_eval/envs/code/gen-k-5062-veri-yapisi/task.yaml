@@ -1,0 +1,202 @@
+id: gen-k-5062-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sensor/graph.py dosyasındaki DisjointSet soyut protokolünü uygulayan UnionFind sınıfını gerçekleştir. UnionFind sınıfının add metodu yeni tekil bir eleman eklemeli; find metodu yol sıkıştırması yaparak küme temsilcisini döndürmeli; union metodu küçük kümeyi büyüğe bağlayıp boyutları güncellemeli; components metodu ise her kümenin elemanlarını artan sırada döndürmeli.
+
+setup: |
+  mkdir -p sensor
+  cat > sensor/stream.py <<'STREAM'
+  import sys
+
+
+  def read_series(stream):
+      """Yield (timestamp, value) pairs from a text stream of 'ts value' lines."""
+      for line in stream:
+          line = line.strip()
+          if not line:
+              continue
+          ts, val = line.split()
+          yield int(ts), float(val)
+  STREAM
+  cat > sensor/graph.py <<'GRAPH'
+  from abc import ABC, abstractmethod
+
+
+  class DisjointSet(ABC):
+      """Abstract protocol for a disjoint-set (union-find) data structure."""
+
+      @abstractmethod
+      def add(self, item):
+          """Register a new singleton item."""
+
+      @abstractmethod
+      def find(self, item):
+          """Return the representative of the set containing item."""
+
+      @abstractmethod
+      def union(self, a, b):
+          """Merge the sets containing a and b."""
+
+      @abstractmethod
+      def components(self):
+          """Return each component as a list of items in increasing order."""
+
+
+  class UnionFind(DisjointSet):
+      def __init__(self):
+          raise NotImplementedError
+
+      def add(self, item):
+          raise NotImplementedError
+
+      def find(self, item):
+          raise NotImplementedError
+
+      def union(self, a, b):
+          raise NotImplementedError
+
+      def components(self):
+          raise NotImplementedError
+  GRAPH
+  cat > sensor/pipeline.py <<'PIPE'
+  import sys
+
+  from sensor.graph import UnionFind
+  from sensor.stream import read_series
+
+
+  def cluster(stream, threshold):
+      uf = UnionFind()
+      prev = None
+      for ts, val in read_series(stream):
+          uf.add(ts)
+          if prev is not None:
+              pts, pval = prev
+              if abs(val - pval) <= threshold:
+                  uf.union(pts, ts)
+          prev = (ts, val)
+      return uf.components()
+
+
+  def main(argv):
+      threshold = float(argv[1]) if len(argv) > 1 else 1.0
+      groups = cluster(sys.stdin, threshold)
+      for group in groups:
+          print(" ".join(str(t) for t in group))
+      return 0
+
+
+  if __name__ == "__main__":
+      sys.exit(main(sys.argv))
+  PIPE
+
+goal_tr: >
+  sensor/graph.py icindeki DisjointSet soyut protokolunu uygulayan UnionFind
+  sinifini gerceklestir: add yeni tekil eleman eklesin, find yol
+  sikistirmasi yapip kume temsilcisini dondursun, union kucuk kumeyi buyuge
+  baglayip boyutlari guncellesin, components ise her kumenin elemanlarini
+  artan sirada dondursun.
+
+reference_solution: |
+  cat > sensor/graph.py <<'GRAPH'
+  from abc import ABC, abstractmethod
+
+
+  class DisjointSet(ABC):
+      """Abstract protocol for a disjoint-set (union-find) data structure."""
+
+      @abstractmethod
+      def add(self, item):
+          """Register a new singleton item."""
+
+      @abstractmethod
+      def find(self, item):
+          """Return the representative of the set containing item."""
+
+      @abstractmethod
+      def union(self, a, b):
+          """Merge the sets containing a and b."""
+
+      @abstractmethod
+      def components(self):
+          """Return each component as a list of items in increasing order."""
+
+
+  class UnionFind(DisjointSet):
+      def __init__(self):
+          self._parent = {}
+          self._size = {}
+
+      def add(self, item):
+          if item not in self._parent:
+              self._parent[item] = item
+              self._size[item] = 1
+
+      def find(self, item):
+          root = item
+          while self._parent[root] != root:
+              root = self._parent[root]
+          while self._parent[item] != root:
+              self._parent[item], item = root, self._parent[item]
+          return root
+
+      def union(self, a, b):
+          ra, rb = self.find(a), self.find(b)
+          if ra == rb:
+              return
+          if self._size[ra] < self._size[rb]:
+              ra, rb = rb, ra
+          self._parent[rb] = ra
+          self._size[ra] += self._size[rb]
+
+      def components(self):
+          groups = {}
+          for item in self._parent:
+              groups.setdefault(self.find(item), []).append(item)
+          return [sorted(members) for members in groups.values()]
+  GRAPH
+
+outputs:
+  - {path: sensor/graph.py, kind: program, run: 'python3 -c ''from sensor.graph import UnionFind as U, DisjointSet as D; assert issubclass(U,D); u=U(); [u.add(i) for i in range(6)]; u.union(0,1); u.union(2,3); u.union(1,3); u.union(4,5); c=u.components(); assert sorted(c)==[[0,1,2,3],[4,5]], c; assert u.find(3)==u.find(0); assert u.find(5)!=u.find(0); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensor.graph import UnionFind as U, DisjointSet as D; assert issubclass(U,D); u=U(); [u.add(i) for i in range(6)]; u.union(0,1); u.union(2,3); u.union(1,3); u.union(4,5); c=u.components(); assert sorted(c)==[[0,1,2,3],[4,5]], c; assert u.find(3)==u.find(0); assert u.find(5)!=u.find(0); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5062
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: sensor-serisi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: birlesim-bulma
+      karmasiklik: duz
+      kalip: abc-protokol
+      akis: stdin-boru
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

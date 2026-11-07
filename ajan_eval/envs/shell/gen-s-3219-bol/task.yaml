@@ -1,0 +1,67 @@
+id: gen-s-3219-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) randevular.txt dosyasındaki her kaydı sabit genişlikli olarak ele al; ilk 4 karakteri hasta no, 5. karakteri bölük kodu ve kalan 16 karakteri randevu zamanı olarak ayır.
+
+  2) Bölük kodu A olan kayıtları seç.
+
+  3) Seçilen kayıtları, hasta no ve zaman alanlarından oluşan geçerli bir JSON dizisi olarak bolA.json dosyasına yaz.
+
+setup: |
+  cat > randevular.txt <<'DATA'
+  1001A2024-03-01 09:30
+  1002B2024-03-01 10:15
+  1003A2024-03-02 11:00
+  1004C2024-03-02 13:45
+  1005B2024-03-03 08:20
+  1006A2024-03-03 14:10
+  DATA
+
+goal_tr: >
+  randevular.txt dosyasindaki sabit genislikli kayitlardan ilk 4 karakteri
+  hasta no, 5. karakteri boluk kodu ve kalan 16 karakteri randevu zamani
+  olarak ayirip, boluk kodu A olan kayitlari bolA.json dosyasina hasta no ve
+  zaman alanlarindan olusan gecerli bir JSON dizisi olarak yaz
+
+reference_solution: |
+  cut -c1-4 randevular.txt | tee hasta_no.txt > /dev/null
+  cut -c5 randevular.txt | tee boluk.txt > /dev/null
+  cut -c6-21 randevular.txt | tee zaman.txt > /dev/null
+  paste -d'|' hasta_no.txt boluk.txt zaman.txt | awk -F'|' '$2=="A"{printf "%s{\"hasta_no\":\"%s\",\"zaman\":\"%s\"}", sep, $1, $3; sep=","} END{print ""}' | sed 's/^/[/; s/$/]/' > bolA.json
+
+outputs:
+  - {path: bolA.json, kind: json}
+
+checks:
+  - {op: json_eq, path: bolA.json, value: [{hasta_no: '1001', zaman: '2024-03-01 09:30'}, {hasta_no: '1003', zaman: '2024-03-02 11:00'}, {hasta_no: '1006', zaman: '2024-03-03 14:10'}]}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3219
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: hastane-randevulari
+    hedef: bol
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: json
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

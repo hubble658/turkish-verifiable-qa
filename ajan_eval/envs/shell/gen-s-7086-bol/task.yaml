@@ -1,0 +1,65 @@
+id: gen-s-7086-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kutuphane.tar.gz arşivinin içindeki kayitlar.txt dosyasında HATA geçen satır sayısını bul ve bu sayıyı hata_sayisi.txt dosyasına sadece sayı olarak yaz. hata_sayisi.txt içinde sadece sayı olsun, başka bir şey olmasın.
+
+setup: |
+  mkdir -p arsiv
+  cat > arsiv/kayitlar.txt <<'KAYIT'
+  BILGI kitap odunc verildi
+  HATA uye numarasi gecersiz
+  BILGI iade tarihi uzatildi
+  HATA raf kodu bulunamadi
+  BILGI yeni uye kaydi acildi
+  HATA odunc limiti asildi
+  KAYIT
+  cat > arsiv/notlar.txt <<'NOT'
+  BILGI bu dosya tuzaktir
+  HATA bu satir sayilmamali
+  NOT
+  tar -czf kutuphane.tar.gz arsiv
+
+goal_tr: >
+  kutuphane.tar.gz arsivindeki kayitlar.txt dosyasinda HATA gecen satir
+  sayisini hata_sayisi.txt dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  gzip -dc kutuphane.tar.gz | tar -xf - -C .
+  grep -c 'HATA' arsiv/kayitlar.txt > hata_sayisi.txt
+
+outputs:
+  - {path: hata_sayisi.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: hata_sayisi.txt, value: '3'}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7086
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: kutuphane-kayitlari
+    hedef: bol
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

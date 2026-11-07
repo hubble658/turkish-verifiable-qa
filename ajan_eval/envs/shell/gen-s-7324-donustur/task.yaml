@@ -1,0 +1,64 @@
+id: gen-s-7324-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  depo klasöründeki urunler.txt ve sayim.txt dosyalarını ürün kodu üzerinden çakıştır. Stok farkı sıfır olmayan ürünlerin kodunu, adını ve fark miktarını "kod ad fark" biçiminde her satırda bir ürün olacak şekilde fark.txt dosyasına yaz.
+
+setup: |
+  mkdir -p depo
+  cat > depo/urunler.txt <<'TXT'
+  P001|Kalem|Adet|12
+  P002|Defter|Adet|5
+  P003|Silgi|Adet|40
+  P004|Cetvel|Adet|7
+  TXT
+  cat > depo/sayim.txt <<'TXT'
+  P001|11
+  P002|5
+  P003|38
+  P005|9
+  TXT
+
+goal_tr: >
+  depo klasorundeki urunler.txt ve sayim.txt dosyalarini urun kodu uzerinden
+  cakistirip stok farki sifir olmayan urunlerin kodunu, adini ve fark
+  miktarini "kod ad fark" biciminde satir listesi olarak fark.txt dosyasina
+  yaz
+
+reference_solution: |
+  awk -F'|' 'NR==FNR{s[$1]=$2; next} {f=$4-s[$1]; if (f!="") print $1, $2, f}' depo/sayim.txt depo/urunler.txt > fark.txt
+
+outputs:
+  - {path: fark.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: fark.txt, value: [P001 Kalem 1, P002 Defter 0, P003 Silgi 2, P004 Cetvel 7]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7324
+    bundle: awk
+    tools:
+    - awk
+    konu: envanter
+    hedef: donustur
+    girdi: duz-metin
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

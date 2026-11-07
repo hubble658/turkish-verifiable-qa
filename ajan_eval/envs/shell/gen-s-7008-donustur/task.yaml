@@ -1,0 +1,62 @@
+id: gen-s-7008-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) erisim.tsv dosyasındaki sekmeleri virgüllere çevir.
+  2) Satırları büyük harfe dönüştür.
+  3) Sonucu erisim.csv dosyasına yaz.
+
+setup: |
+  cat > erisim.tsv <<'TSV'
+  tarih	seviye	mesaj
+  2024-01-01	BILGI	sistem basladi
+  2024-01-02	HATA	disk dolu
+  2024-01-03	UYARI	bellek az
+  2024-01-04	HATA	baglanti koptu
+  TSV
+
+goal_tr: >
+  erisim.tsv dosyasindaki sekmeleri virgule cevirip, satirlari buyuk harfe
+  donusturerek erisim.csv dosyasina yaz.
+
+reference_solution: |
+  tr '\t' ',' < erisim.tsv > erisim.csv
+  tr 'a-z' 'A-Z' < erisim.csv > erisim.tmp
+  mv erisim.tmp erisim.csv
+  sed -i 's/^/"/; s/$/"/' erisim.csv
+
+outputs:
+  - {path: erisim.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: erisim.csv, value: ['"TARIH,SEVIYE,MESAJ"', '"2024-01-01,BILGI,SISTEM BASLADI"', '"2024-01-02,HATA,DISK DOLU"', '"2024-01-03,UYARI,BELLEK AZ"', '"2024-01-04,HATA,BAGLANTI KOPTU"']}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7008
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: sunucu-loglari
+    hedef: donustur
+    girdi: tsv
+    kaynak: tek-dosya
+    cikti: csv
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

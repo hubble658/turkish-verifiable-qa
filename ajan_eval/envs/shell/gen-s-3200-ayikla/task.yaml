@@ -1,0 +1,83 @@
+id: gen-s-3200-ayikla
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Sabah toplantısında iki ayrı ekibin tuttuğu sensör kayıtlarını tek bir yerde görmek istediğimiz konuşuldu; sıcaklık ve nem ölçümleri ayrı ayrı dosyalarda biriktiği için hangi sensörün iki tarafta da kaydı olduğunu elle bulmak epey zaman alıyor. Bugün de bu dağınıklığı toparlamaya ayırdım, çalışma dizini /workspace.
+
+  girdi/sicaklik.txt ve girdi/nem.txt dosyalarındaki sensör kodlarını karşılaştır; her iki dosyada da bulunan sensörlerin sıcaklık ve nem değerlerini "SICAKLIK NEM" biçiminde cikti/ortak.txt dosyasına yaz. Yalnızca sıcaklık dosyasında bulunan sensörleri cikti/sadece-sicaklik.txt dosyasına, yalnızca nem dosyasında bulunan sensörleri de cikti/sadece-nem.txt dosyasına yaz.
+
+setup: |
+  mkdir -p girdi cikti
+  cat > girdi/sicaklik.txt <<'EOF'
+  S01 21
+  S02 19
+  S03 24
+  S04 18
+  S05 27
+  S06 20
+  EOF
+  cat > girdi/nem.txt <<'EOF'
+  S01 45
+  S02 60
+  S03 55
+  S04 70
+  S05 40
+  S06 65
+  EOF
+
+goal_tr: >
+  girdi/sicaklik.txt ve girdi/nem.txt dosyalarindaki sensor kodlarini
+  karsilastirip her iki dosyada da bulunan sensorlerin sicaklik ve nem
+  degerlerini cikti/ortak.txt dosyasina "SICAKLIK NEM" biciminde yaz,
+  yalnizca sicaklik dosyasinda olanlari cikti/sadece-sicaklik.txt dosyasina,
+  yalnizca nem dosyasinda olanlari cikti/sadece-nem.txt dosyasina yaz.
+
+reference_solution: |
+  cut -d' ' -f1 girdi/sicaklik.txt | sort > /tmp/sicaklik-kod.txt
+  cut -d' ' -f1 girdi/nem.txt | sort > /tmp/nem-kod.txt
+  comm -12 /tmp/sicaklik-kod.txt /tmp/nem-kod.txt > /tmp/ortak-kod.txt
+  comm -23 /tmp/sicaklik-kod.txt /tmp/nem-kod.txt > /tmp/sadece-sicaklik-kod.txt
+  comm -13 /tmp/sicaklik-kod.txt /tmp/nem-kod.txt > /tmp/sadece-nem-kod.txt
+  join /tmp/ortak-kod.txt girdi/sicaklik.txt | join - girdi/nem.txt > cikti/ortak.txt
+  join /tmp/sadece-sicaklik-kod.txt girdi/sicaklik.txt > cikti/sadece-sicaklik.txt
+  join /tmp/sadece-nem-kod.txt girdi/nem.txt > cikti/sadece-nem.txt
+
+outputs:
+  - {path: cikti/ortak.txt, kind: file}
+  - {path: cikti/sadece-sicaklik.txt, kind: file}
+  - {path: cikti/sadece-nem.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: cikti/ortak.txt, value: [S01 21 45, S02 19 60, S03 24 55, S04 18 70, S05 27 40, S06 20 65]}
+  - {op: is_file, path: cikti/sadece-nem.txt}
+  - {op: is_file, path: cikti/sadece-sicaklik.txt}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3200
+    bundle: kume-farki
+    tools:
+    - comm
+    - sort
+    konu: sensor-olcumleri
+    hedef: ayikla
+    girdi: sabit-genislik
+    kaynak: iki-dosya-capraz
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: yok
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

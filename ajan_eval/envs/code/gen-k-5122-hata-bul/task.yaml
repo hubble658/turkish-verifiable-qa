@@ -1,0 +1,117 @@
+id: gen-k-5122-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sessions/core/store.py içindeki SessionStore sınıfını, her oturumun etiket listesi birbirinden bağımsız olacak şekilde düzelt. open_session ile açılan oturumlardan birine eklenen etiketler yalnızca o oturumu etkilemeli; diğer oturumların etiketlerini ve varsayılan etiketleri değiştirmemeli.
+
+setup: |
+  mkdir -p sessions/core
+  cat > sessions/core/__init__.py <<'INIT'
+  INIT
+  cat > sessions/core/store.py <<'STORE'
+  class SessionStore:
+      def __init__(self, default_tags=[]):
+          self._sessions = {}
+          self._default_tags = default_tags
+
+      def open_session(self, user, tags=None):
+          entry = {"user": user, "events": [], "tags": self._default_tags}
+          if tags:
+              entry["tags"].extend(tags)
+          self._sessions[user] = entry
+          return entry
+
+      def record(self, user, event):
+          self._sessions[user]["events"].append(event)
+
+      def tags_of(self, user):
+          return self._sessions[user]["tags"]
+
+      def event_count(self, user):
+          return len(self._sessions[user]["events"])
+  STORE
+  cat > sessions/__init__.py <<'INIT'
+  from sessions.core.store import SessionStore
+  INIT
+  cat > feed.txt <<'FEED'
+  alice login
+  alice click
+  bob login
+  alice logout
+  bob click
+  bob click
+  FEED
+
+goal_tr: >
+  sessions/core/store.py icindeki SessionStore sinifini, her oturumun etiket
+  listesi bagimsiz olacak bicimde duzelt; open_session ile acilan
+  oturumlardan birine eklenen etiket digerlerini ve varsayilanlari
+  etkilememeli
+
+reference_solution: |
+  cat > sessions/core/store.py <<'STORE'
+  class SessionStore:
+      def __init__(self, default_tags=None):
+          self._sessions = {}
+          self._default_tags = list(default_tags) if default_tags else []
+
+      def open_session(self, user, tags=None):
+          entry = {"user": user, "events": [], "tags": list(self._default_tags)}
+          if tags:
+              entry["tags"].extend(tags)
+          self._sessions[user] = entry
+          return entry
+
+      def record(self, user, event):
+          self._sessions[user]["events"].append(event)
+
+      def tags_of(self, user):
+          return self._sessions[user]["tags"]
+
+      def event_count(self, user):
+          return len(self._sessions[user]["events"])
+  STORE
+
+outputs:
+  - {path: sessions/core/store.py, kind: program, run: 'python3 -c ''from sessions.core.store import SessionStore as S; s=S(["base"]); s.open_session("alice",["vip"]); s.open_session("bob"); assert s.tags_of("bob")==["base"], s.tags_of("bob"); assert s.tags_of("alice")==["base","vip"], s.tags_of("alice"); s.record("bob","login"); s.record("bob","click"); assert s.event_count("bob")==2; s2=S(); s2.open_session("carol"); s2.open_session("dave"); assert s2.tags_of("carol")==[], s2.tags_of("carol"); assert s2.tags_of("dave")==[]; s3=S(["x"]); s3.open_session("e"); s3.open_session("f",["y"]); assert s3.tags_of("e")==["x"], s3.tags_of("e"); assert s3.tags_of("f")==["x","y"], s3.tags_of("f"); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sessions.core.store import SessionStore as S; s=S(["base"]); s.open_session("alice",["vip"]); s.open_session("bob"); assert s.tags_of("bob")==["base"], s.tags_of("bob"); assert s.tags_of("alice")==["base","vip"], s.tags_of("alice"); s.record("bob","login"); s.record("bob","click"); assert s.event_count("bob")==2; s2=S(); s2.open_session("carol"); s2.open_session("dave"); assert s2.tags_of("carol")==[], s2.tags_of("carol"); assert s2.tags_of("dave")==[]; s3=S(["x"]); s3.open_session("e"); s3.open_session("f",["y"]); assert s3.tags_of("e")==["x"], s3.tags_of("e"); assert s3.tags_of("f")==["x","y"], s3.tags_of("f"); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5122
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kullanici-oturumlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: mutable-varsayilan
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: parcali-akis
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

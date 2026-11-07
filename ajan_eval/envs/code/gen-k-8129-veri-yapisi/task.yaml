@@ -1,0 +1,171 @@
+id: gen-k-8129-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  restaurant/queue.py ve restaurant/kitchen.py dosyalarındaki sınıfları gerçek kuyruk davranışıyla doldur.
+
+  restaurant/queue.py içindeki OrderQueue sınıfında enqueue, dequeue, peek, size ve is_empty metotları bulunuyor. Bu metotlar şu an NotImplementedError fırlatıyor; hepsini gerçek bir kuyruk (FIFO) davranışıyla çalışacak şekilde doldur.
+
+  restaurant/kitchen.py içindeki Kitchen sınıfında place, next_order ve pending metotları bulunuyor. Bu metotlar da şu an NotImplementedError fırlatıyor; hepsini doldur. Kitchen sınıfı, bekleyen siparişleri tutmak için OrderQueue sınıfını kullanmalı.
+
+  Şu şartlar sağlanmalı:
+  - restaurant/queue.py içindeki OrderQueue sınıfında enqueue, dequeue, peek, size ve is_empty metotlarının hepsi doldurulmuş olmalı; hiçbiri NotImplementedError fırlatmamalı.
+  - OrderQueue gerçek FIFO davranışı göstermeli: enqueue ile eklenen siparişler, dequeue ile eklenme sırasıyla çıkarılmalı.
+  - peek, kuyruktan eleman çıkarmadan sıradaki siparişi döndürmeli.
+  - size, kuyruktaki eleman sayısını döndürmeli; is_empty kuyruk boşken True döndürmeli.
+  - restaurant/kitchen.py içindeki Kitchen sınıfında place, next_order ve pending metotlarının hepsi doldurulmuş olmalı; hiçbiri NotImplementedError fırlatmamalı.
+  - Kitchen, bekleyen siparişleri sıralamak için OrderQueue sınıfını kullanmalı.
+  - place ile verilen sipariş kuyruğa eklenmeli; next_order kuyruktan sıradaki siparişi çıkarıp döndürmeli; pending bekleyen siparişleri döndürmeli.
+  - restaurant/orders.py içindeki Order sınıfı değiştirilmemeli.
+
+setup: |
+  mkdir -p restaurant
+  cat > restaurant/orders.py <<'ORDERS'
+  class Order:
+      def __init__(self, order_id, table, item):
+          self.order_id = order_id
+          self.table = table
+          self.item = item
+  ORDERS
+  cat > restaurant/queue.py <<'QUEUE'
+  from restaurant.orders import Order
+
+
+  class OrderQueue:
+      def __init__(self):
+          self._items = []
+
+      def enqueue(self, order):
+          raise NotImplementedError
+
+      def dequeue(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def size(self):
+          raise NotImplementedError
+
+      def is_empty(self):
+          raise NotImplementedError
+  QUEUE
+  cat > restaurant/kitchen.py <<'KITCHEN'
+  from restaurant.queue import OrderQueue
+  from restaurant.orders import Order
+
+
+  class Kitchen:
+      def __init__(self):
+          self.queue = OrderQueue()
+
+      def place(self, order_id, table, item):
+          raise NotImplementedError
+
+      def next_order(self):
+          raise NotImplementedError
+
+      def pending(self):
+          raise NotImplementedError
+  KITCHEN
+  cat > restaurant/__init__.py <<'INIT'
+  INIT
+
+goal_tr: >
+  restaurant/queue.py icindeki OrderQueue sinifini (enqueue, dequeue, peek,
+  size, is_empty) ve restaurant/kitchen.py icindeki Kitchen sinifini (place,
+  next_order, pending) gercek kuyruk davranisiyla (FIFO) doldur; Kitchen
+  sirasi icin OrderQueue kullanmali.
+
+reference_solution: |
+  cat > restaurant/queue.py <<'QUEUE'
+  from restaurant.orders import Order
+
+
+  class OrderQueue:
+      def __init__(self):
+          self._items = []
+
+      def enqueue(self, order):
+          self._items.append(order)
+
+      def dequeue(self):
+          if not self._items:
+              raise IndexError("dequeue from empty queue")
+          return self._items.pop(0)
+
+      def peek(self):
+          if not self._items:
+              raise IndexError("peek from empty queue")
+          return self._items[0]
+
+      def size(self):
+          return len(self._items)
+
+      def is_empty(self):
+          return len(self._items) == 0
+  QUEUE
+  cat > restaurant/kitchen.py <<'KITCHEN'
+  from restaurant.queue import OrderQueue
+  from restaurant.orders import Order
+
+
+  class Kitchen:
+      def __init__(self):
+          self.queue = OrderQueue()
+
+      def place(self, order_id, table, item):
+          self.queue.enqueue(Order(order_id, table, item))
+
+      def next_order(self):
+          return self.queue.dequeue()
+
+      def pending(self):
+          return self.queue.size()
+  KITCHEN
+
+outputs:
+  - {path: restaurant/queue.py, kind: program, run: 'python3 -c ''from restaurant.queue import OrderQueue; from restaurant.orders import Order; q=OrderQueue(); assert q.is_empty() and q.size()==0; q.enqueue(Order(1,2,"soup")); q.enqueue(Order(2,5,"salad")); assert q.size()==2 and not q.is_empty(); assert q.peek().order_id==1; assert q.dequeue().order_id==1; assert q.dequeue().order_id==2; assert q.is_empty(); print("TAMAM")'''}
+  - {path: restaurant/kitchen.py, kind: program, run: 'python3 -c ''from restaurant.kitchen import Kitchen; k=Kitchen(); assert k.pending()==0; k.place(10,1,"pasta"); k.place(11,3,"pizza"); assert k.pending()==2; o=k.next_order(); assert o.order_id==10 and o.table==1 and o.item=="pasta"; assert k.pending()==1; o2=k.next_order(); assert o2.order_id==11; assert k.pending()==0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from restaurant.kitchen import Kitchen; k=Kitchen(); assert k.pending()==0; k.place(10,1,"pasta"); k.place(11,3,"pizza"); assert k.pending()==2; o=k.next_order(); assert o.order_id==10 and o.table==1 and o.item=="pasta"; assert k.pending()==1; o2=k.next_order(); assert o2.order_id==11; assert k.pending()==0; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from restaurant.queue import OrderQueue; from restaurant.orders import Order; q=OrderQueue(); assert q.is_empty() and q.size()==0; q.enqueue(Order(1,2,"soup")); q.enqueue(Order(2,5,"salad")); assert q.size()==2 and not q.is_empty(); assert q.peek().order_id==1; assert q.dequeue().order_id==1; assert q.dequeue().order_id==2; assert q.is_empty(); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8129
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: restoran-siparisleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kolay
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kuyruk
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: stdin-boru
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,70 @@
+id: gen-s-4106-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri/kargolar.json'daki kayıtları şehre göre gruplayıp her şehir için toplam kayıt ve teslim sayısını "sehir<TAB>toplam<TAB>teslim" biçiminde alfabetik sıralı olarak sehir_dokumu.txt'ye yaz. Sonra bu dosyayı tar ile arşivleyip gzip ile veri/sehir_dokumu.tar.gz olarak sıkıştır.
+
+setup: |
+  mkdir -p veri
+  cat > veri/kargolar.json <<'JSON'
+  {"kayitlar":[
+  {"takip":"TR1001","sehir":"Ankara","durum":"yolda"},
+  {"takip":"TR1002","sehir":"Izmir","durum":"teslim"},
+  {"takip":"TR1003","sehir":"Ankara","durum":"yolda"},
+  {"takip":"TR1004","sehir":"Bursa","durum":"teslim"},
+  {"takip":"TR1005","sehir":"Ankara","durum":"iade"},
+  {"takip":"TR1006","sehir":"Izmir","durum":"yolda"},
+  {"takip":"TR1007","sehir":"Bursa","durum":"teslim"},
+  {"takip":"TR1008","sehir":"Ankara","durum":"teslim"}
+  ]}
+  JSON
+
+goal_tr: >
+  veri/kargolar.json dosyasindaki kayitlari sehre gore gruplayip her sehir
+  icin kayit sayisini ve teslim durumundaki kayit sayisini
+  "sehir<TAB>toplam<TAB>teslim" biciminde sehre gore alfabetik sirali olarak
+  sehir_dokumu.txt dosyasina yaz; bu dosyayi tar ile arsivleyip gzip ile
+  veri/sehir_dokumu.tar.gz olarak sikistir.
+
+reference_solution: |
+  sed 's/[{}]//g; s/,"durum"/\n&/g' veri/kargolar.json | tr ',' '\n' | sed 's/.*"sehir":"\([^"]*\)".*/\1/; s/.*"durum":"\([^"]*\)".*/\1/' | grep -E '^(Ankara|Izmir|Bursa|Istanbul|Adana|Konya)$|^(yolda|teslim|iade)$' > /tmp/ak
+  paste - - < /tmp/ak | awk '{t[$1]++; if($2=="teslim") d[$1]++} END{for(s in t) printf "%s\t%d\t%d\n", s, t[s], d[s]+0}' | sort > sehir_dokumu.txt
+  tar cf - sehir_dokumu.txt | gzip > veri/sehir_dokumu.tar.gz
+
+outputs:
+  - {path: sehir_dokumu.txt, kind: lines}
+  - {path: veri/sehir_dokumu.tar.gz, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: sehir_dokumu.txt, value: ["Ankara\t4\t1", "Bursa\t2\t2", "Izmir\t2\t1"]}
+  - {op: run_stdout_eq, cmd: tar -tzf veri/sehir_dokumu.tar.gz | sort, value: sehir_dokumu.txt}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4106
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: kargo-takibi
+    hedef: bol
+    girdi: json
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: olcek
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

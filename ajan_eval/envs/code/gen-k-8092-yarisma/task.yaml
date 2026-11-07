@@ -1,0 +1,155 @@
+id: gen-k-8092-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  pricing/catalog.py dosyasındaki PriceSet sınıfına üç operatör metodu ekle: iki PriceSet'in birleşimini döndüren __or__, kesişimini döndüren __and__ ve farkını döndüren __sub__. Böylece pricing/filter.py ve pricing/report.py dosyalarındaki union, intersection ve difference çağrıları yerine bu operatörler kullanılabilsin.
+
+  Şu şartlar sağlanmalı:
+  - pricing/catalog.py dosyasındaki PriceSet sınıfında __or__, __and__ ve __sub__ metotları tanımlı olmalı.
+  - __or__ birleşimi, __and__ kesişimi, __sub__ farkı döndürmeli ve sonuç yine bir PriceSet olmalı.
+  - Mevcut union, intersection ve difference metotları korunmalı.
+  - pricing/filter.py ve pricing/report.py dosyaları bu operatörlerle çalışabilecek şekilde kullanılabilmeli.
+
+setup: |
+  mkdir -p pricing
+  cat > pricing/catalog.py <<'CATALOG'
+  class PriceSet:
+      def __init__(self, prices):
+          self.prices = set(prices)
+
+      def __repr__(self):
+          return "PriceSet(%r)" % (sorted(self.prices),)
+
+      def union(self, other):
+          return PriceSet(self.prices | other.prices)
+
+      def intersection(self, other):
+          return PriceSet(self.prices & other.prices)
+
+      def difference(self, other):
+          return PriceSet(self.prices - other.prices)
+  CATALOG
+  cat > pricing/filter.py <<'FILTER'
+  from pricing.catalog import PriceSet
+
+
+  def load_prices(path):
+      with open(path) as fh:
+          return [float(x) for x in fh.read().split()]
+
+
+  def common_prices(path_a, path_b):
+      a = PriceSet(load_prices(path_a))
+      b = PriceSet(load_prices(path_b))
+      return a.intersection(b)
+  FILTER
+  cat > pricing/report.py <<'REPORT'
+  from pricing.catalog import PriceSet
+  from pricing.filter import load_prices
+
+
+  def unique_to_a(path_a, path_b):
+      a = PriceSet(load_prices(path_a))
+      b = PriceSet(load_prices(path_b))
+      return a.difference(b)
+  REPORT
+  cat > prices_a.txt <<'A'
+  10.0 20.0 30.0 40.0
+  A
+  cat > prices_b.txt <<'B'
+  20.0 30.0 50.0
+  B
+
+goal_tr: >
+  pricing/catalog.py icindeki PriceSet sinifina, iki PriceSet'in birlesimini
+  donduren __or__, kesisimini donduren __and__ ve farkini donduren __sub__
+  operator metodlarini ekle; boylece pricing/filter.py ve pricing/report.py
+  icindeki union/intersection/difference cagrilari yerine operatorler
+  kullanilabilsin.
+
+reference_solution: |
+  cat > pricing/catalog.py <<'CATALOG'
+  class PriceSet:
+      def __init__(self, prices):
+          self.prices = set(prices)
+
+      def __repr__(self):
+          return "PriceSet(%r)" % (sorted(self.prices),)
+
+      def __or__(self, other):
+          return PriceSet(self.prices | other.prices)
+
+      def __and__(self, other):
+          return PriceSet(self.prices & other.prices)
+
+      def __sub__(self, other):
+          return PriceSet(self.prices - other.prices)
+  CATALOG
+  cat > pricing/filter.py <<'FILTER'
+  from pricing.catalog import PriceSet
+
+
+  def load_prices(path):
+      with open(path) as fh:
+          return [float(x) for x in fh.read().split()]
+
+
+  def common_prices(path_a, path_b):
+      a = PriceSet(load_prices(path_a))
+      b = PriceSet(load_prices(path_b))
+      return a & b
+  FILTER
+  cat > pricing/report.py <<'REPORT'
+  from pricing.catalog import PriceSet
+  from pricing.filter import load_prices
+
+
+  def unique_to_a(path_a, path_b):
+      a = PriceSet(load_prices(path_a))
+      b = PriceSet(load_prices(path_b))
+      return a - b
+  REPORT
+
+outputs:
+  - {path: pricing/catalog.py, kind: program, run: 'python3 -c ''from pricing.catalog import PriceSet; from pricing.filter import common_prices; from pricing.report import unique_to_a; A=PriceSet([10.0,20.0,30.0,40.0]); B=PriceSet([20.0,30.0,50.0]); u=A|B; i=A&B; d=A-B; assert u.prices=={10.0,20.0,30.0,40.0,50.0}, u.prices; assert i.prices=={20.0,30.0}, i.prices; assert d.prices=={10.0,40.0}, d.prices; c=common_prices("prices_a.txt","prices_b.txt"); assert c.prices=={20.0,30.0}, c.prices; e=unique_to_a("prices_a.txt","prices_b.txt"); assert e.prices=={10.0,40.0}, e.prices; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from pricing.catalog import PriceSet; from pricing.filter import common_prices; from pricing.report import unique_to_a; A=PriceSet([10.0,20.0,30.0,40.0]); B=PriceSet([20.0,30.0,50.0]); u=A|B; i=A&B; d=A-B; assert u.prices=={10.0,20.0,30.0,40.0,50.0}, u.prices; assert i.prices=={20.0,30.0}, i.prices; assert d.prices=={10.0,40.0}, d.prices; c=common_prices("prices_a.txt","prices_b.txt"); assert c.prices=={20.0,30.0}, c.prices; e=unique_to_a("prices_a.txt","prices_b.txt"); assert e.prices=={10.0,40.0}, e.prices; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8092
+    bundle: yarisma
+    tools:
+    - python3
+    konu: urun-fiyatlari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kume-islemleri
+      karmasiklik: duz
+      kalip: operator-asiri-yukleme
+      akis: dosya-okuma
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

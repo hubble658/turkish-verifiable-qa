@@ -1,0 +1,103 @@
+id: gen-s-4004-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Kütüphanedeki kitapları düzenli tutmak için bir süredir uğraşıyorum, ama artık yazarlara göre ayrı ayrı liste çıkarmak elle yapılacak iş değil. Bugün girdi klasöründeki girdi/kitaplar.ini dosyasına baktım; oradaki [K-...] bölümlerini yazar alanına göre gruplayıp her yazar için başlık ve yıl satırlarını, aynı satır tekrar ediyorsa yalnızca bir kez yazacak şekilde ayrı rapor dosyalarına dökmek istiyorum. Bu raporlar girdi klasöründe, yazar adından türetilmiş adlarla yer alsın; yani girdi/Jean Baudrillard.txt, girdi/Jean Piaget.txt ve girdi/Jean-Luc Nancy.txt dosyaları oluşsun. Ayrıca işlenen toplam kayıt sayısını girdi/toplam.txt dosyasına yaz, ama bu dosyada sadece sayı olsun, başka hiçbir şey bulunmasın. Son olarak şunu unutma: girdi klasöründe .ini uzantısıyla bitmeyen dosyalar işleme alınmasın, onlar tamamen görmezden gelinsin.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/kitaplar.ini <<'INI'
+  [K-101]
+  baslik=Simulacra ve Simulasyon
+  yazar=Jean Baudrillard
+  yil=1981
+  durum=rafta
+
+  [K-102]
+  baslik=Yapisalciligin Seruveni
+  yazar=Jean Piaget
+  yil=1968
+  durum=oduncte
+
+  [K-103]
+  baslik=Simulakra Notlari
+  yazar=Jean Baudrillard
+  yil=1981
+  durum=rafta
+
+  [K-104]
+  baslik=Yapisalciligin Seruveni
+  yazar=Jean Piaget
+  yil=1968
+  durum=oduncte
+
+  [K-105]
+  baslik=Gozun Isigi
+  yazar=Jean-Luc Nancy
+  yil=2003
+  durum=rafta
+  INI
+
+  cat > girdi/kitaplar.ini.tuzak <<'INI'
+  [K-999]
+  baslik=Bu Dosya Sayilmamali
+  yazar=Jean Hic Kimse
+  yil=1900
+  durum=kayip
+  INI
+
+goal_tr: >
+  girdi/kitaplar.ini dosyasindaki [K-...] bolumlerini yazar alanina gore
+  gruplayip her yazar icin baslik+yil satirlarini tekrarlari bir kez yazarak
+  girdi klasorunde yazar adindan turetilmis ayri bir rapor dosyasina yaz ve
+  toplam kayit sayisini girdi/toplam.txt dosyasina sadece sayi olarak yaz;
+  .ini ile bitmeyen dosyalar isleme alinmaz.
+
+reference_solution: |
+  mkdir -p girdi
+  awk -F= '/^\[K-/{kayit++} /^yazar=/{y=$2} /^baslik=/{b=$2} /^yil=/{print y "|" b " " $2}' girdi/kitaplar.ini | sort -u > /tmp/tekil.txt
+  awk -F'|' '{dosya="girdi/" $1 ".txt"; print $2 >> dosya}' /tmp/tekil.txt
+  find girdi -maxdepth 1 -type f -name '*.ini' | wc -l > /dev/null
+  grep -c '^\[K-' girdi/kitaplar.ini > girdi/toplam.txt
+
+outputs:
+  - {path: girdi/Jean Baudrillard.txt, kind: file}
+  - {path: girdi/Jean Piaget.txt, kind: file}
+  - {path: girdi/Jean-Luc Nancy.txt, kind: file}
+  - {path: girdi/toplam.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: girdi/Jean Baudrillard.txt, value: [Simulacra ve Simulasyon 1981, Simulakra Notlari 1981]}
+  - {op: file_content_eq, path: girdi/Jean Piaget.txt, value: Yapisalciligin Seruveni 1968}
+  - {op: file_content_eq, path: girdi/Jean-Luc Nancy.txt, value: Gozun Isigi 2003}
+  - {op: file_content_eq, path: girdi/toplam.txt, value: '5'}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4004
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: kutuphane-kayitlari
+    hedef: denetle
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: tekrar-eden-kayit
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

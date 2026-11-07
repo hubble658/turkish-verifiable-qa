@@ -1,0 +1,106 @@
+id: gen-k-5106-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  arena/board.py dosyasını oluştur. Bu dosyada ScoreBoard adında bir context manager sınıfı tanımla. Sınıfın __enter__ metodu, scores.txt dosyasını arena.parse_line modülündeki parse_line fonksiyonu ve arena.aggregate modülündeki total_score fonksiyonunu kullanarak ayrıştırsın ve her oyuncunun toplam skorunu tutan bir sözlük döndürsün. __exit__ metodu ise açılan dosyayı kapatsın. Ayrıca sınıfın, her oyuncunun adını ve toplam skorunu "ad:skor" biçiminde tek satırda, skora göre azalan sırada döndüren bir render metodu olsun.
+
+setup: |
+  mkdir -p arena
+  cat > arena/parse_line.py <<'PARSE'
+  def parse_line(line):
+      name, score, minutes = line.split('|')
+      return name.strip(), int(score), int(minutes)
+  PARSE
+  cat > arena/aggregate.py <<'AGG'
+  def total_score(rows):
+      totals = {}
+      for name, score, minutes in rows:
+          totals[name] = totals.get(name, 0) + score
+      return totals
+  AGG
+  cat > scores.txt <<'TXT'
+  ada|120|30
+  bo|80|45
+  ada|40|15
+  cy|200|60
+  bo|10|5
+  TXT
+
+goal_tr: >
+  arena/board.py dosyasini yaz: ScoreBoard adinda bir context manager sinifi
+  tanimla; __enter__ icinde scores.txt dosyasini arena.parse_line.parse_line
+  ve arena.aggregate.total_score kullanarak ayristirip toplam skorlari tutan
+  bir sozluk dondursun, __exit__ dosyayi kapatsin; ayrica her oyuncunun
+  adini ve toplam skorunu "ad:skor" biciminde tek satirda skora gore azalan
+  sirada donduren bir render metodu olsun.
+
+reference_solution: |
+  cat > arena/board.py <<'BOARD'
+  from arena.parse_line import parse_line
+  from arena.aggregate import total_score
+
+
+  class ScoreBoard:
+      def __init__(self, path):
+          self.path = path
+          self.handle = None
+
+      def __enter__(self):
+          self.handle = open(self.path)
+          rows = [parse_line(line) for line in self.handle if line.strip()]
+          self.totals = total_score(rows)
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          if self.handle is not None:
+              self.handle.close()
+          return False
+
+      def render(self):
+          items = sorted(self.totals.items(), key=lambda kv: (-kv[1], kv[0]))
+          return ";".join("%s:%d" % (name, score) for name, score in items)
+  BOARD
+
+outputs:
+  - {path: arena/board.py, kind: program, run: 'python3 -c ''from arena.board import ScoreBoard as S; b=S("scores.txt"); assert not hasattr(b,"totals"); b.__enter__(); assert b.totals=={"ada":160,"bo":90,"cy":200}, b.totals; assert b.render()=="cy:200;ada:160;bo:90", b.render(); b.__exit__(None,None,None); assert b.handle.closed; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from arena.board import ScoreBoard as S; b=S("scores.txt"); assert not hasattr(b,"totals"); b.__enter__(); assert b.totals=={"ada":160,"bo":90,"cy":200}, b.totals; assert b.render()=="cy:200;ada:160;bo:90", b.render(); b.__exit__(None,None,None); assert b.handle.closed; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5106
+    bundle: yarisma
+    tools:
+    - python3
+    konu: oyun-skor-tablosu
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: metin-ayristirma
+      karmasiklik: duz
+      kalip: context-manager
+      akis: cok-dosya-birlestirme
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

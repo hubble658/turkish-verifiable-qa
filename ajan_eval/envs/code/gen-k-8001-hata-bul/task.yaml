@@ -1,0 +1,152 @@
+id: gen-k-8001-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  weblog/pkg/aggregator.py dosyasındaki count_errors fonksiyonunu, 500 ile 599 arasındaki tüm sunucu hatalarını sayacak şekilde düzelt. 500 ve 599 da bu aralığa dahil olsun; yani 500 ve 599 ile bunların arasındaki tüm durum kodları hatası olarak sayılsın.
+
+setup: |
+  mkdir -p weblog/pkg/parsers
+  cat > weblog/pkg/parsers/line_reader.py <<'PY'
+  def read_lines(path):
+      with open(path, "r", encoding="utf-8") as fh:
+          raw = fh.read()
+      lines = []
+      for line in raw.split("\n"):
+          if line == "":
+              continue
+          lines.append(line)
+      return lines
+  PY
+  cat > weblog/pkg/parsers/access_parser.py <<'PY'
+  from weblog.pkg.parsers.line_reader import read_lines
+
+
+  def parse_records(path):
+      records = []
+      for line in read_lines(path):
+          parts = line.split(" ")
+          ip = parts[0]
+          status = int(parts[-1])
+          records.append((ip, status))
+      return records
+  PY
+  cat > weblog/pkg/aggregator.py <<'PY'
+  from weblog.pkg.parsers.access_parser import parse_records
+
+
+  def _cache(func):
+      store = {}
+
+      def wrapper(path):
+          if path not in store:
+              store[path] = func(path)
+          return store[path]
+
+      return wrapper
+
+
+  @_cache
+  def count_by_ip(path):
+      counts = {}
+      for ip, status in parse_records(path):
+          counts[ip] = counts.get(ip, 0) + 1
+      return counts
+
+
+  @_cache
+  def count_errors(path):
+      total = 0
+      for ip, status in parse_records(path):
+          if status == 500:
+              total += 1
+      return total
+  PY
+  cat > weblog/access.log <<'LOG'
+  10.0.0.1 GET /index 200
+  10.0.0.2 GET /index 404
+  10.0.0.1 GET /about 500
+  10.0.0.3 GET /index 200
+  10.0.0.1 GET /contact 503
+  LOG
+
+goal_tr: >
+  weblog/pkg/aggregator.py icindeki count_errors fonksiyonunu, 500 ile 599
+  arasindaki tum sunucu hatalarini (500 dahil, 599 dahil) sayacak bicimde
+  duzelt.
+
+reference_solution: |
+  cat > weblog/pkg/aggregator.py <<'PY'
+  from weblog.pkg.parsers.access_parser import parse_records
+
+
+  def _cache(func):
+      store = {}
+
+      def wrapper(path):
+          if path not in store:
+              store[path] = func(path)
+          return store[path]
+
+      return wrapper
+
+
+  @_cache
+  def count_by_ip(path):
+      counts = {}
+      for ip, status in parse_records(path):
+          counts[ip] = counts.get(ip, 0) + 1
+      return counts
+
+
+  @_cache
+  def count_errors(path):
+      total = 0
+      for ip, status in parse_records(path):
+          if 500 <= status <= 599:
+              total += 1
+      return total
+  PY
+
+outputs:
+  - {path: weblog/pkg/aggregator.py, kind: program, run: 'python3 -c ''from weblog.pkg.aggregator import count_errors as f, count_by_ip as g; assert f("weblog/access.log")==2, f("weblog/access.log"); assert g("weblog/access.log")=={"10.0.0.1":3,"10.0.0.2":1,"10.0.0.3":1}; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from weblog.pkg.aggregator import count_errors as f, count_by_ip as g; assert f("weblog/access.log")==2, f("weblog/access.log"); assert g("weblog/access.log")=={"10.0.0.1":3,"10.0.0.2":1,"10.0.0.3":1}; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8001
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: web-erisim-loglari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kenar-durum
+      karmasiklik: duz
+      kalip: dekorator
+      akis: dosya-okuma
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

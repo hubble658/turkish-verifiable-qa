@@ -1,0 +1,68 @@
+id: gen-s-3086-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  vardiya ve kayitlar klasörlerindeki tüm .txt dosyalarındaki satırları birleştir ve benzersiz satır sayısını sonuc.txt dosyasına sadece sayı olarak yaz.
+
+setup: |
+  mkdir -p vardiya kayitlar
+  cat > "vardiya/personel listesi.txt" <<'TXT'
+  ayse sabah
+  mehmet gece
+  ayse gece
+  zeynep sabah
+  mehmet sabah
+  TXT
+  cat > vardiya/ek-kayitlar.txt <<'TXT'
+  zeynep gece
+  ayse sabah
+  mehmet gece
+  TXT
+  cat > kayitlar/eski-vardiya.txt <<'TXT'
+  zeynep sabah
+  mehmet sabah
+  TXT
+
+goal_tr: >
+  vardiya ve kayitlar klasorlerindeki tum .txt dosyalarindaki satirlari
+  birlestirip benzersiz satir sayisini sonuc.txt dosyasina sadece sayi
+  olarak yaz
+
+reference_solution: |
+  cat vardiya/*.txt kayitlar/*.txt | sort | uniq | wc -l > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '6'}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3086
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: personel-vardiyalari
+    hedef: grupla-say
+    girdi: log-satiri
+    kaynak: cok-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: bosluklu-ad
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

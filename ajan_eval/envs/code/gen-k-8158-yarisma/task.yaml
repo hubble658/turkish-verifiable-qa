@@ -1,0 +1,153 @@
+id: gen-k-8158-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  weblog/report/session.py içindeki SessionTracker sınıfını, sample_log.json dosyasındaki olaylardan her IP için oturum özeti üretecek şekilde gerçekleştir. Özet her IP için ilk yol, son yol, toplam bayt, istek sayısı ve benzersiz etiketleri içermeli. Ayrıca weblog/report/aggregate.py içindeki build_report fonksiyonunu, olayları alıp bu oturum özetini döndürecek biçimde gerçekleştir.
+
+setup: |
+  mkdir -p weblog/core weblog/report
+  cat > weblog/core/events.py <<'EVENTS'
+  def normalize(event):
+      return {
+          "ip": event.get("ip", "-"),
+          "path": event.get("path", "/"),
+          "status": int(event.get("status", 0)),
+          "bytes": int(event.get("bytes", 0)),
+          "tags": list(event.get("tags", [])),
+      }
+  EVENTS
+  cat > weblog/report/session.py <<'SESSION'
+  class SessionTracker:
+      def __init__(self):
+          self._open = {}
+          self._closed = []
+
+      def observe(self, event):
+          raise NotImplementedError
+
+      def close_all(self):
+          raise NotImplementedError
+
+      def summary(self):
+          raise NotImplementedError
+  SESSION
+  cat > weblog/report/aggregate.py <<'AGG'
+  from weblog.report.session import SessionTracker
+
+
+  def build_report(events):
+      raise NotImplementedError
+  AGG
+  cat > sample_log.json <<'JSON'
+  [
+    {"ip": "10.0.0.1", "path": "/a", "status": 200, "bytes": 100, "tags": ["x"]},
+    {"ip": "10.0.0.1", "path": "/b", "status": 200, "bytes": 300, "tags": []},
+    {"ip": "10.0.0.2", "path": "/a", "status": 404, "bytes": 50, "tags": ["x", "y"]},
+    {"ip": "10.0.0.1", "path": "/a", "status": 500, "bytes": 0, "tags": []},
+    {"ip": "10.0.0.2", "path": "/c", "status": 200, "bytes": 200, "tags": ["y"]}
+  ]
+  JSON
+
+goal_tr: >
+  weblog/report/session.py icindeki SessionTracker sinifini ve
+  weblog/report/aggregate.py icindeki build_report fonksiyonunu,
+  sample_log.json'daki olaylardan her IP icin oturum ozetini (ilk/son yol,
+  toplam bayt, istek sayisi, benzersiz etiketler) uretecek bicimde
+  gerceklestir.
+
+reference_solution: |
+  cat > weblog/report/session.py <<'SESSION'
+  class SessionTracker:
+      def __init__(self):
+          self._open = {}
+          self._closed = []
+
+      def observe(self, event):
+          ip = event["ip"]
+          if ip not in self._open:
+              self._open[ip] = {
+                  "first_path": event["path"],
+                  "last_path": event["path"],
+                  "bytes": 0,
+                  "requests": 0,
+                  "tags": set(),
+              }
+          state = self._open[ip]
+          state["last_path"] = event["path"]
+          state["bytes"] += event["bytes"]
+          state["requests"] += 1
+          state["tags"].update(event["tags"])
+
+      def close_all(self):
+          for ip, state in self._open.items():
+              self._closed.append((ip, state))
+          self._open = {}
+
+      def summary(self):
+          return {
+              ip: {
+                  "first_path": state["first_path"],
+                  "last_path": state["last_path"],
+                  "bytes": state["bytes"],
+                  "requests": state["requests"],
+                  "tags": sorted(state["tags"]),
+              }
+              for ip, state in self._closed
+          }
+  SESSION
+  cat > weblog/report/aggregate.py <<'AGG'
+  from weblog.core.events import normalize
+  from weblog.report.session import SessionTracker
+
+
+  def build_report(events):
+      tracker = SessionTracker()
+      for raw in events:
+          tracker.observe(normalize(raw))
+      tracker.close_all()
+      return tracker.summary()
+  AGG
+
+outputs:
+  - {path: weblog/report/session.py, kind: program, run: 'python3 -c ''import json; from weblog.report.aggregate import build_report as f; ev=json.load(open("sample_log.json")); r=f(ev); assert set(r)=={"10.0.0.1","10.0.0.2"}, r; assert r["10.0.0.1"]=={"first_path":"/a","last_path":"/a","bytes":400,"requests":3,"tags":["x"]}, r["10.0.0.1"]; assert r["10.0.0.2"]=={"first_path":"/a","last_path":"/c","bytes":250,"requests":2,"tags":["x","y"]}, r["10.0.0.2"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import json; from weblog.report.aggregate import build_report as f; ev=json.load(open("sample_log.json")); r=f(ev); assert set(r)=={"10.0.0.1","10.0.0.2"}, r; assert r["10.0.0.1"]=={"first_path":"/a","last_path":"/a","bytes":400,"requests":3,"tags":["x"]}, r["10.0.0.1"]; assert r["10.0.0.2"]=={"first_path":"/a","last_path":"/c","bytes":250,"requests":2,"tags":["x","y"]}, r["10.0.0.2"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8158
+    bundle: yarisma
+    tools:
+    - python3
+    konu: web-erisim-loglari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: benzetim
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: ic-ice-yapi
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

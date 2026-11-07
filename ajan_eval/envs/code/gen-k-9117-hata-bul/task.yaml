@@ -1,0 +1,144 @@
+id: gen-k-9117-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 20
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  docs/wordcount.py ve docs/report.py içindeki erken-dönüş hatalarını düzelt; top_word tüm belgelerde en sık geçen kelimeyi doğru döndürsün. docs/store.py'ye dokunma.
+
+setup: |
+  mkdir -p docs
+  cat > docs/store.py <<'STORE'
+  class DocumentStore:
+      def __init__(self):
+          self._docs = {}
+
+      def add(self, doc_id, text):
+          self._docs[doc_id] = text
+
+      def get(self, doc_id):
+          return self._docs.get(doc_id, "")
+
+      def ids(self):
+          return sorted(self._docs)
+  STORE
+  cat > docs/wordcount.py <<'COUNT'
+  from docs.store import DocumentStore
+
+
+  def word_frequencies(store):
+      result = {}
+      for doc_id in store.ids():
+          text = store.get(doc_id)
+          for word in text.lower().split():
+              result[word] = result.get(word, 0) + 1
+              return result
+      return result
+  COUNT
+  cat > docs/report.py <<'REPORT'
+  from docs.wordcount import word_frequencies
+
+
+  def top_word(store):
+      freq = word_frequencies(store)
+      best = ""
+      best_n = 0
+      for word, n in freq.items():
+          if n > best_n:
+              best = word
+              best_n = n
+      return best
+  REPORT
+
+goal_tr: >
+  docs/wordcount.py ve docs/report.py icindeki erken-donus hatalarini
+  gidererek top_word fonksiyonunun tum belgeler uzerinde en sik gecen
+  kelimeyi dogru dondurmesini sagla
+
+reference_solution: |
+  cat > docs/wordcount.py <<'COUNT'
+  from docs.store import DocumentStore
+
+
+  def word_frequencies(store):
+      result = {}
+      for doc_id in store.ids():
+          text = store.get(doc_id)
+          for word in text.lower().split():
+              result[word] = result.get(word, 0) + 1
+      return result
+  COUNT
+  cat > docs/report.py <<'REPORT'
+  from docs.wordcount import word_frequencies
+
+
+  def top_word(store):
+      freq = word_frequencies(store)
+      best = ""
+      best_n = 0
+      for word, n in sorted(freq.items()):
+          if n > best_n:
+              best = word
+              best_n = n
+      return best
+  REPORT
+
+ara_adim: |
+  cat > docs/wordcount.py <<'COUNT'
+  from docs.store import DocumentStore
+
+
+  def word_frequencies(store):
+      result = {}
+      for doc_id in store.ids():
+          text = store.get(doc_id)
+          for word in text.lower().split():
+              result[word] = result.get(word, 0) + 1
+      return result
+  COUNT
+
+outputs:
+  - {path: docs/report.py, kind: program, run: 'python3 -c ''from docs.store import DocumentStore; from docs.report import top_word as f; s=DocumentStore(); s.add("a","red blue red"); s.add("b","blue red blue"); assert f(s)=="blue", f(s); print("TAMAM")'''}
+  - {path: docs/wordcount.py, kind: program, run: 'python3 -c ''from docs.store import DocumentStore; from docs.wordcount import word_frequencies as f; s=DocumentStore(); s.add("a","red blue red"); s.add("b","blue red blue"); r=f(s); assert r=={"red":3,"blue":3}, r; print("ILERLEME-TAMAM")'''}
+  - {path: docs/store.py, kind: program, run: 'python3 -c ''from docs.store import DocumentStore; s=DocumentStore(); s.add("x","hello"); s.add("y","world"); assert s.get("x")=="hello"; assert s.get("z")==""; assert s.ids()==["x","y"]; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from docs.store import DocumentStore; from docs.report import top_word as f; s=DocumentStore(); s.add("a","red blue red"); s.add("b","blue red blue"); assert f(s)=="blue", f(s); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from docs.store import DocumentStore; from docs.wordcount import word_frequencies as f; s=DocumentStore(); s.add("a","red blue red"); s.add("b","blue red blue"); r=f(s); assert r=={"red":3,"blue":3}, r; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from docs.store import DocumentStore; s=DocumentStore(); s.add("x","hello"); s.add("y","world"); assert s.get("x")=="hello"; assert s.get("z")==""; assert s.ids()==["x","y"]; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9117
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: metin-belgeleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: terse
+    direnc: yok
+    bukulme: kolay
+    adim: 7
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: erken-donus
+      karmasiklik: orta
+      kalip: durumlu-sinif
+      akis: cok-dosya-birlestirme
+      topoloji: iki-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

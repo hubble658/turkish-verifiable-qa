@@ -1,0 +1,60 @@
+id: gen-s-7230-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  /workspace dizinindeki arsiv.tar.gz arşivini aç ve içindeki veri/a.txt ile veri/b.txt dosyalarındaki sayıların toplamını hesapla. Arşivdeki veri/tuzak.txt dosyasını bu hesaba katma. Bulduğun toplamı sonuc.txt dosyasına sadece sayı olarak yaz; dosyada başka hiçbir şey bulunmasın.
+
+setup: |
+  mkdir -p veri
+  printf 'sensorA 12\nsensorA 15\nsensorB 7\nsensorA 9\nsensorB 3\n' > veri/a.txt
+  printf 'sensorB 5\nsensorA 1\nsensorC 99\nsensorA 2\nsensorB 4\n' > veri/b.txt
+  printf 'sensorA 1000\nsensorB 1000\n' > veri/tuzak.txt
+  tar -czf arsiv.tar.gz veri/a.txt veri/b.txt
+  rm -rf veri
+
+goal_tr: >
+  arsiv.tar.gz icindeki veri/a.txt ve veri/b.txt dosyalarindaki sayilarin
+  toplamini sonuc.txt dosyasina sadece sayi olarak yaz; arsivdeki
+  veri/tuzak.txt dosyasini hesaba katma.
+
+reference_solution: |
+  mkdir -p cikti
+  gzip -dc arsiv.tar.gz | tar -xf - -C cikti veri/a.txt veri/b.txt
+  cat cikti/veri/a.txt cikti/veri/b.txt | awk '{s+=$2} END {printf "%d", s}' > sonuc.txt
+  rm -rf cikti
+
+outputs:
+  - {path: sonuc.txt, kind: file, run: cat sonuc.txt}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '157'}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7230
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: sensor-olcumleri
+    hedef: donustur
+    girdi: duz-metin
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: son-newline-yok
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,142 @@
+id: gen-k-5020-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sensors/alarm.py dosyasındaki AlarmTracker sınıfını düzelt. Bir sensörün alarm üretmesi için üst üste tam streak_needed kez eşik ihlali yapması gereksin; ihlal kesildiğinde o sensörün sayacı sıfırlansın.
+
+  Şu şartlar sağlanmalı:
+  - sensors/alarm.py dosyası düzeltilmiş AlarmTracker sınıfını içermeli.
+  - Bir sensör için alarm, yalnızca o sensör üst üste streak_needed kez eşik ihlali yaptığında tetiklenmeli.
+  - Üst üste streak_needed kez ihlalden sonra alarm bir kez tetiklenmeli; aynı sensör ihlale devam etse bile tetiklenenler listesine tekrar eklenmemeli.
+  - Bir sensörün ihlali kesildiğinde (yani eşik içinde bir değer geldiğinde) o sensörün ardışık ihlal sayacı sıfırlanmalı.
+  - Üst üste streak_needed kez ihlalden önce ihlal kesilirse alarm tetiklenmemeli.
+  - feed metodu tetiklenen sensörlerin listesini döndürmeli; summary metodu tetiklenen sensörlerin benzersiz ve sıralı listesini döndürmeli.
+  - sensors/readings.py içindeki parse_chunk ve sensors/thresholds.py içindeki is_breach fonksiyonları kullanılmaya devam etmeli.
+
+setup: |
+  mkdir -p sensors
+  cat > sensors/readings.py <<'READINGS'
+  def parse_chunk(chunk):
+      rows = []
+      for line in chunk.strip().splitlines():
+          if not line.strip():
+              continue
+          sid, value = line.split(':')
+          rows.append((sid.strip(), float(value)))
+      return rows
+  READINGS
+  cat > sensors/thresholds.py <<'THRESHOLDS'
+  def is_breach(value, low, high):
+      return value < low or value > high
+  THRESHOLDS
+  cat > sensors/alarm.py <<'ALARM'
+  from sensors.readings import parse_chunk
+  from sensors.thresholds import is_breach
+
+
+  class AlarmTracker:
+      def __init__(self, low, high, streak_needed):
+          self.low = low
+          self.high = high
+          self.streak_needed = streak_needed
+          self.streak = {}
+          self.triggered = []
+
+      def feed(self, chunk):
+          for sid, value in parse_chunk(chunk):
+              if is_breach(value, self.low, self.high):
+                  self.streak[sid] = self.streak.get(sid, 0) + 1
+                  if self.streak[sid] >= self.streak_needed:
+                      self.triggered.append(sid)
+              else:
+                  self.streak[sid] = 0
+          return self.triggered
+
+      def summary(self):
+          return sorted(set(self.triggered))
+  ALARM
+  cat > stream.txt <<'STREAM'
+  t1:10.0
+  t2:99.0
+  t1:11.0
+  t2:98.0
+  t1:9.0
+  t2:97.0
+  STREAM
+
+goal_tr: >
+  sensors/alarm.py icindeki AlarmTracker sinifini, bir sensorun alarm
+  uretmesi icin ust uste tam streak_needed kez esik ihlali yapmasi gerekecek
+  ve ihlal kesildiginde sayaci sifirlanacak bicimde duzelt.
+
+reference_solution: |
+  cat > sensors/alarm.py <<'ALARM'
+  from sensors.readings import parse_chunk
+  from sensors.thresholds import is_breach
+
+
+  class AlarmTracker:
+      def __init__(self, low, high, streak_needed):
+          self.low = low
+          self.high = high
+          self.streak_needed = streak_needed
+          self.streak = {}
+          self.triggered = []
+
+      def feed(self, chunk):
+          for sid, value in parse_chunk(chunk):
+              if is_breach(value, self.low, self.high):
+                  self.streak[sid] = self.streak.get(sid, 0) + 1
+                  if self.streak[sid] == self.streak_needed:
+                      self.triggered.append(sid)
+              else:
+                  self.streak[sid] = 0
+          return self.triggered
+
+      def summary(self):
+          return sorted(set(self.triggered))
+  ALARM
+
+outputs:
+  - {path: sensors/alarm.py, kind: program, run: 'python3 -c ''from sensors.alarm import AlarmTracker as A; t=A(0.0,50.0,3); assert t.feed("s1:60.0\ns1:61.0\n")==[], t.summary(); assert t.feed("s1:62.0\n")==["s1"], t.summary(); assert t.feed("s1:70.0\n")==["s1"]; assert t.summary()==["s1"]; u=A(0.0,50.0,2); assert u.feed("s2:60.0\ns2:10.0\ns2:60.0\n")==[]; assert u.feed("s2:61.0\n")==["s2"]; assert u.summary()==["s2"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensors.alarm import AlarmTracker as A; t=A(0.0,50.0,3); assert t.feed("s1:60.0\ns1:61.0\n")==[], t.summary(); assert t.feed("s1:62.0\n")==["s1"], t.summary(); assert t.feed("s1:70.0\n")==["s1"]; assert t.summary()==["s1"]; u=A(0.0,50.0,2); assert u.feed("s2:60.0\ns2:10.0\ns2:60.0\n")==[]; assert u.feed("s2:61.0\n")==["s2"]; assert u.summary()==["s2"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5020
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: sensor-alarm-kurallari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: off-by-one
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: parcali-akis
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

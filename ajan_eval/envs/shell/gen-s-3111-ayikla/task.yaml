@@ -1,0 +1,86 @@
+id: gen-s-3111-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  /workspace/veri/sunucular.ini'deki her sunucu bölümünün ip değerini, /workspace/sunucular/aktif.txt'de adı geçen sunucular için /workspace/sunucular/ip/11.0.0.01, /workspace/sunucular/ip/21.0.0.01 ve /workspace/sunucular/ip/41.0.0.01 dosyalarına yaz. Her dosyanın içeriği yalnızca ters çevrilmiş ip olsun.
+
+setup: |
+  mkdir -p /workspace/veri /workspace/sunucular
+  cat > /workspace/veri/sunucular.ini <<'INI'
+  [web01]
+  ip=10.0.0.11
+  rol=web
+  [db01]
+  ip=10.0.0.12
+  rol=db
+  [web02]
+  ip=10.0.0.13
+  rol=web
+  [cache01]
+  ip=10.0.0.14
+  rol=cache
+  [db02]
+  ip=10.0.0.15
+  rol=db
+  INI
+  cat > /workspace/sunucular/aktif.txt <<'TXT'
+  web01
+  db01
+  cache01
+  TXT
+
+goal_tr: >
+  /workspace/veri/sunucular.ini icindeki her sunucu bolumunun ip degerini,
+  /workspace/sunucular/aktif.txt icinde adi gecen sunucular icin
+  /workspace/sunucular/ip/ altinda ters cevrilmis ip adiyla bir dosyaya yaz;
+  her dosyanin icerigi yalnizca ters cevrilmis ip olsun.
+
+reference_solution: |
+  cd /workspace
+  mkdir -p sunucular/ip
+  awk -F= '/^\[/{gsub(/[\[\]]/,"",$1); ad=$1} /^ip=/{print ad" "$2}' veri/sunucular.ini | sort > /tmp/_ini.txt
+  sort sunucular/aktif.txt > /tmp/_aktif.txt
+  join /tmp/_aktif.txt /tmp/_ini.txt | cut -d' ' -f2 | rev > /tmp/_ters.txt
+  sort sunucular/aktif.txt | paste -d' ' - /tmp/_ters.txt | while read ad ters; do printf '%s\n' "$ters" > "sunucular/ip/$ters"; done
+
+outputs:
+  - {path: sunucular/ip, kind: dir}
+  - {path: sunucular/ip/11.0.0.01, kind: file}
+  - {path: sunucular/ip/21.0.0.01, kind: file}
+  - {path: sunucular/ip/41.0.0.01, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: sunucular/ip, value: [11.0.0.01, 21.0.0.01, 41.0.0.01]}
+  - {op: file_content_eq, path: sunucular/ip/11.0.0.01, value: 11.0.0.01}
+  - {op: file_content_eq, path: sunucular/ip/21.0.0.01, value: 21.0.0.01}
+  - {op: file_content_eq, path: sunucular/ip/41.0.0.01, value: 41.0.0.01}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3111
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: sunucu-loglari
+    hedef: ayikla
+    girdi: ini
+    kaynak: iki-dosya-capraz
+    cikti: dizin-yapisi
+    kesif: dosyayi-bul
+    uslup: terse
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,71 @@
+id: gen-s-4076-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi/yorumlar.tsv dosyasındaki her ürün için o ürüne ait yıldız değerlerinin aritmetik ortalamasını iki ondalık basamakla hesapla. Sonuçları yazmak için çalışma dizininde cikti adlı bir dizin oluştur. cikti dizini içinde her ürün adıyla aynı isimde bir alt dizin oluştur; kalem, defter ve silgi için sırasıyla cikti/kalem, cikti/defter ve cikti/silgi dizinleri oluşmalı. Her ürünün ortalamasını kendi dizini içindeki ortalama.txt dosyasına sadece sayı olarak yaz; yani cikti/kalem/ortalama.txt, cikti/defter/ortalama.txt ve cikti/silgi/ortalama.txt dosyaları oluşmalı. Bu dosyaların son satırında newline olmasın.
+
+  Su sartlar saglanmali:
+  - girdi/yorumlar.tsv dosyası okunur ve her ürünün yıldız değerleri kendi içinde gruplanır.
+  - Her ürün için ortalama iki ondalık basamakla hesaplanır.
+  - Çalışma dizininde cikti adlı bir dizin oluşturulur.
+  - cikti dizini içinde kalem, defter ve silgi adlı üç alt dizin oluşturulur.
+  - cikti/kalem/ortalama.txt, cikti/defter/ortalama.txt ve cikti/silgi/ortalama.txt dosyalarının her biri yalnızca ilgili ortalamayı sayı olarak içerir.
+  - Bu üç dosyanın hiçbirinin sonunda newline karakteri bulunmaz.
+
+setup: |
+  mkdir -p girdi
+  printf 'urun\tyildiz\tyorum\nkalem\t5\tharika urun\nkalem\t2\tkargo gec geldi\ndefter\t4\tsayfalar guzel\ndefter\t1\tyirtik geldi\nsilgi\t3\tidare eder\nkalem\t4\ntekrar alirim' > girdi/yorumlar.tsv
+
+goal_tr: >
+  girdi/yorumlar.tsv dosyasindaki her bir urun icin, o urune ait yildiz
+  degerlerinin aritmetik ortalamasini iki ondalik basamakla hesaplayip,
+  cikti/ altinda urun adiyla ayni isimde bir alt dizin olustur ve her urunun
+  ortalamasini o dizin icindeki ortalama.txt dosyasina sadece sayi olarak
+  yaz; dosyanin son satirinda newline olmasin.
+
+reference_solution: |
+  mkdir -p cikti
+  tail -n +2 girdi/yorumlar.tsv | tr '\t' ' ' | sed 's/ .*//' | sort -u | while read u; do mkdir -p "cikti/$u"; tail -n +2 girdi/yorumlar.tsv | tr '\t' ' ' | awk -v u="$u" '$1==u{s+=$2;n++}END{printf "%.2f", s/n}' > "cikti/$u/ortalama.txt"; done
+  for d in cikti/*/; do sed -i 's/$//' "$d/ortalama.txt"; done
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/kalem/ortalama.txt, kind: file}
+  - {path: cikti/defter/ortalama.txt, kind: file}
+  - {path: cikti/silgi/ortalama.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [defter, kalem, silgi, tekrar]}
+  - {op: file_content_eq, path: cikti/defter/ortalama.txt, value: '2.50'}
+  - {op: file_content_eq, path: cikti/kalem/ortalama.txt, value: '3.67'}
+  - {op: file_content_eq, path: cikti/silgi/ortalama.txt, value: '3.00'}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4076
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: urun-yorumlari
+    hedef: dogrula
+    girdi: tsv
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: veriye-bak
+    uslup: kabul-kriteri
+    direnc: son-newline-yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

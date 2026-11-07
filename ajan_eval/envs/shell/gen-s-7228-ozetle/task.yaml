@@ -1,0 +1,72 @@
+id: gen-s-7228-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  notlar dizinindeki öğrenciler.txt ve notlar.txt dosyalarını öğrenci numarası üzerinden birleştir. Notu 60 ve üzeri olan öğrencilerin adlarını alfabetik sırada gecen.txt dosyasına her satırda bir ad olacak şekilde yaz. Ardından gecen.txt içindeki satır sayısını gecen_sayi.txt dosyasına yaz.
+
+setup: |
+  mkdir -p notlar
+  cat > notlar/ogrenciler.txt <<'TXT'
+  101 Ali
+  102 Ayse
+  103 Can
+  104 Deniz
+  105 Ece
+  TXT
+  cat > notlar/notlar.txt <<'TXT'
+  101 70
+  102 85
+  103 55
+  104 90
+  105 60
+  TXT
+
+goal_tr: >
+  notlar dizinindeki ogrenciler.txt ve notlar.txt dosyalarini ogrenci
+  numarasi uzerinden birlestirip, notu 60 ve uzeri olan ogrencilerin
+  adlarini alfabetik sirada gecen.txt dosyasina her satirda bir ad olacak
+  sekilde yaz ve gecen.txt icindeki satir sayisini wc ile gecen_sayi.txt
+  dosyasina yaz
+
+reference_solution: |
+  find notlar -type f | sort > dosyalar.txt
+  join notlar/ogrenciler.txt notlar/notlar.txt | awk '$3 >= 60 {print $2}' | sort > gecen.txt
+  wc -l < gecen.txt > gecen_sayi.txt
+
+outputs:
+  - {path: gecen.txt, kind: lines}
+  - {path: gecen_sayi.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: gecen.txt, value: [Ali, Ayse, Deniz, Ece]}
+  - {op: file_content_eq, path: gecen_sayi.txt, value: '4'}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7228
+    bundle: dizin-istatistik
+    tools:
+    - wc
+    - find
+    konu: ogrenci-notlari
+    hedef: ozetle
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

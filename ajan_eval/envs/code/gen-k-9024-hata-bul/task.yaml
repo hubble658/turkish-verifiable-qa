@@ -1,0 +1,218 @@
+id: gen-k-9024-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 20
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sensor paketindeki zincirde iki sessiz hata var. sensor/stats.py içindeki SensorSeries.peak metodu negatif ölçümlerde yanlışlıkla 0.0 döndürüyor; bu metodu, negatif değerler dahil tüm ölçümler için doğru sonucu verecek biçimde düzelt. sensor/report.py içindeki summarize fonksiyonu ise "above" listesini kendisine verilen threshold değerine göre değil, peak değerine göre hesaplıyor; summarize'ı "above" listesini verilen threshold'a göre üretecek biçimde düzelt. sensor/scale.py ve sensor/stream.py dosyalarındaki mevcut davranış korunmalı.
+
+setup: |
+  mkdir -p sensor
+  cat > sensor/stream.py <<'STREAM'
+  def read_samples(lines):
+      samples = []
+      for line in lines:
+          line = line.strip()
+          if not line:
+              continue
+          parts = line.split(",")
+          samples.append((parts[0], float(parts[1])))
+      return samples
+  STREAM
+  cat > sensor/scale.py <<'SCALE'
+  def apply_scale(samples, factor):
+      scaled = []
+      for name, value in samples:
+          scaled.append((name, value * factor))
+      return scaled
+  SCALE
+  cat > sensor/stats.py <<'STATS'
+  from sensor.scale import apply_scale
+
+
+  class SensorSeries:
+      def __init__(self, factor):
+          self.factor = factor
+          self.scaled = []
+
+      def load(self, lines):
+          from sensor.stream import read_samples
+          raw = read_samples(lines)
+          self.scaled = apply_scale(raw, self.factor)
+          return self
+
+      def peak(self):
+          best = 0.0
+          for name, value in self.scaled:
+              if value > best:
+                  best = value
+          return best
+
+      def mean(self):
+          total = 0.0
+          for name, value in self.scaled:
+              total = total + value
+          return total / len(self.scaled)
+
+      def names_above(self, threshold):
+          result = []
+          for name, value in self.scaled:
+              if value > threshold:
+                  result.append(name)
+          return result
+  STATS
+  cat > sensor/report.py <<'REPORT'
+  from sensor.stats import SensorSeries
+
+
+  def summarize(lines, factor, threshold):
+      series = SensorSeries(factor).load(lines)
+      peak = series.peak()
+      above = series.names_above(peak)
+      return {
+          "peak": peak,
+          "mean": series.mean(),
+          "above": above,
+      }
+  REPORT
+
+goal_tr: >
+  sensor paketindeki zincirde iki sessiz hata var: sensor/stats.py icindeki
+  peak metodu negatif olcumlerde 0.0 donduruyor ve sensor/report.py icindeki
+  summarize fonksiyonu "above" listesini verilen threshold yerine peak
+  degerine gore hesapliyor; peak metodunu negatif degerleri de dogru verecek
+  bicimde ve summarize'i threshold'a gore duzelt.
+
+reference_solution: |
+  cat > sensor/stats.py <<'STATS'
+  from sensor.scale import apply_scale
+
+
+  class SensorSeries:
+      def __init__(self, factor):
+          self.factor = factor
+          self.scaled = []
+
+      def load(self, lines):
+          from sensor.stream import read_samples
+          raw = read_samples(lines)
+          self.scaled = apply_scale(raw, self.factor)
+          return self
+
+      def peak(self):
+          best = None
+          for name, value in self.scaled:
+              if best is None or value > best:
+                  best = value
+          return best
+
+      def mean(self):
+          total = 0.0
+          for name, value in self.scaled:
+              total = total + value
+          return total / len(self.scaled)
+
+      def names_above(self, threshold):
+          result = []
+          for name, value in self.scaled:
+              if value > threshold:
+                  result.append(name)
+          return result
+  STATS
+  cat > sensor/report.py <<'REPORT'
+  from sensor.stats import SensorSeries
+
+
+  def summarize(lines, factor, threshold):
+      series = SensorSeries(factor).load(lines)
+      peak = series.peak()
+      above = series.names_above(threshold)
+      return {
+          "peak": peak,
+          "mean": series.mean(),
+          "above": above,
+      }
+  REPORT
+
+ara_adim: |
+  cat > sensor/stats.py <<'STATS'
+  from sensor.scale import apply_scale
+
+
+  class SensorSeries:
+      def __init__(self, factor):
+          self.factor = factor
+          self.scaled = []
+
+      def load(self, lines):
+          from sensor.stream import read_samples
+          raw = read_samples(lines)
+          self.scaled = apply_scale(raw, self.factor)
+          return self
+
+      def peak(self):
+          best = None
+          for name, value in self.scaled:
+              if best is None or value > best:
+                  best = value
+          return best
+
+      def mean(self):
+          total = 0.0
+          for name, value in self.scaled:
+              total = total + value
+          return total / len(self.scaled)
+
+      def names_above(self, threshold):
+          result = []
+          for name, value in self.scaled:
+              if value > threshold:
+                  result.append(name)
+          return result
+  STATS
+
+outputs:
+  - {path: sensor/report.py, kind: program, run: 'python3 -c ''from sensor.report import summarize as f; lines=["a,-2","b,-5","c,-1"]; r=f(lines,1.0,-3.0); assert r["peak"]==-1.0, r; assert r["above"]==["a","c"], r; assert abs(r["mean"]-(-8.0/3.0))<1e-9, r; print("ZINCIR-TAMAM")'''}
+  - {path: sensor/stats.py, kind: program, run: 'python3 -c ''from sensor.stats import SensorSeries as S; s=S(1.0).load(["a,-2","b,-5"]); assert s.peak()==-2.0, s.peak(); print("ILERLEME-TAMAM")'''}
+  - {path: sensor/scale.py, kind: program, run: 'python3 -c ''from sensor.scale import apply_scale as f; assert f([("a",2.0)],3.0)==[("a",6.0)], f([("a",2.0)],3.0); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensor.report import summarize as f; lines=["a,-2","b,-5","c,-1"]; r=f(lines,1.0,-3.0); assert r["peak"]==-1.0, r; assert r["above"]==["a","c"], r; assert abs(r["mean"]-(-8.0/3.0))<1e-9, r; print("ZINCIR-TAMAM")''', value: ZINCIR-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensor.stats import SensorSeries as S; s=S(1.0).load(["a,-2","b,-5"]); assert s.peak()==-2.0, s.peak(); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensor.scale import apply_scale as f; assert f([("a",2.0)],3.0)==[("a",6.0)], f([("a",2.0)],3.0); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9024
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: sensor-serisi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 7
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kapsam-hatasi
+      karmasiklik: orta
+      kalip: durumlu-sinif
+      akis: stdin-boru
+      topoloji: elmas
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

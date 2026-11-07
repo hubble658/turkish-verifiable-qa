@@ -1,0 +1,88 @@
+id: gen-s-7297-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) girdi/hava.txt dosyasını oku ve başlık satırını atla.
+  2) Kalan her satırı şehir, sıcaklık ve nem alanlarına ayır.
+  3) Her şehir için cikti dizini altında şehir adıyla bir dizin oluştur: cikti/Ankara, cikti/Istanbul, cikti/Izmir, cikti/Bursa ve cikti/Antalya.
+  4) Ankara için sıcaklık değerini cikti/Ankara/sicaklik.txt dosyasına, nem değerini cikti/Ankara/nem.txt dosyasına yaz.
+  5) Istanbul için sıcaklık değerini cikti/Istanbul/sicaklik.txt dosyasına, nem değerini cikti/Istanbul/nem.txt dosyasına yaz.
+  6) Izmir için sıcaklık değerini cikti/Izmir/sicaklik.txt dosyasına, nem değerini cikti/Izmir/nem.txt dosyasına yaz.
+  7) Bursa için sıcaklık değerini cikti/Bursa/sicaklik.txt dosyasına, nem değerini cikti/Bursa/nem.txt dosyasına yaz.
+  8) Antalya için sıcaklık değerini cikti/Antalya/sicaklik.txt dosyasına, nem değerini cikti/Antalya/nem.txt dosyasına yaz.
+  9) Her sicaklik.txt ve nem.txt dosyasında yalnızca ilgili sayı olsun; başka metin veya etiket bulunmasın.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/hava.txt <<'DATA'
+  sehir|sicaklik|nem
+  Ankara 21 40
+  Istanbul 25 55
+  Izmir 30 62
+  Bursa 18 70
+  Antalya 34 48
+  DATA
+
+goal_tr: >
+  girdi/hava.txt icindeki her satiri sehir, sicaklik ve nem alanlarina
+  ayirip cikti/<sehir>/sicaklik.txt icine sicakligi ve cikti/<sehir>/nem.txt
+  icine nemi yazan dizin yapisini olustur; baslik satirini atla.
+
+reference_solution: |
+  tail -n +2 girdi/hava.txt | while read -r sehir sicaklik nem; do mkdir -p "cikti/$sehir"; printf '%s\n' "$sicaklik" | rev | cut -c1- | rev > "cikti/$sehir/sicaklik.txt"; printf '%s\n' "$nem" | rev | cut -c1- | rev > "cikti/$sehir/nem.txt"; done
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/Ankara/sicaklik.txt, kind: file}
+  - {path: cikti/Ankara/nem.txt, kind: file}
+  - {path: cikti/Istanbul/sicaklik.txt, kind: file}
+  - {path: cikti/Istanbul/nem.txt, kind: file}
+  - {path: cikti/Izmir/sicaklik.txt, kind: file}
+  - {path: cikti/Izmir/nem.txt, kind: file}
+  - {path: cikti/Bursa/sicaklik.txt, kind: file}
+  - {path: cikti/Bursa/nem.txt, kind: file}
+  - {path: cikti/Antalya/sicaklik.txt, kind: file}
+  - {path: cikti/Antalya/nem.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [Ankara, Antalya, Bursa, Istanbul, Izmir]}
+  - {op: file_content_eq, path: cikti/Ankara/nem.txt, value: '40'}
+  - {op: file_content_eq, path: cikti/Ankara/sicaklik.txt, value: '21'}
+  - {op: file_content_eq, path: cikti/Antalya/nem.txt, value: '48'}
+  - {op: file_content_eq, path: cikti/Antalya/sicaklik.txt, value: '34'}
+  - {op: file_content_eq, path: cikti/Bursa/nem.txt, value: '70'}
+  - {op: file_content_eq, path: cikti/Bursa/sicaklik.txt, value: '18'}
+  - {op: file_content_eq, path: cikti/Istanbul/nem.txt, value: '55'}
+  - {op: file_content_eq, path: cikti/Istanbul/sicaklik.txt, value: '25'}
+  - {op: file_content_eq, path: cikti/Izmir/nem.txt, value: '62'}
+  - {op: file_content_eq, path: cikti/Izmir/sicaklik.txt, value: '30'}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7297
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: hava-durumu-kayitlari
+    hedef: donustur
+    girdi: duz-metin
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

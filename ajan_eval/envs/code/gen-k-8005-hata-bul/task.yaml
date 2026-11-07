@@ -1,0 +1,104 @@
+id: gen-k-8005-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  events/overlap.py dosyasındaki overlaps fonksiyonunu düzeltmen gerekiyor. Şu anki hali yalnızca bir noktada dokunan aralıkları da çakışma sayıyor; oysa çakışma sayılması için iki aralığın gerçekten pozitif uzunlukta bir kesişimi olması gerekiyor. Yani bir aralığın bitişi diğerinin başlangıcına eşitse (örneğin biri 0-30, diğeri 30-60 ise) bunlar çakışmamalı; sadece gerçekten üst üste binen kısım varsa True dönmeli.
+
+  Fonksiyonun imzasını ve konumunu koru, sadece karşılaştırma mantığını bu kurala göre düzelt. events/loader.py, events/schedule.py ve events/agenda.txt dosyalarına dokunma; schedule.py zaten overlaps fonksiyonunu çağırdığı için düzeltmen oradan da doğru sonuç vermeli.
+
+setup: |
+  mkdir -p events
+  cat > events/loader.py <<'LOADER'
+  def read_events(path):
+      rows = []
+      with open(path, "r", encoding="utf-8") as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              name, start, end = line.split("|")
+              rows.append((name, int(start), int(end)))
+      return rows
+  LOADER
+  cat > events/overlap.py <<'OVERLAP'
+  def overlaps(a, b):
+      return a[1] <= b[2] and b[1] <= a[2]
+  OVERLAP
+  cat > events/schedule.py <<'SCHEDULE'
+  from events.loader import read_events
+  from events.overlap import overlaps
+
+
+  def count_conflicts(path, index):
+      rows = read_events(path)
+      target = rows[index]
+      total = 0
+      for i, row in enumerate(rows):
+          if i == index:
+              continue
+          if overlaps(target, row):
+              total += 1
+      return total
+  SCHEDULE
+  cat > events/agenda.txt <<'AGENDA'
+  standup|0|30
+  review|30|60
+  deploy|45|90
+  retro|120|150
+  AGENDA
+
+goal_tr: >
+  events/overlap.py icindeki overlaps fonksiyonunu, yalnizca iki aralik
+  gercekten pozitif uzunlukta ortusuyorsa True dondurecek bicimde duzelt;
+  yalnizca bir noktada dokunan (bitis == digerinin baslangici) araliklar
+  cakisma sayilmasin.
+
+reference_solution: |
+  cat > events/overlap.py <<'OVERLAP'
+  def overlaps(a, b):
+      return a[1] < b[2] and b[1] < a[2]
+  OVERLAP
+
+outputs:
+  - {path: events/overlap.py, kind: program, run: 'python3 -c ''from events.schedule import count_conflicts as f; assert f("events/agenda.txt",0)==0, f("events/agenda.txt",0); assert f("events/agenda.txt",1)==1, f("events/agenda.txt",1); assert f("events/agenda.txt",2)==1, f("events/agenda.txt",2); assert f("events/agenda.txt",3)==0, f("events/agenda.txt",3); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from events.schedule import count_conflicts as f; assert f("events/agenda.txt",0)==0, f("events/agenda.txt",0); assert f("events/agenda.txt",1)==1, f("events/agenda.txt",1); assert f("events/agenda.txt",2)==1, f("events/agenda.txt",2); assert f("events/agenda.txt",3)==0, f("events/agenda.txt",3); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8005
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: takvim-etkinlikleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kenar-durum
+      karmasiklik: duz
+      kalip: ozyineleme
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

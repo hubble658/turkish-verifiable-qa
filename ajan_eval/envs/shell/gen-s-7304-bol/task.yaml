@@ -1,0 +1,100 @@
+id: gen-s-7304-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Hastanenin randevu sistemini yeni sunucuya taşıyoruz ve sabahtan beri eski kayıtlarla uğraşıyorum. Yeni sistem her bölüm için ayrı bir klasör bekliyor; bu yüzden girdi dizinindeki tüm ini dosyalarındaki randevu kayıtlarından bolum değerlerini toplayıp her benzersiz bölüm için bolumler dizini altında aynı adlı bir alt dizin oluşturman gerekiyor (bolumler/kardiyoloji, bolumler/noroloji, bolumler/ortopedi gibi). Ayrıca bolumler dizinine bolum_adlari.txt adlı bir dosya yaz; içinde benzersiz bölüm adları her satırda bir tane olacak şekilde alfabetik sıralı yer alsın.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/randevular_a.ini <<'INI'
+  [randevu]
+  hasta=Ali Yilmaz
+  bolum=kardiyoloji
+  saat=09:00
+  [randevu]
+  hasta=Ayse Demir
+  bolum=noroloji
+  saat=10:30
+  [randevu]
+  hasta=Mehmet Kaya
+  bolum=kardiyoloji
+  saat=11:15
+  INI
+  cat > girdi/randevular_b.ini <<'INI'
+  [randevu]
+  hasta=Fatma Celik
+  bolum=ortopedi
+  saat=13:00
+  [randevu]
+  hasta=Emre Sahin
+  bolum=noroloji
+  saat=14:45
+  [randevu]
+  hasta=Zeynep Arslan
+  bolum=ortopedi
+  saat=15:30
+  INI
+  cat > girdi/randevular_c.ini <<'INI'
+  [randevu]
+  hasta=Can Ozturk
+  bolum=kardiyoloji
+  saat=08:00
+  INI
+
+goal_tr: >
+  girdi dizinindeki tum ini dosyalarindaki randevu kayitlarindan bolum
+  degerlerini toplayip her benzersiz bolum icin bolumler dizini altinda ayni
+  adli bir alt dizin olustur; ayrica bolumler dizinine bolum_adlari.txt adli
+  bir dosya yaz, bu dosyada benzersiz bolum adlari her satirda bir tane
+  olacak sekilde alfabetik sirali yer alsin.
+
+reference_solution: |
+  mkdir -p bolumler
+  awk -F= '$1=="bolum"{print $2}' girdi/*.ini | sort -u > bolumler/bolum_adlari.txt
+  while read b; do mkdir -p "bolumler/$b"; done < bolumler/bolum_adlari.txt
+  head -n 1 girdi/randevular_a.ini >/dev/null
+  tail -n 1 girdi/randevular_c.ini >/dev/null
+
+outputs:
+  - {path: bolumler, kind: dir}
+  - {path: bolumler/bolum_adlari.txt, kind: lines}
+  - {path: bolumler/kardiyoloji, kind: dir}
+  - {path: bolumler/noroloji, kind: dir}
+  - {path: bolumler/ortopedi, kind: dir}
+
+checks:
+  - {op: dir_entries_eq, path: bolumler, value: [bolum_adlari.txt, kardiyoloji, noroloji, ortopedi]}
+  - {op: dir_entries_eq, path: bolumler/kardiyoloji, value: []}
+  - {op: dir_entries_eq, path: bolumler/noroloji, value: []}
+  - {op: dir_entries_eq, path: bolumler/ortopedi, value: []}
+  - {op: file_lines_eq, path: bolumler/bolum_adlari.txt, value: [kardiyoloji, noroloji, ortopedi]}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7304
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: hastane-randevulari
+    hedef: bol
+    girdi: ini
+    kaynak: cok-dosya
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: bom
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

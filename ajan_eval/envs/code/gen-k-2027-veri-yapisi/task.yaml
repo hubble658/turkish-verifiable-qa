@@ -1,0 +1,163 @@
+id: gen-k-2027-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  fleet/queue.py içindeki VehicleQueue sınıfını tamamla. Sınıfın pop metodu kuyruktaki en eski elemanı çıkarsın ve döndürsün; böylece yapı FIFO düzeninde çalışsın. Sınıfın __iter__ metodu ise kuyruk tamamen boşalana kadar elemanları sırayla üretsin. Bu sayede fleet/dispatch.py içindeki dispatch_all fonksiyonu elemanları doğru sırada döndürsün. Sınıfın mevcut push ve __len__ davranışları olduğu gibi kalsın.
+
+setup: |
+  mkdir -p fleet
+  cat > fleet/events.py <<'EVENTS'
+  class EventLog:
+      def __init__(self, lines):
+          self._lines = list(lines)
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          if not self._lines:
+              raise StopIteration
+          return self._lines.pop(0)
+
+
+  def load_events(path):
+      with open(path) as fh:
+          raw = [ln.strip() for ln in fh if ln.strip()]
+      return EventLog(raw)
+  EVENTS
+  cat > fleet/queue.py <<'QUEUE'
+  class VehicleQueue:
+      def __init__(self):
+          self._items = []
+
+      def push(self, item):
+          self._items.append(item)
+
+      def pop(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          return len(self._items)
+
+      def __iter__(self):
+          raise NotImplementedError
+  QUEUE
+  cat > fleet/dispatch.py <<'DISPATCH'
+  from fleet.queue import VehicleQueue
+
+
+  def build_queue(events):
+      q = VehicleQueue()
+      for event in events:
+          q.push(event)
+      return q
+
+
+  def dispatch_all(events):
+      q = build_queue(events)
+      out = []
+      for item in q:
+          out.append(item)
+      return out
+  DISPATCH
+  cat > data.txt <<'DATA'
+  ADD t1 north
+  ADD t2 south
+  ADD t3 east
+  ADD t4 west
+  DATA
+
+goal_tr: >
+  fleet/queue.py icindeki VehicleQueue sinifini tamamla: pop en eski elemani
+  cikarsin (FIFO), __iter__ kuyrugu bosaltana kadar sirayla eleman uretsin;
+  boylece fleet/dispatch.py icindeki dispatch_all dogru sirada sonuc
+  dondursun
+
+reference_solution: |
+  cat > fleet/queue.py <<'QUEUE'
+  class VehicleQueue:
+      def __init__(self):
+          self._items = []
+
+      def push(self, item):
+          self._items.append(item)
+
+      def pop(self):
+          if not self._items:
+              raise IndexError("pop from empty queue")
+          return self._items.pop(0)
+
+      def __len__(self):
+          return len(self._items)
+
+      def __iter__(self):
+          while self._items:
+              yield self._items.pop(0)
+  QUEUE
+
+ara_adim: |
+  cat > fleet/queue.py <<'QUEUE'
+  class VehicleQueue:
+      def __init__(self):
+          self._items = []
+
+      def push(self, item):
+          self._items.append(item)
+
+      def pop(self):
+          if not self._items:
+              raise IndexError("pop from empty queue")
+          return self._items.pop(0)
+
+      def __len__(self):
+          return len(self._items)
+
+      def __iter__(self):
+          raise NotImplementedError
+  QUEUE
+
+outputs:
+  - {path: fleet/queue.py, kind: program, run: 'python3 -c ''from fleet.events import load_events; from fleet.dispatch import dispatch_all; ev=load_events("data.txt"); assert dispatch_all(ev)==["ADD t1 north","ADD t2 south","ADD t3 east","ADD t4 west"]; print("TAMAM")'''}
+  - {path: fleet/queue.py, kind: program, run: 'python3 -c ''from fleet.queue import VehicleQueue as Q; q=Q(); [q.push(x) for x in "abc"]; assert q.pop()=="a", q.pop(); assert len(q)==2; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.events import load_events; from fleet.dispatch import dispatch_all; ev=load_events("data.txt"); assert dispatch_all(ev)==["ADD t1 north","ADD t2 south","ADD t3 east","ADD t4 west"]; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.queue import VehicleQueue as Q; q=Q(); [q.push(x) for x in "abc"]; assert q.pop()=="a", q.pop(); assert len(q)==2; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-2027
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: arac-filosu
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kuyruk
+      karmasiklik: orta
+      kalip: iterator-protokolu
+      akis: cok-dosya-birlestirme
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

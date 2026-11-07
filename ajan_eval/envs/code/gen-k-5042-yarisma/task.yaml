@@ -1,0 +1,156 @@
+id: gen-k-5042-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  routedata/router.py yaz: stdin'den gelen metni routedata/engine.py içindeki build_graph ile okuyup her kaynak düğümden hedefe en düşük maliyetli yolu bulsun ve sonucu "kaynak hedef maliyet" satırları halinde sıralı yazsın. `python3 -m routedata.router < input.txt` ile çalışsın.
+
+setup: |
+  mkdir -p routedata
+  cat > routedata/lexer.py <<'LEXER'
+  def tokenize(line):
+      line = line.strip()
+      if not line:
+          return []
+      parts = line.split()
+      tokens = []
+      for p in parts:
+          if p.startswith(">"):
+              tokens.append(("jump", p[1:]))
+          elif p.startswith("+"):
+              tokens.append(("cost", int(p[1:])))
+          else:
+              tokens.append(("node", p))
+      return tokens
+  LEXER
+  cat > routedata/parser.py <<'PARSER'
+  from routedata.lexer import tokenize
+
+
+  def parse(lines):
+      routes = []
+      for line in lines:
+          tokens = tokenize(line)
+          if not tokens:
+              continue
+          node = None
+          cost = 0
+          jump = None
+          for kind, value in tokens:
+              if kind == "node":
+                  node = value
+              elif kind == "cost":
+                  cost = value
+              elif kind == "jump":
+                  jump = value
+          routes.append({"from": node, "cost": cost, "to": jump})
+      return routes
+  PARSER
+  cat > routedata/engine.py <<'ENGINE'
+  from routedata.parser import parse
+
+
+  def build_graph(text):
+      routes = parse(text.splitlines())
+      graph = {}
+      for r in routes:
+          graph.setdefault(r["from"], []).append((r["to"], r["cost"]))
+      return graph
+  ENGINE
+  cat > input.txt <<'DATA'
+  A >B +3
+  B >C +4
+  A >C +10
+  C >D +1
+  DATA
+
+goal_tr: >
+  stdin'den gelen yol-tarifi metnini routedata/engine.py icindeki
+  build_graph ile okuyup her kaynak dugumden hedefe en dusuk maliyetli yolu
+  bulan ve sonucu "kaynak hedef maliyet" satirlari halinde sirali yazan
+  routedata/router.py dosyasini yaz; program `python3 -m routedata.router <
+  input.txt` ile calissin.
+
+reference_solution: |
+  cat > routedata/router.py <<'ROUTER'
+  import sys
+
+  from routedata.engine import build_graph
+
+
+  def shortest_paths(graph, source):
+      dist = {source: 0}
+      frontier = [source]
+      while frontier:
+          next_frontier = []
+          for node in frontier:
+              base = dist[node]
+              for target, cost in graph.get(node, []):
+                  candidate = base + cost
+                  if target not in dist or candidate < dist[target]:
+                      dist[target] = candidate
+                      next_frontier.append(target)
+          frontier = next_frontier
+      return dist
+
+
+  def main():
+      text = sys.stdin.read()
+      graph = build_graph(text)
+      sources = sorted(graph.keys())
+      lines = []
+      for src in sources:
+          dist = shortest_paths(graph, src)
+          for dst in sorted(dist.keys()):
+              if dst == src:
+                  continue
+              lines.append("%s %s %d" % (src, dst, dist[dst]))
+      sys.stdout.write("\n".join(lines) + ("\n" if lines else ""))
+
+
+  if __name__ == "__main__":
+      main()
+  ROUTER
+
+outputs:
+  - {path: routedata/router.py, kind: program, run: 'python3 -c ''import subprocess,sys; out=subprocess.run([sys.executable,"-m","routedata.router"],input=open("input.txt").read(),capture_output=True,text=True); assert out.returncode==0, out.stderr; got=out.stdout.strip().splitlines(); exp=["A B 3","A C 7","A D 8","B C 4","B D 5","C D 1"]; assert got==exp, got; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import subprocess,sys; out=subprocess.run([sys.executable,"-m","routedata.router"],input=open("input.txt").read(),capture_output=True,text=True); assert out.returncode==0, out.stderr; got=out.stdout.strip().splitlines(); exp=["A B 3","A C 7","A D 8","B C 4","B D 5","C D 1"]; assert got==exp, got; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5042
+    bundle: yarisma
+    tools:
+    - python3
+    konu: yol-tarifi-agi
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: metin-ayristirma
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: stdin-boru
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

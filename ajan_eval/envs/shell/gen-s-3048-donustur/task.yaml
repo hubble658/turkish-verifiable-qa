@@ -1,0 +1,78 @@
+id: gen-s-3048-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+prompt: '1) kalemler.txt dosyasındaki her satırı, alanları ayırarak tarih;tur;tutar biçimine dönüştür ve tarihe göre artan
+  sırada kalemler.csv dosyasına yaz.
+
+
+  2) kalemler.txt.bak dosyasını işleme katma, yok say.
+
+  '
+setup: 'cat > kalemler.txt <<''EOF''
+
+  1001|alacak|1250.50|2024-01-05
+
+  1002|borc|430.00|2024-01-06
+
+  1003|alacak|999.99|2024-01-07
+
+  1004|borc|15.75|2024-01-08
+
+  1005|alacak|2000.00|2024-01-09
+
+  EOF
+
+  cat > kalemler.txt.bak <<''EOF''
+
+  9999|alacak|1.00|1999-01-01
+
+  EOF
+
+  '
+goal_tr: 'kalemler.txt icindeki her "kayit|tur|tutar|tarih" satirini "tarih;tur;tutar" bicimine donusturup tarihe gore artan
+  sirada kalemler.csv dosyasina yaz; .bak uzantili dosyalari yok say.
+
+  '
+reference_solution: 'awk -F''|'' ''{print $4";"$2";"$3}'' kalemler.txt | sort > kalemler.csv
+
+  '
+outputs: []
+checks:
+- op: file_lines_eq
+  path: kalemler.csv
+  as_set: false
+  value:
+  - 2024-01-05;alacak;1250.50
+  - 2024-01-06;borc;430.00
+  - 2024-01-07;alacak;999.99
+  - 2024-01-08;borc;15.75
+  - 2024-01-09;alacak;2000.00
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3048
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: muhasebe-kalemleri
+    hedef: donustur
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}
+  duzeltme:
+    neden: altin_yanlis
+    not: İstem tarih;tur;tutar diyor, altın tur;tutar;tarih idi.

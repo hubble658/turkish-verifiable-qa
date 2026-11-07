@@ -1,0 +1,152 @@
+id: gen-k-9124-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  depo/cekirdek/yigin.py dosyasındaki SiparisYigini sınıfını tam olarak gerçekle, öyle ki depo/cekirdek/isleme.py ve depo/rapor/ozet.py üzerinden ters_ozet çağrıldığında sipariş id'leri giriş sırasının tersinde dönsün. SiparisYigini'nin it, cek, tepe, boy ve bos metotlarının hepsi çalışır durumda olsun; sınıfın mevcut iskeletindeki metot adları ve imzaları korunsun, yalnızca gövdeleri gerçek bir yığın davranışı verecek şekilde doldurulsun. ters_ozet, veri.txt gibi bir girdi listesindeki kayıtların id'lerini, kayıtların verildiği sıranın tam tersi olacak biçimde döndürmeli; yani A1, B2, C3 sırasıyla verilen kayıtlar için sonuç C3, B2, A1 sırasında id'ler olsun.
+
+setup: |
+  mkdir -p depo/cekirdek depo/rapor
+  cat > depo/cekirdek/yigin.py <<'YIGIN'
+  class SiparisYigini:
+      def __init__(self):
+          self._veri = []
+
+      def it(self, siparis):
+          raise NotImplementedError
+
+      def cek(self):
+          raise NotImplementedError
+
+      def tepe(self):
+          raise NotImplementedError
+
+      def boy(self):
+          raise NotImplementedError
+
+      def bos(self):
+          raise NotImplementedError
+  YIGIN
+  cat > depo/cekirdek/isleme.py <<'ISLEME'
+  from depo.cekirdek.yigin import SiparisYigini
+
+
+  def siparisleri_isle(kayitlar):
+      y = SiparisYigini()
+      for k in kayitlar:
+          y.it(k)
+      sonuc = []
+      while not y.bos():
+          sonuc.append(y.cek())
+      return sonuc
+  ISLEME
+  cat > depo/rapor/ozet.py <<'OZET'
+  from depo.cekirdek.isleme import siparisleri_isle
+
+
+  def ters_ozet(kayitlar):
+      sirali = siparisleri_isle(kayitlar)
+      return [s["id"] for s in sirali]
+  OZET
+  cat > veri.txt <<'VERI'
+  A1:12
+  B2:7
+  C3:20
+  VERI
+
+goal_tr: >
+  depo/cekirdek/yigin.py icindeki SiparisYigini sinifini,
+  depo/cekirdek/isleme.py ve depo/rapor/ozet.py uzerinden ters_ozet
+  cagrildiginda siparis id'lerini giris sirasinin tersinde dondurecek
+  bicimde tam gerceklestir.
+
+reference_solution: |
+  cat > depo/cekirdek/yigin.py <<'YIGIN'
+  class SiparisYigini:
+      def __init__(self):
+          self._veri = []
+
+      def it(self, siparis):
+          self._veri.append(siparis)
+
+      def cek(self):
+          return self._veri.pop()
+
+      def tepe(self):
+          return self._veri[-1]
+
+      def boy(self):
+          return len(self._veri)
+
+      def bos(self):
+          return len(self._veri) == 0
+  YIGIN
+
+ara_adim: |
+  cat > depo/cekirdek/yigin.py <<'YIGIN'
+  class SiparisYigini:
+      def __init__(self):
+          self._veri = []
+
+      def it(self, siparis):
+          self._veri.append(siparis)
+
+      def cek(self):
+          return self._veri.pop()
+
+      def tepe(self):
+          return self._veri[-1]
+
+      def boy(self):
+          return len(self._veri)
+
+      def bos(self):
+          raise NotImplementedError
+  YIGIN
+
+outputs:
+  - {path: depo/cekirdek/yigin.py, kind: program, run: 'python3 -c ''from depo.rapor.ozet import ters_ozet as f; assert f([{"id":"A1"},{"id":"B2"},{"id":"C3"}])==["C3","B2","A1"], f([{"id":"A1"},{"id":"B2"},{"id":"C3"}]); print("TAMAM")'''}
+  - {path: depo/cekirdek/yigin.py, kind: program, run: 'python3 -c ''from depo.cekirdek.yigin import SiparisYigini as S; y=S(); y.it(1); y.it(2); assert y.boy()==2, y.boy(); assert y.tepe()==2, y.tepe(); assert y.cek()==2, "cek"; assert y.cek()==1, "cek2"; print("ILERLEME-TAMAM")'''}
+  - {path: depo/cekirdek/yigin.py, kind: program, run: 'python3 -c ''from depo.cekirdek.yigin import SiparisYigini as S; y=S(); assert y.bos() is True, y.bos(); y.it(9); assert y.bos() is False, y.bos(); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.rapor.ozet import ters_ozet as f; assert f([{"id":"A1"},{"id":"B2"},{"id":"C3"}])==["C3","B2","A1"], f([{"id":"A1"},{"id":"B2"},{"id":"C3"}]); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.cekirdek.yigin import SiparisYigini as S; y=S(); y.it(1); y.it(2); assert y.boy()==2, y.boy(); assert y.tepe()==2, y.tepe(); assert y.cek()==2, "cek"; assert y.cek()==1, "cek2"; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.cekirdek.yigin import SiparisYigini as S; y=S(); assert y.bos() is True, y.bos(); y.it(9); assert y.bos() is False, y.bos(); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9124
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: siparis-kayitlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin
+      karmasiklik: orta
+      kalip: durumlu-sinif
+      akis: ic-ice-yapi
+      topoloji: elmas
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

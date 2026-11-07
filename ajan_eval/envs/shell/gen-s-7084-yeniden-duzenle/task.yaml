@@ -1,0 +1,61 @@
+id: gen-s-7084-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  depo dizin ağacındaki .tsv uzantılı tüm dosyaları bulup tar ile tek bir arşivde topla; ardından bu arşivden find ile bulunan .tsv dosyalarının yorum sütunundaki değerlerini, sıraları korunarak geçerli bir JSON dizisi olarak cikti.json dosyasına yaz.
+
+setup: |
+  mkdir -p depo/bolum_a depo/bolum_b
+  printf 'urun\tyorum\nA1\tcok iyi\nA2\tberbat\n' > depo/bolum_a/yorumlar.tsv
+  printf 'urun\tyorum\nB1\tidare eder\nB2\tmukemmel\n' > depo/bolum_b/yorumlar.tsv
+  printf 'urun\tyorum\nC1\tsuper\n' > depo/bolum_b/ek.tsv
+  printf 'urun\tyorum\nD1\tharika\n' > depo/bolum_a/notlar.txt
+
+goal_tr: >
+  depo dizin agacindaki .tsv uzantili tum dosyalari tar ile tek bir arsivde
+  toplayip arsivden find ile bulunan .tsv dosyalarinin yorum sutunundaki
+  degerlerini sirasi korunarak gecerli bir JSON dizisi olarak cikti.json
+  dosyasina yaz
+
+reference_solution: |
+  tar -cf arsiv.tar $(find depo -name '*.tsv')
+  mkdir -p cikti
+  tar -xf arsiv.tar -C cikti
+  find cikti -name '*.tsv' | sort | xargs -I{} awk -F'\t' 'NR>1{print $2}' {} > yorumlar.txt
+  awk 'BEGIN{printf "["} {printf "%s\"%s\"", (NR>1?",":""), $0} END{print "]"}' yorumlar.txt > cikti.json
+
+outputs:
+  - {path: cikti.json, kind: json}
+
+checks:
+  - {op: json_eq, path: cikti.json, value: [cok iyi, berbat, super, idare eder, mukemmel]}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7084
+    bundle: secerek-arsivle
+    tools:
+    - tar
+    - find
+    konu: urun-yorumlari
+    hedef: yeniden-duzenle
+    girdi: tsv
+    kaynak: dizin-agaci
+    cikti: json
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

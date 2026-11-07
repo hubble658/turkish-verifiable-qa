@@ -1,0 +1,66 @@
+id: gen-s-0052-onar
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+prompt: 'entries.tsv dosyasındaki harcamaları kategorilere göre ayırarak, her kategorinin toplam tutarını içeren Office.txt,
+  Travel.txt ve Food.txt dosyalarını oluşturun.
+
+
+  Her dosyada yalnız iki ondalıklı toplam olsun (ör. 35.50).
+
+  '
+setup: "cat > entries.tsv <<'EOF'\ndate\tcategory\tamount\tmemo\n2023-01-01\tOffice\t15.00\tPens\n2023-01-02\tTravel\t50.00\t\
+  Taxi\n2023-01-03\tOffice\t20.00\tPaper\n2023-01-04\tFood\t12.50\tLunch\n2023-01-05\tTravel\t100.00\tHotel\n2023-01-06\t\
+  Office\t10.00\tInk\n2023-01-07\tFood\t8.00\tCoffee\n2023-01-08\tOffice\t5.00\tStaples\n2023-01-09\tTravel\t30.00\tTrain\n\
+  2023-01-10\tFood\t15.00\tDinner\nEOF\n"
+goal_tr: 'entries.tsv dosyasındaki harcamaları kategorilere göre ayırarak her kategorinin toplam tutarını içeren ayrı dosyalar
+  oluşturun
+
+  '
+reference_solution: "python3 -c \"\nimport collections\ndata = collections.defaultdict(float)\nwith open('entries.tsv', 'r')\
+  \ as f:\n    next(f)\n    for line in f:\n        parts = line.strip().split('\\t')\n        if len(parts) >= 3:\n     \
+  \       data[parts[1]] += float(parts[2])\nfor cat, total in data.items():\n    with open(f'{cat}.txt', 'w') as f:\n   \
+  \     f.write(f'{total:.2f}')\n\"\n"
+outputs:
+- path: Office.txt
+  kind: file
+- path: Travel.txt
+  kind: file
+- path: Food.txt
+  kind: file
+checks:
+- op: file_content_eq
+  path: Food.txt
+  value: '35.50'
+- op: file_content_eq
+  path: Office.txt
+  value: '50.00'
+- op: file_content_eq
+  path: Travel.txt
+  value: '180.00'
+metadata:
+  domain: onar
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-0052
+    bundle: python-veri
+    tools:
+    - python3
+    konu: muhasebe-kalemleri
+    hedef: onar
+    girdi: tsv
+    kaynak: tek-dosya
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: duz-hedef
+    direnc: bos-dosya
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    metadata: {}
+  duzeltme:
+    neden: gizli_sart
+    not: Dosya biçimi yazmıyordu.

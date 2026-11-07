@@ -1,0 +1,62 @@
+id: gen-s-7137-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Bugün ofiste hesap işleriyle uğraşırken fark ettim ki aylık giderleri takip ettiğim kayıtlar iyice karışmış. Yedek dosyalar, eski sürümler derken hangisinin güncel olduğunu karıştırıyorum, bir de her seferinde aynı kalemleri gözden geçirmek yorucu oluyor. /workspace altındaki kayitlar dizinine bak, oradaki .json uzantılı dosyalar arasından asıl olan tek json dosyasını bul; yedek ya da uzantısı farklı olanları karıştırma. O asıl dosyadaki her satırdan kalem adını çıkar ve bu kalem adlarını tekrarsız olarak, sıralı biçimde kalemler.txt dosyasına yaz.
+
+setup: |
+  mkdir -p kayitlar
+  cat > kayitlar/kalemler.json <<'JSON'
+  {"kalem":"kira","tutar":1200}
+  {"kalem":"malzeme","tutar":340}
+  {"kalem":"kira","tutar":800}
+  {"kalem":"yakit","tutar":150}
+  JSON
+  cat > kayitlar/kalemler.json.bak <<'JSON'
+  {"kalem":"kira","tutar":9999}
+  JSON
+
+goal_tr: >
+  kayitlar altindaki .json uzantili dosyalar arasindan uzantisi .json olan
+  tek asil dosyayi bul, icindeki her satirdan kalem adini cikar ve ayni
+  kalem adlarini tekrarsiz olarak kalemler.txt dosyasina sirali yaz
+
+reference_solution: |
+  dosya=$(find kayitlar -name '*.json' | grep -v '\.bak' | head -n 1)
+  cut -d'"' -f4 "$dosya" | sort -u | tee kalemler.txt > /dev/null
+
+outputs:
+  - {path: kalemler.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: kalemler.txt, value: [kira, malzeme, yakit]}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7137
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: muhasebe-kalemleri
+    hedef: bol
+    girdi: json
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: dosyayi-bul
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

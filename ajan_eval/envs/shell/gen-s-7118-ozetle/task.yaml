@@ -1,0 +1,76 @@
+id: gen-s-7118-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  loglar dizinindeki her .log dosyasındaki benzersiz satırları dosya adına göre ayrı ayrı sırala ve her dosya için loglar altında aynı adlı bir .uniq dosyası üret. Yani loglar/sunucu1.log için loglar/sunucu1.uniq, loglar/sunucu2.log için loglar/sunucu2.uniq ve loglar/sunucu3.log için loglar/sunucu3.uniq oluşturulsun.
+
+  Şu şartlar sağlanmalı:
+  - loglar dizinindeki tüm .log dosyaları işlenmeli.
+  - Her .log dosyası için aynı adı taşıyan bir .uniq dosyası loglar dizini altında oluşturulmalı: loglar/sunucu1.uniq, loglar/sunucu2.uniq, loglar/sunucu3.uniq.
+  - Her .uniq dosyasında yalnızca ilgili .log dosyasındaki benzersiz satırlar bulunmalı; tekrar eden satırlar bir kez yer almalı.
+  - Satırlar sıralı olmalı.
+  - Boş olan loglar/sunucu3.log için loglar/sunucu3.uniq dosyası da oluşturulmalı ve içi boş olmalı.
+
+setup: |
+  mkdir -p loglar
+  cat > loglar/sunucu1.log <<'LOG'
+  BILGI sistem basladi
+  HATA disk dolu
+  UYARI bellek az
+  HATA baglanti koptu
+  LOG
+  cat > loglar/sunucu2.log <<'LOG'
+  BILGI kullanici giris yapti
+  HATA zaman asimi
+  HATA disk dolu
+  LOG
+  cat > loglar/sunucu3.log <<'LOG'
+  LOG
+
+goal_tr: >
+  loglar dizinindeki her .log dosyasindaki benzersiz satirlari dosya adina
+  gore ayri ayri sirala ve her dosya icin loglar altinda ayni adli bir .uniq
+  dosyasi uret
+
+reference_solution: |
+  for f in loglar/*.log; do sort -u "$f" | uniq > "${f%.log}.uniq"; done
+
+outputs:
+  - {path: loglar/sunucu1.uniq, kind: file}
+  - {path: loglar/sunucu2.uniq, kind: file}
+  - {path: loglar/sunucu3.uniq, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: loglar/sunucu1.uniq, value: [BILGI sistem basladi, HATA baglanti koptu, HATA disk dolu, UYARI bellek az]}
+  - {op: file_lines_eq, path: loglar/sunucu2.uniq, value: [BILGI kullanici giris yapti, HATA disk dolu, HATA zaman asimi]}
+  - {op: is_file, path: loglar/sunucu3.uniq}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7118
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: sunucu-loglari
+    hedef: ozetle
+    girdi: log-satiri
+    kaynak: cok-dosya
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: bos-dosya
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

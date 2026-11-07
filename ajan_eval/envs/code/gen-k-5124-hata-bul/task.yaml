@@ -1,0 +1,132 @@
+id: gen-k-5124-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  farm/measure/accumulator.py dosyasındaki Accumulator sınıfının add metodu, değerleri yanlış sırayla birleştirdiği için ortalama yanlış hesaplanıyor. Bu metodu, gelen her değeri mevcut toplama ekleyerek biriktirecek şekilde düzelt; böylece mean metodu doğru ortalama döndürsün. Yalnızca farm/measure/accumulator.py dosyasını düzelt, diğer dosyalara dokunma.
+
+setup: |
+  mkdir -p farm/measure
+  cat > farm/measure/accumulator.py <<'ACC'
+  class Accumulator:
+      def __init__(self):
+          self.total = 0.0
+          self.count = 0
+
+      def add(self, value):
+          self.count += 1
+          self.total = value + self.count
+
+      def mean(self):
+          if self.count == 0:
+              return 0.0
+          return self.total / self.count
+  ACC
+  cat > farm/measure/plot.py <<'PLOT'
+  from farm.measure.accumulator import Accumulator
+
+
+  class Plot:
+      def __init__(self, name):
+          self.name = name
+          self.accumulator = Accumulator()
+
+      def record(self, value):
+          self.accumulator.add(value)
+
+      def average(self):
+          return self.accumulator.mean()
+  PLOT
+  cat > farm/measure/survey.py <<'SURV'
+  from farm.measure.plot import Plot
+
+
+  class Survey:
+      def __init__(self):
+          self.plots = {}
+
+      def add_reading(self, plot_name, value):
+          if plot_name not in self.plots:
+              self.plots[plot_name] = Plot(plot_name)
+          self.plots[plot_name].record(value)
+
+      def plot_average(self, plot_name):
+          if plot_name not in self.plots:
+              return 0.0
+          return self.plots[plot_name].average()
+
+      def best_plot(self):
+          best = None
+          best_avg = None
+          for name in self.plots:
+              avg = self.plots[name].average()
+              if best_avg is None or avg > best_avg:
+                  best_avg = avg
+                  best = name
+          return best
+  SURV
+
+goal_tr: >
+  farm/measure/accumulator.py icindeki Accumulator.add metodunu, toplama
+  sirasini duzeltip (mevcut toplami gelen degerle biriktirerek) ortalama
+  degerin dogru hesaplanmasini saglayacak bicimde duzelt
+
+reference_solution: |
+  cat > farm/measure/accumulator.py <<'ACC'
+  class Accumulator:
+      def __init__(self):
+          self.total = 0.0
+          self.count = 0
+
+      def add(self, value):
+          self.total = self.total + value
+          self.count += 1
+
+      def mean(self):
+          if self.count == 0:
+              return 0.0
+          return self.total / self.count
+  ACC
+
+outputs:
+  - {path: farm/measure/accumulator.py, kind: program, run: 'python3 -c ''from farm.measure.accumulator import Accumulator; a=Accumulator(); a.add(1.5); a.add(2.5); a.add(6.0); assert a.total==10.0, a.total; assert a.mean()==10.0/3, a.mean(); b=Accumulator(); b.add(-4.0); b.add(9.0); assert b.total==5.0, b.total; assert b.mean()==2.5, b.mean(); c=Accumulator(); assert c.mean()==0.0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from farm.measure.accumulator import Accumulator; a=Accumulator(); a.add(1.5); a.add(2.5); a.add(6.0); assert a.total==10.0, a.total; assert a.mean()==10.0/3, a.mean(); b=Accumulator(); b.add(-4.0); b.add(9.0); assert b.total==5.0, b.total; assert b.mean()==2.5, b.mean(); c=Accumulator(); assert c.mean()==0.0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5124
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: tarim-verim-olcumleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-toplama-sirasi
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: bellek-ici
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

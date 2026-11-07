@@ -1,0 +1,154 @@
+id: gen-k-8379-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Depo tarafında bir süredir kayıt akışlarını işleyen kod parçaları birbirine giriyor; ekip artık `agro/io/reader.py` içindeki `RecordSource` protokolünü temel alan tek bir giriş noktası istiyor. Sabah toplantısında `agro/core/index.py` ve `agro/cli/main.py` üzerinden yürüyen akışı konuştuk, öğleden sonra da `sample.txt` gibi dosyalardan gelen örnek kayıtlarla uğraştık. Şimdi sıra CLI tarafını toparlamaya geldi.
+
+  `agro/cli/main.py` dosyasındaki `run` fonksiyonunu, `agro.io.reader.RecordSource` soyut protokolünü uygulayan bir kaynaktan okunan (alan, değer) kayıtlarını alan adına göre gruplayacak ve her alanın değerlerini artan sırada tutan bir sözlük döndürecek biçimde tamamla. Aynı modülde, bir alandaki değerler üzerinde `bisect` ile ikili arama yapıp sorgulanan değere en yakın alt ve üst değeri döndüren `query(grouped, field, value)` fonksiyonunu tanımla. Böylece `run(src)` çağrısı `{"wheat": [4.2, 4.4, 4.9], ...}` gibi sıralanmış listeler üretsin, `query(g, "wheat", 4.5)` ise `(4.4, 4.9)` döndürsün.
+
+setup: |
+  mkdir -p agro/io agro/core agro/cli
+  cat > agro/io/reader.py <<'READER'
+  import sys
+  from abc import ABC, abstractmethod
+
+
+  class RecordSource(ABC):
+      """Abstract protocol for sources of (field, value) records."""
+
+      @abstractmethod
+      def records(self):
+          """Yield (field, value) tuples."""
+          raise NotImplementedError
+
+
+  class StreamSource(RecordSource):
+      """Concrete source reading records from a text stream."""
+
+      def __init__(self, stream):
+          self._stream = stream
+
+      def records(self):
+          for raw in self._stream:
+              line = raw.strip()
+              if not line or line.startswith("#"):
+                  continue
+              field, value = line.split()
+              yield field, float(value)
+
+
+  def read_stdin():
+      return StreamSource(sys.stdin)
+  READER
+  cat > agro/core/index.py <<'INDEX'
+  from agro.io.reader import RecordSource, read_stdin
+
+
+  def load(source=None):
+      src = source if source is not None else read_stdin()
+      if not isinstance(src, RecordSource):
+          raise TypeError("source must be a RecordSource")
+      return list(src.records())
+  INDEX
+  cat > agro/cli/main.py <<'MAIN'
+  from agro.core.index import load
+
+
+  def run(source=None):
+      return load(source)
+  MAIN
+  cat > sample.txt <<'SAMPLE'
+  wheat 4.2
+  barley 3.1
+  # comment line
+  wheat 4.9
+  oats 2.7
+  barley 3.8
+  wheat 4.4
+  oats 2.2
+  SAMPLE
+
+goal_tr: >
+  agro/cli/main.py icindeki run fonksiyonunu, `agro.io.reader.RecordSource`
+  soyut protokolunu uygulayan bir kaynaktan okunan (alan, deger) kayitlarini
+  alan adina gore gruplayip her alanin degerlerini artan sirada tutan bir
+  sozluk dondurecek ve ayni modulde, bir alandaki degerler uzerinde `bisect`
+  ile ikili arama yapip sorgulanan degere en yakin alt ve ust degeri
+  donduren `query(grouped, field, value)` fonksiyonunu tanimlayacak bicimde
+  tamamla; boylece `run(src)` cagrisi `{"wheat": [4.2, 4.4, 4.9], ...}` gibi
+  siralanmis listeler uretsin, `query(g, "wheat", 4.5)` ise `(4.4, 4.9)`
+  dondursun.
+
+reference_solution: |
+  cat > agro/cli/main.py <<'MAIN'
+  import bisect
+
+  from agro.core.index import load
+  from agro.io.reader import RecordSource
+
+
+  def run(source=None):
+      if source is not None and not isinstance(source, RecordSource):
+          raise TypeError("source must be a RecordSource")
+      rows = load(source)
+      grouped = {}
+      for field, value in rows:
+          grouped.setdefault(field, []).append(value)
+      for field in grouped:
+          grouped[field].sort()
+      return grouped
+
+
+  def query(grouped, field, value):
+      values = grouped.get(field)
+      if not values:
+          return (None, None)
+      pos = bisect.bisect_left(values, value)
+      lower = values[pos - 1] if pos > 0 else None
+      upper = values[pos] if pos < len(values) else None
+      return (lower, upper)
+  MAIN
+
+outputs:
+  - {path: agro/cli/main.py, kind: program, run: 'python3 -c ''import io; from agro.io.reader import StreamSource, RecordSource; from agro.cli.main import run, query; src=StreamSource(io.StringIO("wheat 4.2\nbarley 3.1\nwheat 4.9\noats 2.7\nbarley 3.8\nwheat 4.4\noats 2.2\n")); assert isinstance(src, RecordSource); g=run(src); assert g=={"wheat":[4.2,4.4,4.9],"barley":[3.1,3.8],"oats":[2.2,2.7]}, g; assert query(g,"wheat",4.5)==(4.4,4.9), query(g,"wheat",4.5); assert query(g,"wheat",4.2)==(None,4.2); assert query(g,"wheat",9.0)==(4.9,None); assert query(g,"oats",2.0)==(None,2.2); assert query(g,"rye",1.0)==(None,None); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import io; from agro.io.reader import StreamSource, RecordSource; from agro.cli.main import run, query; src=StreamSource(io.StringIO("wheat 4.2\nbarley 3.1\nwheat 4.9\noats 2.7\nbarley 3.8\nwheat 4.4\noats 2.2\n")); assert isinstance(src, RecordSource); g=run(src); assert g=={"wheat":[4.2,4.4,4.9],"barley":[3.1,3.8],"oats":[2.2,2.7]}, g; assert query(g,"wheat",4.5)==(4.4,4.9), query(g,"wheat",4.5); assert query(g,"wheat",4.2)==(None,4.2); assert query(g,"wheat",9.0)==(4.9,None); assert query(g,"oats",2.0)==(None,2.2); assert query(g,"rye",1.0)==(None,None); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8379
+    bundle: yarisma
+    tools:
+    - python3
+    konu: tarim-verim-olcumleri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-ikili-arama
+      karmasiklik: duz
+      kalip: abc-protokol
+      akis: stdin-boru
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,61 @@
+id: gen-s-7046-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri/vardiya.dat dosyasındaki sabit genişlikli kayıtlardan personel kodunu (ilk 4 karakter) kullanarak, tekrarları atarak bölüm bazında grupla ve her bölümdeki benzersiz personel sayısını bölüm kodu ile birlikte bolum_sayilari.txt dosyasına yaz.
+
+setup: |
+  mkdir -p veri
+  cat > veri/vardiya.dat <<'DAT'
+  A101ALI      08001700
+  A102AYSE     12002100
+  A103CAN      09001800
+  A101ALI      08001700
+  A104DENIZ    13002200
+  DAT
+
+goal_tr: >
+  veri/vardiya.dat dosyasindaki sabit genislikli kayitlardan personel kodunu
+  (ilk 4 karakter) tekrarlari atarak bolum bazinda grupla ve her bolumdeki
+  benzersiz personel sayisini bolum kodu ile birlikte bolum_sayilari.txt
+  dosyasina yaz
+
+reference_solution: |
+  cut -c1-4 veri/vardiya.dat | sort -u > /tmp/benzersiz.txt
+  cut -c1-1 /tmp/benzersiz.txt | sort | uniq -c | sed 's/^ *//' | tee bolum_sayilari.txt > /dev/null
+
+outputs:
+  - {path: bolum_sayilari.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: bolum_sayilari.txt, value: 4 A}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7046
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: personel-vardiyalari
+    hedef: bol
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: tekrar-eden-kayit
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

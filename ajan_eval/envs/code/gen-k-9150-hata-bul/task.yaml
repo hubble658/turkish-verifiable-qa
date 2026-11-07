@@ -1,0 +1,210 @@
+id: gen-k-9150-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 18
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  weblog/stats.py dosyasındaki AccessStats sınıfının mevcut davranışında iki sorun var. __add__ metodu iki logun tüm kayıtlarını eksiksiz birleştirmiyor, birleşik nesnede total_bytes ve error_count doğru hesaplanmıyor; top_ips ise en çok istek yapan k IP'yi tam olarak döndürmüyor. weblog/stats.py içindeki bu üç davranışı düzelt: iki AccessStats nesnesi toplandığında birleşik nesne her iki logun bütün kayıtlarını içermeli, total_bytes birleşik kayıtların toplam baytını vermeli, error_count birleşik kayıtlardaki hata sayısını vermeli ve top_ips en çok istek yapan k IP'yi eksiksiz döndürmeli. Gerekirse weblog/reader.py dosyasındaki yükleme davranışını da gözden geçir, çünkü kayıtlar oradan geliyor.
+
+setup: |
+  mkdir -p weblog
+  cat > weblog/reader.py <<'READER'
+  class LogReader:
+      def __init__(self, path):
+          self.path = path
+
+      def lines(self):
+          with open(self.path, "r", encoding="ascii") as fh:
+              return [ln.rstrip("\n") for ln in fh if ln.strip()]
+
+      def __len__(self):
+          return len(self.lines())
+
+
+  def load_records(path):
+      reader = LogReader(path)
+      records = []
+      for line in reader.lines():
+          ip, status, size = line.split(" ")
+          records.append((ip, int(status), int(size)))
+      return records
+  READER
+  cat > weblog/stats.py <<'STATS'
+  from weblog.reader import load_records
+
+
+  class AccessStats:
+      def __init__(self, path):
+          self.records = load_records(path)
+
+      def __len__(self):
+          return len(self.records)
+
+      def __getitem__(self, index):
+          return self.records[index]
+
+      def __add__(self, other):
+          merged = AccessStats.__new__(AccessStats)
+          merged.records = self.records + other.records[:-1]
+          return merged
+
+      def total_bytes(self):
+          total = 0
+          for i in range(len(self.records)):
+              total += self.records[i][2]
+          return total
+
+      def error_count(self):
+          count = 0
+          for ip, status, size in self.records:
+              if status // 100 == 4:
+                  count += 1
+          return count
+
+      def top_ips(self, k):
+          counts = {}
+          for ip, status, size in self.records:
+              counts[ip] = counts.get(ip, 0) + 1
+          ordered = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+          return [ip for ip, n in ordered[:k - 1]]
+  STATS
+  cat > access.log <<'LOG'
+  10.0.0.1 200 512
+  10.0.0.2 404 128
+  10.0.0.1 500 256
+  10.0.0.3 200 1024
+  10.0.0.1 404 64
+  LOG
+
+goal_tr: >
+  weblog/stats.py icindeki AccessStats sinifinda __add__ iki logun tum
+  kayitlarini birlestirsin ve top_ips en cok istek yapan k IP'yi eksiksiz
+  dondursun; birlesik nesnede total_bytes ve error_count de dogru olsun.
+
+reference_solution: |
+  cat > weblog/stats.py <<'STATS'
+  from weblog.reader import load_records
+
+
+  class AccessStats:
+      def __init__(self, path):
+          self.records = load_records(path)
+
+      def __len__(self):
+          return len(self.records)
+
+      def __getitem__(self, index):
+          return self.records[index]
+
+      def __add__(self, other):
+          merged = AccessStats.__new__(AccessStats)
+          merged.records = self.records + other.records
+          return merged
+
+      def total_bytes(self):
+          total = 0
+          for i in range(len(self.records)):
+              total += self.records[i][2]
+          return total
+
+      def error_count(self):
+          count = 0
+          for ip, status, size in self.records:
+              if status // 100 == 4:
+                  count += 1
+          return count
+
+      def top_ips(self, k):
+          counts = {}
+          for ip, status, size in self.records:
+              counts[ip] = counts.get(ip, 0) + 1
+          ordered = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+          return [ip for ip, n in ordered[:k]]
+  STATS
+
+ara_adim: |
+  cat > weblog/stats.py <<'STATS'
+  from weblog.reader import load_records
+
+
+  class AccessStats:
+      def __init__(self, path):
+          self.records = load_records(path)
+
+      def __len__(self):
+          return len(self.records)
+
+      def __getitem__(self, index):
+          return self.records[index]
+
+      def __add__(self, other):
+          merged = AccessStats.__new__(AccessStats)
+          merged.records = self.records + other.records
+          return merged
+
+      def total_bytes(self):
+          total = 0
+          for i in range(len(self.records)):
+              total += self.records[i][2]
+          return total
+
+      def error_count(self):
+          count = 0
+          for ip, status, size in self.records:
+              if status // 100 == 4:
+                  count += 1
+          return count
+
+      def top_ips(self, k):
+          counts = {}
+          for ip, status, size in self.records:
+              counts[ip] = counts.get(ip, 0) + 1
+          ordered = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+          return [ip for ip, n in ordered[:k - 1]]
+  STATS
+
+outputs:
+  - {path: weblog/stats.py, kind: program, run: 'python3 -c ''from weblog.stats import AccessStats as S; a=S("access.log"); assert a.top_ips(2)==["10.0.0.1","10.0.0.2"], a.top_ips(2); assert a.top_ips(3)==["10.0.0.1","10.0.0.2","10.0.0.3"]; print("TAMAM")'''}
+  - {path: weblog/stats.py, kind: program, run: 'python3 -c ''from weblog.stats import AccessStats as S; a=S("access.log"); b=S("access.log"); c=a+b; assert len(c)==10, len(c); assert c.total_bytes()==3968, c.total_bytes(); assert c.error_count()==4, c.error_count(); print("ILERLEME-TAMAM")'''}
+  - {path: weblog/reader.py, kind: program, run: 'python3 -c ''from weblog.reader import load_records as f; r=f("access.log"); assert len(r)==5, len(r); assert r[0]==("10.0.0.1",200,512), r[0]; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from weblog.stats import AccessStats as S; a=S("access.log"); assert a.top_ips(2)==["10.0.0.1","10.0.0.2"], a.top_ips(2); assert a.top_ips(3)==["10.0.0.1","10.0.0.2","10.0.0.3"]; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from weblog.stats import AccessStats as S; a=S("access.log"); b=S("access.log"); c=a+b; assert len(c)==10, len(c); assert c.total_bytes()==3968, c.total_bytes(); assert c.error_count()==4, c.error_count(); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from weblog.reader import load_records as f; r=f("access.log"); assert len(r)==5, len(r); assert r[0]==("10.0.0.1",200,512), r[0]; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9150
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: web-erisim-loglari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 6
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: off-by-one
+      karmasiklik: orta
+      kalip: operator-asiri-yukleme
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

@@ -1,0 +1,73 @@
+id: gen-s-3227-sirala-sec
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kaynak dizin ağacındaki tüm .tsv dosyalarındaki satırları ilk sütuna göre artan sırada birleştirip cikti dizini altında tek bir sonuç.tsv dosyasına yaz. cikti dizinini de oluştur.
+
+  Şu şartlar sağlanmalı:
+  - cikti dizini oluşturulmuş olmalı.
+  - cikti/sonuc.tsv dosyası oluşturulmuş olmalı.
+  - cikti/sonuc.tsv içeriği, kaynak dizin ağacındaki tüm .tsv dosyalarındaki satırların ilk sütuna göre artan sırada birleştirilmiş hali olmalı.
+  - kaynak/arsiv/notlar.txt gibi .tsv olmayan dosyalar sonuca dahil edilmemeli.
+
+setup: |
+  mkdir -p kaynak/2024/ocak kaynak/2024/subat kaynak/arsiv
+  cat > kaynak/2024/ocak/kalemler.tsv <<'TSV'
+  kasa	100	gelir
+  banka	250	gider
+  kasa	50	gelir
+  TSV
+  cat > kaynak/2024/subat/kalemler.tsv <<'TSV'
+  banka	300	gider
+  kasa	75	gelir
+  TSV
+  cat > kaynak/arsiv/notlar.txt <<'TXT'
+  arsivdeki eski notlar
+  TSV dosyasi degil
+  TXT
+
+goal_tr: >
+  kaynak dizin agacindaki tum .tsv dosyalarindaki satirlari ilk sutuna gore
+  artan sirada birlestirip cikti/ dizini altinda tek bir sonuc.tsv dosyasina
+  yaz; cikti dizinini de olustur.
+
+reference_solution: |
+  mkdir -p cikti
+  find kaynak -type f -name '*.tsv' | sort | xargs awk '{print}' | sort -k1,1 > cikti/sonuc.tsv
+
+outputs:
+  - {path: cikti/sonuc.tsv, kind: file}
+  - {path: cikti, kind: dir}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [sonuc.tsv]}
+  - {op: file_lines_eq, path: cikti/sonuc.tsv, value: ["banka\t250\tgider", "banka\t300\tgider", "kasa\t100\tgelir", "kasa\t50\tgelir", "kasa\t75\tgelir"]}
+
+metadata:
+  domain: sirala-sec
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3227
+    bundle: awk
+    tools:
+    - awk
+    konu: muhasebe-kalemleri
+    hedef: sirala-sec
+    girdi: tsv
+    kaynak: dizin-agaci
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

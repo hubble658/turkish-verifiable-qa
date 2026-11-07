@@ -1,0 +1,65 @@
+id: gen-s-7301-sirala-sec
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  olcumler.ini içindeki kayıt değerlerini büyükten küçüğe sırala, en büyük üçüncü değeri enbuyuk3.txt dosyasına sadece sayı olarak yaz.
+
+setup: |
+  cat > olcumler.ini <<'INI'
+  [sensor]
+  ad = sicaklik
+  birim = C
+  kayit1 = 21.5
+  kayit2 = 19.0
+  kayit3 = 23.7
+  kayit4 = 20.1
+  kayit5 = 22.4
+  kayit6 = 18.6
+  kayit7 = 24.2
+  kayit8 = 21.0
+  kayit9 = 19.8
+  kayit10 = 22.9
+  INI
+
+goal_tr: >
+  olcumler.ini dosyasindaki kayit anahtarlarina ait sayisal degerleri
+  buyukten kucuge sirala ve en buyuk ucuncu degeri enbuyuk3.txt dosyasina
+  sadece sayi olarak yaz
+
+reference_solution: |
+  awk -F'=' '/^kayit/ {gsub(/ /,"",$2); print $2}' olcumler.ini | sort -rn | sed -n '3p' > enbuyuk3.txt
+
+outputs:
+  - {path: enbuyuk3.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: enbuyuk3.txt, value: '22.9'}
+
+metadata:
+  domain: sirala-sec
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7301
+    bundle: awk
+    tools:
+    - awk
+    konu: sensor-olcumleri
+    hedef: sirala-sec
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

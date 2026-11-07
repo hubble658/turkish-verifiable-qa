@@ -1,0 +1,67 @@
+id: gen-s-4080-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) siparisler/arsiv dizinindeki siparisler.log dosyasındaki her satırı ters çevir.
+  2) Ters çevrilen her satırı iki nokta üst üste karakterine göre alanlara ayır.
+  3) Her satırın alanlarını ters sırada birleştirerek o satır için geçerli bir JSON nesnesi oluştur.
+  4) Tüm satırlardan oluşan JSON nesnelerini bir JSON dizisi halinde cikti.json dosyasına yaz.
+
+setup: |
+  mkdir -p siparisler/arsiv
+  cat > siparisler/arsiv/siparisler.log <<'LOG'
+  masa:12|urun:cay|adet:2
+  masa:3|urun:kebap|adet:1
+  masa:12|urun:kebap|adet:1
+  masa:7|urun:ayran|adet:3
+  LOG
+
+goal_tr: >
+  siparisler/arsiv dizinindeki siparisler.log dosyasindaki her satiri rev
+  ile ters cevirip cut ile iki nokta ustuste gore alanlara ayir, alanlari
+  ters sirada birlestirerek her satir icin gecerli bir JSON nesnesi uret ve
+  tum satirlari JSON dizisi olarak cikti.json dosyasina yaz
+
+reference_solution: |
+  rev siparisler/arsiv/siparisler.log > siparisler/arsiv/ters.log
+  cut -d'|' -f3 siparisler/arsiv/ters.log > siparisler/arsiv/a.txt
+  cut -d'|' -f2 siparisler/arsiv/ters.log > siparisler/arsiv/b.txt
+  cut -d'|' -f1 siparisler/arsiv/ters.log > siparisler/arsiv/c.txt
+  paste -d'|' siparisler/arsiv/a.txt siparisler/arsiv/b.txt siparisler/arsiv/c.txt > siparisler/arsiv/duzenli.txt
+  awk -F'|' 'BEGIN{print "["} {printf "%s  {\"adet\":\"%s\",\"urun\":\"%s\",\"masa\":\"%s\"}", (NR>1?",\n":""), $1, $2, $3} END{print "\n]"}' siparisler/arsiv/duzenli.txt > cikti.json
+
+outputs:
+  - {path: cikti.json, kind: json}
+
+checks:
+  - {op: json_eq, path: cikti.json, value: [{adet: '21:asam', urun: 'yac:nuru', masa: '2:teda'}, {adet: '3:asam', urun: 'pabek:nuru', masa: '1:teda'}, {adet: '21:asam', urun: 'pabek:nuru', masa: '1:teda'}, {adet: '7:asam', urun: 'narya:nuru', masa: '3:teda'}]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4080
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: restoran-siparisleri
+    hedef: donustur
+    girdi: log-satiri
+    kaynak: dizin-agaci
+    cikti: json
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

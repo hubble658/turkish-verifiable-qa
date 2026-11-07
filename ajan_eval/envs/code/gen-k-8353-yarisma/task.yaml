@@ -1,0 +1,118 @@
+id: gen-k-8353-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) sensor/engine.py dosyasını, içindeki scan fonksiyonu alarm üreten olayların sayısını doğru döndürecek şekilde yaz.
+
+  2) scan fonksiyonunun, sensor/rules.py içindeki is_alarm çağrı sayacını her taramada sıfırlayıp doğru şekilde güncellemesini sağla.
+
+setup: |
+  mkdir -p sensor
+  cat > sensor/rules.py <<'RULES'
+  import functools
+
+
+  def count_calls(func):
+      @functools.wraps(func)
+      def wrapper(event, *args, **kwargs):
+          wrapper.calls += 1
+          return func(event, *args, **kwargs)
+      wrapper.calls = 0
+      return wrapper
+
+
+  @count_calls
+  def is_alarm(event):
+      return event["value"] > event["threshold"]
+  RULES
+  cat > sensor/engine.py <<'ENGINE'
+  from sensor.rules import is_alarm
+
+
+  def scan(events):
+      hits = 0
+      for event in events:
+          if is_alarm(event):
+              hits += 1
+      return hits
+  ENGINE
+
+goal_tr: >
+  sensor/engine.py icindeki scan fonksiyonunu, alarm ureten olaylarin
+  sayisini dogru dondurecek ve sensor/rules.py icindeki is_alarm cagri
+  sayacini her taramada sifirlayip dogru guncelleyecek bicimde yaz.
+
+reference_solution: |
+  cat > sensor/rules.py <<'RULES'
+  import functools
+
+
+  def count_calls(func):
+      @functools.wraps(func)
+      def wrapper(event, *args, **kwargs):
+          wrapper.calls += 1
+          return func(event, *args, **kwargs)
+      wrapper.calls = 0
+      return wrapper
+
+
+  @count_calls
+  def is_alarm(event):
+      return event["value"] > event["threshold"]
+  RULES
+  cat > sensor/engine.py <<'ENGINE'
+  from sensor.rules import is_alarm
+
+
+  def scan(events):
+      is_alarm.calls = 0
+      hits = 0
+      for event in events:
+          if is_alarm(event):
+              hits += 1
+      return hits
+  ENGINE
+
+outputs:
+  - {path: sensor/engine.py, kind: program, run: 'python3 -c ''from sensor.engine import scan; from sensor.rules import is_alarm; a=[{"value":5,"threshold":3},{"value":1,"threshold":3},{"value":9,"threshold":3}]; assert scan(a)==2, scan(a); assert is_alarm.calls==3, is_alarm.calls; assert scan(a[:1])==1; assert is_alarm.calls==1, is_alarm.calls; assert scan([])==0; assert is_alarm.calls==0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensor.engine import scan; from sensor.rules import is_alarm; a=[{"value":5,"threshold":3},{"value":1,"threshold":3},{"value":9,"threshold":3}]; assert scan(a)==2, scan(a); assert is_alarm.calls==3, is_alarm.calls; assert scan(a[:1])==1; assert is_alarm.calls==1, is_alarm.calls; assert scan([])==0; assert is_alarm.calls==0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8353
+    bundle: yarisma
+    tools:
+    - python3
+    konu: sensor-alarm-kurallari
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sayma
+      karmasiklik: duz
+      kalip: dekorator
+      akis: bellek-ici
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

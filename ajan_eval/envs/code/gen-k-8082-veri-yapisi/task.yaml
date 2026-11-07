@@ -1,0 +1,151 @@
+id: gen-k-8082-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  docs/store.py'deki DocumentStore'un __iter__, stream ve search metotlarını generator olarak yaz. __iter__ (id, token listesi) çiftlerini sırayla, stream(chunk) demetleri chunk boyutunda parçalı, search(term) term geçen belgelerin id'lerini üretsin.
+
+setup: |
+  mkdir -p docs
+  cat > docs/tokens.py <<'TOKENS'
+  def tokenize(line):
+      return line.split()
+  TOKENS
+  cat > docs/store.py <<'STORE'
+  from docs.tokens import tokenize
+
+
+  class DocumentStore:
+      def __init__(self):
+          self._head = None
+          self._tail = None
+          self._size = 0
+
+      def append(self, doc_id, line):
+          node = {"id": doc_id, "tokens": tokenize(line), "next": None}
+          if self._head is None:
+              self._head = node
+          else:
+              self._tail["next"] = node
+          self._tail = node
+          self._size += 1
+          return self
+
+      def __len__(self):
+          return self._size
+
+      def __iter__(self):
+          raise NotImplementedError
+
+      def stream(self, chunk):
+          raise NotImplementedError
+
+      def search(self, term):
+          raise NotImplementedError
+  STORE
+  cat > docs/__init__.py <<'INIT'
+  INIT
+  cat > corpus.txt <<'CORPUS'
+  alpha beta gamma
+  delta alpha
+  epsilon zeta eta
+  CORPUS
+
+goal_tr: >
+  docs/store.py icindeki DocumentStore sinifinin __iter__, stream ve search
+  metotlarini; __iter__ dugumleri (id, token listesi) ciftleri halinde
+  sirayla dolasan bir generator olacak, stream(chunk) bagli listeyi chunk
+  boyutunda demetler halinde parcali akitan bir generator olacak ve
+  search(term) icinde term token'i gecen belgelerin id'lerini sirayla ureten
+  bir generator olacak bicimde gerceklestir.
+
+reference_solution: |
+  cat > docs/store.py <<'STORE'
+  from docs.tokens import tokenize
+
+
+  class DocumentStore:
+      def __init__(self):
+          self._head = None
+          self._tail = None
+          self._size = 0
+
+      def append(self, doc_id, line):
+          node = {"id": doc_id, "tokens": tokenize(line), "next": None}
+          if self._head is None:
+              self._head = node
+          else:
+              self._tail["next"] = node
+          self._tail = node
+          self._size += 1
+          return self
+
+      def __len__(self):
+          return self._size
+
+      def __iter__(self):
+          node = self._head
+          while node is not None:
+              yield node["id"], list(node["tokens"])
+              node = node["next"]
+
+      def stream(self, chunk):
+          if chunk <= 0:
+              raise ValueError("chunk must be positive")
+          batch = []
+          for doc_id, tokens in self:
+              batch.append((doc_id, tokens))
+              if len(batch) == chunk:
+                  yield batch
+                  batch = []
+          if batch:
+              yield batch
+
+      def search(self, term):
+          for doc_id, tokens in self:
+              if term in tokens:
+                  yield doc_id
+  STORE
+
+outputs:
+  - {path: docs/store.py, kind: program, run: 'python3 -c ''from docs.store import DocumentStore as S; store=S(); [store.append(i,line) for i,line in enumerate(open("corpus.txt").read().splitlines())]; assert len(store)==3; assert list(store)==[(0,["alpha","beta","gamma"]),(1,["delta","alpha"]),(2,["epsilon","zeta","eta"])]; assert list(store.stream(2))==[[(0,["alpha","beta","gamma"]),(1,["delta","alpha"])],[(2,["epsilon","zeta","eta"])]]; assert list(store.stream(3))==[[(0,["alpha","beta","gamma"]),(1,["delta","alpha"]),(2,["epsilon","zeta","eta"])]]; assert list(store.search("alpha"))==[0,1]; assert list(store.search("nope"))==[]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from docs.store import DocumentStore as S; store=S(); [store.append(i,line) for i,line in enumerate(open("corpus.txt").read().splitlines())]; assert len(store)==3; assert list(store)==[(0,["alpha","beta","gamma"]),(1,["delta","alpha"]),(2,["epsilon","zeta","eta"])]; assert list(store.stream(2))==[[(0,["alpha","beta","gamma"]),(1,["delta","alpha"])],[(2,["epsilon","zeta","eta"])]]; assert list(store.stream(3))==[[(0,["alpha","beta","gamma"]),(1,["delta","alpha"]),(2,["epsilon","zeta","eta"])]]; assert list(store.search("alpha"))==[0,1]; assert list(store.search("nope"))==[]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8082
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: metin-belgeleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: bagli-liste
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: parcali-akis
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

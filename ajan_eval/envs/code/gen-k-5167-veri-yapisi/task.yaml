@@ -1,0 +1,161 @@
+id: gen-k-5167-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sessions/store/bst.py içindeki SessionTree sınıfını doldur: sid'e göre ikili arama ağacı tutsun, insert/lookup/size çalışsın. Aynı sid tekrar eklenirse DuplicateSession, olmayan sid'de MissingSession yükselsin.
+
+setup: |
+  mkdir -p sessions/store
+  cat > sessions/errors.py <<'ERR'
+  class SessionError(Exception):
+      pass
+
+
+  class DuplicateSession(SessionError):
+      pass
+
+
+  class MissingSession(SessionError):
+      pass
+  ERR
+  cat > sessions/store/bst.py <<'BST'
+  from sessions.errors import DuplicateSession, MissingSession
+
+
+  class SessionTree:
+      def __init__(self):
+          raise NotImplementedError
+
+      def insert(self, sid, user):
+          raise NotImplementedError
+
+      def lookup(self, sid):
+          raise NotImplementedError
+
+      def size(self):
+          raise NotImplementedError
+  BST
+  cat > sessions/store/loader.py <<'LOAD'
+  from sessions.store.bst import SessionTree
+
+
+  def load_sessions(path):
+      tree = SessionTree()
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              sid, user = line.split(',')
+              tree.insert(sid, user)
+      return tree
+  LOAD
+  cat > data.txt <<'DATA'
+  s3,ada
+  s1,bora
+  s2,cem
+  DATA
+
+goal_tr: >
+  sessions/store/bst.py icindeki SessionTree sinifini, sid anahtarina gore
+  ikili arama agaci tutan ve insert/lookup/size metotlarini calistiran
+  sekilde doldur; ayni sid ikinci kez eklenirse DuplicateSession, olmayan
+  sid aranirsa MissingSession yukselsin.
+
+reference_solution: |
+  cat > sessions/store/bst.py <<'BST'
+  from sessions.errors import DuplicateSession, MissingSession
+
+
+  class _Node:
+      __slots__ = ("sid", "user", "left", "right")
+
+      def __init__(self, sid, user):
+          self.sid = sid
+          self.user = user
+          self.left = None
+          self.right = None
+
+
+  class SessionTree:
+      def __init__(self):
+          self._root = None
+          self._count = 0
+
+      def insert(self, sid, user):
+          if self._root is None:
+              self._root = _Node(sid, user)
+              self._count = 1
+              return
+          node = self._root
+          while True:
+              if sid == node.sid:
+                  raise DuplicateSession(sid)
+              if sid < node.sid:
+                  if node.left is None:
+                      node.left = _Node(sid, user)
+                      self._count += 1
+                      return
+                  node = node.left
+              else:
+                  if node.right is None:
+                      node.right = _Node(sid, user)
+                      self._count += 1
+                      return
+                  node = node.right
+
+      def lookup(self, sid):
+          node = self._root
+          while node is not None:
+              if sid == node.sid:
+                  return node.user
+              node = node.left if sid < node.sid else node.right
+          raise MissingSession(sid)
+
+      def size(self):
+          return self._count
+  BST
+
+outputs:
+  - {path: sessions/store/bst.py, kind: program, run: 'python3 -c ''from sessions.store.loader import load_sessions; from sessions.errors import DuplicateSession, MissingSession; t=load_sessions("data.txt"); assert t.size()==3; assert t.lookup("s1")=="bora"; assert t.lookup("s2")=="cem"; assert t.lookup("s3")=="ada"; ok=False; exec("try:\n t.lookup(\"s9\")\nexcept MissingSession:\n ok=True"); assert ok; ok=False; exec("try:\n t.insert(\"s1\",\"x\")\nexcept DuplicateSession:\n ok=True"); assert ok; t.insert("s0","deniz"); assert t.size()==4; assert t.lookup("s0")=="deniz"; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sessions.store.loader import load_sessions; from sessions.errors import DuplicateSession, MissingSession; t=load_sessions("data.txt"); assert t.size()==3; assert t.lookup("s1")=="bora"; assert t.lookup("s2")=="cem"; assert t.lookup("s3")=="ada"; ok=False; exec("try:\n t.lookup(\"s9\")\nexcept MissingSession:\n ok=True"); assert ok; ok=False; exec("try:\n t.insert(\"s1\",\"x\")\nexcept DuplicateSession:\n ok=True"); assert ok; t.insert("s0","deniz"); assert t.size()==4; assert t.lookup("s0")=="deniz"; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5167
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: kullanici-oturumlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: terse
+    direnc: yok
+    bukulme: kolay
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: ikili-arama-agaci
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: dosya-okuma
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,124 @@
+id: gen-k-8197-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  `exams/cohort.py` içindeki `Cohort.passing` metodunu düzelt; eşiği geçen her öğrencinin adı, öğrencilerin kayıt sırasıyla aynı olacak biçimde döndürülsün. Metot, eşiği geçen öğrencilerin adlarını içeren bir liste döndürmeli ve eşiği geçmeyenler bu listeye girmemeli. `exams/students.py` dosyasındaki `Student` sınıfı ve `exams/transcript.py` dosyası olduğu gibi kalmalı; yalnızca `exams/cohort.py` üzerinde çalış.
+
+setup: |
+  mkdir -p exams
+  cat > exams/students.py <<'PY'
+  class Student:
+      def __init__(self, name):
+          self.name = name
+          self.scores = {}
+
+      def add(self, course, score):
+          self.scores[course] = score
+
+      def average(self):
+          if not self.scores:
+              return 0.0
+          return sum(self.scores.values()) / len(self.scores)
+  PY
+  cat > exams/cohort.py <<'PY'
+  from exams.students import Student
+
+
+  class Cohort:
+      def __init__(self):
+          self.students = []
+
+      def register(self, name):
+          s = Student(name)
+          self.students.append(s)
+          return s
+
+      def passing(self, threshold):
+          result = []
+          for s in self.students:
+              if s.average() >= threshold:
+                  return result
+              result.append(s.name)
+          return result
+  PY
+  cat > exams/transcript.py <<'PY'
+  from exams.cohort import Cohort
+
+
+  def build_transcript(rows, threshold):
+      c = Cohort()
+      for name, course, score in rows:
+          s = c.register(name)
+          s.add(course, score)
+      return c.passing(threshold)
+  PY
+
+goal_tr: >
+  exams/cohort.py icindeki Cohort.passing metodunu, esigi gecen her
+  ogrencinin adini sirasiyla dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > exams/cohort.py <<'PY'
+  from exams.students import Student
+
+
+  class Cohort:
+      def __init__(self):
+          self.students = []
+
+      def register(self, name):
+          s = Student(name)
+          self.students.append(s)
+          return s
+
+      def passing(self, threshold):
+          result = []
+          for s in self.students:
+              if s.average() >= threshold:
+                  result.append(s.name)
+          return result
+  PY
+
+outputs:
+  - {path: exams/cohort.py, kind: program, run: 'python3 -c ''from exams.transcript import build_transcript as f; rows=[("ada","math",90),("bora","math",40),("cem","math",70)]; assert f(rows,60)==["ada","cem"], f(rows,60); assert f(rows,95)==[]; assert f(rows,0)==["ada","bora","cem"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from exams.transcript import build_transcript as f; rows=[("ada","math",90),("bora","math",40),("cem","math",70)]; assert f(rows,60)==["ada","cem"], f(rows,60); assert f(rows,95)==[]; assert f(rows,0)==["ada","bora","cem"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8197
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: sinav-sonuclari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: erken-donus
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: bellek-ici
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

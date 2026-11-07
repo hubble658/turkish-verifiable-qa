@@ -1,0 +1,66 @@
+id: gen-s-3115-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  bolum_a ve bolum_b dizinlerindeki randevular.tsv dosyalarındaki tüm satırları birleştir; Kardiyoloji bölümüne ait satırların sayısını sonuc.txt dosyasına yalnızca sayı olarak yaz.
+
+setup: |
+  mkdir -p bolum_a bolum_b
+  cat > bolum_a/randevular.tsv <<'TSV'
+  Ayse Yilmaz	2024-03-01	10:30	Kardiyoloji
+  Mehmet Demir	2024-03-01	11:00	Noroloji
+  Fatma Kaya	2024-03-02	09:15	Kardiyoloji
+  TSV
+  cat > bolum_b/randevular.tsv <<'TSV'
+  Ali Vural	2024-03-02	14:00	Ortopedi
+  Zeynep Ak	2024-03-03	08:45	Kardiyoloji
+  Hasan Celik	2024-03-03	16:20	Noroloji
+  TSV
+
+goal_tr: >
+  bolum_a ve bolum_b altindaki randevular.tsv dosyalarindaki tum satirlari
+  birlestirip Kardiyoloji bolumune ait satir sayisini sonuc.txt dosyasina
+  sadece sayi olarak yaz
+
+reference_solution: |
+  find bolum_a bolum_b -name 'randevular.tsv' | sort > /tmp/dosyalar.txt
+  cat $(cat /tmp/dosyalar.txt) > /tmp/hepsi.tsv
+  tr '\t' '|' < /tmp/hepsi.tsv > /tmp/duz.tsv
+  sed -n '/Kardiyoloji/p' /tmp/duz.tsv > /tmp/kardiyo.txt
+  wc -l < /tmp/kardiyo.txt | tr -d ' ' > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '3'}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3115
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: hastane-randevulari
+    hedef: ayikla
+    girdi: tsv
+    kaynak: cok-dosya
+    cikti: tek-sayi
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: baslik-yok
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

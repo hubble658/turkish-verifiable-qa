@@ -1,0 +1,56 @@
+id: gen-s-4014-ayikla
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri/sayim.csv ve veri/fiyat.csv dosyalarındaki, her iki dosyada da bulunan ürünler için ürün, adet ve fiyat bilgilerini sonuc.csv dosyasına yaz; sonuc.csv dosyasının ilk satırı ürün,adet,fiyat başlığı olsun. Dosyalardan birinin son satırında satır sonu karakteri bulunmasa bile işlem doğru sonuç vermeli.
+
+setup: |
+  mkdir -p veri
+  printf 'urun,adet\nelma,3\narmut,5\nuzum,7\n' > veri/sayim.csv
+  printf 'urun,fiyat\nelma,10\narmut,20\nkivi,15' > veri/fiyat.csv
+
+goal_tr: >
+  veri/sayim.csv ve veri/fiyat.csv dosyalarinda her iki dosyada da bulunan
+  urunler icin urun,adet,fiyat satirlarini urun,adet,fiyat basligiyla
+  sonuc.csv dosyasina yaz; iki dosyanin da satir sonu olmasa bile calis.
+
+reference_solution: |
+  join -t, -1 1 -2 1 <(tail -n +2 veri/sayim.csv | sort -t, -k1,1) <(tail -n +2 veri/fiyat.csv | sort -t, -k1,1) | awk -F, 'BEGIN{print "urun,adet,fiyat"} {print $1","$2","$3}' > sonuc.csv
+  grep -c . sonuc.csv > /dev/null
+  wc -l < sonuc.csv > /dev/null
+
+outputs:
+  - {path: sonuc.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: sonuc.csv, value: ['urun,adet,fiyat', 'armut,5,20', 'elma,3,10']}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4014
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: envanter
+    hedef: ayikla
+    girdi: csv
+    kaynak: iki-dosya-capraz
+    cikti: csv
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: son-newline-yok
+    bukulme: yok
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

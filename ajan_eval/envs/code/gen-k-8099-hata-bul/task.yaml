@@ -1,0 +1,96 @@
+id: gen-k-8099-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  farm/harvest.py dosyasındaki total_production fonksiyonu şu anda yanlış çalışıyor; tüm tarlaların üretimini toplamak yerine erken davranıp ilk uygun sonucu döndürüyor. Bu fonksiyonu, farm/plots.py içindeki PlotReader üzerinden okunan her tarla için alan ile verim çarpımını hesaplayıp bunların toplamını döndürecek şekilde düzelt. Alanı sıfır olan tarlaların toplama katkı vermemesi gerekiyor, farm/plots.py dosyasına ise hiç dokunma. Sonuçta farm/harvest.py içindeki fonksiyon, fields.txt gibi bir metin verildiğinde tüm tarlaların toplam üretimini tek bir sayı olarak döndürmeli.
+
+setup: |
+  mkdir -p farm
+  cat > farm/plots.py <<'PLOTS'
+  class PlotReader:
+      def __init__(self, text):
+          self._lines = [ln for ln in text.splitlines() if ln.strip()]
+
+      def __iter__(self):
+          for line in self._lines:
+              name, area, yield_ = line.split(",")
+              yield (name, float(area), float(yield_))
+  PLOTS
+  cat > farm/harvest.py <<'HARVEST'
+  from farm.plots import PlotReader
+
+
+  def total_production(text):
+      total = 0.0
+      for name, area, yield_ in PlotReader(text):
+          if area > 0:
+              total += area * yield_
+              return total
+      return total
+  HARVEST
+  cat > fields.txt <<'FIELDS'
+  north,2.0,3.5
+  south,1.5,4.0
+  east,3.0,2.0
+  FIELDS
+
+goal_tr: >
+  farm/harvest.py icindeki total_production fonksiyonunu, tum tarlalarin
+  toplam uretimini (alan * verim toplami) dogru hesaplayacak bicimde duzelt.
+
+reference_solution: |
+  cat > farm/harvest.py <<'HARVEST'
+  from farm.plots import PlotReader
+
+
+  def total_production(text):
+      total = 0.0
+      for name, area, yield_ in PlotReader(text):
+          if area > 0:
+              total += area * yield_
+      return total
+  HARVEST
+
+outputs:
+  - {path: farm/harvest.py, kind: program, run: 'python3 -c ''from farm.harvest import total_production as f; t=open("fields.txt").read(); assert abs(f(t)-19.0)<1e-9, f(t); assert abs(f("a,1.0,2.0\nb,0.0,9.0\nc,2.0,1.0")-4.0)<1e-9; assert abs(f("")-0.0)<1e-9; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from farm.harvest import total_production as f; t=open("fields.txt").read(); assert abs(f(t)-19.0)<1e-9, f(t); assert abs(f("a,1.0,2.0\nb,0.0,9.0\nc,2.0,1.0")-4.0)<1e-9; assert abs(f("")-0.0)<1e-9; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8099
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: tarim-verim-olcumleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: erken-donus
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: cok-dosya-birlestirme
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

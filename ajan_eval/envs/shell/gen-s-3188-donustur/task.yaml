@@ -1,0 +1,64 @@
+id: gen-s-3188-donustur
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi klasöründeki .ini dosyalarındaki ürün, fiyat ve stok alanlarını okuyup her ürün için bir satır olacak şekilde, başlık satırı ürün,fiyat,stok olan urunler.csv dosyasını oluştur. Girdi klasöründeki .txt dosyalarını yok say; yalnızca .ini dosyalarındaki kayıtlar bu dosyaya girsin.
+
+setup: |
+  mkdir -p girdi
+  printf 'urun=kirmizi-kalem\r\nfiyat=25\r\nstok=10\r\n' > girdi/a.ini
+  printf 'urun=mavi-defter\r\nfiyat=40\r\nstok=3\r\n' > girdi/b.ini
+  printf 'urun=yesil-silgi\r\nfiyat=7\r\nstok=99\r\n' > girdi/c.ini
+  printf 'bu dosya ini degil\r\n' > girdi/notlar.txt
+
+goal_tr: >
+  girdi klasorundeki .ini dosyalarindaki urun, fiyat ve stok alanlarini her
+  urun icin bir satir olacak sekilde urun,fiyat,stok basligiyla urunler.csv
+  dosyasina yaz; .txt dosyalarini yok say.
+
+reference_solution: |
+  printf 'urun,fiyat,stok\n' > urunler.csv
+  n=$(printf '%s\n' girdi/*.ini | wc -l)
+  for i in $(seq 1 "$n"); do
+    f=$(printf '%s\n' girdi/*.ini | sort | sed -n "${i}p")
+    u=$(grep '^urun=' "$f" | cut -d= -f2 | tr -d '\r')
+    fi=$(grep '^fiyat=' "$f" | cut -d= -f2 | tr -d '\r')
+    s=$(grep '^stok=' "$f" | cut -d= -f2 | tr -d '\r')
+    printf '%s,%s,%s\n' "$u" "$fi" "$s" >> urunler.csv
+  done
+
+outputs:
+  - {path: urunler.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: urunler.csv, value: ['urun,fiyat,stok', 'kirmizi-kalem,25,10', 'mavi-defter,40,3', 'yesil-silgi,7,99']}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3188
+    bundle: uret
+    tools:
+    - printf
+    - seq
+    konu: urun-yorumlari
+    hedef: donustur
+    girdi: ini
+    kaynak: cok-dosya
+    cikti: csv
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: crlf
+    bukulme: tuzak-dosya
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

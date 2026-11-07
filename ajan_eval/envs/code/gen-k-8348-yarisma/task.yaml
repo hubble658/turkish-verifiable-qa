@@ -1,0 +1,131 @@
+id: gen-k-8348-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) docs/query.py dosyasındaki query_tags fonksiyonunu düzelt; fonksiyon verilen etiketlerin tamamını taşıyan belgelerin kimliklerini artan sırada döndürsün.
+
+  2) docs/reader.py, docs/index.py ve docs/data.txt dosyalarını olduğu gibi koru.
+
+setup: |
+  mkdir -p docs
+  cat > docs/reader.py <<'READER'
+  from dataclasses import dataclass
+
+
+  @dataclass
+  class Document:
+      doc_id: str
+      text: str
+      tags: str
+
+
+  def load_documents(path):
+      docs = []
+      with open(path, encoding="utf-8") as fh:
+          for line in fh:
+              line = line.rstrip("\n")
+              if not line.strip():
+                  continue
+              doc_id, text, tags = line.split("|")
+              docs.append(Document(doc_id.strip(), text.strip(), tags.strip()))
+      return docs
+  READER
+  cat > docs/index.py <<'INDEX'
+  from docs.reader import load_documents
+
+
+  def build_index(path):
+      index = {}
+      for doc in load_documents(path):
+          for tag in doc.tags.split(","):
+              tag = tag.strip()
+              if tag:
+                  index.setdefault(tag, set()).add(doc.doc_id)
+      return index
+  INDEX
+  cat > docs/query.py <<'QUERY'
+  from docs.index import build_index
+
+
+  def query_tags(path, tags):
+      index = build_index(path)
+      result = set()
+      for tag in tags:
+          result = result & index.get(tag.strip(), set())
+      return sorted(result)
+  QUERY
+  cat > docs/data.txt <<'DATA'
+  d1|alpha beta gamma|red,blue
+  d2|delta epsilon|blue,green
+  d3|zeta eta theta|red,green
+  d4|iota kappa|red,blue,green
+  DATA
+
+goal_tr: >
+  docs/query.py icindeki query_tags fonksiyonunu, verilen etiketlerin
+  TAMAMINI tasiyan belgelerin kimliklerini artan sirada dondurecek bicimde
+  duzelt
+
+reference_solution: |
+  cat > docs/query.py <<'QUERY'
+  from docs.index import build_index
+
+
+  def query_tags(path, tags):
+      index = build_index(path)
+      normalized = [tag.strip() for tag in tags if tag.strip()]
+      if not normalized:
+          return []
+      result = None
+      for tag in normalized:
+          ids = index.get(tag, set())
+          if result is None:
+              result = set(ids)
+          else:
+              result = result & ids
+      return sorted(result)
+  QUERY
+
+outputs:
+  - {path: docs/query.py, kind: program, run: 'python3 -c ''from docs.query import query_tags as f; p="docs/data.txt"; assert f(p,["red","blue"])==["d1","d4"], f(p,["red","blue"]); assert f(p,["red","green"])==["d3","d4"], f(p,["red","green"]); assert f(p,["blue"])==["d1","d2","d4"]; assert f(p,["green","red","blue"])==["d4"]; assert f(p,[])==[]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from docs.query import query_tags as f; p="docs/data.txt"; assert f(p,["red","blue"])==["d1","d4"], f(p,["red","blue"]); assert f(p,["red","green"])==["d3","d4"], f(p,["red","green"]); assert f(p,["blue"])==["d1","d2","d4"]; assert f(p,["green","red","blue"])==["d4"]; assert f(p,[])==[]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8348
+    bundle: yarisma
+    tools:
+    - python3
+    konu: metin-belgeleri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kume-islemleri
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: dosya-okuma
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

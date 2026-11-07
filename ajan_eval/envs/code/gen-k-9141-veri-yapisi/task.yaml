@@ -1,0 +1,184 @@
+id: gen-k-9141-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  plans/queue/priority.py içindeki PriorityQueue sınıfını ve plans/report.py içindeki rank_plans fonksiyonunu gerçekleştir. data.txt dosyasındaki her satırdan ad, taban_fiyat ve koltuk bilgilerini okuyarak Plan nesneleri oluştur; ardından rank_plans bu planları aylık maliyete göre en pahalıdan en ucuza doğru sıralayıp yalnızca plan adlarını döndürsün. PriorityQueue önceliği büyük olan öğeyi önce verecek şekilde çalışsın ve rank_plans sıralamayı yaparken bu kuyruğu kullansın. plans/base/plan.py içindeki Plan sınıfını olduğu gibi kullan.
+
+  Şu şartlar sağlanmalı:
+  - plans/queue/priority.py içinde PriorityQueue sınıfı push, pop, peek, is_empty ve __len__ metotlarıyla eksiksiz gerçekleştirilmiş olmalı; NotImplementedError kalmamalı.
+  - PriorityQueue.push öncelik değeri büyük olan öğeyi kuyruktan önce çıkaracak şekilde davranmalı.
+  - plans/report.py içindeki rank_plans fonksiyonu NotImplementedError içermemeli ve sıralamayı PriorityQueue üzerinden yapmalı.
+  - rank_plans, data.txt satırlarından okunan planları aylık maliyete göre en pahalıdan en ucuza doğru sıralı bir liste olarak döndürmeli.
+  - rank_plans döndürdüğü listede yalnızca plan adlarını içermeli; başka alan yer almamalı.
+  - data.txt satır biçimi ad,taban_fiyat,koltuk olarak korunmalı ve aylık maliyet taban_fiyat ile koltuk çarpımı üzerinden hesaplanmalı.
+  - plans/base/plan.py içindeki Plan sınıfı değiştirilmeden kullanılmalı.
+
+setup: |
+  mkdir -p plans/base plans/queue
+  cat > plans/base/plan.py <<'PLAN'
+  class Plan:
+      def __init__(self, name, base_price, seats):
+          self.name = name
+          self.base_price = base_price
+          self.seats = seats
+
+      def monthly_cost(self):
+          return self.base_price * self.seats
+  PLAN
+  cat > plans/queue/priority.py <<'PRIORITY'
+  class PriorityQueue:
+      def __init__(self):
+          self._items = []
+
+      def push(self, priority, item):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def is_empty(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+  PRIORITY
+  cat > plans/report.py <<'REPORT'
+  from plans.base.plan import Plan
+  from plans.queue.priority import PriorityQueue
+
+
+  def rank_plans(plans):
+      raise NotImplementedError
+  REPORT
+  cat > data.txt <<'DATA'
+  starter,10,2
+  pro,25,3
+  team,40,5
+  DATA
+
+goal_tr: >
+  plans/queue/priority.py icindeki PriorityQueue sinifini ve plans/report.py
+  icindeki rank_plans fonksiyonunu, data.txt satirlarindan
+  (ad,taban_fiyat,koltuk) planlari okuyup aylik maliyete gore en pahalidan
+  en ucuza dogru adlari dondurecek bicimde gerceklestir; PriorityQueue
+  onceligi buyuk olan once cikacak sekilde calissin ve rank_plans onu
+  kullanarak siralamayi yapsin.
+
+reference_solution: |
+  cat > plans/queue/priority.py <<'PRIORITY'
+  class PriorityQueue:
+      def __init__(self):
+          self._items = []
+
+      def push(self, priority, item):
+          self._items.append((priority, item))
+          self._items.sort(key=lambda pair: pair[0])
+
+      def pop(self):
+          return self._items.pop()[1]
+
+      def peek(self):
+          return self._items[-1][1]
+
+      def is_empty(self):
+          return not self._items
+
+      def __len__(self):
+          return len(self._items)
+  PRIORITY
+  cat > plans/report.py <<'REPORT'
+  from plans.base.plan import Plan
+  from plans.queue.priority import PriorityQueue
+
+
+  def _parse(text):
+      rows = []
+      for line in text.strip().splitlines():
+          name, base, seats = line.split(',')
+          rows.append(Plan(name, float(base), int(seats)))
+      return rows
+
+
+  def rank_plans(text):
+      queue = PriorityQueue()
+      for plan in _parse(text):
+          queue.push(plan.monthly_cost(), plan.name)
+      ordered = []
+      while not queue.is_empty():
+          ordered.append(queue.pop())
+      return ordered
+  REPORT
+
+ara_adim: |
+  cat > plans/queue/priority.py <<'PRIORITY'
+  class PriorityQueue:
+      def __init__(self):
+          self._items = []
+
+      def push(self, priority, item):
+          self._items.append((priority, item))
+          self._items.sort(key=lambda pair: pair[0])
+
+      def pop(self):
+          return self._items.pop()[1]
+
+      def peek(self):
+          return self._items[-1][1]
+
+      def is_empty(self):
+          return not self._items
+
+      def __len__(self):
+          return len(self._items)
+  PRIORITY
+
+outputs:
+  - {path: plans/report.py, kind: program, run: 'python3 -c ''from plans.report import rank_plans as f; t=open("data.txt").read(); assert f(t)==["team","pro","starter"], f(t); print("TAMAM")'''}
+  - {path: plans/queue/priority.py, kind: program, run: 'python3 -c ''from plans.queue.priority import PriorityQueue as Q; q=Q(); q.push(1,"a"); q.push(5,"b"); q.push(3,"c"); assert q.peek()=="b", q.peek(); assert q.pop()=="b"; assert q.pop()=="c"; assert q.pop()=="a"; assert q.is_empty(); print("ILERLEME-TAMAM")'''}
+  - {path: plans/base/plan.py, kind: program, run: 'python3 -c ''from plans.base.plan import Plan as P; assert P("x",10.0,3).monthly_cost()==30.0; assert P("y",2.5,4).monthly_cost()==10.0; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from plans.queue.priority import PriorityQueue as Q; q=Q(); q.push(1,"a"); q.push(5,"b"); q.push(3,"c"); assert q.peek()=="b", q.peek(); assert q.pop()=="b"; assert q.pop()=="c"; assert q.pop()=="a"; assert q.is_empty(); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from plans.report import rank_plans as f; t=open("data.txt").read(); assert f(t)==["team","pro","starter"], f(t); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from plans.base.plan import Plan as P; assert P("x",10.0,3).monthly_cost()==30.0; assert P("y",2.5,4).monthly_cost()==10.0; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9141
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: abonelik-planlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: oncelik-kuyrugu
+      karmasiklik: orta
+      kalip: ozyineleme
+      akis: cok-dosya-birlestirme
+      topoloji: paket-alt-paket
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

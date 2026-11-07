@@ -1,0 +1,114 @@
+id: gen-k-8142-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Sabah toplantıda rezervasyon modülünün yarım kaldığını söylediler, ben de oturdum dosyalara baktım. Şu an rezervasyon/rezerve.py içindeki rezervasyon_yap fonksiyonu ilk sorunlu istekte tüm işlemeyi kesip erken dönüyor; oysa bize listedeki bütün istekleri baştan sona işleyip her biri için ayrı sonuç döndüren bir sürüm lazım.
+
+  rezervasyon/rezerve.py dosyasındaki rezervasyon_yap fonksiyonunu öyle düzelt ki uçuş bulunamasa veya koltuk dolu olsa bile listedeki tüm istekler sırayla işlensin ve her istek için bir sonuç döndürülsün. Başarılı olan istekler rezervasyon kodlarını sırayla üretilen sırayla almalı; başarısız olan istekler ise ne koltuk tüketmeli ne de kod almamalı.
+
+setup: |
+  mkdir -p rezervasyon
+  cat > rezervasyon/kodlar.py <<'KODLAR'
+  def kod_uret(prefix):
+      sayac = [0]
+
+      def uret():
+          sayac[0] += 1
+          return prefix + "-" + str(sayac[0])
+
+      return uret
+  KODLAR
+  cat > rezervasyon/rezerve.py <<'REZERVE'
+  from rezervasyon.kodlar import kod_uret
+
+
+  def rezervasyon_yap(ucuslar, istekler):
+      kod = kod_uret("RZ")
+      sonuc = []
+      for istek in istekler:
+          ad = istek["ad"]
+          ucus = istek["ucus"]
+          if ucus not in ucuslar:
+              sonuc.append((ad, "YOK"))
+              return sonuc
+          koltuk = ucuslar[ucus]
+          if koltuk <= 0:
+              sonuc.append((ad, "DOLU"))
+              return sonuc
+          ucuslar[ucus] = koltuk - 1
+          sonuc.append((ad, kod()))
+      return sonuc
+  REZERVE
+
+goal_tr: >
+  rezervasyon/rezerve.py icindeki rezervasyon_yap fonksiyonunu, ucus yok
+  veya koltuk dolu olsa bile listedeki tum istekleri isleyip her istek icin
+  sonuc dondurecek bicimde duzelt; basarili istekler sirayla uretilen
+  kodlari almali, basarisiz istekler koltuk tuketmemeli ve kod almamali.
+
+reference_solution: |
+  cat > rezervasyon/rezerve.py <<'REZERVE'
+  from rezervasyon.kodlar import kod_uret
+
+
+  def rezervasyon_yap(ucuslar, istekler):
+      kod = kod_uret("RZ")
+      sonuc = []
+      for istek in istekler:
+          ad = istek["ad"]
+          ucus = istek["ucus"]
+          if ucus not in ucuslar:
+              sonuc.append((ad, "YOK"))
+              continue
+          koltuk = ucuslar[ucus]
+          if koltuk <= 0:
+              sonuc.append((ad, "DOLU"))
+              continue
+          ucuslar[ucus] = koltuk - 1
+          sonuc.append((ad, kod()))
+      return sonuc
+  REZERVE
+
+outputs:
+  - {path: rezervasyon/rezerve.py, kind: program, run: 'python3 -c ''from rezervasyon.rezerve import rezervasyon_yap as f; u={"TK1":1,"TK2":0}; r=f(u,[{"ad":"a","ucus":"TK1"},{"ad":"b","ucus":"TK9"},{"ad":"c","ucus":"TK2"},{"ad":"d","ucus":"TK1"}]); assert r==[("a","RZ-1"),("b","YOK"),("c","DOLU"),("d","DOLU")], r; assert u=={"TK1":0,"TK2":0}, u; u2={"X":2}; r2=f(u2,[{"ad":"p","ucus":"X"},{"ad":"q","ucus":"X"},{"ad":"r","ucus":"X"}]); assert r2==[("p","RZ-1"),("q","RZ-2"),("r","DOLU")], r2; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from rezervasyon.rezerve import rezervasyon_yap as f; u={"TK1":1,"TK2":0}; r=f(u,[{"ad":"a","ucus":"TK1"},{"ad":"b","ucus":"TK9"},{"ad":"c","ucus":"TK2"},{"ad":"d","ucus":"TK1"}]); assert r==[("a","RZ-1"),("b","YOK"),("c","DOLU"),("d","DOLU")], r; assert u=={"TK1":0,"TK2":0}, u; u2={"X":2}; r2=f(u2,[{"ad":"p","ucus":"X"},{"ad":"q","ucus":"X"},{"ad":"r","ucus":"X"}]); assert r2==[("p","RZ-1"),("q","RZ-2"),("r","DOLU")], r2; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8142
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: ucus-rezervasyonlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: erken-donus
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: bellek-ici
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

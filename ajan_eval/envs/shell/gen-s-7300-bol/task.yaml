@@ -1,0 +1,66 @@
+id: gen-s-7300-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  siparisler.txt dosyasındaki her ürün adı için, o ürüne ait tüm adetlerin toplamını hesapla ve sonucu siparis-ozet.txt dosyasına yaz. Çıktıda her satırda ürün adı, ardından bir sekme karakteri ve toplam adet yer alsın; satırlar ürün adına göre artan sırada olsun.
+
+setup: |
+  printf '%s\n' \
+  'Adana kebap;2' \
+  'Lahmacun;1' \
+  'Adana kebap;3' \
+  'Pide;1' \
+  'Lahmacun;4' \
+  'Kunefe;2' \
+  'Pide;2' \
+  'Adana kebap;1' \
+  'Kunefe;3' > siparisler.txt
+
+goal_tr: >
+  siparisler.txt icindeki her bir urun adi icin, o urune ait tum adetlerin
+  toplamini "urun<TAB>toplam" biciminde, urun adina gore artan sirada
+  siparis-ozet.txt dosyasina yaz.
+
+reference_solution: |
+  cut -d';' -f1 siparisler.txt | sort -u > urunler.txt
+  seq 1 "$(wc -l < urunler.txt)" | while read i; do
+    u=$(sed -n "${i}p" urunler.txt)
+    t=$(grep -F "$u;" siparisler.txt | cut -d';' -f2 | paste -sd+ | bc 2>/dev/null)
+    printf '%s\t%s\n' "$u" "$t"
+  done > siparis-ozet.txt
+
+outputs:
+  - {path: siparis-ozet.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: siparis-ozet.txt, value: [Adana kebap, Kunefe, Lahmacun, Pide]}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7300
+    bundle: uret
+    tools:
+    - printf
+    - seq
+    konu: restoran-siparisleri
+    hedef: bol
+    girdi: duz-metin
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: tekrar-eden-kayit
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

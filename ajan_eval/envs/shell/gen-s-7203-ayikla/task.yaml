@@ -1,0 +1,84 @@
+id: gen-s-7203-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  arsiv dizinindeki .ini dosyalarını incele. Durum satırında yagmurlu geçen dosyaları bul ve bu dosyalardaki şehir adlarını, her satırda bir şehir adı olacak şekilde yagmurlu.txt dosyasına yaz. Durumu yagmurlu olmayan .ini dosyalarının sayısını ise sadece sayı olarak diger.txt dosyasına yaz.
+
+  Su sartlar saglanmali:
+  1. arsiv dizinindeki yalnızca .ini uzantılı dosyalar dikkate alınmalı; .ini olmayan dosyalar (örneğin arsiv/notlar.txt) sayıma dahil edilmemeli.
+  2. yagmurlu.txt dosyası, durum satırında yagmurlu geçen .ini dosyalarındaki sehir bölümünün ad değerlerini içermeli; her satırda yalnızca bir şehir adı bulunmalı.
+  3. diger.txt dosyası, durumu yagmurlu olmayan .ini dosyalarının toplam sayısını içermeli; dosyada yalnızca sayı olmalı.
+  4. Her iki dosya da /workspace çalışma dizininde oluşturulmalı.
+  5. Başlangıç dünyasındaki arsiv/istanbul.ini, arsiv/ankara.ini, arsiv/izmir.ini ve arsiv/notlar.txt dosyalarına göre: yagmurlu.txt içinde istanbul yer almalı, diger.txt içinde ise 2 sayısı bulunmalı.
+
+setup: |
+  mkdir -p arsiv
+  cat > arsiv/istanbul.ini <<'INI'
+  [sehir]
+  ad=istanbul
+  sicaklik=18
+  durum=yagmurlu
+  INI
+  cat > arsiv/ankara.ini <<'INI'
+  [sehir]
+  ad=ankara
+  sicaklik=7
+  durum=karlI
+  INI
+  cat > arsiv/izmir.ini <<'INI'
+  [sehir]
+  ad=izmir
+  sicaklik=24
+  durum=gunesli
+  INI
+  cat > arsiv/notlar.txt <<'TXT'
+  bu dosya ini degil
+  TXT
+
+goal_tr: >
+  arsiv dizinindeki .ini dosyalarindan durum satirinda yagmurlu gecen
+  dosyalari bulup, bu dosyalardaki sehir adlarini tek satirda bir sehir adi
+  olacak sekilde yagmurlu.txt dosyasina, yagmurlu olmayan .ini dosyalarinin
+  sayisini ise diger.txt dosyasina yaz
+
+reference_solution: |
+  grep -l '^durum=yagmurlu$' arsiv/*.ini | while read -r f; do grep '^ad=' "$f" | cut -d= -f2; done > yagmurlu.txt
+  grep -L '^durum=yagmurlu$' arsiv/*.ini | wc -l > diger.txt
+
+outputs:
+  - {path: yagmurlu.txt, kind: lines}
+  - {path: diger.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: diger.txt, value: '2'}
+  - {op: file_content_eq, path: yagmurlu.txt, value: istanbul}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7203
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: hava-durumu-kayitlari
+    hedef: ayikla
+    girdi: ini
+    kaynak: iki-dosya-capraz
+    cikti: birden-cok-dosya
+    kesif: dosyayi-bul
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

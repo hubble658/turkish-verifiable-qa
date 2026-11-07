@@ -1,0 +1,67 @@
+id: gen-s-7012-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sunucu_a.csv ve sunucu_b.csv dosyalarındaki veri satırlarını (başlık satırı hariç) birleştir, tarihe göre artan sırada sırala ve her satırı tarih, sunucu ve durum alanlarından oluşan bir nesne olarak içeren geçerli bir JSON dizisi üret. Bu JSON dizisini gzip ile sıkıştırıp loglar.tar.gz arşivine koy; arşivin içinde yalnızca kayitlar.json adlı dosya bulunsun ve CRLF satır sonları temizlenmiş olsun.
+
+setup: |
+  mkdir -p arsiv
+  cat > sunucu_a.csv <<'CSV'
+  tarih,sunucu,durum
+  2024-01-01,srv1,OK
+  2024-01-02,srv2,HATA
+  2024-01-03,srv1,OK
+  CSV
+  printf 'tarih,sunucu,durum\r\n2024-01-01,srv1,OK\r\n2024-01-02,srv2,HATA\r\n2024-01-04,srv3,UYARI\r\n' > sunucu_b.csv
+  printf 'bu dosya tuzaktir kullanilmamali\n' > arsiv/sunucu_a.csv
+
+goal_tr: >
+  sunucu_a.csv ve sunucu_b.csv dosyalarindaki veri satirlarini (baslik
+  haric) birlestirip tarihe gore artan sirada siralayarak, her satiri tarih,
+  sunucu ve durum alanlarindan olusan bir nesne olacak sekilde iceren
+  gecerli bir JSON dizisi uret ve bunu gzip ile sikistirip loglar.tar.gz
+  arsivine koy; arsivde yalnizca kayitlar.json adli dosya bulunsun ve CRLF
+  satir sonlari temizlenmis olsun.
+
+reference_solution: |
+  { head -n 1 sunucu_a.csv; tail -n +2 sunucu_a.csv; tr -d '\r' < sunucu_b.csv | tail -n +2; } | tail -n +2 | sort -t, -k1,1 | awk -F, 'BEGIN{printf "["} {printf "%s{\"tarih\":\"%s\",\"sunucu\":\"%s\",\"durum\":\"%s\"}", (NR>1?",":""), $1, $2, $3} END{print "]"}' > kayitlar.json
+  gzip -c kayitlar.json > kayitlar.json.gz
+  tar -cf loglar.tar.gz kayitlar.json.gz
+
+outputs:
+  - {path: loglar.tar.gz, kind: file}
+  - {path: kayitlar.json, kind: json}
+
+checks:
+  - {op: json_eq, path: kayitlar.json, value: [{tarih: '2024-01-01', sunucu: srv1, durum: OK}, {tarih: '2024-01-01', sunucu: srv1, durum: OK}, {tarih: '2024-01-02', sunucu: srv2, durum: HATA}, {tarih: '2024-01-02', sunucu: srv2, durum: HATA}, {tarih: '2024-01-03', sunucu: srv1, durum: OK}, {tarih: '2024-01-04', sunucu: srv3, durum: UYARI}]}
+  - {op: run_stdout_eq, cmd: tar -tzf loglar.tar.gz | sort, value: ''}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7012
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: sunucu-loglari
+    hedef: donustur
+    girdi: csv
+    kaynak: iki-dosya-capraz
+    cikti: json
+    kesif: yok
+    uslup: duz-hedef
+    direnc: crlf
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,203 @@
+id: gen-k-9086-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 18
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) sensors/reading.py dosyasını, make_reading düğüm fabrikasını tam olarak gerçekleştirecek biçimde yaz; bu fabrika verilen sensor_id ile celsius değerinden bir okuma düğümü sözlüğü oluştursun ve celsius değerini 1 ondalık basamağa yuvarlanmış olarak saklasın.
+
+  2) sensors/chain.py dosyasını yaz; build_chain fonksiyonu (sensor_id, celsius) çiftlerinden tek yönlü bağlı bir okuma zinciri kurup baş düğümü döndürsün, boş dizi için None döndürsün; walk fonksiyonu ise baş düğümden kuyruğa kadar her düğüm için (sensor_id, celsius) üretsin.
+
+  3) sensors/report.py dosyasını, make_reporter closure fabrikasını tam olarak gerçekleştirecek biçimde yaz; make_reporter(scale) ile üretilen rapor fonksiyonu pairs alıp count, peak ve series alanlarını doğru döndürsün; count okuma sayısı, peak boşken None aksi halde en büyük ölçeklenmiş değer, series ise zincir sırasındaki ölçeklenmiş değerlerin listesi olsun.
+
+setup: |
+  mkdir -p sensors
+  cat > sensors/reading.py <<'READING'
+  def make_reading(sensor_id, celsius):
+      """Create a reading node dict. celsius is stored rounded to 1 decimal."""
+      return {"sensor": sensor_id, "celsius": round(celsius, 1), "next": None}
+  READING
+  cat > sensors/chain.py <<'CHAIN'
+  from sensors.reading import make_reading
+
+
+  def build_chain(pairs):
+      """Build a singly linked list of readings from (sensor_id, celsius) pairs.
+
+      Returns the head node, or None for an empty sequence.
+      """
+      head = None
+      for sensor_id, celsius in pairs:
+          node = make_reading(sensor_id, celsius)
+          node["next"] = head
+          head = node
+      return head
+
+
+  def walk(head):
+      """Yield (sensor_id, celsius) for each node from head to tail."""
+      cursor = head
+      while cursor:
+          yield cursor["sensor"], cursor["celsius"]
+          cursor = cursor["next"]
+  CHAIN
+  cat > sensors/report.py <<'REPORT'
+  from sensors.chain import build_chain, walk
+
+
+  def make_reporter(scale):
+      """Return a closure that summarizes a chain of readings.
+
+      The closure takes (pairs) and returns a dict with:
+        'count'  -> number of readings
+        'peak'   -> max scaled value, or None when empty
+        'series' -> list of scaled values in chain order
+      """
+      def report(pairs):
+          head = build_chain(pairs)
+          values = [c * scale for _, c in walk(head)]
+          peak = max(values)
+          return {"count": len(values), "peak": peak, "series": values}
+      return report
+  REPORT
+
+goal_tr: >
+  sensors/reading.py, sensors/chain.py ve sensors/report.py dosyalarini;
+  make_reading dugum fabrikasini, build_chain ile walk fonksiyonlarini ve
+  make_reporter closure fabrikasini tam olarak gerceklestirecek bicimde yaz;
+  boylece make_reporter(scale) ile uretilen rapor fonksiyonu
+  count/peak/series alanlarini dogru dondursun.
+
+reference_solution: |
+  mkdir -p sensors
+  cat > sensors/reading.py <<'READING'
+  def make_reading(sensor_id, celsius):
+      """Create a reading node dict. celsius is stored rounded to 1 decimal."""
+      return {"sensor": sensor_id, "celsius": round(celsius, 1), "next": None}
+  READING
+  cat > sensors/chain.py <<'CHAIN'
+  from sensors.reading import make_reading
+
+
+  def build_chain(pairs):
+      """Build a singly linked list of readings from (sensor_id, celsius) pairs.
+
+      Returns the head node, or None for an empty sequence.
+      """
+      head = None
+      tail = None
+      for sensor_id, celsius in pairs:
+          node = make_reading(sensor_id, celsius)
+          if head is None:
+              head = node
+              tail = node
+          else:
+              tail["next"] = node
+              tail = node
+      return head
+
+
+  def walk(head):
+      """Yield (sensor_id, celsius) for each node from head to tail."""
+      cursor = head
+      while cursor is not None:
+          yield cursor["sensor"], cursor["celsius"]
+          cursor = cursor["next"]
+  CHAIN
+  cat > sensors/report.py <<'REPORT'
+  from sensors.chain import build_chain, walk
+
+
+  def make_reporter(scale):
+      """Return a closure that summarizes a chain of readings.
+
+      The closure takes (pairs) and returns a dict with:
+        'count'  -> number of readings
+        'peak'   -> max scaled value, or None when empty
+        'series' -> list of scaled values in chain order
+      """
+      def report(pairs):
+          head = build_chain(pairs)
+          values = [c * scale for _, c in walk(head)]
+          if not values:
+              return {"count": 0, "peak": None, "series": []}
+          return {"count": len(values), "peak": max(values), "series": values}
+      return report
+  REPORT
+
+ara_adim: |
+  cat > sensors/chain.py <<'CHAIN'
+  from sensors.reading import make_reading
+
+
+  def build_chain(pairs):
+      """Build a singly linked list of readings from (sensor_id, celsius) pairs.
+
+      Returns the head node, or None for an empty sequence.
+      """
+      head = None
+      tail = None
+      for sensor_id, celsius in pairs:
+          node = make_reading(sensor_id, celsius)
+          if head is None:
+              head = node
+              tail = node
+          else:
+              tail["next"] = node
+              tail = node
+      return head
+
+
+  def walk(head):
+      """Yield (sensor_id, celsius) for each node from head to tail."""
+      cursor = head
+      while cursor is not None:
+          yield cursor["sensor"], cursor["celsius"]
+          cursor = cursor["next"]
+  CHAIN
+
+outputs:
+  - {path: sensors/report.py, kind: program, run: 'python3 -c ''from sensors.report import make_reporter as f; r=f(2.0); assert r([("a",1.0)])=={"count":1,"peak":2.0,"series":[2.0]}, r([("a",1.0)]); assert r([])=={"count":0,"peak":None,"series":[]}, r([]); assert r([("a",1.0),("b",2.5),("c",0.5)])=={"count":3,"peak":5.0,"series":[2.0,5.0,1.0]}, r([("a",1.0),("b",2.5),("c",0.5)]); print("TAMAM")'''}
+  - {path: sensors/chain.py, kind: program, run: 'python3 -c ''from sensors.chain import build_chain as b, walk as w; h=b([("a",1.0),("b",2.0),("c",3.0)]); assert list(w(h))==[("a",1.0),("b",2.0),("c",3.0)], list(w(h)); assert list(w(b([])))==[]; print("ILERLEME-TAMAM")'''}
+  - {path: sensors/reading.py, kind: program, run: 'python3 -c ''from sensors.reading import make_reading as f; n=f("s1",3.14); assert n["sensor"]=="s1" and n["celsius"]==3.1 and n["next"] is None, n; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensors.chain import build_chain as b, walk as w; h=b([("a",1.0),("b",2.0),("c",3.0)]); assert list(w(h))==[("a",1.0),("b",2.0),("c",3.0)], list(w(h)); assert list(w(b([])))==[]; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensors.report import make_reporter as f; r=f(2.0); assert r([("a",1.0)])=={"count":1,"peak":2.0,"series":[2.0]}, r([("a",1.0)]); assert r([])=={"count":0,"peak":None,"series":[]}, r([]); assert r([("a",1.0),("b",2.5),("c",0.5)])=={"count":3,"peak":5.0,"series":[2.0,5.0,1.0]}, r([("a",1.0),("b",2.5),("c",0.5)]); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensors.reading import make_reading as f; n=f("s1",3.14); assert n["sensor"]=="s1" and n["celsius"]==3.1 and n["next"] is None, n; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9086
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: sensor-serisi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 6
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: bagli-liste
+      karmasiklik: orta
+      kalip: closure-fabrika
+      akis: bellek-ici
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

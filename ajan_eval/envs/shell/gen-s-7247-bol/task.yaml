@@ -1,0 +1,65 @@
+id: gen-s-7247-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Kafeteryanın günlük sipariş yoğunluğunu anlamaya çalışıyoruz; hafta sonu gelen talepleri karşılaştırmak için elimizdeki kayıtlara bakmamız gerekiyor. Bu sırada başka şeyler de araya girdi, notlar karıştı, ama sonunda şu işi netleştirdim: siparişler dizini altındaki CSV dosyasındaki veri satırlarında yer alan adet sütununun toplamını hesaplayıp toplam.txt dosyasına yazmak istiyorum. toplam.txt içinde sadece sayı olsun, başka hiçbir şey bulunmasın.
+
+setup: |
+  mkdir -p siparisler
+  cat > siparisler/siparisler.csv <<'CSV'
+  siparis_id,musteri,yemek,adet,fiyat
+  1,Ayse,kebap,2,120
+  2,Mehmet,pizza,1,90
+  3,Zeynep,salata,3,45
+  4,Ali,kebap,1,120
+  5,Fatma,corba,2,35
+  6,Can,pizza,2,90
+  CSV
+  cat > siparisler/notlar.txt <<'TXT'
+  bu dosya siparis listesi degildir
+  sadece aciklama icerir
+  TXT
+
+goal_tr: >
+  siparisler dizini altindaki CSV dosyasindaki veri satirlarinin adet
+  sutununun toplamini toplam.txt dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  dosya=$(find siparisler -name '*.csv' -type f | head -n 1)
+  tail -n +2 "$dosya" | cut -d, -f4 | paste -sd+ | { read ifade; echo $((ifade)); } > toplam.txt
+
+outputs:
+  - {path: toplam.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: toplam.txt, value: '11'}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7247
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: restoran-siparisleri
+    hedef: bol
+    girdi: csv
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: dosyayi-bul
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

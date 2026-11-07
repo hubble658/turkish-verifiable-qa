@@ -1,0 +1,63 @@
+id: gen-s-7083-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Kütüphanedeki eski katalogları düzenlerken arşivdeki kitap listelerini tek bir yerde toplamaya karar verdim. Elimde farklı türlere ait ayrı ayrı tsv dosyaları var ve hepsinin başlık sütununu bir arada görmek istiyorum. arsiv dizinindeki tüm tsv dosyalarındaki başlık sütunundaki değerleri, dosya adı öneki ile birlikte "dosya:baslik" biçiminde, dosya adlarına göre artan sırada alt alta yazıp basliklar.txt dosyasına kaydet.
+
+setup: |
+  mkdir -p arsiv
+  printf 'kitap_id\tyazar\tbaslik\tyil\n1\tOrhan Kemal\tBereketli Topraklar\t1954\n2\tYasar Kemal\tInce Memed\t1955\n' > arsiv/kitaplar.tsv
+  printf 'kitap_id\tyazar\tbaslik\tyil\n3\tSabahattin Ali\tKurk Mantolu Madonna\t1943\n4\tAhmet Hamdi\tHuzur\t1949\n' > arsiv/romanlar.tsv
+  printf 'kitap_id\tyazar\tbaslik\tyil\n5\tCemal Sureya\tUykuda Sevilen\t1957\n' > arsiv/siirler.tsv
+  printf 'kitap_id\tyazar\tbaslik\tyil\n6\tNazim Hikmet\tMemleketimden Manzaralar\t1966\n' > arsiv/destanlar.tsv
+  printf 'kitap_id\tyazar\tbaslik\tyil\n7\tFazil Husnu\tSonsuzluk Kitabesi\t1962\n' > arsiv/denemeler.tsv
+
+goal_tr: >
+  arsiv dizinindeki tum tsv dosyalarinda baslik sutunundaki degerleri dosya
+  adi oneki ile birlikte "dosya:baslik" biciminde, dosya adlarina gore artan
+  sirada alt alta yazip basliklar.txt dosyasina kaydet
+
+reference_solution: |
+  find arsiv -name '*.tsv' | sort | while read f; do
+    awk -F'\t' -v n="$(basename "$f" .tsv)" 'NR>1 {print n ":" $3}' "$f"
+  done > basliklar.txt
+  seq 1 "$(wc -l < basliklar.txt)" | while read i; do
+    printf '%s\n' "$(sed -n "${i}p" basliklar.txt)"
+  done > basliklar.tmp
+  mv basliklar.tmp basliklar.txt
+
+outputs:
+  - {path: basliklar.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: basliklar.txt, value: ['denemeler:Sonsuzluk Kitabesi', 'destanlar:Memleketimden Manzaralar', 'kitaplar:Bereketli Topraklar', 'kitaplar:Ince Memed', 'romanlar:Kurk Mantolu Madonna', 'romanlar:Huzur', 'siirler:Uykuda Sevilen']}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7083
+    bundle: uret
+    tools:
+    - printf
+    - seq
+    konu: kutuphane-kayitlari
+    hedef: donustur
+    girdi: tsv
+    kaynak: cok-dosya
+    cikti: satir-listesi
+    kesif: dosyayi-bul
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: olcek
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

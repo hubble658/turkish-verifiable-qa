@@ -1,0 +1,70 @@
+id: gen-s-7048-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Dün akşam depodaki eski sipariş kayıtlarını temizlemeye çalışırken fark ettim ki bazı satırlarda adet bilgisi girilmemiş, bu yüzden aylık toplamları alırken sürekli yanlış sonuçlar çıkıyordu. Sabah da bu eksik kayıtları tek tek gözden geçirmek yerine, elimdeki dosyalardan geçerli olanların sayısını bir kere net olarak çıkarmak istedim. Çalışma dizinindeki siparisler klasöründe ocak.csv, subat.csv ve mart.csv dosyaları var; bunlardaki tüm satırlar içinde adet alanı boş olanları hariç tutup, geriye kalan geçerli satır sayısını sonuc.txt dosyasına sadece sayı olarak yaz, başka hiçbir şey ekleme.
+
+setup: |
+  mkdir -p siparisler
+  cat > siparisler/ocak.csv <<'CSV'
+  siparis_id,urun,adet,fiyat
+  1,pizza,2,45.50
+  2,salata,1,22.00
+  3,makarna,3,38.75
+  CSV
+  cat > siparisler/subat.csv <<'CSV'
+  siparis_id,urun,adet,fiyat
+  4,pizza,1,45.50
+  5,corba,2,18.00
+  6,makarna,1,38.75
+  CSV
+  cat > siparisler/mart.csv <<'CSV'
+  siparis_id,urun,adet,fiyat
+  7,salata,4,22.00
+  8,pizza,,45.50
+  9,corba,3,18.00
+  CSV
+
+goal_tr: >
+  siparisler klasorundeki tum csv dosyalarindaki satirlardan adet alani bos
+  olanlari haric tutup gecerli satir sayisini sonuc.txt'ye sadece sayi
+  olarak yaz
+
+reference_solution: |
+  cat siparisler/*.csv | sed '1d' | tr -d '\r' | sed '/^[^,]*,[^,]*,,/d' | wc -l > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '10'}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7048
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: restoran-siparisleri
+    hedef: dogrula
+    girdi: csv
+    kaynak: cok-dosya
+    cikti: tek-sayi
+    kesif: veriye-bak
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

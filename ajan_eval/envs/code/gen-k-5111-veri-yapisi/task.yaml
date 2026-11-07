@@ -1,0 +1,142 @@
+id: gen-k-5111-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  graph/walk.py dosyasındaki CycleWalker sınıfını bir context manager olarak gerçekleştir. Sınıfın __enter__ metodu ziyaret defterini açıp self üzerinde tutmalı ve self döndürmeli; __exit__ metodu defteri kapatmalı. reachable(start) metodu start düğümünden ulaşılabilen tüm düğümleri (start dahil) sıralı bir liste olarak döndürmeli; visited_count ise defterdeki düğüm sayısını vermeli. graph/core.py ve data.py dosyalarındaki mevcut yapıyı kullan.
+
+setup: |
+  mkdir -p graph
+  cat > graph/core.py <<'CORE'
+  class Graph:
+      def __init__(self, edges):
+          self.adj = {}
+          for src, dst in edges:
+              self.adj.setdefault(src, []).append(dst)
+              self.adj.setdefault(dst, [])
+
+      def neighbors(self, node):
+          return list(self.adj.get(node, []))
+
+
+  def load_graph(data):
+      edges = []
+      for src, dsts in data.items():
+          for dst in dsts:
+              edges.append((src, dst))
+      return Graph(edges)
+  CORE
+  cat > graph/walk.py <<'WALK'
+  from graph.core import load_graph
+
+
+  class CycleWalker:
+      def __init__(self, data):
+          self.graph = load_graph(data)
+
+      def __enter__(self):
+          raise NotImplementedError
+
+      def __exit__(self, exc_type, exc, tb):
+          raise NotImplementedError
+
+      def reachable(self, start):
+          raise NotImplementedError
+  WALK
+  cat > data.py <<'DATA'
+  NETWORK = {
+      "a": ["b", "c"],
+      "b": ["c"],
+      "c": ["a", "d"],
+      "d": ["b"],
+  }
+  DATA
+
+goal_tr: >
+  graph/walk.py icindeki CycleWalker sinifini bir context manager olarak
+  gerceklestir; __enter__ ziyaret defterini acip self uzerinde tutsun ve
+  self dondursun, __exit__ defteri kapatsin, reachable(start) ise start'tan
+  ulasilabilen tum dugumleri (start dahil) sirali liste olarak dondursun,
+  visited_count defterdeki dugum sayisini versin.
+
+reference_solution: |
+  cat > graph/walk.py <<'WALK'
+  from graph.core import load_graph
+
+
+  class CycleWalker:
+      def __init__(self, data):
+          self.graph = load_graph(data)
+          self._seen = None
+
+      def __enter__(self):
+          self._seen = {}
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self._seen = None
+          return False
+
+      def reachable(self, start):
+          if self._seen is None:
+              raise RuntimeError("walker is closed")
+          self._seen = {}
+          stack = [start]
+          while stack:
+              node = stack.pop()
+              if node in self._seen:
+                  continue
+              self._seen[node] = True
+              for nxt in self.graph.neighbors(node):
+                  if nxt not in self._seen:
+                      stack.append(nxt)
+          return sorted(self._seen)
+
+      def visited_count(self):
+          if self._seen is None:
+              raise RuntimeError("walker is closed")
+          return len(self._seen)
+  WALK
+
+outputs:
+  - {path: graph/walk.py, kind: program, run: 'python3 -c ''from graph.walk import CycleWalker; from data import NETWORK; w=CycleWalker(NETWORK); assert w._seen is None; w.__enter__(); assert w._seen=={}; assert w.reachable("a")==["a","b","c","d"], w.reachable("a"); assert w.visited_count()==4; assert w.reachable("d")==["a","b","c","d"]; w.__exit__(None,None,None); assert w._seen is None; ok=[False]; exec("try:\n w.reachable(\"a\")\nexcept RuntimeError:\n ok[0]=True"); assert ok[0]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from graph.walk import CycleWalker; from data import NETWORK; w=CycleWalker(NETWORK); assert w._seen is None; w.__enter__(); assert w._seen=={}; assert w.reachable("a")==["a","b","c","d"], w.reachable("a"); assert w.visited_count()==4; assert w.reachable("d")==["a","b","c","d"]; w.__exit__(None,None,None); assert w._seen is None; ok=[False]; exec("try:\n w.reachable(\"a\")\nexcept RuntimeError:\n ok[0]=True"); assert ok[0]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5111
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: kur-cevrimleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: graf-gezinme
+      karmasiklik: duz
+      kalip: context-manager
+      akis: ic-ice-yapi
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

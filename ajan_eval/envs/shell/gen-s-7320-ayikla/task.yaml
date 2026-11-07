@@ -1,0 +1,68 @@
+id: gen-s-7320-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  "kargo kayıtları" dizinindeki tek sabit genişlikli veri dosyasından, her satırın son 6 karakteri "TESLIM" olan kayıtları bul. Bu kayıtların her birinde 9-14. karakterler arasındaki sayısal ağırlık alanını topla ve toplam sonucu sadece sayı olarak sonuc.txt dosyasına yaz.
+
+setup: |
+  mkdir -p "kargo kayitlari"
+  cat > "kargo kayitlari/takip 2024.dat" <<'DAT'
+  K001ISTANBUL  00042TESLIM
+  K002ANKARA    00017YOLDA 
+  K003IZMIR     00008TESLIM
+  K004BURSA     00023YOLDA 
+  K005ADANA     00011TESLIM
+  DAT
+  cat > "kargo kayitlari/notlar.txt" <<'TXT'
+  bu dosya tuzak, islenmemeli
+  K999ISTANBUL  00099TESLIM
+  TXT
+
+goal_tr: >
+  "kargo kayitlari" dizinindeki tek sabit genislikli veri dosyasindan, her
+  satirin son 6 karakteri TESLIM olan kayitlarin 9-14. karakterler
+  arasindaki sayisal agirlik alanini toplayip sonuc.txt dosyasina sadece
+  toplam sayi olarak yaz.
+
+reference_solution: |
+  find "kargo kayitlari" -maxdepth 1 -type f -name '*.dat' > /tmp/kargo_dosya.txt
+  cat /tmp/kargo_dosya.txt | while read -r f; do
+    grep 'TESLIM$' "$f" | cut -c9-14
+  done > /tmp/kargo_agirlik.txt
+  awk '{s+=$1} END{print s}' /tmp/kargo_agirlik.txt | tee sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '0'}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7320
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: kargo-takibi
+    hedef: ayikla
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: bosluklu-ad
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

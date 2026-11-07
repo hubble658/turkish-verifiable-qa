@@ -1,0 +1,124 @@
+id: gen-k-8414-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) stock/ledger.py dosyasını oluştur; içinde stock/parser.py dosyasındaki parse_line ve stock/rules.py dosyasındaki net_delta fonksiyonlarını kullanan, hareketleri sku bazında toplayan bir track dekoratörü tanımla.
+
+  2) track dekoratörü, sardığı fonksiyon her çağrıldığında o ana kadar görülen tüm sku'ların toplam net değişimini içeren bir sözlük döndürsün.
+
+  3) stock/ledger.py içinde bir main fonksiyonu tanımla; bu fonksiyon track dekoratörünü kullansın, feed.txt dosyasındaki satırları sırayla işlesin ve son toplamları yazdırsın.
+
+setup: |
+  mkdir -p stock
+  cat > stock/parser.py <<'PY'
+  def parse_line(line):
+      parts = line.strip().split(";")
+      if len(parts) != 3:
+          raise ValueError("bad line: " + line)
+      sku, delta, kind = parts
+      return sku, int(delta), kind
+  PY
+  cat > stock/rules.py <<'PY'
+  def net_delta(sku, delta, kind):
+      if kind == "IN":
+          return delta
+      if kind == "OUT":
+          return -delta
+      if kind == "ADJ":
+          return delta
+      raise ValueError("unknown kind: " + kind)
+  PY
+  cat > feed.txt <<'TXT'
+  apple;5;IN
+  banana;3;IN
+  apple;2;OUT
+  cherry;10;IN
+  banana;1;ADJ
+  apple;1;OUT
+  TXT
+
+goal_tr: >
+  stock/ledger.py dosyasini yaz: parse_line ve net_delta'yi kullanan,
+  hareketleri sku bazinda toplayan bir `track` dekoratoru tanimla;
+  dekorator, sarilan fonksiyonu her cagirdiginda o ana kadar gorulen
+  sku'larin toplam net degisimini iceren bir sozluk dondursun ve feed.txt
+  satirlarini sirayla isleyip son toplamlari yazdiran `main` fonksiyonu bu
+  dekoratoru kullansin.
+
+reference_solution: |
+  cat > stock/ledger.py <<'PY'
+  from stock.parser import parse_line
+  from stock.rules import net_delta
+
+
+  def track(func):
+      totals = {}
+
+      def wrapper(line):
+          sku, delta, kind = func(line)
+          totals[sku] = totals.get(sku, 0) + net_delta(sku, delta, kind)
+          return dict(totals)
+
+      return wrapper
+
+
+  @track
+  def handle(line):
+      return parse_line(line)
+
+
+  def main(path):
+      with open(path) as fh:
+          for line in fh:
+              if line.strip():
+                  result = handle(line)
+      return result
+
+
+  if __name__ == "__main__":
+      print(main("feed.txt"))
+  PY
+
+outputs:
+  - {path: stock/ledger.py, kind: program, run: 'python3 -c ''from stock.ledger import main; r=main("feed.txt"); assert r=={"apple":2,"banana":4,"cherry":10}, r; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from stock.ledger import main; r=main("feed.txt"); assert r=={"apple":2,"banana":4,"cherry":10}, r; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8414
+    bundle: yarisma
+    tools:
+    - python3
+    konu: stok-hareketleri
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: metin-ayristirma
+      karmasiklik: duz
+      kalip: dekorator
+      akis: cok-dosya-birlestirme
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

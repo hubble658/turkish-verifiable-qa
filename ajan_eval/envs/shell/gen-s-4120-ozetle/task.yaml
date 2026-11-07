@@ -1,0 +1,80 @@
+id: gen-s-4120-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) data/siparisler.csv ve data/urunler.csv dosyalarını urun_id üzerinden birleştirip her ürün için toplam ciroyu hesapla; bu değer adet ile birim_fiyat çarpımlarının toplamı olsun.
+
+  2) Hesapladığın sonucu out/ciro.csv dosyasına "urun_id,toplam_ciro" başlığıyla ve urun_id'ye göre artan sırada yaz.
+
+  3) Aynı ciro değerlerinden en yüksek olanı out/maks_ciro.txt dosyasına sadece sayı olarak yaz.
+
+setup: |
+  mkdir -p data out
+  cat > data/siparisler.csv <<'CSV'
+  siparis_id,musteri_id,urun_id,adet
+  S1,M1,U1,2
+  S2,M2,U2,1
+  S3,M1,U3,4
+  S4,M3,U1,1
+  S5,M2,U1,3
+  S6,M1,U2,2
+  CSV
+  cat > data/urunler.csv <<'CSV'
+  urun_id,urun_adi,birim_fiyat
+  U1,Cay,10
+  U2,Kahve,25
+  U3,Simit,5
+  CSV
+
+goal_tr: >
+  data/siparisler.csv ve data/urunler.csv dosyalarini urun_id uzerinden
+  birlestirip her urun icin toplam ciroyu (adet * birim_fiyat toplami)
+  hesaplayarak sonucu out/ciro.csv dosyasina "urun_id,toplam_ciro"
+  basligiyla urun_id'ye gore artan sirada yaz ve ayni ciro degerlerinden en
+  yuksek olani out/maks_ciro.txt dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  cut -d, -f3,4 data/siparisler.csv | tail -n +2 > out/adet.tmp
+  paste -d, out/adet.tmp data/urunler.csv > out/birlesik.tmp
+  awk -F, 'NR>1 && NF>=4 {print $1","$3*$4}' out/birlesik.tmp > out/ciro_ham.tmp
+  { echo "urun_id,toplam_ciro"; awk -F, '{s[$1]+=$2} END {for (u in s) print u","s[u]}' out/ciro_ham.tmp | sort -t, -k1,1; } > out/ciro.csv
+  awk -F, 'NR>1 {if ($2>m) m=$2} END {print m}' out/ciro.csv > out/maks_ciro.txt
+  rm -f out/adet.tmp out/birlesik.tmp out/ciro_ham.tmp
+
+outputs:
+  - {path: out/ciro.csv, kind: file}
+  - {path: out/maks_ciro.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: out/ciro.csv, value: ['urun_id,toplam_ciro', 'U1,0', 'U2,0', 'U3,0']}
+  - {op: is_file, path: out/maks_ciro.txt}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4120
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: restoran-siparisleri
+    hedef: ozetle
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: numarali-emir
+    direnc: bom
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

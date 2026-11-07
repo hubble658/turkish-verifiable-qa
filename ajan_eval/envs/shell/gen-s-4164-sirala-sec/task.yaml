@@ -1,0 +1,74 @@
+id: gen-s-4164-sirala-sec
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  envanter depo klasöründeki bolum-a.txt ve bolum-b.txt dosyalarındaki raf|parca|miktar kayıtlarını birleştirip aynı raf ve parça için miktarları topla; toplamları büyükten küçüğe, eşitlikte raf ve parça adına göre artan sırada sırala ve ilk üç satırı envanter depo/ozet.txt dosyasına, kalan satırları envanter depo/kalan.txt dosyasına yaz.
+
+setup: |
+  mkdir -p "envanter depo"
+  cat > "envanter depo/bolum-a.txt" <<'A'
+  raf-3|kablo|12
+  raf-1|vida|40
+  raf-2|somun|7
+  raf-1|kablo|5
+  raf-3|vida|9
+  A
+  cat > "envanter depo/bolum-b.txt" <<'B'
+  raf-2|vida|3
+  raf-1|somun|22
+  raf-3|somun|6
+  raf-2|kablo|8
+  raf-1|vida|1
+  B
+
+goal_tr: >
+  "envanter depo" klasorundeki bolum-a.txt ve bolum-b.txt dosyalarindaki
+  raf|parca|miktar kayitlarini birlestirip ayni raf ve parca icin miktarlari
+  topla; toplamlari buyukten kucuge, esitlikte raf ve parca adina gore artan
+  sirada sirala ve ilk uc satiri "envanter depo/ozet.txt" dosyasina yaz,
+  kalan satirlari "envanter depo/kalan.txt" dosyasina yaz.
+
+reference_solution: |
+  cd "envanter depo"
+  cat bolum-a.txt bolum-b.txt | sort | uniq > birlesik.txt
+  awk -F'|' '{t[$1"|"$2]+=$3} END{for(k in t) print k"|"t[k]}' birlesik.txt | sort -t'|' -k3,3nr -k1,1 -k2,2 > sirali.txt
+  head -n 3 sirali.txt > ozet.txt
+  tail -n +4 sirali.txt > kalan.txt
+
+outputs:
+  - {path: envanter depo/ozet.txt, kind: lines}
+  - {path: envanter depo/kalan.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: envanter depo/kalan.txt, value: [raf-3|vida|9, raf-2|kablo|8, raf-2|somun|7, raf-3|somun|6, raf-1|kablo|5, raf-2|vida|3]}
+  - {op: file_lines_eq, path: envanter depo/ozet.txt, value: [raf-1|vida|41, raf-1|somun|22, raf-3|kablo|12]}
+
+metadata:
+  domain: sirala-sec
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4164
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: envanter
+    hedef: sirala-sec
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: duz-hedef
+    direnc: bosluklu-ad
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

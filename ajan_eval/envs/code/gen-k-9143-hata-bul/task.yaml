@@ -1,0 +1,180 @@
+id: gen-k-9143-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  release/rollup.py içindeki VersionRollup sınıfını, sürüm parçalarını doğru sırayla birleştirip en büyük sürümü latest() ile döndürecek şekilde düzelt. release/stream.py içindeki parse_chunk'ı da fazla boşlukları temizleyip eksik bileşenleri sıfırla tamamlayacak hale getir.
+
+setup: |
+  mkdir -p release
+  cat > release/stream.py <<'STREAM'
+  from abc import ABC, abstractmethod
+
+
+  class VersionSource(ABC):
+      @abstractmethod
+      def chunks(self):
+          """Yield raw version strings in arrival order."""
+          ...
+
+
+  class ListSource(VersionSource):
+      def __init__(self, items):
+          self._items = list(items)
+
+      def chunks(self):
+          for item in self._items:
+              yield item
+
+
+  def parse_chunk(chunk):
+      parts = chunk.strip().split(".")
+      return tuple(int(p) for p in parts)
+  STREAM
+  cat > release/rollup.py <<'ROLLUP'
+  from release.stream import parse_chunk
+
+
+  class VersionRollup:
+      def __init__(self, source):
+          self._source = source
+          self._latest = None
+
+      def consume(self):
+          total = 0
+          for chunk in self._source.chunks():
+              ver = parse_chunk(chunk)
+              total = total + sum(ver)
+              if self._latest is None:
+                  self._latest = ver
+          return total
+
+      def latest(self):
+          return self._latest
+  ROLLUP
+
+goal_tr: >
+  release/rollup.py icindeki VersionRollup sinifini, akan surum parcalarini
+  dogru sirada birlestirip en buyuk surumu latest() ile dondurecek bicimde
+  duzelt; ayrica release/stream.py icindeki parse_chunk, parca icindeki
+  fazla bosluklari temizleyip eksik bilesenleri sifirla tamamlayacak bicimde
+  duzeltilsin.
+
+reference_solution: |
+  cat > release/stream.py <<'STREAM'
+  from abc import ABC, abstractmethod
+
+
+  class VersionSource(ABC):
+      @abstractmethod
+      def chunks(self):
+          """Yield raw version strings in arrival order."""
+          ...
+
+
+  class ListSource(VersionSource):
+      def __init__(self, items):
+          self._items = list(items)
+
+      def chunks(self):
+          for item in self._items:
+              yield item
+
+
+  def parse_chunk(chunk):
+      parts = [p.strip() for p in chunk.strip().split(".")]
+      if len(parts) < 3:
+          parts = parts + ["0"] * (3 - len(parts))
+      return tuple(int(p) for p in parts)
+  STREAM
+  cat > release/rollup.py <<'ROLLUP'
+  from release.stream import parse_chunk
+
+
+  class VersionRollup:
+      def __init__(self, source):
+          self._source = source
+          self._latest = None
+
+      def consume(self):
+          total = 0
+          for chunk in self._source.chunks():
+              ver = parse_chunk(chunk)
+              total = total + sum(ver)
+              if self._latest is None or ver > self._latest:
+                  self._latest = ver
+          return total
+
+      def latest(self):
+          return self._latest
+  ROLLUP
+
+ara_adim: |
+  cat > release/rollup.py <<'ROLLUP'
+  from release.stream import parse_chunk
+
+
+  class VersionRollup:
+      def __init__(self, source):
+          self._source = source
+          self._latest = None
+
+      def consume(self):
+          total = 0
+          for chunk in self._source.chunks():
+              ver = parse_chunk(chunk)
+              total = total + sum(ver)
+              if self._latest is None or ver > self._latest:
+                  self._latest = ver
+          return total
+
+      def latest(self):
+          return self._latest
+  ROLLUP
+
+outputs:
+  - {path: release/rollup.py, kind: program, run: 'python3 -c ''from release.stream import ListSource; from release.rollup import VersionRollup; s=ListSource(["1.2.3","2.0.0","1.9.9"]); r=VersionRollup(s); assert r.consume()==27, r.consume(); assert r.latest()==(2,0,0), r.latest(); s2=ListSource([" 3 . 1 . 4 ","0.0.1"]); r2=VersionRollup(s2); assert r2.consume()==9, r2.consume(); assert r2.latest()==(3,1,4), r2.latest(); print("TAMAM")'''}
+  - {path: release/stream.py, kind: program, run: 'python3 -c ''from release.stream import ListSource, parse_chunk; assert list(ListSource(["1.2.3"]).chunks())==["1.2.3"]; assert parse_chunk("4.5.6")==(4,5,6), parse_chunk("4.5.6"); assert parse_chunk(" 7 . 8 . 9 ")==(7,8,9), parse_chunk(" 7 . 8 . 9 "); assert parse_chunk("1.4")==(1,4,0), parse_chunk("1.4"); print("ILERLEME-TAMAM")'''}
+  - {path: release/stream.py, kind: program, run: 'python3 -c ''from release.stream import VersionSource, ListSource; assert issubclass(ListSource, VersionSource); assert hasattr(VersionSource, "chunks"); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from release.stream import ListSource; from release.rollup import VersionRollup; s=ListSource(["1.2.3","2.0.0","1.9.9"]); r=VersionRollup(s); assert r.consume()==27, r.consume(); assert r.latest()==(2,0,0), r.latest(); s2=ListSource([" 3 . 1 . 4 ","0.0.1"]); r2=VersionRollup(s2); assert r2.consume()==9, r2.consume(); assert r2.latest()==(3,1,4), r2.latest(); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from release.stream import ListSource, parse_chunk; assert list(ListSource(["1.2.3"]).chunks())==["1.2.3"]; assert parse_chunk("4.5.6")==(4,5,6), parse_chunk("4.5.6"); assert parse_chunk(" 7 . 8 . 9 ")==(7,8,9), parse_chunk(" 7 . 8 . 9 "); assert parse_chunk("1.4")==(1,4,0), parse_chunk("1.4"); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from release.stream import VersionSource, ListSource; assert issubclass(ListSource, VersionSource); assert hasattr(VersionSource, "chunks"); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9143
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: yazilim-surumleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-toplama-sirasi
+      karmasiklik: orta
+      kalip: abc-protokol
+      akis: parcali-akis
+      topoloji: iki-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

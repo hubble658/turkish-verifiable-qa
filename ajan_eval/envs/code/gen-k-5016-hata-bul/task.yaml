@@ -1,0 +1,130 @@
+id: gen-k-5016-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) arena/board.py dosyasındaki ScoreBoard sınıfını, add çağrıldığında yeni puanı tabloya ekleyecek şekilde düzelt; mevcut puanın üzerine yazmasın.
+
+  2) Sıralama ve lider sorgularının bu toplam puana göre doğru sonuç döndürmesini sağla.
+
+setup: |
+  mkdir -p arena
+  cat > arena/scores.py <<'SCORES'
+  def load_scores(path):
+      table = {}
+      with open(path) as f:
+          for line in f:
+              line = line.strip()
+              if not line:
+                  continue
+              name, value = line.split(',')
+              table[name] = int(value)
+      return table
+
+
+  def best_player(table):
+      return max(table, key=lambda n: table[n])
+  SCORES
+  cat > arena/board.py <<'BOARD'
+  from arena.scores import load_scores, best_player
+
+
+  class ScoreBoard:
+      def __init__(self, path):
+          self.table = load_scores(path)
+
+      def add(self, name, points):
+          if name in self.table:
+              self.table[name] = points
+          else:
+              self.table[name] = points
+
+      def total(self):
+          return sum(self.table.values())
+
+      def leader(self):
+          return best_player(self.table)
+
+      def ranked(self):
+          return sorted(self.table, key=lambda n: self.table[n], reverse=True)
+  BOARD
+  cat > arena/__init__.py <<'INIT'
+  INIT
+  cat > scores.txt <<'DATA'
+  ada,30
+  bora,55
+  can,20
+  DATA
+
+goal_tr: >
+  arena/board.py icindeki ScoreBoard sinifini, add cagrildiginda yeni puani
+  tabloya EKLEYECEK (mevcut puanin uzerine yazmayacak) ve siralama ile lider
+  sorgularini bu toplam puana gore dogru dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > arena/board.py <<'BOARD'
+  from arena.scores import load_scores, best_player
+
+
+  class ScoreBoard:
+      def __init__(self, path):
+          self.table = load_scores(path)
+
+      def add(self, name, points):
+          if name in self.table:
+              self.table[name] += points
+          else:
+              self.table[name] = points
+
+      def total(self):
+          return sum(self.table.values())
+
+      def leader(self):
+          return best_player(self.table)
+
+      def ranked(self):
+          return sorted(self.table, key=lambda n: self.table[n], reverse=True)
+  BOARD
+
+outputs:
+  - {path: arena/board.py, kind: program, run: 'python3 -c ''from arena.board import ScoreBoard as S; b=S("scores.txt"); assert b.total()==105, b.total(); assert b.leader()=="bora"; b.add("ada",10); assert b.table["ada"]==40, b.table["ada"]; assert b.total()==115, b.total(); assert b.leader()=="bora"; b.add("can",50); assert b.table["can"]==70, b.table["can"]; assert b.total()==165, b.total(); assert b.leader()=="can"; assert b.ranked()==["can","bora","ada"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from arena.board import ScoreBoard as S; b=S("scores.txt"); assert b.total()==105, b.total(); assert b.leader()=="bora"; b.add("ada",10); assert b.table["ada"]==40, b.table["ada"]; assert b.total()==115, b.total(); assert b.leader()=="bora"; b.add("can",50); assert b.table["can"]==70, b.table["can"]; assert b.total()==165, b.total(); assert b.leader()=="can"; assert b.ranked()==["can","bora","ada"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5016
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: oyun-skor-tablosu
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: tip-karismasi
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: dosya-okuma
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

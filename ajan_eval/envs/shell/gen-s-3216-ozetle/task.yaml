@@ -1,0 +1,73 @@
+id: gen-s-3216-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  randevular.json dosyasındaki her bölüm için bölüm adını ve o bölümdeki randevu sayısını iki sütun halinde bolumler.txt dosyasına bölüm adına göre alfabetik sıralı olarak yaz. Ayrıca her bölümün hasta adlarını kendi dosyasına (bölüm adı + .txt) her satırda bir hasta olacak şekilde yaz; bu dosyalar kardiyoloji.txt, noroloji.txt ve ortopedi.txt olsun.
+
+setup: |
+  cat > randevular.json <<'JSON'
+  {"randevular":[
+  {"hasta":"ali","bolum":"kardiyoloji","saat":"09:00"},
+  {"hasta":"ayse","bolum":"noroloji","saat":"10:30"},
+  {"hasta":"mehmet","bolum":"kardiyoloji","saat":"11:15"},
+  {"hasta":"fatma","bolum":"ortopedi","saat":"13:00"},
+  {"hasta":"can","bolum":"noroloji","saat":"14:45"},
+  {"hasta":"zeynep","bolum":"kardiyoloji","saat":"15:30"}
+  ]}
+  JSON
+  printf 'ali 09:00\nayse 10:30\n' > eski_randevular.txt
+
+goal_tr: >
+  randevular.json icindeki her bolum icin bolum adini ve o bolumdeki randevu
+  sayisini iki sutun halinde bolumler.txt dosyasina bolum adina gore
+  alfabetik sirali yaz, ve her bolumun hasta adlarini kendi dosyasina (bolum
+  adi + .txt) bir satirda bir hasta olacak sekilde yaz.
+
+reference_solution: |
+  sed -n 's/.*"hasta":"\([^"]*\)","bolum":"\([^"]*\)".*/\2 \1/p' randevular.json | sort > /tmp/hb.txt
+  cut -d' ' -f1 /tmp/hb.txt | uniq -c | awk '{print $2}' > /tmp/bol.txt
+  cut -d' ' -f1 /tmp/hb.txt | uniq -c | awk '{print $1}' > /tmp/say.txt
+  paste /tmp/bol.txt /tmp/say.txt > bolumler.txt
+  while read bolum sayi; do grep "^$bolum " /tmp/hb.txt | cut -d' ' -f2 > "$bolum.txt"; done < bolumler.txt
+
+outputs:
+  - {path: bolumler.txt, kind: file}
+  - {path: kardiyoloji.txt, kind: file}
+  - {path: noroloji.txt, kind: file}
+  - {path: ortopedi.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: bolumler.txt, value: ["kardiyoloji\t3", "noroloji\t2", "ortopedi\t1"]}
+  - {op: file_lines_eq, path: kardiyoloji.txt, value: [ali, mehmet, zeynep]}
+  - {op: file_lines_eq, path: noroloji.txt, value: [ayse, can]}
+  - {op: file_content_eq, path: ortopedi.txt, value: fatma}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3216
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: hastane-randevulari
+    hedef: ozetle
+    girdi: json
+    kaynak: tek-dosya
+    cikti: birden-cok-dosya
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

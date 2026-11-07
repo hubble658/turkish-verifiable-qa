@@ -1,0 +1,89 @@
+id: gen-k-8023-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+prompt: 'route/router.py dosyasını oluştur. Bu dosyada data.json içindeki junctions verisini route.graph.build_edges ile kullanarak
+  komşuluk listesi kuran bir Router dataclass''ı tanımla. Router, komşuları route.graph.neighbors ile sıralamalı; her sorgu
+  noktasına en yakın junction''ı O(n) tarama yerine önce junction''ları sıralayıp ikili arama ile bulan find_nearest metoduna
+  ve nearest_for_all metoduna sahip olmalı. En yakın junction seçimi Manhattan uzaklığına göre yapılsın, eşitlik durumunda
+  küçük (x, y) sözlük sırasına göre seçilsin.
+
+
+  Router.from_file(yol) sınıf metodu dosyadan nesne kursun; komşuluk listesi edges alanında (x, y) anahtarıyla dursun; find_nearest
+  (x, y) alıp (x, y), nearest_for_all nokta listesi alıp (x, y) listesi döndürsün.
+
+  '
+setup: "mkdir -p route\ncat > route/geo.py <<'GEO'\ndef manhattan(a, b):\n    return abs(a[0] - b[0]) + abs(a[1] - b[1])\n\
+  \n\ndef key_of(p):\n    return (p[0], p[1])\nGEO\ncat > route/graph.py <<'GRAPH'\nfrom route.geo import key_of\n\n\ndef\
+  \ build_edges(junctions):\n    edges = {}\n    for j in junctions:\n        edges[key_of(j)] = list(j[2])\n    return edges\n\
+  \n\ndef neighbors(edges, node):\n    return sorted(edges.get(node, []))\nGRAPH\ncat > data.json <<'JSON'\n{\n  \"junctions\"\
+  : [\n    [0, 0, [[0, 1], [1, 0]]],\n    [0, 1, [[0, 0], [0, 2]]],\n    [0, 2, [[0, 1], [1, 2]]],\n    [1, 0, [[0, 0], [1,\
+  \ 1]]],\n    [1, 1, [[1, 0], [1, 2]]],\n    [1, 2, [[1, 1], [0, 2]]]\n  ],\n  \"queries\": [[0, 0], [1, 2], [2, 2]]\n}\n\
+  JSON\n"
+goal_tr: 'route/router.py dosyasini yaz: data.json icindeki junctions ile route.graph.build_edges uzerinden komsuluk listesi
+  kursun, komsulari route.graph.neighbors ile siralayip her sorgu noktasina en yakin junction''i O(n) tarama yerine once junction''lari
+  siralayip ikili arama ile bulan bir Router dataclass''i (find_nearest metodu ve nearest_for_all metodu) tanimlasin; en yakin
+  junction''i Manhattan uzakligina gore, esitlikte kucuk (x,y) sozluk sirasina gore secsin.
+
+  '
+reference_solution: "cat > route/router.py <<'ROUTER'\nimport bisect\nimport json\nfrom dataclasses import dataclass\n\nfrom\
+  \ route.geo import manhattan\nfrom route.graph import build_edges, neighbors\n\n\n@dataclass\nclass Router:\n    junctions:\
+  \ list\n    edges: dict\n\n    @classmethod\n    def from_file(cls, path):\n        with open(path, \"r\", encoding=\"utf-8\"\
+  ) as fh:\n            data = json.load(fh)\n        junctions = [tuple(j) for j in data[\"junctions\"]]\n        return\
+  \ cls(junctions=junctions, edges=build_edges(junctions))\n\n    def _sorted_nodes(self):\n        return sorted((j[0], j[1])\
+  \ for j in self.junctions)\n\n    def find_nearest(self, point):\n        nodes = self._sorted_nodes()\n        px, py =\
+  \ point\n        best = None\n        lo, hi = 0, len(nodes) - 1\n        while lo <= hi:\n            mid = (lo + hi) //\
+  \ 2\n            cand = nodes[mid]\n            d = manhattan(cand, (px, py))\n            if best is None or d < best[0]\
+  \ or (d == best[0] and cand < best[1]):\n                best = (d, cand)\n            if cand[0] < px:\n              \
+  \  lo = mid + 1\n            elif cand[0] > px:\n                hi = mid - 1\n            else:\n                lo = mid\
+  \ + 1\n        for cand in nodes:\n            d = manhattan(cand, (px, py))\n            if d < best[0] or (d == best[0]\
+  \ and cand < best[1]):\n                best = (d, cand)\n        return best[1]\n\n    def nearest_for_all(self, points):\n\
+  \        return [self.find_nearest(p) for p in points]\nROUTER\n"
+outputs:
+- path: route/router.py
+  kind: program
+  run: python3 -c 'from route.router import Router; r=Router.from_file("data.json"); assert r.find_nearest((0,0))==(0,0);
+    assert r.find_nearest((1,2))==(1,2); assert r.find_nearest((2,2))==(1,2); assert r.find_nearest((0,1))==(0,1); assert
+    r.nearest_for_all([(0,0),(2,2)])==[(0,0),(1,2)]; assert r.edges[(0,0)]==[[0,1],[1,0]]; print("TAMAM")'
+checks:
+- op: run_stdout_eq
+  cmd: python3 -c 'from route.router import Router; r=Router.from_file("data.json"); assert r.find_nearest((0,0))==(0,0);
+    assert r.find_nearest((1,2))==(1,2); assert r.find_nearest((2,2))==(1,2); assert r.find_nearest((0,1))==(0,1); assert
+    r.nearest_for_all([(0,0),(2,2)])==[(0,0),(1,2)]; assert r.edges[(0,0)]==[[0,1],[1,0]]; print("TAMAM")'
+  value: TAMAM
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8023
+    bundle: yarisma
+    tools:
+    - python3
+    konu: yol-tarifi-agi
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-ikili-arama
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: ic-ice-yapi
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false
+  duzeltme:
+    neden: gizli_sart
+    not: from_file ve edges aranıyordu.

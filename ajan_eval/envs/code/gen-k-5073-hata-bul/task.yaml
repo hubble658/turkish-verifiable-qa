@@ -1,0 +1,145 @@
+id: gen-k-5073-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Dün gece veri toplama hattını izlerken fark ettim ki bazı sensörlerden arka arkaya birden fazla okuma geliyor; özellikle aynı sensor_id ile gelen ilk okuma bir türlü doğru şekilde işlenmiyor gibi görünüyor. Sabah da istasyondan gelen özet raporlarında bazı sensörlerin değerleri eksik çıkınca bunun okuma sayısını tutan mantıktan kaynaklandığını düşündüm. Şimdi sensors/core/aggregate.py dosyasındaki summarize fonksiyonuna odaklanmak istiyorum: aynı sensor_id için birden fazla okuma geldiğinde, sözlükte o anahtar henüz yoksa bile ortalamanın doğru hesaplanması gerekiyor. Bu düzeltmeyi yaparken lütfen sadece sensors/core/aggregate.py ile ilgilen, projedeki diğer dosyalara dokunma.
+
+setup: |
+  mkdir -p sensors/core sensors/io
+  cat > sensors/__init__.py <<'EOF'
+  EOF
+  cat > sensors/core/__init__.py <<'EOF'
+  EOF
+  cat > sensors/io/__init__.py <<'EOF'
+  EOF
+  cat > sensors/core/reading.py <<'EOF'
+  from dataclasses import dataclass
+
+
+  @dataclass
+  class Reading:
+      sensor_id: str
+      celsius: float
+      humidity: float
+
+      def is_valid(self):
+          return -60.0 <= self.celsius <= 120.0 and 0.0 <= self.humidity <= 100.0
+  EOF
+  cat > sensors/core/aggregate.py <<'EOF'
+  from sensors.core.reading import Reading
+
+
+  def summarize(readings):
+      totals = {}
+      counts = {}
+      for r in readings:
+          if not r.is_valid():
+              continue
+          totals[r.sensor_id] += r.celsius
+          counts[r.sensor_id] += 1
+      return {sid: totals[sid] / counts[sid] for sid in totals}
+  EOF
+  cat > sensors/io/parser.py <<'EOF'
+  from sensors.core.reading import Reading
+
+
+  def parse_line(line):
+      parts = line.strip().split(",")
+      if len(parts) != 3:
+          return None
+      sensor_id, c, h = parts
+      try:
+          return Reading(sensor_id, float(c), float(h))
+      except ValueError:
+          return None
+  EOF
+  cat > sensors/io/stream.py <<'EOF'
+  import sys
+
+  from sensors.core.aggregate import summarize
+  from sensors.io.parser import parse_line
+
+
+  def run_stream(stream):
+      readings = []
+      for line in stream:
+          r = parse_line(line)
+          if r is not None:
+              readings.append(r)
+      return summarize(readings)
+
+
+  def main():
+      result = run_stream(sys.stdin)
+      for sid in sorted(result):
+          print(f"{sid}={result[sid]:.2f}")
+
+
+  if __name__ == "__main__":
+      main()
+  EOF
+
+goal_tr: >
+  sensors/core/aggregate.py icindeki summarize fonksiyonunu, ayni sensor_id
+  icin birden fazla okuma geldiginde sozlukte anahtar onceden yoksa da dogru
+  ortalama hesaplayacak bicimde duzelt; diger dosyalara dokunma.
+
+reference_solution: |
+  cat > sensors/core/aggregate.py <<'EOF'
+  from sensors.core.reading import Reading
+
+
+  def summarize(readings):
+      totals = {}
+      counts = {}
+      for r in readings:
+          if not r.is_valid():
+              continue
+          totals[r.sensor_id] = totals.get(r.sensor_id, 0.0) + r.celsius
+          counts[r.sensor_id] = counts.get(r.sensor_id, 0) + 1
+      return {sid: totals[sid] / counts[sid] for sid in totals}
+  EOF
+
+outputs:
+  - {path: sensors/core/aggregate.py, kind: program, run: 'python3 -c ''import io; from sensors.io.stream import run_stream; data="t1,20.0,50.0\nt1,30.0,55.0\nt2,10.0,40.0\nbadline\nt1,25.0,45.0\n"; res=run_stream(io.StringIO(data)); assert res=={"t1":25.0,"t2":10.0}, res; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import io; from sensors.io.stream import run_stream; data="t1,20.0,50.0\nt1,30.0,55.0\nt2,10.0,40.0\nbadline\nt1,25.0,45.0\n"; res=run_stream(io.StringIO(data)); assert res=={"t1":25.0,"t2":10.0}, res; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5073
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: sensor-serisi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sozluk-anahtar-hatasi
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: stdin-boru
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,68 @@
+id: gen-s-7117-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Öğrenci işlerindeki not dökümlerini düzenlerken bir sürü dosya arasında kaybolduk; her dönem sonunda kimin hangi dersten geçtiğini tek tek gözden geçirmek epey zaman alıyor. Bu yüzden elimizdeki ham listeleri birleştirip üzerinden hızlıca geçebileceğimiz özet bir çıktıya ihtiyacımız var. notlar dizinindeki ogrenci.txt ve puan.txt dosyalarını numara alanında birleştir, ardından puani 80 ve uzeri olan ogrenci sayisini sonuc.txt dosyasina sadece sayi olarak yaz.
+
+setup: |
+  mkdir -p notlar
+  cat > notlar/ogrenci.txt <<'TXT'
+  101 ali
+  102 veli
+  103 ayse
+  104 can
+  TXT
+  cat > notlar/puan.txt <<'TXT'
+  101 70
+  102 85
+  103 90
+  104 60
+  TXT
+
+goal_tr: >
+  notlar dizinindeki ogrenci.txt ve puan.txt dosyalarini numara alaninda
+  birlestirip, puani 80 ve uzeri olan ogrenci sayisini sonuc.txt dosyasina
+  sadece sayi olarak yaz.
+
+reference_solution: |
+  cd notlar
+  paste -d' ' ogrenci.txt puan.txt | cut -d' ' -f1,2,4 > gecici.txt
+  cut -d' ' -f3 gecici.txt | awk '$1 >= 80' | wc -l > ../sonuc.txt
+  cd ..
+  rm -f notlar/gecici.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '2'}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7117
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: ogrenci-notlari
+    hedef: ozetle
+    girdi: log-satiri
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: dosyayi-bul
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

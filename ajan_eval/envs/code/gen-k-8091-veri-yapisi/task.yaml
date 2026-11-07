@@ -1,0 +1,164 @@
+id: gen-k-8091-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  fleet/index.py'deki FleetIndex'i trie yap; add plakayı depoyla saklasın, lookup önekle başlayan plakaları alfabetik liste döndürsün, count toplamı versin. add ve lookup logged'dan geçip her çağrıyı (metot adı, argümanlar) self.calls'a yazsın.
+
+setup: |
+  mkdir -p fleet
+  cat > fleet/registry.py <<'REG'
+  class Vehicle:
+      def __init__(self, plate, depot):
+          self.plate = plate
+          self.depot = depot
+
+
+  def load_vehicles():
+      return [
+          Vehicle("A1", "north"),
+          Vehicle("B2", "south"),
+          Vehicle("C3", "north"),
+      ]
+  REG
+  cat > fleet/index.py <<'INDEX'
+  from fleet.registry import load_vehicles
+
+
+  def logged(method):
+      def wrapper(self, *args, **kwargs):
+          raise NotImplementedError
+      return wrapper
+
+
+  class FleetIndex:
+      def __init__(self):
+          raise NotImplementedError
+
+      @logged
+      def add(self, plate, depot):
+          raise NotImplementedError
+
+      @logged
+      def lookup(self, prefix):
+          raise NotImplementedError
+
+      def count(self):
+          raise NotImplementedError
+  INDEX
+  cat > fleet/summary.py <<'SUMMARY'
+  from fleet.index import FleetIndex
+  from fleet.registry import load_vehicles
+
+
+  def build():
+      index = FleetIndex()
+      for v in load_vehicles():
+          index.add(v.plate, v.depot)
+      return index
+
+
+  def report(prefix):
+      index = build()
+      return (index.lookup(prefix), index.count())
+  SUMMARY
+
+goal_tr: >
+  fleet/index.py icindeki FleetIndex sinifini bir trie olarak gerceklestir:
+  add plakayi depo ile kaydetsin, lookup verilen onekle baslayan plakalari
+  alfabetik sirali liste olarak dondursun, count toplam plaka sayisini
+  versin; add ve lookup cagrilari logged dekoratorunden gecip her cagriyi
+  (metot adi, argumanlar) self.calls listesine kaydetsin.
+
+reference_solution: |
+  cat > fleet/index.py <<'INDEX'
+  from fleet.registry import load_vehicles
+
+
+  def logged(method):
+      def wrapper(self, *args, **kwargs):
+          self.calls.append((method.__name__, args))
+          return method(self, *args, **kwargs)
+      return wrapper
+
+
+  class FleetIndex:
+      def __init__(self):
+          self._root = {}
+          self._count = 0
+          self.calls = []
+
+      @logged
+      def add(self, plate, depot):
+          node = self._root
+          for ch in plate:
+              node = node.setdefault(ch, {})
+          if "_d" not in node:
+              self._count += 1
+          node["_d"] = depot
+
+      @logged
+      def lookup(self, prefix):
+          node = self._root
+          for ch in prefix:
+              node = node.get(ch)
+              if node is None:
+                  return []
+          out = []
+
+          def walk(n, acc):
+              for key in sorted(n):
+                  if key == "_d":
+                      out.append(acc)
+                  else:
+                      walk(n[key], acc + key)
+
+          walk(node, prefix)
+          return sorted(out)
+
+      def count(self):
+          return self._count
+  INDEX
+
+outputs:
+  - {path: fleet/index.py, kind: program, run: 'python3 -c ''from fleet.summary import report; assert report("A")==(["A1"],3), report("A"); assert report("")==(["A1","B2","C3"],3), report(""); assert report("Z")==([],3); from fleet.index import FleetIndex; ix=FleetIndex(); ix.add("X9","west"); assert ix.lookup("X")==["X9"]; assert ix.count()==1; assert ix.calls==[("add",("X9","west")),("lookup",("X",))], ix.calls; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.summary import report; assert report("A")==(["A1"],3), report("A"); assert report("")==(["A1","B2","C3"],3), report(""); assert report("Z")==([],3); from fleet.index import FleetIndex; ix=FleetIndex(); ix.add("X9","west"); assert ix.lookup("X")==["X9"]; assert ix.count()==1; assert ix.calls==[("add",("X9","west")),("lookup",("X",))], ix.calls; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8091
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: arac-filosu
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: terse
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: trie
+      karmasiklik: duz
+      kalip: dekorator
+      akis: bellek-ici
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

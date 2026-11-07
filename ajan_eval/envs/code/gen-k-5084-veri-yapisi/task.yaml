@@ -1,0 +1,162 @@
+id: gen-k-5084-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kitchen/nodes.py dosyasındaki OrderChain sınıfını, içindeki push, total ve busiest metotları ile __enter__ ve __exit__ bağlam yöneticisi davranışı düzgün çalışacak biçimde tamamla. Öyle ki kitchen/receipt.py içindeki summarize fonksiyonu çağrıldığında toplam adedi, en yoğun siparişi ve parti toplamlarını doğru döndürsün.
+
+setup: |
+  mkdir -p kitchen
+  cat > kitchen/nodes.py <<'NODES'
+  class OrderNode:
+      """Singly linked list node holding an order (name, count)."""
+
+      def __init__(self, name, count, nxt=None):
+          self.name = name
+          self.count = count
+          self.next = nxt
+
+
+  class OrderChain:
+      """Linked list of orders with a context-manager batch reader."""
+
+      def __init__(self):
+          self.head = None
+          self._open = False
+
+      def push(self, name, count):
+          raise NotImplementedError
+
+      def total(self):
+          raise NotImplementedError
+
+      def busiest(self):
+          raise NotImplementedError
+
+      def __enter__(self):
+          raise NotImplementedError
+
+      def __exit__(self, exc_type, exc, tb):
+          raise NotImplementedError
+  NODES
+  cat > kitchen/receipt.py <<'RECEIPT'
+  from kitchen.nodes import OrderChain
+
+
+  def summarize(batches):
+      """batches: list of lists of (name, count) pairs.
+
+      Returns a dict with total count, busiest name, and per-batch totals.
+      """
+      chain = OrderChain()
+      batch_totals = []
+      with chain:
+          for batch in batches:
+              for name, count in batch:
+                  chain.push(name, count)
+              batch_totals.append(chain.total())
+      return {
+          "total": chain.total(),
+          "busiest": chain.busiest(),
+          "batches": batch_totals,
+      }
+  RECEIPT
+
+goal_tr: >
+  kitchen/nodes.py icindeki OrderChain sinifini, push/total/busiest
+  metotlari ve __enter__/__exit__ context-manager davranisi dogru calisacak
+  sekilde gerceklestir; boylece kitchen/receipt.py summarize cagrisi toplam
+  adedi, en yogun siparisi ve parti toplamlarini dogru dondursun.
+
+reference_solution: |
+  cat > kitchen/nodes.py <<'NODES'
+  class OrderNode:
+      """Singly linked list node holding an order (name, count)."""
+
+      def __init__(self, name, count, nxt=None):
+          self.name = name
+          self.count = count
+          self.next = nxt
+
+
+  class OrderChain:
+      """Linked list of orders with a context-manager batch reader."""
+
+      def __init__(self):
+          self.head = None
+          self._open = False
+
+      def push(self, name, count):
+          node = OrderNode(name, count, self.head)
+          self.head = node
+
+      def total(self):
+          total = 0
+          node = self.head
+          while node is not None:
+              total += node.count
+              node = node.next
+          return total
+
+      def busiest(self):
+          best_name = None
+          best_count = -1
+          node = self.head
+          while node is not None:
+              if node.count > best_count:
+                  best_count = node.count
+                  best_name = node.name
+              node = node.next
+          return best_name
+
+      def __enter__(self):
+          self._open = True
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self._open = False
+          return False
+  NODES
+
+outputs:
+  - {path: kitchen/nodes.py, kind: program, run: 'python3 -c ''from kitchen.receipt import summarize as s; b=[[("soup",2),("steak",5)],[("steak",1),("salad",4)]]; r=s(b); assert r["total"]==12, r; assert r["busiest"]=="steak", r; assert r["batches"]==[7,12], r; b2=[[("tea",3)]]; r2=s(b2); assert r2=={"total":3,"busiest":"tea","batches":[3]}, r2; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from kitchen.receipt import summarize as s; b=[[("soup",2),("steak",5)],[("steak",1),("salad",4)]]; r=s(b); assert r["total"]==12, r; assert r["busiest"]=="steak", r; assert r["batches"]==[7,12], r; b2=[[("tea",3)]]; r2=s(b2); assert r2=={"total":3,"busiest":"tea","batches":[3]}, r2; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5084
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: restoran-siparisleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: bagli-liste
+      karmasiklik: duz
+      kalip: context-manager
+      akis: ic-ice-yapi
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

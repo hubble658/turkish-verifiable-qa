@@ -1,0 +1,82 @@
+id: gen-s-3247-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) envanter klasöründeki her .txt dosyası için, dosyanın bulunduğu klasör yolunu ve uzantısız dosya adını "yol/ad:raf-değeri" biçiminde tek satır olarak elde et; buradaki raf-değeri ilgili dosyadaki raf değeridir.
+
+  2) Elde edilen satırları dosya adına göre artan sırada birleştir.
+
+  3) Birleştirilmiş satırları raflar.txt dosyasına kaydet.
+
+setup: |
+  mkdir -p envanter
+  cat > envanter/kuzey.txt <<'TXT'
+  depo:12
+  raf:3
+  kutu:7
+  TXT
+  cat > envanter/guney.txt <<'TXT'
+  depo:5
+  raf:9
+  kutu:2
+  TXT
+  cat > envanter/dogu.txt <<'TXT'
+  depo:8
+  raf:1
+  kutu:6
+  TXT
+  cat > envanter/bati.txt <<'TXT'
+  depo:4
+  raf:11
+  kutu:9
+  TXT
+
+goal_tr: >
+  envanter klasorundeki her .txt dosyasi icin, dosyanin bulundugu klasor
+  yolunu (ornegin envanter) ve dosya adini (uzantisiz) "yol/ad:raf-degeri"
+  biciminde tek satir olarak yaz; satirlari dosya adina gore artan sirada
+  birlestirip raflar.txt dosyasina kaydet
+
+reference_solution: |
+  for f in $(find envanter -name '*.txt' | sort); do
+    d=$(dirname "$f")
+    ad=$(basename "$f" .txt)
+    deger=$(grep '^raf:' "$f" | cut -d: -f2)
+    printf '%s/%s:%s\n' "$d" "$ad" "$deger"
+  done > raflar.txt
+
+outputs:
+  - {path: raflar.txt, kind: lines, run: cat raflar.txt}
+
+checks:
+  - {op: file_lines_eq, path: raflar.txt, value: ['envanter/bati:11', 'envanter/dogu:1', 'envanter/guney:9', 'envanter/kuzey:3']}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3247
+    bundle: yol-parcala
+    tools:
+    - basename
+    - dirname
+    konu: envanter
+    hedef: yeniden-duzenle
+    girdi: duz-metin
+    kaynak: cok-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: olcek
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

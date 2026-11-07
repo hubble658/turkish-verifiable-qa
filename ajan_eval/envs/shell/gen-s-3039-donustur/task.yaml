@@ -1,0 +1,84 @@
+id: gen-s-3039-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kayitlar.tar.gz arşivini açıp içindeki .json dosyalarını (json olmayan tuzak dosyaları dışarıda bırakarak) birleştirerek ozet.json dosyasını oluştur. ozet.json geçerli bir JSON dizisi olsun ve her satırda bir kayıt bulunsun.
+
+  Şu şartlar sağlanmalı:
+  - kayitlar.tar.gz arşivi açılmalı ve içeriği kullanılmalı.
+  - Yalnızca .json uzantılı dosyalar birleştirilmeli; .json olmayan dosyalar (örneğin notlar.txt) dışarıda bırakılmalı.
+  - Çıktı ozet.json adlı dosyaya yazılmalı.
+  - ozet.json geçerli bir JSON dizisi olmalı.
+  - ozet.json içinde her satırda bir kayıt bulunmalı.
+
+setup: |
+  mkdir -p arsiv
+  cat > arsiv/istanbul.json <<'J'
+  {"sehir":"istanbul","sicaklik":21,"durum":"parcali bulutlu"}
+  J
+  cat > arsiv/ankara.json <<'J'
+  {"sehir":"ankara","sicaklik":17,"durum":"yagmurlu"}
+  J
+  cat > arsiv/izmir.json <<'J'
+  {"sehir":"izmir","sicaklik":26,"durum":"gunesli"}
+  J
+  cat > arsiv/notlar.txt <<'T'
+  bu dosya json degil, tuzak
+  T
+  tar -czf kayitlar.tar.gz arsiv
+  rm -rf arsiv
+
+goal_tr: >
+  gzip ile acilan kayitlar.tar.gz arsivindeki .json dosyalarini (tuzak
+  dosyalari disarida birakarak) birlestirip her satirda bir kayit olacak
+  sekilde gecerli JSON dizisi olarak ozet.json dosyasina yaz
+
+reference_solution: |
+  mkdir -p cikti
+  gzip -dc kayitlar.tar.gz | tar -xf - -C cikti
+  {
+    printf '['
+    first=1
+    for f in $(find cikti/arsiv -name '*.json' | sort); do
+      if [ "$first" -eq 1 ]; then first=0; else printf ','; fi
+      printf '\n'
+      cat "$f"
+    done
+    printf '\n]\n'
+  } > ozet.json
+
+outputs:
+  - {path: ozet.json, kind: json}
+
+checks:
+  - {op: json_eq, path: ozet.json, value: [{sehir: ankara, sicaklik: 17, durum: yagmurlu}, {sehir: istanbul, sicaklik: 21, durum: parcali bulutlu}, {sehir: izmir, sicaklik: 26, durum: gunesli}]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3039
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: hava-durumu-kayitlari
+    hedef: donustur
+    girdi: json
+    kaynak: tarball
+    cikti: json
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

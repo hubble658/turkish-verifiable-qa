@@ -1,0 +1,59 @@
+id: gen-s-3085-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  hava.txt dosyasındaki sıcaklık değerlerinin ortalamasını hesapla; bu ortalamayı tam sayıya yuvarla ve sonucu ortalama.txt dosyasına yalnızca o sayı olacak şekilde yaz. hava.txt dosyası olduğu gibi kalsın.
+
+setup: |
+  cat > hava.txt <<'DATA'
+  2024-01-01 istanbul 12 sicak
+  2024-01-02 ankara 4 soguk
+  2024-01-03 izmir 18 sicak
+  2024-01-04 bursa 9 serin
+  2024-01-05 antalya 21 sicak
+  2024-01-06 konya -3 soguk
+  2024-01-07 trabzon 14 serin
+  2024-01-08 adana 24 sicak
+  DATA
+
+goal_tr: >
+  hava.txt dosyasindaki sicaklik degerlerinin ortalamasini tam sayiya
+  yuvarlayip ortalama.txt dosyasina sadece o sayi olarak yaz
+
+reference_solution: |
+  awk '{toplam+=$3; adet++} END {printf "%d\n", toplam/adet}' hava.txt > ortalama.txt
+
+outputs:
+  - {path: ortalama.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: ortalama.txt, value: '12'}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3085
+    bundle: awk
+    tools:
+    - awk
+    konu: hava-durumu-kayitlari
+    hedef: donustur
+    girdi: duz-metin
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: dolayli-hedef
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

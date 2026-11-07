@@ -1,0 +1,116 @@
+id: gen-k-8055-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  airline/records.py dosyasındaki load_records fonksiyonunu, okunan her kayıttaki seats alanını int sayıya ve fare alanını float sayıya çevirecek şekilde düzelt. Böylece airline/summary.py içindeki BookingSummary.describe, toplam geliri doğru değer olarak yazabilsin. records.py dışındaki dosyaları değiştirme.
+
+  Şu şartlar sağlanmalı:
+  - airline/records.py içindeki load_records, her kayıttaki seats değerini int, fare değerini float olarak döndürmeli.
+  - bookings.txt gibi bir girdi dosyası verildiğinde, airline/summary.py içindeki BookingSummary.describe toplam geliri doğru sayısal değer olarak vermeli.
+  - airline/records.py dışındaki dosyalar (airline/pricing.py, airline/summary.py, bookings.txt) değiştirilmemeli.
+
+setup: |
+  mkdir -p airline
+  cat > airline/records.py <<'REC'
+  def load_records(path):
+      records = []
+      with open(path, "r", encoding="utf-8") as handle:
+          for line in handle:
+              line = line.strip()
+              if not line:
+                  continue
+              code, seats, fare = line.split(",")
+              records.append({"code": code, "seats": seats, "fare": fare})
+      return records
+  REC
+  cat > airline/pricing.py <<'PRICE'
+  from airline.records import load_records
+
+
+  def total_revenue(path):
+      total = 0
+      for record in load_records(path):
+          total += record["seats"] * record["fare"]
+      return total
+  PRICE
+  cat > airline/summary.py <<'SUM'
+  from airline.pricing import total_revenue
+
+
+  class BookingSummary:
+      def __init__(self, path):
+          self.path = path
+          self.revenue = total_revenue(path)
+
+      def describe(self):
+          return "total revenue: " + str(self.revenue)
+  SUM
+  cat > bookings.txt <<'DATA'
+  TK100,2,150.0
+  LH200,1,300.0
+  BA300,4,50.0
+  DATA
+
+goal_tr: >
+  airline/records.py icindeki load_records fonksiyonunu, seats ve fare
+  alanlarini int ve float sayilara cevirecek bicimde duzelt; boylece
+  airline/summary.py icindeki BookingSummary.describe dogru toplam geliri
+  yazsin.
+
+reference_solution: |
+  cat > airline/records.py <<'REC'
+  def load_records(path):
+      records = []
+      with open(path, "r", encoding="utf-8") as handle:
+          for line in handle:
+              line = line.strip()
+              if not line:
+                  continue
+              code, seats, fare = line.split(",")
+              records.append({"code": code, "seats": int(seats), "fare": float(fare)})
+      return records
+  REC
+
+outputs:
+  - {path: airline/records.py, kind: program, run: 'python3 -c ''from airline.summary import BookingSummary as B; s=B("bookings.txt"); assert s.revenue==800.0, s.revenue; assert s.describe()=="total revenue: 800.0", s.describe(); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from airline.summary import BookingSummary as B; s=B("bookings.txt"); assert s.revenue==800.0, s.revenue; assert s.describe()=="total revenue: 800.0", s.describe(); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8055
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: ucus-rezervasyonlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kolay
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: tip-karismasi
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

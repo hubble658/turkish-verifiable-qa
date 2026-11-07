@@ -1,0 +1,63 @@
+id: gen-s-4154-yeniden-duzenle
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi/olcumler.json içindeki ölçümlerden sensörü girdi/gecerli.txt'teki kodlardan biri olan ve değeri sıfırdan büyük olanları, değere göre büyükten küçüğe sıralayıp "sensör değer" biçiminde cikti/satirlar.txt dosyasına yaz.
+
+setup: |
+  mkdir -p girdi cikti
+  printf '{"sensor":"A1","deger":12}\n{"sensor":"A2","deger":7}\n{"sensor":"A3","deger":0}\n{"sensor":"A4","deger":19}\n' > girdi/olcumler.json
+  printf 'A1\nA3\n' > girdi/gecerli.txt
+
+goal_tr: >
+  girdi/olcumler.json icindeki her satiri JSON nesnesi olarak ele alip,
+  sensor alani girdi/gecerli.txt icindeki kodlardan biri olan ve deger alani
+  sifirdan buyuk olan olcumleri, degeri buyukten kucuge sirali olacak
+  sekilde "sensor deger" biciminde cikti/satirlar.txt dosyasina yaz.
+
+reference_solution: |
+  mkdir -p cikti
+  seq 1 4 > /tmp/n.txt
+  paste -d' ' /tmp/n.txt girdi/olcumler.json | while read -r n line; do
+    s=$(printf '%s' "$line" | sed -n 's/.*"sensor":"\([^"]*\)".*/\1/p')
+    d=$(printf '%s' "$line" | sed -n 's/.*"deger":\([0-9]*\).*/\1/p')
+    if grep -qx "$s" girdi/gecerli.txt && [ "$d" -gt 0 ]; then
+      printf '%s %s\n' "$s" "$d"
+    fi
+  done | sort -k2,2nr | awk '{print $1" "$2}' > cikti/satirlar.txt
+
+outputs:
+  - {path: cikti/satirlar.txt, kind: lines, run: cat cikti/satirlar.txt}
+
+checks:
+  - {op: file_content_eq, path: cikti/satirlar.txt, value: A1 12}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4154
+    bundle: uret
+    tools:
+    - printf
+    - seq
+    konu: sensor-olcumleri
+    hedef: yeniden-duzenle
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

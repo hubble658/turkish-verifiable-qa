@@ -1,0 +1,145 @@
+id: gen-k-8313-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  pricing/catalog.py dosyasına, stdin'den okunan ham fiyat satırlarını işleyen iter_products(stream) adlı bir generator fonksiyonu ekle. Girdi satırları SKU|fiyat biçiminde olacak; '#' ile başlayan satırlar ve boş satırlar atlanacak. Fonksiyon, her ürün için o ürünün en düşük geçerli fiyatını ve toplam kayıt sayısını hesaplasın. Sonuçlar SKU'ya göre alfabetik sıralı olarak {'sku': ..., 'min_price': ..., 'count': ...} sözlükleri hâlinde üretilsin. Mevcut pricing/catalog.py içindeki iter_prices fonksiyonunu ve pricing/parsers/price_lines.py içindeki PriceLineIterator sınıfını kullan.
+
+  Şu şartlar sağlanmalı:
+  - pricing/catalog.py dosyası iter_products(stream) fonksiyonunu içermeli.
+  - Girdi satırları SKU|fiyat biçiminde ayrıştırılmalı.
+  - '#' ile başlayan satırlar ve boş satırlar atlanmalı.
+  - Her ürün için en düşük geçerli fiyat hesaplanmalı.
+  - Her ürün için toplam kayıt sayısı hesaplanmalı.
+  - Çıktı, SKU'ya göre alfabetik sıralı olmalı.
+  - Her çıktı öğesi {'sku': ..., 'min_price': ..., 'count': ...} sözlüğü biçiminde olmalı.
+  - Fonksiyon bir generator olarak çalışmalı.
+
+setup: |
+  mkdir -p pricing/parsers
+  cat > pricing/parsers/__init__.py <<'INIT'
+  INIT
+  cat > pricing/__init__.py <<'INIT'
+  INIT
+  cat > pricing/parsers/price_lines.py <<'PARSER'
+  class PriceLineIterator:
+      """Iterator protocol over raw price lines from a stream."""
+
+      def __init__(self, stream):
+          self._stream = stream
+          self._buffer = []
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          while True:
+              line = self._stream.readline()
+              if line == "":
+                  raise StopIteration
+              line = line.strip()
+              if not line or line.startswith("#"):
+                  continue
+              return line
+  PARSER
+  cat > pricing/catalog.py <<'CATALOG'
+  from pricing.parsers.price_lines import PriceLineIterator
+
+
+  def iter_prices(stream):
+      """Yield (sku, unit_price) tuples parsed from a raw price stream."""
+      for line in PriceLineIterator(stream):
+          parts = line.split("|")
+          sku = parts[0].strip()
+          raw = parts[1].strip()
+          yield (sku, float(raw))
+  CATALOG
+
+goal_tr: >
+  pricing/catalog.py icine, stdin'den okunan ham fiyat satirlarini
+  (SKU|fiyat bicimi, '#' ile baslayan ve bos satirlar atlanir) ayristirip
+  urun bazinda en dusuk gecerli fiyati ve toplam kayit sayisini hesaplayan,
+  sonucu SKU'ya gore alfabetik sirali olarak {'sku': ..., 'min_price': ...,
+  'count': ...} sozlukleri halinde ureten iter_products(stream) generator
+  fonksiyonunu ekle.
+
+reference_solution: |
+  cat > pricing/catalog.py <<'CATALOG'
+  from pricing.parsers.price_lines import PriceLineIterator
+
+
+  def iter_prices(stream):
+      """Yield (sku, unit_price) tuples parsed from a raw price stream."""
+      for line in PriceLineIterator(stream):
+          parts = line.split("|")
+          if len(parts) != 2:
+              continue
+          sku = parts[0].strip()
+          raw = parts[1].strip()
+          if not sku:
+              continue
+          try:
+              price = float(raw)
+          except ValueError:
+              continue
+          if price < 0:
+              continue
+          yield (sku, price)
+
+
+  def iter_products(stream):
+      """Aggregate per-SKU minimum price and record count, sorted by SKU."""
+      totals = {}
+      for sku, price in iter_prices(stream):
+          if sku in totals:
+              min_price, count = totals[sku]
+              totals[sku] = (price if price < min_price else min_price, count + 1)
+          else:
+              totals[sku] = (price, 1)
+      for sku in sorted(totals):
+          min_price, count = totals[sku]
+          yield {"sku": sku, "min_price": min_price, "count": count}
+  CATALOG
+
+outputs:
+  - {path: pricing/catalog.py, kind: program, run: 'python3 -c ''import io; from pricing.catalog import iter_products as f; s="widget|4.50\ngadget|10.00\n# note\nwidget|3.75\ngadget|9.99\nbolt|0.50\nwidget|3.75\n"; r=list(f(io.StringIO(s))); assert r==[{"sku":"bolt","min_price":0.5,"count":1},{"sku":"gadget","min_price":9.99,"count":2},{"sku":"widget","min_price":3.75,"count":3}], r; e=list(f(io.StringIO(""))); assert e==[], e; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import io; from pricing.catalog import iter_products as f; s="widget|4.50\ngadget|10.00\n# note\nwidget|3.75\ngadget|9.99\nbolt|0.50\nwidget|3.75\n"; r=list(f(io.StringIO(s))); assert r==[{"sku":"bolt","min_price":0.5,"count":1},{"sku":"gadget","min_price":9.99,"count":2},{"sku":"widget","min_price":3.75,"count":3}], r; e=list(f(io.StringIO(""))); assert e==[], e; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8313
+    bundle: yarisma
+    tools:
+    - python3
+    konu: urun-fiyatlari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: metin-ayristirma
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: stdin-boru
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

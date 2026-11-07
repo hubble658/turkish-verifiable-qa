@@ -1,0 +1,73 @@
+id: gen-s-7023-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  yedek/siparisler.tar.gz arşivini açmadan incele ve arşivdeki .txt ile biten dosyalarda geçen her yemek adının toplam porsiyon sayısını hesapla; arşivdeki .txt ile bitmeyen dosyaları dikkate alma. En çok toplam porsiyona sahip yemek adını sonuc.txt dosyasına sadece o ad olacak şekilde yaz.
+
+setup: |
+  mkdir -p siparisler yedek
+  cat > siparisler/masa1.txt <<'TXT'
+  corba 2
+  kebap 1
+  salata 3
+  TXT
+  cat > siparisler/masa2.txt <<'TXT'
+  kebap 2
+  pide 4
+  corba 1
+  TXT
+  cat > siparisler/masa3.txt <<'TXT'
+  salata 1
+  pide 2
+  TXT
+  cat > siparisler/tuzak.txt.bak <<'TXT'
+  kebap 99
+  corba 99
+  TXT
+  tar -czf yedek/siparisler.tar.gz siparisler
+
+goal_tr: >
+  yedek/siparisler.tar.gz arsivindeki .txt ile biten dosyalarda gecen her
+  yemek adinin toplam porsiyon sayisini hesapla ve en cok toplam porsiyona
+  sahip yemek adini sonuc.txt dosyasina sadece o ad olarak yaz
+
+reference_solution: |
+  mkdir -p acilan
+  tar -xzf yedek/siparisler.tar.gz -C acilan
+  find acilan -type f -name '*.txt' -exec awk '{toplam[$1]+=$2} END {for (y in toplam) print toplam[y], y}' {} + | sort -k1,1nr -k2,2 | head -n1 | awk '{print $2}' > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: pide}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7023
+    bundle: secerek-arsivle
+    tools:
+    - tar
+    - find
+    konu: restoran-siparisleri
+    hedef: yeniden-duzenle
+    girdi: duz-metin
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

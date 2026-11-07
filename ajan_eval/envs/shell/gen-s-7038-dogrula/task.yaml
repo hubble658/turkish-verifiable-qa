@@ -1,0 +1,67 @@
+id: gen-s-7038-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  /workspace dizinindeki defter_a.log ve defter_b.log dosyalarını kullanarak bir mutabakat işlemi yap. defter_a.log içindeki her kaydın hesap kodunu defter_b.log içindeki karşılığıyla eşleştir ve yalnızca iki dosyada da karşılığı bulunan kayıtları mutabakat.csv dosyasına yaz. Her satırda hesap kodu, hesap adı, yön ve tutar virgülle ayrılmış olarak yer alsın. Satırlar hesap kodunun sayısal değerine göre artan sırada olsun. Karşılığı olmayan kayıtlar mutabakat.csv dosyasına dahil edilmesin.
+
+setup: |
+  mkdir -p /workspace
+  cat > defter_a.log <<'LOG'
+  2024-01-05 | 1001 | BORC | 150.00
+  2024-01-06 | 1002 | ALACAK | 200.50
+  2024-01-07 | 1003 | BORC | 75.25
+  2024-01-08 | 1004 | ALACAK | 300.00
+  LOG
+  cat > defter_b.log <<'LOG'
+  1001 | Kasa
+  1002 | Banka
+  1003 | Kasa
+  1005 | Banka
+  LOG
+
+goal_tr: >
+  defter_a.log icindeki her kaydin hesap kodunu defter_b.log ile eslestirip
+  kodu, hesap adini, yonunu ve tutari virgulle ayrilmis olarak, kayitlar
+  kodun sayisal degerine gore artan sirada mutabakat.csv dosyasina yaz;
+  karsiligi olmayan kayitlari disarida birak.
+
+reference_solution: |
+  sed -n 's/^\([0-9-]*\) | \([0-9]*\) | \([A-Z]*\) | \([0-9.]*\)$/\2 \3 \4/p' defter_a.log | sort -k1,1n > /tmp/a.txt
+  sed -n 's/^\([0-9]*\) | \(.*\)$/\1 \2/p' defter_b.log | sort -k1,1n > /tmp/b.txt
+  join -1 1 -2 1 /tmp/a.txt /tmp/b.txt | awk '{print $1 "," $4 "," $2 "," $3}' | tr ' ' ',' > mutabakat.csv
+
+outputs:
+  - {path: mutabakat.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: mutabakat.csv, value: ['1001,Kasa,BORC,150.00', '1002,Banka,ALACAK,200.50', '1003,Kasa,BORC,75.25']}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7038
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: muhasebe-kalemleri
+    hedef: dogrula
+    girdi: log-satiri
+    kaynak: iki-dosya-capraz
+    cikti: csv
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

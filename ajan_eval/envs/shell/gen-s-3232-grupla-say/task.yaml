@@ -1,0 +1,79 @@
+id: gen-s-3232-grupla-say
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) kutuphane dizin ağacındaki tüm .txt dosyalarındaki satırları birleştir.
+  2) Birleştirdiğin satırların her benzersiz olanının kaç kez geçtiğini say.
+  3) Sayım sonucunu, her benzersiz satırın anahtar, geçiş sayısının değer olduğu bir JSON nesnesi olarak ozet.json dosyasına yaz.
+
+setup: |
+  mkdir -p kutuphane/edebiyat kutuphane/bilim kutuphane/tarih
+  cat > kutuphane/edebiyat/kitaplar.txt <<'TXT'
+  roman
+  siir
+  roman
+  deneme
+  siir
+  roman
+  TXT
+  cat > kutuphane/bilim/fizik.txt <<'TXT'
+  mekanik
+  optik
+  mekanik
+  termodinamik
+  optik
+  optik
+  mekanik
+  TXT
+  cat > kutuphane/tarih/tarih.txt <<'TXT'
+  antik
+  orta
+  antik
+  modern
+  orta
+  antik
+  TXT
+
+goal_tr: >
+  kutuphane dizin agacindaki tum .txt dosyalarindaki satirlari birlestirip
+  her benzersiz satirin kac kez gectigini sayarak sonucu tur isimli JSON
+  nesnesi olarak ozet.json dosyasina yaz
+
+reference_solution: |
+  find kutuphane -name '*.txt' -exec cat {} + | sort | uniq -c | awk '{print "\"" $2 "\": " $1}' | sed '1s/^/{/;$!s/$/,/;$s/$/}/' > ozet.json
+
+outputs:
+  - {path: ozet.json, kind: json}
+
+checks:
+  - {op: json_eq, path: ozet.json, value: {antik: 3, deneme: 1, mekanik: 3, modern: 1, optik: 3, orta: 2, roman: 3, siir: 2, termodinamik: 1}}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3232
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: kutuphane-kayitlari
+    hedef: grupla-say
+    girdi: duz-metin
+    kaynak: dizin-agaci
+    cikti: json
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: olcek
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

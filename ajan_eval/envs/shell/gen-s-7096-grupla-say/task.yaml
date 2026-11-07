@@ -1,0 +1,75 @@
+id: gen-s-7096-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Vardiya planlamasıyla uğraşırken personel listesi ile atama listesinin ayrı ayrı tutulması kafa karıştırıcı oluyor; kimin gerçekte hangi vardiyada olduğu ile kime hangi vardiyanın verildiği bazen tutmuyor. Bu yüzden elimizdeki kayıtları karşılaştırıp yalnızca gerçekten uyuşanları görmek istiyoruz. vardiya/personel.tsv ve vardiya/atama.tsv dosyalarını personel kimliği üzerinden birleştir; gerçek vardiyası ile atanan vardiyası aynı olan personelin kimlik ve adını "kimlik<TAB>ad" biçiminde, kimliğe göre artan sırada ve tekrarsız olarak vardiya/uyanlar.tsv dosyasına yaz. Vardiya klasöründeki diğer dosyalar bu işleme dahil edilmesin.
+
+setup: |
+  mkdir -p vardiya
+  cat > vardiya/personel.tsv <<'TSV'
+  P01	Ali	Gece
+  P02	Ayse	Gunduz
+  P03	Can	Gece
+  P04	Deniz	Gunduz
+  P05	Ece	Gece
+  P06	Fatma	Gunduz
+  TSV
+  cat > vardiya/atama.tsv <<'TSV'
+  P01	Gece
+  P02	Gece
+  P03	Gece
+  P04	Gunduz
+  P05	Gunduz
+  P06	Gunduz
+  TSV
+  cat > vardiya/okubeni.txt <<'TXT'
+  Bu dosya tuzaktir, vardiya hesaplarina dahil edilmemelidir.
+  P01	Gece
+  P99	Gece
+  TXT
+
+goal_tr: >
+  vardiya/personel.tsv ve vardiya/atama.tsv dosyalarini personel kimligi
+  uzerinden birlestirip, gercek vardiyasi ile atanan vardiyasi ayni olan
+  personelin kimlik ve adini "kimlik<TAB>ad" biciminde kimlige gore artan
+  sirada, tekrarsiz olarak vardiya/uyanlar.tsv dosyasina yaz; diger vardiya
+  dosyalari hesaba katilmaz.
+
+reference_solution: |
+  join -t "$(printf '\t')" -1 1 -2 1 vardiya/personel.tsv vardiya/atama.tsv | awk -F '\t' '$3==$4 {print $1 "\t" $2}' | sort | uniq > vardiya/uyanlar.tsv
+
+outputs:
+  - {path: vardiya/uyanlar.tsv, kind: lines, run: wc -l < vardiya/uyanlar.tsv}
+
+checks:
+  - {op: file_lines_eq, path: vardiya/uyanlar.tsv, value: ["P01\tAli", "P03\tCan", "P04\tDeniz", "P06\tFatma"]}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7096
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: personel-vardiyalari
+    hedef: grupla-say
+    girdi: tsv
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

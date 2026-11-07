@@ -1,0 +1,137 @@
+id: gen-k-8139-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  docs/summary.py içindeki summarize fonksiyonunu, geçerli kayıtlarda yazar adına göre sayım döndürecek ve eksik alanlı ya da biçimi bozuk satırlarda uygun DocError alt sınıfını fırlatacak biçimde düzelt.
+
+setup: |
+  mkdir -p docs
+  cat > docs/loader.py <<'LOADER'
+  def load_lines(path):
+      with open(path, "r", encoding="utf-8") as fh:
+          return [ln.rstrip("\n") for ln in fh if ln.strip()]
+
+
+  def index_documents(paths):
+      index = {}
+      for path in paths:
+          for line in load_lines(path):
+              key = line.strip().lower()
+              index[key] = index.get(key, 0) + 1
+      return index
+  LOADER
+  cat > docs/errors.py <<'ERRORS'
+  class DocError(Exception):
+      pass
+
+
+  class MissingFieldError(DocError):
+      def __init__(self, field):
+          super().__init__("missing field: " + field)
+          self.field = field
+
+
+  class BadFormatError(DocError):
+      def __init__(self, line):
+          super().__init__("bad format: " + line)
+          self.line = line
+  ERRORS
+  cat > docs/summary.py <<'SUMMARY'
+  from docs.errors import BadFormatError, MissingFieldError
+  from docs.loader import load_lines
+
+
+  def parse_record(line):
+      parts = line.split("::")
+      if len(parts) != 3:
+          raise BadFormatError(line)
+      return {"title": parts[0].strip(), "author": parts[1].strip(), "year": parts[2].strip()}
+
+
+  def summarize(path):
+      counts = {}
+      for line in load_lines(path):
+          record = parse_record(line)
+          key = record["writer"]
+          counts[key] = counts.get(key, 0) + 1
+      return counts
+  SUMMARY
+  cat > data.txt <<'DATA'
+  Notes::Ada::1843
+  Notes::Ada::1843
+  Sketches::Grace::1952
+  DATA
+
+goal_tr: >
+  docs/summary.py icindeki summarize fonksiyonunu, gecerli kayitlarda yazar
+  adina gore sayim dondurecek ve eksik alanli ya da bicimi bozuk satirlarda
+  uygun DocError alt sinifini firlatacak bicimde duzelt.
+
+reference_solution: |
+  cat > docs/summary.py <<'SUMMARY'
+  from docs.errors import BadFormatError, MissingFieldError
+  from docs.loader import load_lines
+
+
+  def parse_record(line):
+      parts = line.split("::")
+      if len(parts) != 3:
+          raise BadFormatError(line)
+      record = {"title": parts[0].strip(), "author": parts[1].strip(), "year": parts[2].strip()}
+      if not record["author"]:
+          raise MissingFieldError("author")
+      return record
+
+
+  def summarize(path):
+      counts = {}
+      for line in load_lines(path):
+          record = parse_record(line)
+          key = record["author"]
+          counts[key] = counts.get(key, 0) + 1
+      return counts
+  SUMMARY
+
+outputs:
+  - {path: docs/summary.py, kind: program, run: 'python3 -c ''import os; from docs.summary import summarize; from docs.errors import MissingFieldError, BadFormatError; d=summarize("data.txt"); assert d=={"Ada":2,"Grace":1}, d; os.makedirs("tmpchk", exist_ok=True); open("tmpchk/bad.txt","w").write("OnlyOne::Field\n"); open("tmpchk/miss.txt","w").write("Title::::1843\n"); ok=0; exec("try:\n summarize(\"tmpchk/bad.txt\")\nexcept BadFormatError:\n ok+=1"); assert ok==1; ok=0; exec("try:\n summarize(\"tmpchk/miss.txt\")\nexcept MissingFieldError:\n ok+=1"); assert ok==1; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import os; from docs.summary import summarize; from docs.errors import MissingFieldError, BadFormatError; d=summarize("data.txt"); assert d=={"Ada":2,"Grace":1}, d; os.makedirs("tmpchk", exist_ok=True); open("tmpchk/bad.txt","w").write("OnlyOne::Field\n"); open("tmpchk/miss.txt","w").write("Title::::1843\n"); ok=0; exec("try:\n summarize(\"tmpchk/bad.txt\")\nexcept BadFormatError:\n ok+=1"); assert ok==1; ok=0; exec("try:\n summarize(\"tmpchk/miss.txt\")\nexcept MissingFieldError:\n ok+=1"); assert ok==1; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8139
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: metin-belgeleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sozluk-anahtar-hatasi
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: dosya-okuma
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

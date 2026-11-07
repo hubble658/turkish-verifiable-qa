@@ -1,0 +1,67 @@
+id: gen-s-4021-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) hava.csv dosyasındaki şehirleri tekrarsız olarak al.
+  2) Aldığın şehirleri alfabetik olarak sırala.
+  3) Sıralanmış her şehri ayrı bir satıra gelecek şekilde sehirler.txt dosyasına yaz.
+
+setup: |
+  cat > hava.csv <<'CSV'
+  istanbul,23,parcali
+  ankara,19,gunesli
+  izmir,27,gunesli
+  bursa,21,yagmurlu
+  antalya,30,gunesli
+  konya,18,parcali
+  trabzon,16,yagmurlu
+  eskisehir,20,parcali
+  adana,33,gunesli
+  samsun,22,yagmurlu
+  CSV
+
+goal_tr: >
+  hava.csv dosyasindaki sehirleri tekrarsiz olarak alfabetik sirala ve her
+  sehri bir satira gelecek sekilde sehirler.txt dosyasina yaz
+
+reference_solution: |
+  cut -d, -f1 hava.csv > sehirler_gecici.txt
+  sort sehirler_gecici.txt > sehirler_sirali.txt
+  uniq sehirler_sirali.txt > sehirler.txt
+  rm sehirler_gecici.txt sehirler_sirali.txt
+
+outputs:
+  - {path: sehirler.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: sehirler.txt, value: [adana, ankara, antalya, bursa, eskisehir, istanbul, izmir, konya, samsun, trabzon]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4021
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: hava-durumu-kayitlari
+    hedef: donustur
+    girdi: csv
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: baslik-yok
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

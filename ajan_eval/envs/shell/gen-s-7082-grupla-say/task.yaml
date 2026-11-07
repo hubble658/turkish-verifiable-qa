@@ -1,0 +1,90 @@
+id: gen-s-7082-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi/kargolar.tsv ile girdi/bolgeler.tsv'yi birleştirip her bölge ve durum ikilisi için kargo sayısını cikti/ altında bölge adıyla aynı olan alt dizindeki sayim.txt dosyasına sadece sayı olarak yaz; bolgeler.tsv'de olmayan şehirleri atla.
+
+setup: |
+  mkdir -p girdi cikti
+  printf '\xef\xbb\xbfkargo_id\tsehir\tdurum\n' > girdi/kargolar.tsv
+  printf 'K001\tAnkara\tTeslim\n' >> girdi/kargolar.tsv
+  printf 'K002\tIzmir\tDagitim\n' >> girdi/kargolar.tsv
+  printf 'K003\tAnkara\tTeslim\n' >> girdi/kargolar.tsv
+  printf 'K004\tBursa\tBeklemede\n' >> girdi/kargolar.tsv
+  printf 'K005\tIzmir\tTeslim\n' >> girdi/kargolar.tsv
+  printf 'K006\tAnkara\tDagitim\n' >> girdi/kargolar.tsv
+  printf 'K007\tBursa\tTeslim\n' >> girdi/kargolar.tsv
+  printf 'K008\tIzmir\tBeklemede\n' >> girdi/kargolar.tsv
+  printf 'K009\tAnkara\tTeslim\n' >> girdi/kargolar.tsv
+  printf 'K010\tBursa\tDagitim\n' >> girdi/kargolar.tsv
+  printf '\xef\xbb\xbfsehir\tbolge\n' > girdi/bolgeler.tsv
+  printf 'Ankara\tIc Anadolu\n' >> girdi/bolgeler.tsv
+  printf 'Izmir\tEge\n' >> girdi/bolgeler.tsv
+  printf 'Bursa\tMarmara\n' >> girdi/bolgeler.tsv
+  printf 'K011\tAntalya\tTeslim\n' >> girdi/kargolar.tsv
+
+goal_tr: >
+  girdi/kargolar.tsv dosyasindaki her kargoyu, girdi/bolgeler.tsv
+  dosyasindaki sehir-bolge eslesmesiyle birlestirip bolge ve durum ikilisine
+  gore kargo sayilarini cikti/ altinda bolge adiyla ayni olan bir alt
+  dizinde sayim.txt dosyasina sadece sayi olarak yaz; bolgeler.tsv'de
+  karsiligi olmayan sehirler atlanir.
+
+reference_solution: |
+  python3 - <<'PY'
+  import csv, os
+  from collections import Counter
+  with open('girdi/bolgeler.tsv', encoding='utf-8-sig', newline='') as f:
+      bolge = {r['sehir']: r['bolge'] for r in csv.DictReader(f, delimiter='\t')}
+  sayac = Counter()
+  with open('girdi/kargolar.tsv', encoding='utf-8-sig', newline='') as f:
+      for r in csv.DictReader(f, delimiter='\t'):
+          b = bolge.get(r['sehir'])
+          if b:
+              sayac[(b, r['durum'])] += 1
+  for (b, d), n in sorted(sayac.items()):
+      os.makedirs(os.path.join('cikti', b), exist_ok=True)
+      with open(os.path.join('cikti', b, 'sayim.txt'), 'a') as out:
+          out.write('%s %d\n' % (d, n))
+  PY
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/Ic Anadolu/sayim.txt, kind: file}
+  - {path: cikti/Ege/sayim.txt, kind: file}
+  - {path: cikti/Marmara/sayim.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [Ege, Ic Anadolu, Marmara]}
+  - {op: file_lines_eq, path: cikti/Ege/sayim.txt, value: [Beklemede 1, Dagitim 1, Teslim 1]}
+  - {op: file_lines_eq, path: cikti/Ic Anadolu/sayim.txt, value: [Dagitim 1, Teslim 3]}
+  - {op: file_lines_eq, path: cikti/Marmara/sayim.txt, value: [Beklemede 1, Dagitim 1, Teslim 1]}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7082
+    bundle: python-veri
+    tools:
+    - python3
+    konu: kargo-takibi
+    hedef: grupla-say
+    girdi: tsv
+    kaynak: iki-dosya-capraz
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: terse
+    direnc: bom
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

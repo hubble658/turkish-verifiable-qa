@@ -1,0 +1,81 @@
+id: gen-s-7022-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Depo ekibinden gelen bir istegi bugün ancak aksam ustu ele alabildim; sabah boyunca baska bir sevkiyat listesiyle ugrastigim icin kargo kayitlarina yeni bastan bakmam gerekti. Elimizdeki kargo.ini dosyasi bolumler halinde tutuluyor ama sahadaki arkadaslar her sevkiyat icin ayri bir dosya gormek istiyor, cunku tek tek acip bakmak daha kolay oluyormus.
+
+  Bu yuzden kargo.ini icindeki her bolumu kendi adiyla ayri bir metin dosyasina cevirmeni istiyorum. Bolum adlari A101, B202 ve C303 oldugu icin ortaya a101.txt, b202.txt ve c303.txt dosyalari cikmali; dosya adlari bolum adinin kucuk harfli hali olsun. Her dosyanin icinde o bolumdeki her satir, anahtar ve deger ikilisi halinde "anahtar:tersdeger" biciminde yazilsin; yani degerin karakterleri ters cevrilmis olsun. Satirlar da anahtar adina gore alfabetik sirada dizilsin.
+
+setup: |
+  cat > kargo.ini <<'INI'
+  [A101]
+  sehir=Ankara
+  durum=yolda
+  agirlik=12
+
+  [B202]
+  sehir=Izmir
+  durum=teslim
+  agirlik=5
+
+  [C303]
+  sehir=Bursa
+  durum=yolda
+  agirlik=8
+  INI
+
+goal_tr: >
+  kargo.ini dosyasindaki her bolumu kendi adiyla bir .txt dosyasina
+  donustur; dosya adi bolum adinin kucuk harfli hali olsun, dosya icerigi
+  ise her satirda degerin ters cevrilmis hali ve iki nokta ile anahtar olsun
+  (anahtar:tersdeger biciminde), satirlar anahtar adina gore alfabetik
+  sirali olsun
+
+reference_solution: |
+  cut -d= -f1 kargo.ini | grep -v '^\[' | grep -v '^$' > /tmp/anahtarlar.txt
+  grep '^\[' kargo.ini | tr -d '[]' | while read b; do
+    lc=$(echo "$b" | tr 'A-Z' 'a-z')
+    grep -A3 "^\[$b\]" kargo.ini | grep '=' | while IFS='=' read k v; do
+      printf '%s:%s\n' "$k" "$(echo "$v" | rev)"
+    done | sort > "$lc.txt"
+  done
+
+outputs:
+  - {path: a101.txt, kind: file}
+  - {path: b202.txt, kind: file}
+  - {path: c303.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: a101.txt, value: ['agirlik:21', 'durum:adloy', 'sehir:araknA']}
+  - {op: file_lines_eq, path: b202.txt, value: ['agirlik:5', 'durum:milset', 'sehir:rimzI']}
+  - {op: file_lines_eq, path: c303.txt, value: ['agirlik:8', 'durum:adloy', 'sehir:asruB']}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7022
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: kargo-takibi
+    hedef: donustur
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

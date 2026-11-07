@@ -1,0 +1,70 @@
+id: gen-s-4000-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Kargo ekibinden gelen veriler her gün farklı şubelerden ayrı ayrı düşüyor ve hepsini tek tek açıp bakmak epey vakit alıyor. Sabah toplantıda konuşuldu, artık elimizdeki ham dosyalardan derli toplu tek bir liste çıkarmamız gerekiyor. Bu işi bir an önce halletmek istiyorum.
+
+  kargo dizini ve altındaki tüm klasörlerde bulunan csv dosyalarını dolaş; her bir satırdaki takip_no ve durum alanlarını iki nokta üst üste gelecek şekilde birleştirip bütün satırları çalışma dizinindeki gecis_listesi.txt dosyasına yaz. Başka alanlara gerek yok, sadece bu ikisi birleşsin ve her satır listede ayrı bir satır olarak yer alsın.
+
+setup: |
+  mkdir -p kargo/istanbul kargo/ankara kargo/izmir
+  cat > kargo/istanbul/01.csv <<'CSV'
+  takip_no,guzergah,durum
+  TR100,istanbul-ankara,yolda
+  TR101,istanbul-izmir,teslim
+  CSV
+  cat > kargo/ankara/02.csv <<'CSV'
+  takip_no,guzergah,durum
+  TR200,ankara-izmir,yolda
+  TR201,ankara-istanbul,iptal
+  CSV
+  cat > kargo/izmir/03.csv <<'CSV'
+  takip_no,guzergah,durum
+  TR300,izmir-ankara,teslim
+  TR301,izmir-istanbul,yolda
+  CSV
+
+goal_tr: >
+  kargo dizini agacindaki tum csv dosyalarindan takip_no ve durum alanlarini
+  iki nokta ile birlestirip tum satirlari tek bir gecis listesi.txt
+  dosyasina yaz
+
+reference_solution: |
+  find kargo -name '*.csv' | sort | tee /tmp/kargo_dosyalar.txt > /dev/null
+  cut -d, -f1,3 $(cat /tmp/kargo_dosyalar.txt) | tail -n +2 > gecis_listesi.txt
+
+outputs:
+  - {path: gecis_listesi.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: gecis_listesi.txt, value: ['TR200,yolda', 'TR201,iptal', 'takip_no,durum', 'TR100,yolda', 'TR101,teslim', 'takip_no,durum', 'TR300,teslim', 'TR301,yolda']}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4000
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: kargo-takibi
+    hedef: ayikla
+    girdi: csv
+    kaynak: dizin-agaci
+    cikti: satir-listesi
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

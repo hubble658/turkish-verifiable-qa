@@ -1,0 +1,72 @@
+id: gen-s-7315-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri/olcumler.csv dosyasındaki satırları sensör adına göre ayırıp her sensör için cikti/<sensör>_olcumler.csv adında bir dosya oluştur. Her çıktı dosyası ilgili sensöre ait satırları özgün sırasıyla içermeli. Ardından tüm bu çıktı dosyalarını cikti/arsiv.tar olarak tek bir tar arşivinde topla ve bu arşivi gzip ile sıkıştırıp cikti/arsiv.tar.gz dosyasını elde et.
+
+setup: |
+  mkdir -p veri
+  cat > veri/olcumler.csv <<'CSV'
+  sensor_a,2024-01-01T00:00:00,21.5
+  sensor_a,2024-01-01T01:00:00,22.1
+  sensor_b,2024-01-01T00:00:00,19.8
+  sensor_b,2024-01-01T01:00:00,20.3
+  sensor_c,2024-01-01T00:00:00,25.0
+  sensor_c,2024-01-01T01:00:00,24.7
+  CSV
+
+goal_tr: >
+  veri/olcumler.csv dosyasindaki her satiri sensor adina gore ayirip, her
+  sensor icin cikti/<sensor>_olcumler.csv adinda bir dosya olustur; her
+  dosyada o sensore ait satirlar ayni sirayla yer alsin ve tum cikti
+  dosyalari tek bir tar arsivine cikti/arsiv.tar olarak, ardindan gzip ile
+  cikti/arsiv.tar.gz seklinde sikistirilsin.
+
+reference_solution: |
+  mkdir -p cikti
+  cut -d, -f1 veri/olcumler.csv | sort -u | while read s; do grep "^$s," veri/olcumler.csv > "cikti/${s}_olcumler.csv"; done
+  tar -cf cikti/arsiv.tar -C cikti $(cd cikti && ls *_olcumler.csv)
+  gzip -f cikti/arsiv.tar
+  rm -f cikti/*_olcumler.csv
+
+outputs:
+  - {path: cikti/arsiv.tar.gz, kind: file}
+  - {path: cikti, kind: dir}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [arsiv.tar.gz]}
+  - {op: run_stdout_eq, cmd: tar -tzf cikti/arsiv.tar.gz | sort, value: 'sensor_a_olcumler.csv
+
+    sensor_b_olcumler.csv
+
+    sensor_c_olcumler.csv'}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7315
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: sensor-olcumleri
+    hedef: donustur
+    girdi: csv
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: baslik-yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

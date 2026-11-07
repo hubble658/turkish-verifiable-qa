@@ -1,0 +1,68 @@
+id: gen-s-3197-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  vardiya.log dosyasındaki her satırdan personel adını ve vardiya tipini çıkar; her personelin kaç kez GUNDUZ, kaç kez AKSAM ve kaç kez GECE vardiyasına girdiğini say. Sonucu personel, gunduz, aksam ve gece başlıklarıyla personel.csv dosyasına yaz.
+
+setup: |
+  cat > vardiya.log <<'LOG'
+  2024-03-01 08:00 AYSE GUNDUZ
+  2024-03-01 16:00 MEHMET AKSAM
+  2024-03-01 00:00 AYSE GECE
+  2024-03-02 08:00 MEHMET GUNDUZ
+  2024-03-02 16:00 AYSE AKSAM
+  2024-03-02 00:00 MEHMET GECE
+  2024-03-03 08:00 AYSE GUNDUZ
+  2024-03-03 16:00 MEHMET AKSAM
+  2024-03-03 00:00 AYSE GECE
+  2024-03-04 08:00 MEHMET GUNDUZ
+  LOG
+
+goal_tr: >
+  vardiya.log dosyasindaki her satirdan personel adini ve vardiya tipini
+  cikarip, her personel icin kac kez GUNDUZ, AKSAM ve GECE vardiyasina
+  girdigini say ve sonucu personel, gunduz, aksam, gece basliklariyla
+  personel.csv dosyasina yaz
+
+reference_solution: |
+  test "$(grep -c 'GUNDUZ' vardiya.log)" = "$(wc -l < vardiya.log | awk '{print $1}')" || true
+  awk '{print $3, $4}' vardiya.log | sort | uniq -c > sayim.txt
+  awk '{printf "%s %s %s\n", $2, $3, $1}' sayim.txt | sort > duz.txt
+  printf 'personel,gunduz,aksam,gece\n' > personel.csv
+  awk '{p=$1; v=$2; n=$3; if (v=="GUNDUZ") g[p]+=n; else if (v=="AKSAM") a[p]+=n; else if (v=="GECE") c[p]+=n; seen[p]=1} END {for (p in seen) printf "%s,%d,%d,%d\n", p, g[p], a[p], c[p]}' duz.txt | sort >> personel.csv
+
+outputs:
+  - {path: personel.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: personel.csv, value: ['personel,gunduz,aksam,gece', 'AYSE,2,1,2', 'MEHMET,2,2,1']}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3197
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: personel-vardiyalari
+    hedef: denetle
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: csv
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

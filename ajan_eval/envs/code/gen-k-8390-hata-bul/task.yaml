@@ -1,0 +1,118 @@
+id: gen-k-8390-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) stock/totals.py dosyasındaki running_totals fonksiyonunu, aynı SKU için gelen hareketleri sırayla biriktirip toplayacak biçimde düzelt; her SKU'nun toplamı önceki hareketlerin üzerine eklenerek hesaplansın.
+
+  2) Düzeltme sonrasında stock/report.py dosyasının doğru stok toplamlarını ürettiğinden emin ol.
+
+setup: |
+  mkdir -p stock
+  cat > stock/reader.py <<'READER'
+  class MovementReader:
+      def __init__(self, path):
+          self.path = path
+          self.handle = None
+
+      def __enter__(self):
+          self.handle = open(self.path, "r")
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self.handle.close()
+          return False
+
+      def movements(self):
+          for line in self.handle:
+              line = line.strip()
+              if not line:
+                  continue
+              sku, delta = line.split(",")
+              yield sku, int(delta)
+  READER
+  cat > stock/totals.py <<'TOTALS'
+  def running_totals(movements):
+      totals = {}
+      for sku, delta in movements:
+          totals[sku] = delta
+      return totals
+  TOTALS
+  cat > stock/report.py <<'REPORT'
+  from stock.reader import MovementReader
+  from stock.totals import running_totals
+
+
+  def stock_report(path):
+      with MovementReader(path) as reader:
+          totals = running_totals(reader.movements())
+      lines = []
+      for sku in sorted(totals):
+          lines.append("%s:%d" % (sku, totals[sku]))
+      return "\n".join(lines)
+  REPORT
+  cat > movements.txt <<'DATA'
+  bolt,5
+  nut,3
+  bolt,-2
+  washer,7
+  nut,4
+  bolt,1
+  DATA
+
+goal_tr: >
+  stock/totals.py icindeki running_totals fonksiyonunu, ayni SKU icin gelen
+  hareketleri sirayla biriktirip toplayacak bicimde duzelt; boylece
+  stock/report.py dogru stok toplamlarini uretsin.
+
+reference_solution: |
+  cat > stock/totals.py <<'TOTALS'
+  def running_totals(movements):
+      totals = {}
+      for sku, delta in movements:
+          totals[sku] = totals.get(sku, 0) + delta
+      return totals
+  TOTALS
+
+outputs:
+  - {path: stock/totals.py, kind: program, run: 'python3 -c ''from stock.report import stock_report as f; r=f("movements.txt"); assert r=="bolt:4\nnut:7\nwasher:7", repr(r); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from stock.report import stock_report as f; r=f("movements.txt"); assert r=="bolt:4\nnut:7\nwasher:7", repr(r); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8390
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: stok-hareketleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-toplama-sirasi
+      karmasiklik: duz
+      kalip: context-manager
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

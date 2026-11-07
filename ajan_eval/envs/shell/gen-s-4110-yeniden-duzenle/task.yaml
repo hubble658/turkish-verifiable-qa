@@ -1,0 +1,82 @@
+id: gen-s-4110-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) /workspace/randevu_kayitlari.txt dosyasındaki her satırı "tarih", "saat", "hasta" ve "bolum" alanlarına ayır.
+
+  2) Kayıtları tarihe göre grupla ve her tarih için o tarihe ait kayıt sayısını hesapla.
+
+  3) Elde ettiğin gruplanmış yapıyı geçerli bir JSON nesnesi olarak /workspace/randevular.json dosyasına yaz.
+
+  4) /workspace/yedek_randevu_kayitlari.txt dosyasını işleme katma.
+
+setup: |
+  mkdir -p /workspace
+  seq 1 6 > _satir_numaralari.txt
+  printf '%s\n' \
+  '2024-03-01 09:00 Ayse Yilmaz Kardiyoloji' \
+  '2024-03-01 09:30 Mehmet Demir Ortopedi' \
+  '2024-03-01 10:00 Zeynep Kaya Noroloji' \
+  '2024-03-02 11:00 Ali Vural Kardiyoloji' \
+  '2024-03-02 11:30 Fatma Ozturk Goz' \
+  '2024-03-03 14:00 Emre Sahin Ortopedi' > randevu_kayitlari.txt
+  printf '%s\n' \
+  '2024-03-01 09:00 Ayse Yilmaz Kardiyoloji' \
+  '2024-03-01 09:30 Mehmet Demir Ortopedi' \
+  '2024-03-01 10:00 Zeynep Kaya Noroloji' \
+  '2024-03-03 14:00 Emre Sahin Ortopedi' \
+  '2024-03-03 15:00 Deniz Arslan Noroloji' > yedek_randevu_kayitlari.txt
+  rm -f _satir_numaralari.txt
+
+goal_tr: >
+  randevu_kayitlari.txt dosyasindaki her satiri "tarih", "saat", "hasta",
+  "bolum" alanlarina ayirip kayitlari tarihe gore gruplayan ve her tarih
+  icin kayit sayisini veren gecerli bir JSON nesnesini randevular.json
+  dosyasina yaz; yedek_randevu_kayitlari.txt dosyasini isleme katma.
+
+reference_solution: |
+  seq 1 6 > _satir_numaralari.txt
+  paste -d' ' _satir_numaralari.txt randevu_kayitlari.txt > _numarali_kayitlar.txt
+  awk '{ sayi[$2]++ } END { for (t in sayi) printf "%s %d\n", t, sayi[t] }' _numarali_kayitlar.txt | sort > _tarih_sayilari.txt
+  {
+    printf '{\n'
+    awk 'BEGIN { first=1 } { if (!first) printf ",\n"; first=0; printf "  \"%s\": %d", $1, $2 } END { printf "\n}\n" }' _tarih_sayilari.txt
+  } > randevular.json
+  rm -f _satir_numaralari.txt _numarali_kayitlar.txt _tarih_sayilari.txt
+
+outputs:
+  - {path: randevular.json, kind: json}
+  - {path: yedek_randevu_kayitlari.txt, kind: file}
+
+checks:
+  - {op: json_eq, path: randevular.json, value: {'2024-03-01': 3, '2024-03-02': 2, '2024-03-03': 1}}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4110
+    bundle: uret
+    tools:
+    - printf
+    - seq
+    konu: hastane-randevulari
+    hedef: yeniden-duzenle
+    girdi: duz-metin
+    kaynak: tek-dosya
+    cikti: json
+    kesif: yok
+    uslup: numarali-emir
+    direnc: bom
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

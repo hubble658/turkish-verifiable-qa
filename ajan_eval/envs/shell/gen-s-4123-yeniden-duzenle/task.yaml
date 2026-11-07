@@ -1,0 +1,74 @@
+id: gen-s-4123-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  gelen/siparisler_a.json ve gelen/siparisler_b.json dosyalarındaki siparişleri id'ye göre birleştir; tekrarlanan id'leri ele ve sonucu id sırasına göre diz. Her kayıt {"id":...,"masa":...,"urun":...,"adet":...} biçiminde olsun. Çıktıyı geçerli bir JSON dizisi olarak islenmis/birlesik_siparisler.json dosyasına yaz. Aynı id farklı alan değerleriyle geliyorsa a dosyasındaki kaydı tut.
+
+setup: |
+  mkdir -p gelen islenmis
+  cat > gelen/siparisler_a.json <<'JSON'
+  [
+    {"id": 101, "masa": 3, "urun": "mercimek", "adet": 2},
+    {"id": 102, "masa": 1, "urun": "kofte", "adet": 1},
+    {"id": 103, "masa": 3, "urun": "ayran", "adet": 4}
+  ]
+  JSON
+  cat > gelen/siparisler_b.json <<'JSON'
+  [
+    {"id": 103, "masa": 3, "urun": "ayran", "adet": 4},
+    {"id": 104, "masa": 2, "urun": "kofte", "adet": 2},
+    {"id": 105, "masa": 1, "urun": "mercimek", "adet": 1}
+  ]
+  JSON
+
+goal_tr: >
+  gelen/siparisler_a.json ve gelen/siparisler_b.json dosyalarindaki
+  siparisleri id'ye gore birlestirip tekrarlari eleyerek id sirali, her
+  kaydi {"id":...,"masa":...,"urun":...,"adet":...} biciminde tutan gecerli
+  bir JSON dizisi olarak islenmis/birlesik_siparisler.json dosyasina yaz;
+  ayni id farkli alan degerleriyle geliyorsa a dosyasindaki kaydi tut.
+
+reference_solution: |
+  mkdir -p islenmis/tmp
+  sed 's/^\[//; s/\]$//; s/^ *//; /^$/d' gelen/siparisler_a.json > islenmis/tmp/_a.txt
+  sed 's/^\[//; s/\]$//; s/^ *//; /^$/d' gelen/siparisler_b.json > islenmis/tmp/_b.txt
+  cat islenmis/tmp/_a.txt islenmis/tmp/_b.txt | sed 's/,$//' | sort -t: -k2 -n > islenmis/tmp/_tum.txt
+  awk 'match($0, /"id": *[0-9]+/) { s=substr($0, RSTART, RLENGTH); gsub(/[^0-9]/, "", s); if (s != prev) { if (NR>1) printf ",\n"; printf "%s", $0; prev=s } }' islenmis/tmp/_tum.txt > islenmis/tmp/_govde.txt
+  { printf '[\n'; cat islenmis/tmp/_govde.txt; printf '\n]\n'; } > islenmis/tmp/_sonuc.json
+  mv islenmis/tmp/_sonuc.json islenmis/birlesik_siparisler.json
+
+outputs:
+  - {path: islenmis/birlesik_siparisler.json, kind: json}
+
+checks:
+  - {op: json_eq, path: islenmis/birlesik_siparisler.json, value: [{id: 101, masa: 3, urun: mercimek, adet: 2}, {id: 102, masa: 1, urun: kofte, adet: 1}, {id: 103, masa: 3, urun: ayran, adet: 4}, {id: 104, masa: 2, urun: kofte, adet: 2}, {id: 105, masa: 1, urun: mercimek, adet: 1}]}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4123
+    bundle: dosya-duzen
+    tools:
+    - mkdir
+    - mv
+    konu: restoran-siparisleri
+    hedef: yeniden-duzenle
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: json
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

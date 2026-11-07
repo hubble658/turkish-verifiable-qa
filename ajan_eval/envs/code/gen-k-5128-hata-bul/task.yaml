@@ -1,0 +1,149 @@
+id: gen-k-5128-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) routekit/graph.py dosyasındaki PlainNode sınıfını, her örnek kendi boş komşu listesine sahip olacak şekilde düzelt; sınıf tanımındaki mutable varsayılan komşu listesi artık bulunmasın.
+
+  2) Aynı dosyada build_graph ile oluşturulan iki ayrı düğümün komşularının asla birbirine sızmadığından emin ol.
+
+setup: |
+  mkdir -p routekit
+  cat > routekit/graph.py <<'GRAPH'
+  from abc import ABC, abstractmethod
+
+
+  class Node(ABC):
+      def __init__(self, name):
+          self.name = name
+
+      @abstractmethod
+      def neighbors(self):
+          ...
+
+
+  class PlainNode(Node):
+      def __init__(self, name, adj=[]):
+          super().__init__(name)
+          self._adj = adj
+
+      def neighbors(self):
+          return list(self._adj)
+  GRAPH
+  cat > routekit/walker.py <<'WALKER'
+  from routekit.graph import PlainNode
+
+
+  def build_graph(edges):
+      nodes = {}
+      for src, dst in edges:
+          if src not in nodes:
+              nodes[src] = PlainNode(src)
+          if dst not in nodes:
+              nodes[dst] = PlainNode(dst)
+          nodes[src]._adj.append(dst)
+      return nodes
+
+
+  def trace_path(nodes, start, hops):
+      visited = []
+      frontier = [start]
+      for _ in range(hops):
+          nxt = []
+          for name in frontier:
+              node = nodes[name]
+              visited.append(name)
+              nxt.extend(node.neighbors())
+          frontier = nxt
+      return visited
+
+
+  def load_edges(path):
+      edges = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              src, dst = line.split("->")
+              edges.append((src.strip(), dst.strip()))
+      return edges
+  WALKER
+  cat > network.txt <<'NET'
+  a -> b
+  a -> c
+  b -> d
+  c -> d
+  d -> e
+  NET
+
+goal_tr: >
+  routekit/graph.py icindeki PlainNode sinifinin mutable varsayilan komsu
+  listesini kaldir; her ornek kendi bos listesini almali ve build_graph ile
+  olusturulan iki ayri dugumun komsulari asla birbirine sizmamali.
+
+reference_solution: |
+  cat > routekit/graph.py <<'GRAPH'
+  from abc import ABC, abstractmethod
+
+
+  class Node(ABC):
+      def __init__(self, name):
+          self.name = name
+
+      @abstractmethod
+      def neighbors(self):
+          ...
+
+
+  class PlainNode(Node):
+      def __init__(self, name, adj=None):
+          super().__init__(name)
+          self._adj = list(adj) if adj is not None else []
+
+      def neighbors(self):
+          return list(self._adj)
+  GRAPH
+
+outputs:
+  - {path: routekit/graph.py, kind: program, run: 'python3 -c ''from routekit.graph import PlainNode; from routekit.walker import build_graph, load_edges, trace_path; a=PlainNode("a"); b=PlainNode("b"); a._adj.append("x"); assert b.neighbors()==[], b.neighbors(); g1=build_graph([("p","q")]); g2=build_graph([("r","s")]); assert g1["p"].neighbors()==["q"], g1["p"].neighbors(); assert g2["r"].neighbors()==["s"], g2["r"].neighbors(); assert g1["q"].neighbors()==[] and g2["s"].neighbors()==[], (g1["q"].neighbors(), g2["s"].neighbors()); e=load_edges("network.txt"); g=build_graph(e); assert trace_path(g,"a",2)==["a","b","c"], trace_path(g,"a",2); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from routekit.graph import PlainNode; from routekit.walker import build_graph, load_edges, trace_path; a=PlainNode("a"); b=PlainNode("b"); a._adj.append("x"); assert b.neighbors()==[], b.neighbors(); g1=build_graph([("p","q")]); g2=build_graph([("r","s")]); assert g1["p"].neighbors()==["q"], g1["p"].neighbors(); assert g2["r"].neighbors()==["s"], g2["r"].neighbors(); assert g1["q"].neighbors()==[] and g2["s"].neighbors()==[], (g1["q"].neighbors(), g2["s"].neighbors()); e=load_edges("network.txt"); g=build_graph(e); assert trace_path(g,"a",2)==["a","b","c"], trace_path(g,"a",2); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5128
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: yol-tarifi-agi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: mutable-varsayilan
+      karmasiklik: duz
+      kalip: abc-protokol
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

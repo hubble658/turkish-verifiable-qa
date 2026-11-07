@@ -1,0 +1,148 @@
+id: gen-k-6000-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) clinic/load.py dosyasını, her ziyaretin dakikasını önceki ziyaretlerin toplamına ekleyerek ilerleyen bir önek-toplam üretecek şekilde düzelt; total alanı her adımda kümülatif olarak artmalı ve hiçbir zaman sıfırlanmamalı.
+
+  2) clinic/report.py dosyasını, load_series'ten gelen toplamları olduğu gibi döndürecek şekilde düzelt; toplam değerine fazladan +1 eklenmemeli.
+
+  3) clinic/visits.py dosyasındaki iter_visits fonksiyonunu olduğu gibi koru; ziyaretleri tarih, hasta ve dakika üçlüsü olarak üretmeye devam etsin.
+
+  4) Bu düzeltmelerden sonra running_totals, verilen kayıtlar için doğru kümülatif dakika listesini döndürsün; her kayıtta date, patient ve kümülatif total alanları bulunsun.
+
+setup: |
+  mkdir -p clinic
+  cat > clinic/visits.py <<'VISITS'
+  def iter_visits(records):
+      for day in records:
+          for visit in day["visits"]:
+              yield day["date"], visit["patient"], visit["minutes"]
+  VISITS
+  cat > clinic/load.py <<'LOAD'
+  from clinic.visits import iter_visits
+
+
+  def load_series(records):
+      out = []
+      total = 0
+      for date, patient, minutes in iter_visits(records):
+          total = minutes
+          out.append((date, patient, total))
+      return out
+  LOAD
+  cat > clinic/report.py <<'REPORT'
+  from clinic.load import load_series
+
+
+  def running_totals(records):
+      series = load_series(records)
+      result = []
+      for date, patient, total in series:
+          result.append({"date": date, "patient": patient, "total": total + 1})
+      return result
+  REPORT
+  cat > data.py <<'DATA'
+  RECORDS = [
+      {"date": "2024-05-01", "visits": [
+          {"patient": "ada", "minutes": 10},
+          {"patient": "bob", "minutes": 5},
+      ]},
+      {"date": "2024-05-02", "visits": [
+          {"patient": "cy", "minutes": 20},
+      ]},
+  ]
+  DATA
+
+goal_tr: >
+  clinic paketindeki uc modulu duzelt: load.py her ziyaretin dakikasini
+  oncekilerle toplayan bir onek-toplam uretsin (total alani kumulatif olsun,
+  sifirlanmasin), report.py ise bu toplamlari oldugu gibi dondursun
+  (fazladan +1 eklemesin); boylece running_totals dogru kumulatif dakika
+  listesini versin.
+
+reference_solution: |
+  cat > clinic/load.py <<'LOAD'
+  from clinic.visits import iter_visits
+
+
+  def load_series(records):
+      out = []
+      total = 0
+      for date, patient, minutes in iter_visits(records):
+          total += minutes
+          out.append((date, patient, total))
+      return out
+  LOAD
+  cat > clinic/report.py <<'REPORT'
+  from clinic.load import load_series
+
+
+  def running_totals(records):
+      series = load_series(records)
+      result = []
+      for date, patient, total in series:
+          result.append({"date": date, "patient": patient, "total": total})
+      return result
+  REPORT
+
+ara_adim: |
+  cat > clinic/load.py <<'LOAD'
+  from clinic.visits import iter_visits
+
+
+  def load_series(records):
+      out = []
+      total = 0
+      for date, patient, minutes in iter_visits(records):
+          total += minutes
+          out.append((date, patient, total))
+      return out
+  LOAD
+
+outputs:
+  - {path: clinic/report.py, kind: program, run: 'python3 -c ''from clinic.report import running_totals as f; from data import RECORDS; r=f(RECORDS); assert [x["total"] for x in r]==[10,15,35], r; assert [x["patient"] for x in r]==["ada","bob","cy"], r; print("TAMAM")'''}
+  - {path: clinic/load.py, kind: program, run: 'python3 -c ''from clinic.load import load_series as f; from data import RECORDS; r=f(RECORDS); assert [x[2] for x in r]==[10,15,35], r; print("ILERLEME-TAMAM")'''}
+  - {path: clinic/visits.py, kind: program, run: 'python3 -c ''from clinic.visits import iter_visits as f; from data import RECORDS; r=list(f(RECORDS)); assert r==[("2024-05-01","ada",10),("2024-05-01","bob",5),("2024-05-02","cy",20)], r; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from clinic.load import load_series as f; from data import RECORDS; r=f(RECORDS); assert [x[2] for x in r]==[10,15,35], r; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from clinic.report import running_totals as f; from data import RECORDS; r=f(RECORDS); assert [x["total"] for x in r]==[10,15,35], r; assert [x["patient"] for x in r]==["ada","bob","cy"], r; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from clinic.visits import iter_visits as f; from data import RECORDS; r=list(f(RECORDS)); assert r==[("2024-05-01","ada",10),("2024-05-01","bob",5),("2024-05-02","cy",20)], r; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-6000
+    bundle: yarisma
+    tools:
+    - python3
+    konu: hastane-randevulari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: onek-toplam
+      karmasiklik: orta
+      kalip: generator
+      akis: ic-ice-yapi
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

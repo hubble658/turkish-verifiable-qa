@@ -1,0 +1,151 @@
+id: gen-k-2000-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  arena/board/table.py içindeki ScoreTable sıralamasını düzelt: en yüksek puan üstte olsun, eşit puanda önce eklenen üstte kalsın. arena/report.py doğru sonuç döndürsün; gerekirse arena/board/entry.py'yi de kullan.
+
+setup: |
+  mkdir -p arena/board
+  cat > arena/board/entry.py <<'ENTRY'
+  class Entry:
+      def __init__(self, player, points, order):
+          self.player = player
+          self.points = points
+          self.order = order
+  ENTRY
+  cat > arena/board/table.py <<'TABLE'
+  from arena.board.entry import Entry
+
+
+  class ScoreTable:
+      def __init__(self):
+          self._entries = []
+          self._next = 0
+
+      def add(self, player, points):
+          self._entries.append(Entry(player, points, self._next))
+          self._next += 1
+
+      def ranked(self):
+          rows = sorted(self._entries, key=lambda e: e.points)
+          return [e.player for e in rows]
+
+      def best(self):
+          rows = sorted(self._entries, key=lambda e: e.points)
+          return rows[0].player
+  TABLE
+  cat > arena/report.py <<'REPORT'
+  from arena.board.table import ScoreTable
+
+
+  def standings(rows):
+      table = ScoreTable()
+      for player, points in rows:
+          table.add(player, points)
+      return table.ranked()
+
+
+  def champion(rows):
+      table = ScoreTable()
+      for player, points in rows:
+          table.add(player, points)
+      return table.best()
+  REPORT
+
+goal_tr: >
+  arena/board/table.py icindeki ScoreTable sinifini, esit puanlarda once
+  eklenen oyuncu ustte kalacak ve en yuksek puan one gelecek sekilde sirala;
+  boylece arena/report.py dogru sonuc dondursun.
+
+reference_solution: |
+  cat > arena/board/table.py <<'TABLE'
+  from arena.board.entry import Entry
+
+
+  class ScoreTable:
+      def __init__(self):
+          self._entries = []
+          self._next = 0
+
+      def add(self, player, points):
+          self._entries.append(Entry(player, points, self._next))
+          self._next += 1
+
+      def ranked(self):
+          rows = sorted(self._entries, key=lambda e: (-e.points, e.order))
+          return [e.player for e in rows]
+
+      def best(self):
+          rows = sorted(self._entries, key=lambda e: (-e.points, e.order))
+          return rows[0].player
+  TABLE
+
+ara_adim: |
+  cat > arena/board/table.py <<'TABLE'
+  from arena.board.entry import Entry
+
+
+  class ScoreTable:
+      def __init__(self):
+          self._entries = []
+          self._next = 0
+
+      def add(self, player, points):
+          self._entries.append(Entry(player, points, self._next))
+          self._next += 1
+
+      def ranked(self):
+          rows = sorted(self._entries, key=lambda e: -e.points)
+          return [e.player for e in rows]
+
+      def best(self):
+          rows = sorted(self._entries, key=lambda e: e.points)
+          return rows[0].player
+  TABLE
+
+outputs:
+  - {path: arena/board/table.py, kind: program, run: 'python3 -c ''from arena.report import champion as f; assert f([("a",5),("b",9),("c",1)])=="b"; assert f([("x",7),("y",7)])=="x"; print("TAMAM")'''}
+  - {path: arena/board/table.py, kind: program, run: 'python3 -c ''from arena.report import standings as f; assert f([("a",5),("b",9),("c",1)])==["b","a","c"], f([("a",5),("b",9),("c",1)]); print("ILERLEME-TAMAM")'''}
+  - {path: arena/board/entry.py, kind: program, run: 'python3 -c ''from arena.board.entry import Entry as E; e=E("p",3,0); assert (e.player,e.points,e.order)==("p",3,0); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from arena.report import champion as f; assert f([("a",5),("b",9),("c",1)])=="b"; assert f([("x",7),("y",7)])=="x"; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from arena.report import standings as f; assert f([("a",5),("b",9),("c",1)])==["b","a","c"], f([("a",5),("b",9),("c",1)]); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-2000
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: oyun-skor-tablosu
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-kararsizligi
+      karmasiklik: orta
+      kalip: durumlu-sinif
+      akis: bellek-ici
+      topoloji: paket-alt-paket
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

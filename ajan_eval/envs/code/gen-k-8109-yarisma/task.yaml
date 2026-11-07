@@ -1,0 +1,89 @@
+id: gen-k-8109-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+prompt: 'Takvimleri elle düzenlemekten yorulduk; vardiya listelerini bir arada tutan bir yapı kurmak istiyoruz. Bugün de ekip
+  içi uygunluk sorgularını otomatikleştirmeye ayırdık kendimizi.
+
+
+  Çalışma dizininde roster/planner.py dosyasını oluştur. Bu dosyada, mevcut Roster sınıfını kullanarak çalışan bir Planner
+  sınıfı tanımla. Planner sınıfının available metodu, verilen bir saat için müsait olan çalışanları, saat aralığına göre ikili
+  arama mantığıyla bulup döndürsün.
+
+
+  Kurucu vardiya dosyasının yolunu alsın (Planner("shifts.txt")); available adları alfabetik sıralı liste döndürsün.
+
+  '
+setup: "mkdir -p roster\ncat > roster/__init__.py <<'INIT'\nINIT\ncat > roster/records.py <<'RECORDS'\ndef read_shifts(path):\n\
+  \    rows = []\n    with open(path) as handle:\n        for line in handle:\n            line = line.strip()\n         \
+  \   if not line or line.startswith(\"#\"):\n                continue\n            worker, start, end = line.split(\",\"\
+  )\n            rows.append((worker, int(start), int(end)))\n    return rows\nRECORDS\ncat > roster/registry.py <<'REGISTRY'\n\
+  from roster.records import read_shifts\n\n\nclass Roster:\n    def __init__(self, path):\n        self.path = path\n   \
+  \     self.shifts = read_shifts(path)\n\n    def workers(self):\n        seen = []\n        for worker, _, _ in self.shifts:\n\
+  \            if worker not in seen:\n                seen.append(worker)\n        return seen\n\n    def total_hours(self,\
+  \ worker):\n        total = 0\n        for name, start, end in self.shifts:\n            if name == worker:\n          \
+  \      total += end - start\n        return total\nREGISTRY\ncat > shifts.txt <<'SHIFTS'\nada,8,16\nbora,9,17\nada,18,22\n\
+  cem,7,15\nbora,20,23\ncem,16,18\nSHIFTS\n"
+goal_tr: 'roster/planner.py dosyasini yaz: Roster sinifini kullanarak, verilen bir saatte musait olan calisanlari saat araligina
+  gore ikili arama ile bulan bir Planner sinifi (available metodlu) tanimla.
+
+  '
+reference_solution: "cat > roster/planner.py <<'PLANNER'\nfrom roster.registry import Roster\n\n\nclass Planner:\n    def\
+  \ __init__(self, path):\n        self.roster = Roster(path)\n        self.index = {}\n        for worker in self.roster.workers():\n\
+  \            spans = []\n            for name, start, end in self.roster.shifts:\n                if name == worker:\n \
+  \                   spans.append((start, end))\n            spans.sort()\n            self.index[worker] = spans\n\n   \
+  \ def _covers(self, spans, hour):\n        lo, hi = 0, len(spans) - 1\n        while lo <= hi:\n            mid = (lo +\
+  \ hi) // 2\n            start, end = spans[mid]\n            if hour < start:\n                hi = mid - 1\n          \
+  \  elif hour >= end:\n                lo = mid + 1\n            else:\n                return True\n        return False\n\
+  \n    def available(self, hour):\n        result = []\n        for worker in self.roster.workers():\n            if self._covers(self.index[worker],\
+  \ hour):\n                result.append(worker)\n        return result\nPLANNER\n"
+outputs:
+- path: roster/planner.py
+  kind: program
+  run: python3 -c 'from roster.planner import Planner as P; p=P("shifts.txt"); assert p.available(10)==["ada","bora","cem"],
+    p.available(10); assert p.available(16)==["bora","cem"], p.available(16); assert p.available(8)==["ada","cem"], p.available(8);
+    assert p.available(18)==["ada"], p.available(18); assert p.available(21)==["ada","bora"], p.available(21); assert p.available(5)==[],
+    p.available(5); assert p.available(23)==[], p.available(23); print("TAMAM")'
+checks:
+- op: run_stdout_eq
+  cmd: python3 -c 'from roster.planner import Planner as P; p=P("shifts.txt"); assert p.available(10)==["ada","bora","cem"],
+    p.available(10); assert p.available(16)==["bora","cem"], p.available(16); assert p.available(8)==["ada","cem"], p.available(8);
+    assert p.available(18)==["ada"], p.available(18); assert p.available(21)==["ada","bora"], p.available(21); assert p.available(5)==[],
+    p.available(5); assert p.available(23)==[], p.available(23); print("TAMAM")'
+  value: TAMAM
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8109
+    bundle: yarisma
+    tools:
+    - python3
+    konu: vardiya-cizelgesi
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-ikili-arama
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: dosya-okuma
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false
+  duzeltme:
+    neden: gizli_sart
+    not: Kurucu ve dönüş biçimi yazmıyordu.

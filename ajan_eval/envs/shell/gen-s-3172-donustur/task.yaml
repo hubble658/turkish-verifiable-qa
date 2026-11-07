@@ -1,0 +1,114 @@
+id: gen-s-3172-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi/randevular.ini dosyasındaki her randevu bölümünden bir dosya üretilmesini istiyorum: dosya, randevunun bolum değerine göre cikti/<bolum>/<tarih>_<saat>.txt yoluna yazılsın ve içinde hasta, bolum, tarih, saat ve durum satırları "anahtar: değer" biçiminde yer alsın. Sonuçta cikti/Kardiyoloji/2024-03-04_0930.txt, cikti/Ortopedi/2024-03-04_1100.txt, cikti/Noroloji/2024-03-05_1415.txt ve cikti/Kardiyoloji/2024-03-05_1645.txt oluşmalı.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/randevular.ini <<'INI'
+  [randevu-1]
+  hasta = Ayse Yilmaz
+  bolum = Kardiyoloji
+  tarih = 2024-03-04
+  saat = 09:30
+  durum = onaylandi
+
+  [randevu-2]
+  hasta = Mehmet Demir
+  bolum = Ortopedi
+  tarih = 2024-03-04
+  saat = 11:00
+  durum = iptal
+
+  [randevu-3]
+  hasta = Zeynep Kaya
+  bolum = Noroloji
+  tarih = 2024-03-05
+  saat = 14:15
+  durum = onaylandi
+
+  [randevu-4]
+  hasta = Ali Ozturk
+  bolum = Kardiyoloji
+  tarih = 2024-03-05
+  saat = 16:45
+  durum = beklemede
+  INI
+
+goal_tr: >
+  girdi/randevular.ini dosyasindaki her randevu bolumunu bolum adina gore
+  cikti/<bolum>/<tarih>_<saat>.txt dosyasina hasta, bolum, tarih, saat ve
+  durum satirlarini "anahtar: deger" biciminde yazan bir dizin yapisi uret
+
+reference_solution: |
+  python3 - <<'PY'
+  import os
+
+  with open('girdi/randevular.ini', encoding='utf-8') as f:
+      text = f.read()
+
+  blocks = []
+  current = None
+  for line in text.splitlines():
+      line = line.strip()
+      if not line:
+          continue
+      if line.startswith('[') and line.endswith(']'):
+          current = {}
+          blocks.append(current)
+      else:
+          key, value = line.split('=', 1)
+          current[key.strip()] = value.strip()
+
+  for block in blocks:
+      outdir = os.path.join('cikti', block['bolum'])
+      os.makedirs(outdir, exist_ok=True)
+      name = block['tarih'] + '_' + block['saat'].replace(':', '') + '.txt'
+      with open(os.path.join(outdir, name), 'w', encoding='utf-8') as out:
+          for key in ('hasta', 'bolum', 'tarih', 'saat', 'durum'):
+              out.write(key + ': ' + block[key] + '\n')
+  PY
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/Kardiyoloji/2024-03-04_0930.txt, kind: file}
+  - {path: cikti/Ortopedi/2024-03-04_1100.txt, kind: file}
+  - {path: cikti/Noroloji/2024-03-05_1415.txt, kind: file}
+  - {path: cikti/Kardiyoloji/2024-03-05_1645.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [Kardiyoloji, Noroloji, Ortopedi]}
+  - {op: file_lines_eq, path: cikti/Kardiyoloji/2024-03-04_0930.txt, value: ['hasta: Ayse Yilmaz', 'bolum: Kardiyoloji', 'tarih: 2024-03-04', 'saat: 09:30', 'durum: onaylandi']}
+  - {op: file_lines_eq, path: cikti/Kardiyoloji/2024-03-05_1645.txt, value: ['hasta: Ali Ozturk', 'bolum: Kardiyoloji', 'tarih: 2024-03-05', 'saat: 16:45', 'durum: beklemede']}
+  - {op: file_lines_eq, path: cikti/Noroloji/2024-03-05_1415.txt, value: ['hasta: Zeynep Kaya', 'bolum: Noroloji', 'tarih: 2024-03-05', 'saat: 14:15', 'durum: onaylandi']}
+  - {op: file_lines_eq, path: cikti/Ortopedi/2024-03-04_1100.txt, value: ['hasta: Mehmet Demir', 'bolum: Ortopedi', 'tarih: 2024-03-04', 'saat: 11:00', 'durum: iptal']}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3172
+    bundle: python-veri
+    tools:
+    - python3
+    konu: hastane-randevulari
+    hedef: donustur
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: bom
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

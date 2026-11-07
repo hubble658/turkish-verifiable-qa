@@ -1,0 +1,109 @@
+id: gen-k-8052-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  schedule.py dosyasındaki ShiftLog sınıfına üç ekleme yap. Birincisi, add ile kaydedilen saatlik değişimleri önek-toplam ile biriktirip her saatin toplam kapsamasını döndüren prefix() metodu olsun. İkincisi, iki ShiftLog nesnesini + operatörü ile birleştirip yeni bir ShiftLog nesnesi döndüren __add__ metodu tanımlansın. Üçüncüsü de += işlemini destekleyen __iadd__ metodu eklensin.
+
+setup: |
+  cat > shifts.txt <<'DATA'
+  0 8
+  3 5
+  1 4
+  2 6
+  DATA
+  cat > schedule.py <<'PY'
+  class ShiftLog:
+      def __init__(self):
+          self._events = {}
+
+      def add(self, hour, delta):
+          self._events[hour] = self._events.get(hour, 0) + delta
+
+      def coverage(self):
+          return dict(self._events)
+  PY
+
+goal_tr: >
+  schedule.py icindeki ShiftLog sinifina, add ile kaydedilen saatlik
+  degisimleri onek-toplam ile biriktirip her saatin toplam kapsamasini
+  donduren prefix() metodunu ekle; ayrica iki ShiftLog nesnesini + operatoru
+  ile birlestirip yeni bir ShiftLog donduren __add__ ve +='i destekleyen
+  __iadd__ tanimla.
+
+reference_solution: |
+  cat > schedule.py <<'PY'
+  class ShiftLog:
+      def __init__(self):
+          self._events = {}
+
+      def add(self, hour, delta):
+          self._events[hour] = self._events.get(hour, 0) + delta
+
+      def coverage(self):
+          return dict(self._events)
+
+      def prefix(self):
+          total = 0
+          result = {}
+          for hour in sorted(self._events):
+              total += self._events[hour]
+              result[hour] = total
+          return result
+
+      def __add__(self, other):
+          merged = ShiftLog()
+          for hour, delta in self._events.items():
+              merged.add(hour, delta)
+          for hour, delta in other._events.items():
+              merged.add(hour, delta)
+          return merged
+
+      def __iadd__(self, other):
+          for hour, delta in other._events.items():
+              self.add(hour, delta)
+          return self
+  PY
+
+outputs:
+  - {path: schedule.py, kind: program, run: 'python3 -c ''from schedule import ShiftLog; a=ShiftLog(); a.add(0,8); a.add(3,5); a.add(1,-4); b=ShiftLog(); b.add(2,6); b.add(3,-5); assert a.prefix()=={0:8,1:4,3:9}, a.prefix(); c=a+b; assert c.coverage()=={0:8,3:0,1:-4,2:6}, c.coverage(); assert c.prefix()=={0:8,1:4,2:10,3:10}, c.prefix(); a+=b; assert a.coverage()=={0:8,3:0,1:-4,2:6}, a.coverage(); d=ShiftLog(); d.add(5,2); e=ShiftLog(); e.add(5,3); f=d+e; assert f.prefix()=={5:5}, f.prefix(); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from schedule import ShiftLog; a=ShiftLog(); a.add(0,8); a.add(3,5); a.add(1,-4); b=ShiftLog(); b.add(2,6); b.add(3,-5); assert a.prefix()=={0:8,1:4,3:9}, a.prefix(); c=a+b; assert c.coverage()=={0:8,3:0,1:-4,2:6}, c.coverage(); assert c.prefix()=={0:8,1:4,2:10,3:10}, c.prefix(); a+=b; assert a.coverage()=={0:8,3:0,1:-4,2:6}, a.coverage(); d=ShiftLog(); d.add(5,2); e=ShiftLog(); e.add(5,3); f=d+e; assert f.prefix()=={5:5}, f.prefix(); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8052
+    bundle: yarisma
+    tools:
+    - python3
+    konu: vardiya-cizelgesi
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: onek-toplam
+      karmasiklik: duz
+      kalip: operator-asiri-yukleme
+      akis: bellek-ici
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

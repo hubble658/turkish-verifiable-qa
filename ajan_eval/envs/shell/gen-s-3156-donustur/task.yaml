@@ -1,0 +1,64 @@
+id: gen-s-3156-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Çalışma dizinindeki hava.tsv dosyasında sekmeyle ayrılmış kayıtlar var. Bunları virgülle ayrılmış hava.csv dosyasına dönüştür. hava.tsv dosyasının ilk satırı başlık; hava.csv dosyasında da ilk satır başlık olsun. Her veri satırının başına 1'den başlayan bir sıra numarası ekle.
+
+setup: |
+  cat > hava.tsv <<'TSV'
+  sehir	tarih	olcum
+  Ankara	2024-01-01	3
+  Ankara	2024-01-02	5
+  Izmir	2024-01-01	12
+  Izmir	2024-01-02	14
+  Bursa	2024-01-01	7
+  Bursa	2024-01-02	6
+  TSV
+
+goal_tr: >
+  hava.tsv dosyasindaki sekmeyle ayrilmis kayitlari virgulle ayrilmis
+  hava.csv dosyasina donustur; ilk satir baslik olsun ve her veri satirinin
+  basina 1'den baslayan sira numarasi eklensin.
+
+reference_solution: |
+  printf 'id,sehir,tarih,olcum\n' > hava.csv
+  n=$(tail -n +2 hava.tsv | wc -l)
+  seq 1 "$n" > id.txt
+  paste -d',' id.txt <(tail -n +2 hava.tsv | sed 's/\t/,/g') >> hava.csv
+  rm id.txt
+
+outputs:
+  - {path: hava.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: hava.csv, value: ['id,sehir,tarih,olcum', '1,Ankara,2024-01-01,3', '2,Ankara,2024-01-02,5', '3,Izmir,2024-01-01,12', '4,Izmir,2024-01-02,14', '5,Bursa,2024-01-01,7', '6,Bursa,2024-01-02,6']}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3156
+    bundle: uret
+    tools:
+    - printf
+    - seq
+    konu: hava-durumu-kayitlari
+    hedef: donustur
+    girdi: tsv
+    kaynak: tek-dosya
+    cikti: csv
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

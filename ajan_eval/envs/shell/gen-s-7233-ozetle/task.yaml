@@ -1,0 +1,65 @@
+id: gen-s-7233-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  randevular.tsv dosyasındaki kayıtlar arasından durumu "tamamlandi" olan randevuları seç ve bu randevuların hasta adlarını, dosyadaki mevcut sıraya sadık kalarak, her satırda yalnızca bir hasta adı bulunacak şekilde tamamlanan_hastalar.txt dosyasına yaz. Hiçbir uygun kayıt bulunmasa dahi tamamlanan_hastalar.txt dosyası yine de oluşturulmalıdır.
+
+setup: |
+  cat > randevular.tsv <<'TSV'
+  hasta	bolum	durum
+  Ayse	Kardiyoloji	tamamlandi
+  Mehmet	Ortopedi	iptal
+  Zeynep	Kardiyoloji	tamamlandi
+  Ali	NoroIoji	tamamlandi
+  Fatma	Ortopedi	tamamlandi
+  Can	Kardiyoloji	iptal
+  Elif	NoroIoji	tamamlandi
+  TSV
+
+goal_tr: >
+  randevular.tsv dosyasindaki yalnizca "tamamlandi" durumundaki randevularin
+  hasta adlarini, dosyadaki siraya uygun olarak, her satirda bir ad olacak
+  bicimde tamamlanan_hastalar.txt dosyasina yaz; dosya bos olsa bile cikti
+  dosyasi olusturulmalidir.
+
+reference_solution: |
+  grep -P '\ttamamlandi$' randevular.tsv > gecici.txt
+  cut -f1 gecici.txt > tamamlanan_hastalar.txt
+  rm -f gecici.txt
+  wc -l < tamamlanan_hastalar.txt > /dev/null
+
+outputs:
+  - {path: tamamlanan_hastalar.txt, kind: lines, run: cat tamamlanan_hastalar.txt}
+
+checks:
+  - {op: file_lines_eq, path: tamamlanan_hastalar.txt, value: [Ayse, Zeynep, Ali, Fatma, Elif]}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7233
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: hastane-randevulari
+    hedef: ozetle
+    girdi: tsv
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: veriye-bak
+    uslup: kisit-sakli
+    direnc: bos-dosya
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

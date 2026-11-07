@@ -1,0 +1,63 @@
+id: gen-s-7039-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) muhasebe/hesap kalemleri.txt dosyasındaki her satırın ilk alanındaki hesap kodlarını tekrarsız olarak geçici bir dosyaya yaz.
+
+  2) Elde edilen tekrarsız kodların toplam sayısını muhasebe/kod-sayisi.txt dosyasına yalnızca sayı olarak kaydet.
+
+setup: |
+  mkdir -p muhasebe
+  cat > "muhasebe/hesap kalemleri.txt" <<'DATA'
+  100 kasa 1500
+  200 banka 3200
+  100 kasa 250
+  300 borc 900
+  200 banka 1100
+  400 gelir 5000
+  300 borc 450
+  DATA
+
+goal_tr: >
+  muhasebe/hesap kalemleri.txt dosyasindaki her satirin ilk alanindaki hesap
+  kodlarini tekrarsiz olarak gecici dosyaya yaz ve bu kodlardan toplam kac
+  tane oldugunu muhasebe/kod-sayisi.txt dosyasina sadece sayi olarak kaydet.
+
+reference_solution: |
+  cut -d' ' -f1 "muhasebe/hesap kalemleri.txt" | tee muhasebe/gecici-kodlar.txt | sort -u | wc -l > muhasebe/kod-sayisi.txt
+
+outputs:
+  - {path: muhasebe/kod-sayisi.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: muhasebe/kod-sayisi.txt, value: '4'}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7039
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: muhasebe-kalemleri
+    hedef: donustur
+    girdi: duz-metin
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: bosluklu-ad
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

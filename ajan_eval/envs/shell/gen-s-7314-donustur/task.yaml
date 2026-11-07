@@ -1,0 +1,77 @@
+id: gen-s-7314-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  muhasebe dizin ağacındaki adı kalemler.tsv olan tüm dosyaları bul; her birinin başlık satırı dışındaki satırlarını olduğu gibi birleştirip satirlar.txt dosyasına yaz. arsiv altındaki kalemler.tsv bu birleştirmeye dahil edilmesin ve notlar.txt gibi tsv olmayan dosyalar göz ardı edilsin.
+
+setup: |
+  mkdir -p muhasebe/2024/ocak muhasebe/2024/subat muhasebe/arsiv
+  cat > muhasebe/2024/ocak/kalemler.tsv <<'EOF'
+  tarih	hesap	tutar
+  2024-01-03	100	1500
+  2024-01-07	120	2750
+  2024-01-15	100	980
+  EOF
+  cat > muhasebe/2024/subat/kalemler.tsv <<'EOF'
+  tarih	hesap	tutar
+  2024-02-02	100	3200
+  2024-02-11	130	450
+  2024-02-19	120	1100
+  EOF
+  cat > muhasebe/arsiv/kalemler.tsv <<'EOF'
+  tarih	hesap	tutar
+  2023-12-05	100	700
+  EOF
+  cat > muhasebe/2024/ocak/notlar.txt <<'EOF'
+  bu dosya tsv degil
+  EOF
+
+goal_tr: >
+  muhasebe dizin agacindaki adi kalemler.tsv olan tum dosyalari bulup, her
+  birinin basligi disindaki satirlarini oldugu gibi birlestirerek
+  satirlar.txt dosyasina yaz; arsiv altindaki kalemler.tsv bu birlestirmeye
+  dahil edilmesin ve notlar.txt gibi tsv olmayan dosyalar goz ardi edilsin
+
+reference_solution: |
+  find muhasebe -name kalemler.tsv ! -path 'muhasebe/arsiv/*' | sort > bulunan.txt
+  tar -czf kalemler.tgz -T bulunan.txt
+  gzip -d -c kalemler.tgz > kalemler.tar
+  mkdir -p cikti
+  tar -xf kalemler.tar -C cikti
+  grep -h -v '^tarih' $(find cikti -name kalemler.tsv | sort) > satirlar.txt
+
+outputs:
+  - {path: satirlar.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: satirlar.txt, value: ["2024-01-03\t100\t1500", "2024-01-07\t120\t2750", "2024-01-15\t100\t980", "2024-02-02\t100\t3200", "2024-02-11\t130\t450", "2024-02-19\t120\t1100"]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7314
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: muhasebe-kalemleri
+    hedef: donustur
+    girdi: tsv
+    kaynak: dizin-agaci
+    cikti: satir-listesi
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,74 @@
+id: gen-s-7231-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Bilgisayardaki not arşivi iyice karıştı; geçen dönem birkaç farklı klasöre dağılmış öğrenci notları var ve hepsini tek tek elden geçirmek istemiyorum. Bugün oturup şu notlar dizinini baştan sona dolaşmaya karar verdim. notlar dizin ağacının altındaki tüm .txt dosyalarına bak, ama README.txt dosyasını bu işin dışında tut. Bu dosyaların her satırındaki ilk alan öğrenci adı; bu adları dosyalardaki sırayı bozmadan arka arkaya ekle ve her adı ayrı bir satıra gelecek şekilde çalışma dizinindeki ogrenciler.txt dosyasına yaz.
+
+setup: |
+  mkdir -p notlar/2023 notlar/2024
+  cat > notlar/2023/ali.txt <<'EOF'
+  ali 85
+  veli 72
+  ayse 90
+  EOF
+  cat > notlar/2023/veli.txt <<'EOF'
+  veli 60
+  ali 88
+  EOF
+  cat > notlar/2024/ayse.txt <<'EOF'
+  ayse 95
+  veli 70
+  ali 80
+  EOF
+  cat > notlar/2024/README.txt <<'EOF'
+  Bu dizin not dosyalarini icerir.
+  EOF
+  cat > notlar/ozet.txt <<'EOF'
+  toplam 6 kayit
+  EOF
+
+goal_tr: >
+  notlar dizin agacindaki .txt uzantili dosyalardan README.txt haric
+  olanlarin her satirindaki ilk alani (ogrenci adini) sirasiyla birlestirip
+  her adi bir satira gelecek sekilde ogrenciler.txt dosyasina yaz
+
+reference_solution: |
+  find notlar -type f -name '*.txt' ! -name 'README.txt' | sort | xargs cat | cut -d' ' -f1 | sort -u > ogrenciler.txt
+  head -n 1 ogrenciler.txt
+  tail -n 1 ogrenciler.txt
+
+outputs:
+  - {path: ogrenciler.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: ogrenciler.txt, value: [ali, ayse, toplam, veli]}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7231
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: ogrenci-notlari
+    hedef: bol
+    girdi: json
+    kaynak: dizin-agaci
+    cikti: satir-listesi
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

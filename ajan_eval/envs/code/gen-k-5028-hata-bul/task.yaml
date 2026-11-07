@@ -1,0 +1,99 @@
+id: gen-k-5028-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Sabah sınav sonuçlarını kontrol ederken bir şey dikkatimi çekti: aynı puanı alan öğrencilerin sırası her seferinde değişiyor gibi geldi. Öğrenci işlerindeki arkadaş da listeyi iki kere yazdırınca farklı sıralamalar gördüğünü söyledi, bu da kafaları karıştırdı. Sorunun exam/ranking.py dosyasındaki rank_students fonksiyonundan kaynaklandığını düşünüyorum; çünkü eşit puanlı öğrenciler arasında bir sıralama ölçütü yok ve bu yüzden çıktı her çağrıda aynı olmuyor.
+
+  Bu fonksiyonu, aynı puanı alan öğrenciler arasında ada göre artan alfabetik sıra korunacak biçimde düzeltmeni istiyorum; böylece fonksiyon her çağrıldığında aynı çıktıyı versin. Dosya adı exam/ranking.py olarak kalsın, başka bir şey eklemeye gerek yok.
+
+setup: |
+  mkdir -p exam
+  cat > exam/grading.py <<'GRADING'
+  def normalize(records):
+      # records: list of dicts -> {student: {subject: score}}
+      table = {}
+      for rec in records:
+          student = rec["student"]
+          subject = rec["subject"]
+          table.setdefault(student, {})[subject] = rec["score"]
+      return table
+  GRADING
+  cat > exam/ranking.py <<'RANKING'
+  from exam.grading import normalize
+
+
+  def rank_students(records, subject):
+      table = normalize(records)
+      scored = [(name, subs.get(subject, 0)) for name, subs in table.items()]
+      scored.sort(key=lambda pair: pair[1], reverse=True)
+      return [name for name, _ in scored]
+  RANKING
+  cat > scores.txt <<'TXT'
+  ada,math,90
+  bora,math,90
+  cem,math,75
+  ada,physics,60
+  bora,physics,88
+  cem,physics,90
+  TXT
+
+goal_tr: >
+  exam/ranking.py icindeki rank_students fonksiyonunu, ayni puani alan
+  ogrenciler arasinda ada gore artan alfabetik sira korunacak bicimde
+  duzelt; boylece cikti her cagrida ayni olsun.
+
+reference_solution: |
+  cat > exam/ranking.py <<'RANKING'
+  from exam.grading import normalize
+
+
+  def rank_students(records, subject):
+      table = normalize(records)
+      scored = [(name, subs.get(subject, 0)) for name, subs in table.items()]
+      scored.sort(key=lambda pair: (-pair[1], pair[0]))
+      return [name for name, _ in scored]
+  RANKING
+
+outputs:
+  - {path: exam/ranking.py, kind: program, run: 'python3 -c ''import random; from exam.ranking import rank_students as f; recs=[]; [recs.append({"student":s,"subject":sub,"score":sc}) for s,sub,sc in [("ada","math",90),("bora","math",90),("cem","math",75),("ada","physics",60),("bora","physics",88),("cem","physics",90)]]; expected_math=["ada","bora","cem"]; expected_physics=["cem","bora","ada"]; assert f(recs,"math")==expected_math, f(recs,"math"); assert f(recs,"physics")==expected_physics, f(recs,"physics"); shuffled=list(recs); random.Random(7).shuffle(shuffled); assert f(shuffled,"math")==expected_math, f(shuffled,"math"); assert f(shuffled,"physics")==expected_physics, f(shuffled,"physics"); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import random; from exam.ranking import rank_students as f; recs=[]; [recs.append({"student":s,"subject":sub,"score":sc}) for s,sub,sc in [("ada","math",90),("bora","math",90),("cem","math",75),("ada","physics",60),("bora","physics",88),("cem","physics",90)]]; expected_math=["ada","bora","cem"]; expected_physics=["cem","bora","ada"]; assert f(recs,"math")==expected_math, f(recs,"math"); assert f(recs,"physics")==expected_physics, f(recs,"physics"); shuffled=list(recs); random.Random(7).shuffle(shuffled); assert f(shuffled,"math")==expected_math, f(shuffled,"math"); assert f(shuffled,"physics")==expected_physics, f(shuffled,"physics"); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5028
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: sinav-sonuclari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kolay
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-kararsizligi
+      karmasiklik: duz
+      kalip: ozyineleme
+      akis: ic-ice-yapi
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

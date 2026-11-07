@@ -1,0 +1,142 @@
+id: gen-k-8447-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Sensör ağından gelen zaman damgalı ölçümlerle uğraşıyoruz; veri akışı bazen ham ve sırasız halde geliyor, biz de bunları işlemeden önce düzene sokmamız gerekiyor. Gün boyu bu tür serilerle uğraşırken fark ettim ki elimizdeki sorgu fonksiyonu hâlâ boş duruyor ve bir türlü çalışmıyor.
+
+  Bu yüzden sensors/query.py dosyasındaki find_range fonksiyonunu artık gerçekten çalışır hale getirmemiz lazım. Elimizde sensors/series.py içindeki sort_series fonksiyonuyla zaman damgasına göre artan sıraya dizilmiş bir (t, v) serisi olacak; find_range bu sıralı seriyi alıp [t_lo, t_hi] aralığına düşen değerleri, yani zaman damgası bu aralığın içinde (uçlar dahil) kalanları, artan zaman sırasında döndürmeli. Bu işi yaparken ikili arama kullanılmasını istiyorum, çünkü seriler büyüdükçe baştan sona tarama çok yavaş kalıyor.
+
+  Sadece sensors/query.py üzerinde çalış, find_range fonksiyonunun gövdesini doldur; diğer dosyalar olduğu gibi kalsın.
+
+setup: |
+  mkdir -p sensors
+  cat > sensors/stream.py <<'STREAM'
+  def read_chunks(rows):
+      """Yield successive chunks of at most 4 rows from a list of (t, v) pairs."""
+      for i in range(0, len(rows), 4):
+          yield rows[i:i + 4]
+  STREAM
+  cat > sensors/series.py <<'SERIES'
+  def merge_sorted(a, b):
+      """Merge two sorted (t, v) lists into one sorted list."""
+      out = []
+      i = j = 0
+      while i < len(a) and j < len(b):
+          if a[i][0] <= b[j][0]:
+              out.append(a[i]); i += 1
+          else:
+              out.append(b[j]); j += 1
+      out.extend(a[i:]); out.extend(b[j:])
+      return out
+
+
+  def sort_series(pairs):
+      """Sort (t, v) pairs by timestamp using merge sort on chunks."""
+      from sensors.stream import read_chunks
+      chunks = [sorted(c) for c in read_chunks(pairs)]
+      while len(chunks) > 1:
+          nxt = []
+          for k in range(0, len(chunks) - 1, 2):
+              nxt.append(merge_sorted(chunks[k], chunks[k + 1]))
+          if len(chunks) % 2:
+              nxt.append(chunks[-1])
+          chunks = nxt
+      return chunks[0] if chunks else []
+  SERIES
+  cat > sensors/query.py <<'QUERY'
+  def find_range(series, t_lo, t_hi):
+      """Return values whose timestamps fall in [t_lo, t_hi] (inclusive)."""
+      raise NotImplementedError
+  QUERY
+  cat > data.txt <<'DATA'
+  5 50
+  1 10
+  9 90
+  3 30
+  7 70
+  2 20
+  8 80
+  4 40
+  6 60
+  DATA
+
+goal_tr: >
+  sensors/query.py icindeki find_range fonksiyonunu, sensors/series.py'deki
+  sort_series ile sirali hale getirilmis (t, v) serisinde ikili arama
+  kullanarak [t_lo, t_hi] araligindaki degerleri artan zaman sirasinda
+  dondurecek bicimde gerceklestir.
+
+reference_solution: |
+  cat > sensors/query.py <<'QUERY'
+  def _lower_bound(series, t):
+      lo, hi = 0, len(series)
+      while lo < hi:
+          mid = (lo + hi) // 2
+          if series[mid][0] < t:
+              lo = mid + 1
+          else:
+              hi = mid
+      return lo
+
+
+  def _upper_bound(series, t):
+      lo, hi = 0, len(series)
+      while lo < hi:
+          mid = (lo + hi) // 2
+          if series[mid][0] <= t:
+              lo = mid + 1
+          else:
+              hi = mid
+      return lo
+
+
+  def find_range(series, t_lo, t_hi):
+      """Return values whose timestamps fall in [t_lo, t_hi] (inclusive)."""
+      lo = _lower_bound(series, t_lo)
+      hi = _upper_bound(series, t_hi)
+      return [v for _, v in series[lo:hi]]
+  QUERY
+
+outputs:
+  - {path: sensors/query.py, kind: program, run: 'python3 -c ''from sensors.series import sort_series; from sensors.query import find_range as f; rows=[(5,50),(1,10),(9,90),(3,30),(7,70),(2,20),(8,80),(4,40),(6,60)]; s=sort_series(rows); assert s==[(1,10),(2,20),(3,30),(4,40),(5,50),(6,60),(7,70),(8,80),(9,90)], s; assert f(s,3,6)==[30,40,50,60], f(s,3,6); assert f(s,1,1)==[10]; assert f(s,9,9)==[90]; assert f(s,10,20)==[]; assert f(s,0,100)==[10,20,30,40,50,60,70,80,90]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensors.series import sort_series; from sensors.query import find_range as f; rows=[(5,50),(1,10),(9,90),(3,30),(7,70),(2,20),(8,80),(4,40),(6,60)]; s=sort_series(rows); assert s==[(1,10),(2,20),(3,30),(4,40),(5,50),(6,60),(7,70),(8,80),(9,90)], s; assert f(s,3,6)==[30,40,50,60], f(s,3,6); assert f(s,1,1)==[10]; assert f(s,9,9)==[90]; assert f(s,10,20)==[]; assert f(s,0,100)==[10,20,30,40,50,60,70,80,90]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8447
+    bundle: yarisma
+    tools:
+    - python3
+    konu: sensor-serisi
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-ikili-arama
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: parcali-akis
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

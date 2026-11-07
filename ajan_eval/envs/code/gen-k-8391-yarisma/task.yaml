@@ -1,0 +1,119 @@
+id: gen-k-8391-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  release/summary.py içindeki summarize fonksiyonunu gerçekleştir. Fonksiyon, release_data.txt dosyasındaki etiketleri sayıp iki sözlük döndürmeli: türden adete ve ana sürümden adete. Dönüş değeri {"by_kind": ..., "by_major": ...} biçiminde olmalı.
+
+  Şu şartlar sağlanmalı:
+  - release/summary.py dosyası summarize fonksiyonunu içermeli ve fonksiyon artık NotImplementedError yükseltmemeli.
+  - summarize fonksiyonu çağrıldığında release_data.txt dosyasındaki etiketler okunmalı.
+  - Dönen sözlükte "by_kind" anahtarı, her tür etiketinin adedini tutan bir sözlük olmalı.
+  - Dönen sözlükte "by_major" anahtarı, her ana sürüm değerinin adedini tutan bir sözlük olmalı.
+  - Dönüş değeri tam olarak {"by_kind": ..., "by_major": ...} biçiminde olmalı.
+
+setup: |
+  mkdir -p release
+  cat > release/tags.py <<'TAGS'
+  def iter_tags(path):
+      with open(path, encoding="ascii") as fh:
+          for line in fh:
+              line = line.strip()
+              if not line or line.startswith("#"):
+                  continue
+              parts = line.split("|")
+              yield {"name": parts[0], "major": int(parts[1]), "kind": parts[2]}
+  TAGS
+  cat > release/counting.py <<'COUNT'
+  from release.tags import iter_tags
+
+
+  def count_by_kind(path):
+      counts = {}
+      for tag in iter_tags(path):
+          counts[tag["kind"]] = counts.get(tag["kind"], 0) + 1
+      return counts
+
+
+  def count_by_major(path):
+      counts = {}
+      for tag in iter_tags(path):
+          counts[tag["major"]] = counts.get(tag["major"], 0) + 1
+      return counts
+  COUNT
+  cat > release/summary.py <<'SUMMARY'
+  from release.counting import count_by_kind, count_by_major
+
+
+  def summarize(path):
+      raise NotImplementedError
+  SUMMARY
+  cat > release_data.txt <<'DATA'
+  v1.0.0|1|stable
+  v1.1.0|1|stable
+  v2.0.0|2|stable
+  v2.1.0-rc1|2|rc
+  v2.1.0-rc2|2|rc
+  v3.0.0-beta|3|beta
+  DATA
+
+goal_tr: >
+  release/summary.py icindeki summarize fonksiyonunu, release_data.txt
+  dosyasindaki etiketleri sayip turden adete ve ana surumden adete
+  sozluklerini {"by_kind": ..., "by_major": ...} biciminde dondurecek
+  sekilde gerceklestir.
+
+reference_solution: |
+  cat > release/summary.py <<'SUMMARY'
+  from release.counting import count_by_kind, count_by_major
+
+
+  def summarize(path):
+      return {
+          "by_kind": count_by_kind(path),
+          "by_major": count_by_major(path),
+      }
+  SUMMARY
+
+outputs:
+  - {path: release/summary.py, kind: program, run: 'python3 -c ''from release.summary import summarize as s; r=s("release_data.txt"); assert r=={"by_kind":{"stable":3,"rc":2,"beta":1},"by_major":{1:2,2:3,3:1}}, r; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from release.summary import summarize as s; r=s("release_data.txt"); assert r=={"by_kind":{"stable":3,"rc":2,"beta":1},"by_major":{1:2,2:3,3:1}}, r; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8391
+    bundle: yarisma
+    tools:
+    - python3
+    konu: yazilim-surumleri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sayma
+      karmasiklik: duz
+      kalip: generator
+      akis: cok-dosya-birlestirme
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

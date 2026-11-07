@@ -1,0 +1,124 @@
+id: gen-k-8115-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  roster/schedule.py dosyasında bir ShiftSchedule sınıfı oluştur. Bu sınıf, roster/core/parser.py içindeki parse_shift_lines fonksiyonunu kullanarak shifts.txt dosyasını okuyup her çalışanın toplam dakika sayısını hesaplasın. Saat formatını doğrulasın ve sonucu en çok çalışandan en aza doğru sıralasın. Sınıfın load, total_minutes ve ranking metotları olsun.
+
+setup: |
+  mkdir -p roster/core
+  cat > roster/core/parser.py <<'PARSER'
+  def parse_shift_lines(text):
+      """Parse lines like 'ali: 09:00-13:00,14:00-18:00' into a dict."""
+      result = {}
+      for line in text.splitlines():
+          line = line.strip()
+          if not line or line.startswith('#'):
+              continue
+          name, spec = line.split(':', 1)
+          spans = []
+          for part in spec.strip().split(','):
+              start, end = part.strip().split('-')
+              spans.append((start, end))
+          result[name.strip()] = spans
+      return result
+  PARSER
+  cat > roster/core/__init__.py <<'INIT'
+  INIT
+  cat > roster/__init__.py <<'INIT'
+  INIT
+  cat > shifts.txt <<'DATA'
+  # name: span,span
+  ali: 09:00-13:00,14:00-18:00
+  zeynep: 08:00-12:00
+  mehmet: 10:00-14:00,15:00-19:00
+  DATA
+
+goal_tr: >
+  roster/schedule.py dosyasinda, roster/core/parser.py icindeki
+  parse_shift_lines ile shifts.txt dosyasini okuyup her calisanin toplam
+  dakika sayisini hesaplayan, saat formatini dogrulayan ve sonucu en cok
+  calisandan en aza dogru siralayan bir ShiftSchedule sinifi yaz; sinifin
+  load, total_minutes ve ranking metotlari olsun.
+
+reference_solution: |
+  cat > roster/schedule.py <<'SCHED'
+  from roster.core.parser import parse_shift_lines
+
+
+  def _to_minutes(hhmm):
+      hh, mm = hhmm.split(':')
+      h, m = int(hh), int(mm)
+      if not (0 <= h <= 23 and 0 <= m <= 59):
+          raise ValueError("bad time: " + hhmm)
+      return h * 60 + m
+
+
+  class ShiftSchedule:
+      def __init__(self):
+          self._data = {}
+
+      def load(self, path):
+          with open(path, 'r', encoding='utf-8') as fh:
+              text = fh.read()
+          self._data = parse_shift_lines(text)
+          return self
+
+      def total_minutes(self, name):
+          total = 0
+          for start, end in self._data[name]:
+              s = _to_minutes(start)
+              e = _to_minutes(end)
+              if e < s:
+                  e += 24 * 60
+              total += e - s
+          return total
+
+      def ranking(self):
+          rows = [(name, self.total_minutes(name)) for name in self._data]
+          rows.sort(key=lambda r: (-r[1], r[0]))
+          return rows
+  SCHED
+
+outputs:
+  - {path: roster/schedule.py, kind: program, run: 'python3 -c ''from roster.schedule import ShiftSchedule as S; s=S().load("shifts.txt"); assert s.total_minutes("ali")==480, s.total_minutes("ali"); assert s.total_minutes("zeynep")==240; assert s.total_minutes("mehmet")==480; assert s.ranking()==[("ali",480),("mehmet",480),("zeynep",240)], s.ranking(); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from roster.schedule import ShiftSchedule as S; s=S().load("shifts.txt"); assert s.total_minutes("ali")==480, s.total_minutes("ali"); assert s.total_minutes("zeynep")==240; assert s.total_minutes("mehmet")==480; assert s.ranking()==[("ali",480),("mehmet",480),("zeynep",240)], s.ranking(); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8115
+    bundle: yarisma
+    tools:
+    - python3
+    konu: vardiya-cizelgesi
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: metin-ayristirma
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: dosya-okuma
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

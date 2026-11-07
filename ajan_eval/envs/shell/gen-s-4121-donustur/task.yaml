@@ -1,0 +1,77 @@
+id: gen-s-4121-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kargo.ini dosyasındaki her [gonderi] bölümünün takip değerini ele alıp, tekrar edenleri eleyerek geriye kalan benzersiz takip sayısını sonuc.txt dosyasına yaz. sonuc.txt içinde yalnızca sayı olsun.
+
+setup: |
+  cat > kargo.ini <<'INI'
+  [gonderi]
+  takip=TR1001
+  durum=yolda
+  sehir=Ankara
+  [gonderi]
+  takip=TR1002
+  durum=teslim
+  sehir=Izmir
+  [gonderi]
+  takip=TR1001
+  durum=yolda
+  sehir=Ankara
+  [gonderi]
+  takip=TR1003
+  durum=teslim
+  sehir=Bursa
+  [gonderi]
+  takip=TR1002
+  durum=teslim
+  sehir=Izmir
+  [gonderi]
+  takip=TR1004
+  durum=yolda
+  sehir=Adana
+  INI
+
+goal_tr: >
+  kargo.ini dosyasindaki her [gonderi] bolumunun takip degerini bir satir
+  olarak yazip tekrar edenleri eleyerek kalan benzersiz takip sayisini
+  sonuc.txt dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  grep '^takip=' kargo.ini | cut -d= -f2 | sort | uniq | wc -l > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '4'}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4121
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: kargo-takibi
+    hedef: donustur
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: tekrar-eden-kayit
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

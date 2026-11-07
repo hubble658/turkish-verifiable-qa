@@ -1,0 +1,77 @@
+id: gen-s-3154-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) envanter dizinindeki .json dosyalarını incele ve her birinde geçerli JSON olan satırları belirle.
+
+  2) Geçerli JSON satırları arasından durum değeri "aktif" olan kayıtları seç.
+
+  3) Seçilen bu kayıtların adet alanındaki değerleri topla.
+
+  4) Toplam sonucu tek bir sayı olarak toplam.txt dosyasına yaz; dosyada yalnızca bu sayı bulunsun.
+
+setup: |
+  mkdir -p envanter
+  cat > envanter/a.json <<'EOF'
+  {"depo": "A1", "adet": 12, "durum": "aktif"}
+  {"depo": "A2", "adet": 7, "durum": "pasif"}
+  {"depo": "A3", "adet": 0, "durum": "aktif"}
+  EOF
+  cat > envanter/b.json <<'EOF'
+  {"depo": "B1", "adet": 5, "durum": "aktif"}
+  {"depo": "B2", "adet": 9, "durum": "pasif"}
+  EOF
+  cat > envanter/c.json <<'EOF'
+  {"depo": "C1", "adet": 3, "durum": "aktif"}
+  {"depo": "C2", "adet": 4, "durum": "aktif"}
+  {"depo": "C3", "adet": 6, "durum": "pasif"}
+  {"depo": "C4", "adet": 8, "durum": "aktif"}
+  EOF
+  printf 'bu satir json degil\n' >> envanter/b.json
+
+goal_tr: >
+  envanter dizinindeki .json dosyalarindaki gecerli JSON satirlarinda durum
+  degeri aktif olan kayitlarin adet alanlarinin toplamini tek sayi olarak
+  toplam.txt dosyasina yaz
+
+reference_solution: |
+  grep -h '"durum": "aktif"' envanter/*.json | grep -o '"adet": [0-9]*' | grep -o '[0-9]*' > adetler.txt
+  awk '{s+=$1} END {print s}' adetler.txt > toplam.txt
+  wc -l < adetler.txt > kayit_sayisi.txt
+  rm adetler.txt kayit_sayisi.txt
+
+outputs:
+  - {path: toplam.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: toplam.txt, value: '32'}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3154
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: envanter
+    hedef: ayikla
+    girdi: json
+    kaynak: cok-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

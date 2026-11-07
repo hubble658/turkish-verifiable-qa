@@ -1,0 +1,78 @@
+id: gen-s-3020-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kayitlar klasöründeki her "gunluk.txt" dosyasından şehir ve sıcaklık değerlerini alıp "sehir: sicaklik" biçiminde, dosya adına göre alfabetik sıralı olarak ozet.txt dosyasına yaz.
+
+setup: |
+  mkdir -p kayitlar
+  cat > "kayitlar/istanbul gunluk.txt" <<'EOF'
+  sehir=istanbul
+  sicaklik=21
+  durum=parcali bulutlu
+  EOF
+  cat > "kayitlar/ankara gunluk.txt" <<'EOF'
+  sehir=ankara
+  sicaklik=14
+  durum=yagmurlu
+  EOF
+  cat > "kayitlar/izmir gunluk.txt" <<'EOF'
+  sehir=izmir
+  sicaklik=28
+  durum=gunesli
+  EOF
+  cat > "kayitlar/bursa gunluk.txt" <<'EOF'
+  sehir=bursa
+  sicaklik=17
+  durum=sisli
+  EOF
+
+goal_tr: >
+  kayitlar klasorundeki her "gunluk.txt" dosyasindan sehir ve sicaklik
+  degerlerini alip "sehir: sicaklik" biciminde, dosya adina gore alfabetik
+  sirali olarak ozet.txt dosyasina yaz
+
+reference_solution: |
+  for f in kayitlar/*gunluk.txt; do
+    head -n 1 "$f" | cut -d= -f2
+  done > /tmp/sehirler.txt
+  for f in kayitlar/*gunluk.txt; do
+    tail -n 2 "$f" | head -n 1 | cut -d= -f2
+  done > /tmp/sicakliklar.txt
+  paste -d': ' /tmp/sehirler.txt /tmp/sicakliklar.txt | sort > ozet.txt
+
+outputs:
+  - {path: ozet.txt, kind: lines, run: cat ozet.txt}
+
+checks:
+  - {op: file_lines_eq, path: ozet.txt, value: ['ankara:14', 'bursa:17', 'istanbul:21', 'izmir:28']}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3020
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: hava-durumu-kayitlari
+    hedef: ozetle
+    girdi: json
+    kaynak: cok-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: bosluklu-ad
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,64 @@
+id: gen-s-7000-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kalemler.csv dosyasındaki veri satırlarını başlık satırına dokunmadan ters çevir ve ters çevrilmiş sıradaki her satır için yalnızca ilk alanı (tarih) ve son alanı (tutar) alıp bu iki alanı virgülle birleştirerek kalemler_ozet.csv dosyasına yaz. kalemler.csv.yedek dosyasını işleme katma.
+
+setup: |
+  cat > kalemler.csv <<'CSV'
+  tarih,hesap,aciklama,tutar
+  2024-01-05,100,Kira odemesi,15000
+  2024-01-07,200,Mal alimi,3200
+  2024-01-09,100,Elektrik faturasi,850
+  2024-01-12,300,Hizmet geliri,7400
+  2024-01-15,200,Kargo gideri,120
+  CSV
+  cat > kalemler.csv.yedek <<'CSV'
+  tarih,hesap,aciklama,tutar
+  9999-99-99,999,BOZUK KAYIT,1
+  CSV
+
+goal_tr: >
+  kalemler.csv dosyasindaki veri satirlarini aciklamaya gore ters cevirip,
+  her satirin ilk alanini (tarih) ve son alanini (tutar) tutarak, tarih ve
+  tutar alanlarini virgul ile birlestirip ters cevrilmis sirada
+  kalemler_ozet.csv dosyasina yaz.
+
+reference_solution: |
+  tail -n +2 kalemler.csv | rev | cut -d, -f1,4 | rev | sed 's/^\([^,]*\),\(.*\)$/\2,\1/' > kalemler_ozet.csv
+
+outputs:
+  - {path: kalemler_ozet.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: kalemler_ozet.csv, value: ['15000,2024-01-05', '3200,2024-01-07', '850,2024-01-09', '7400,2024-01-12', '120,2024-01-15']}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7000
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: muhasebe-kalemleri
+    hedef: ayikla
+    girdi: csv
+    kaynak: tek-dosya
+    cikti: csv
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

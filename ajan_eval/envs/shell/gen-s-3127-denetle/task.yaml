@@ -1,0 +1,82 @@
+id: gen-s-3127-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+prompt: 'Kargo takip sistemini yeniden düzenlemeye çalışıyoruz ve bugün günlerdir süren bir karmaşa vardı; müşterilerden gelen
+  "kargom teslim edildi mi" sorularına tek tek bakmak yerine elimizdeki kayıtlardan derli toplu bir liste çıkarmak istiyoruz.
+  Bu yüzden gonderiler dizin ağacındaki bütün kayit.txt dosyalarını taramamız gerekiyor. Bu dosyalardaki her satırda önce
+  takip kodu, sonra durum bilgisi yer alıyor; bizim derdimiz yalnızca durumu "teslim" olanlarla.
+
+
+  Yapmak istediğim ilk şey, gonderiler dizini ve altındaki tüm kayit.txt dosyalarındaki satırlardan durumu "teslim" olanların
+  ilk alanlarını yani takip kodlarını alfabetik olarak sıralamak ve benzersiz biçimde teslim_kodlari.txt dosyasına yazmak.
+  Ardından bu teslim_kodlari.txt ile beklenen_kodlar.txt dosyasındaki kodlardan ortak olanları bulup ortak_kodlar.txt dosyasına
+  yazmanı istiyorum.
+
+  '
+setup: 'mkdir -p gonderiler/aktif gonderiler/arsiv
+
+  printf ''TRK001 yolda 12\nTRK002 teslim 88\nTRK003 yolda 45'' > gonderiler/aktif/kayit.txt
+
+  printf ''TRK004 teslim 90\nTRK005 iade 30\nTRK006 teslim 77'' > gonderiler/arsiv/kayit.txt
+
+  printf ''TRK007 yolda 60\nTRK008 teslim 15\nTRK009 iade 22'' > gonderiler/kayit.txt
+
+  printf ''TRK002\nTRK004\nTRK006\nTRK099\n'' > beklenen_kodlar.txt
+
+  '
+goal_tr: 'gonderiler dizin agacindaki tum kayit.txt dosyalarindaki satirlardan durumu "teslim" olanlarin ilk alanlarini (takip
+  kodlarini) alfabetik olarak sirala, benzersiz bicimde teslim_kodlari.txt dosyasina yaz ve bu dosya ile beklenen_kodlar.txt
+  arasindaki ortak kodlari ortak_kodlar.txt dosyasina yaz
+
+  '
+reference_solution: 'find gonderiler -name kayit.txt -exec awk ''$2=="teslim"{print $1}'' {} + | sort -u > teslim_kodlari.txt
+
+  comm -12 teslim_kodlari.txt beklenen_kodlar.txt > ortak_kodlar.txt
+
+  '
+outputs: []
+checks:
+- op: file_lines_eq
+  path: ortak_kodlar.txt
+  value:
+  - TRK002
+  - TRK004
+  - TRK006
+- op: file_lines_eq
+  path: teslim_kodlari.txt
+  as_set: false
+  value:
+  - TRK002
+  - TRK004
+  - TRK006
+  - TRK008
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3127
+    bundle: kume-farki
+    tools:
+    - comm
+    - sort
+    konu: kargo-takibi
+    hedef: denetle
+    girdi: log-satiri
+    kaynak: dizin-agaci
+    cikti: satir-listesi
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: son-newline-yok
+    bukulme: olcek
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}
+  duzeltme:
+    neden: kararsiz
+    not: Dosyalar satır sonuyla bitmediği için cat sırası kayıt yutuyordu; altında TRK004 eksikti. beklenen_kodlar.txt setup'ta
+      yoktu; istemdeki dizin adları Türkçe harfle yazılıydı.

@@ -1,0 +1,179 @@
+id: gen-k-5144-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  bank/accounts.py, bank/unions.py ve bank/report.py dosyalarındaki NotImplementedError gövdelerini gerçek gerçekleştirimlerle doldur. bank/accounts.py içindeki load_accounts, accounts.txt dosyasındaki satırları (a, b) çiftleri olarak yield eden bir generator olsun; account_pairs ise her çifti iki yönlü kenar olarak yield etsin. bank/unions.py içindeki UnionFind sınıfı bir birleşim-bulma (union-find) yapısı olsun. bank/report.py içindeki merged_groups ve group_map, hesaplanan grupları döndürsün.
+
+  Şu şartlar sağlanmalı:
+  - bank/accounts.py, bank/unions.py ve bank/report.py dosyalarında NotImplementedError kalmamalı.
+  - load_accounts, accounts.txt dosyasındaki her satırı (a, b) çifti olarak yield eden bir generator olmalı.
+  - account_pairs, her çifti iki yönlü kenar olarak yield etmeli.
+  - UnionFind sınıfı çalışan bir birleşim-bulma yapısı sunmalı.
+  - merged_groups ve group_map, hesaplanan grupları döndürmeli.
+  - accounts.txt içeriği alice,bob / carol,dave / bob,carol / erin,frank satırlarıyla aynı kalmalı.
+
+setup: |
+  mkdir -p bank
+  cat > bank/__init__.py <<'EOF'
+  EOF
+  cat > bank/accounts.py <<'EOF'
+  def load_accounts():
+      raise NotImplementedError
+
+
+  def account_pairs(accounts):
+      raise NotImplementedError
+  EOF
+  cat > bank/unions.py <<'EOF'
+  class UnionFind:
+      def __init__(self, items):
+          raise NotImplementedError
+
+      def find(self, x):
+          raise NotImplementedError
+
+      def union(self, a, b):
+          raise NotImplementedError
+
+      def groups(self):
+          raise NotImplementedError
+  EOF
+  cat > bank/report.py <<'EOF'
+  from bank.accounts import load_accounts, account_pairs
+  from bank.unions import UnionFind
+
+
+  def merged_groups():
+      raise NotImplementedError
+
+
+  def group_map():
+      raise NotImplementedError
+  EOF
+  cat > accounts.txt <<'EOF'
+  alice,bob
+  carol,dave
+  bob,carol
+  erin,frank
+  EOF
+
+goal_tr: >
+  bank/accounts.py, bank/unions.py ve bank/report.py dosyalarindaki
+  NotImplementedError govdelerini gercek gerceklestirimlerle doldur;
+  load_accounts accounts.txt satirlarini (a,b) ciftleri olarak yield eden
+  bir generator olsun, account_pairs her cifti iki yonlu kenar olarak yield
+  etsin, UnionFind birlesim-bulma yapisi olsun ve merged_groups ile
+  group_map hesaplanan gruplari dondursun.
+
+reference_solution: |
+  cat > bank/accounts.py <<'EOF'
+  def load_accounts(path="accounts.txt"):
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              left, right = line.split(",")
+              yield (left.strip(), right.strip())
+
+
+  def account_pairs(path="accounts.txt"):
+      for a, b in load_accounts(path):
+          yield (a, b)
+          yield (b, a)
+  EOF
+  cat > bank/unions.py <<'EOF'
+  class UnionFind:
+      def __init__(self, items):
+          self._parent = {item: item for item in items}
+
+      def find(self, x):
+          root = x
+          while self._parent[root] != root:
+              root = self._parent[root]
+          while self._parent[x] != root:
+              self._parent[x], x = root, self._parent[x]
+          return root
+
+      def union(self, a, b):
+          ra, rb = self.find(a), self.find(b)
+          if ra != rb:
+              self._parent[rb] = ra
+          return ra
+
+      def groups(self):
+          buckets = {}
+          for item in self._parent:
+              buckets.setdefault(self.find(item), []).append(item)
+          return {root: sorted(members) for root, members in buckets.items()}
+  EOF
+  cat > bank/report.py <<'EOF'
+  from bank.accounts import load_accounts, account_pairs
+  from bank.unions import UnionFind
+
+
+  def merged_groups(path="accounts.txt"):
+      names = []
+      seen = set()
+      for a, b in load_accounts(path):
+          for name in (a, b):
+              if name not in seen:
+                  seen.add(name)
+                  names.append(name)
+      uf = UnionFind(names)
+      for a, b in account_pairs(path):
+          uf.union(a, b)
+      return uf.groups()
+
+
+  def group_map(path="accounts.txt"):
+      result = {}
+      for members in merged_groups(path).values():
+          for name in members:
+              result[name] = members[0]
+      return result
+  EOF
+
+outputs:
+  - {path: bank/accounts.py, kind: program, run: 'python3 -c ''from bank.accounts import load_accounts, account_pairs; assert list(load_accounts("accounts.txt"))==[("alice","bob"),("carol","dave"),("bob","carol"),("erin","frank")]; assert list(account_pairs("accounts.txt"))==[("alice","bob"),("bob","alice"),("carol","dave"),("dave","carol"),("bob","carol"),("carol","bob"),("erin","frank"),("frank","erin")]; from bank.report import merged_groups, group_map; g=merged_groups("accounts.txt"); vals=sorted(sorted(v) for v in g.values()); assert vals==[["alice","bob","carol","dave"],["erin","frank"]], vals; m=group_map("accounts.txt"); assert m["dave"]==m["alice"] and m["carol"]==m["alice"] and m["bob"]==m["alice"]; assert m["frank"]==m["erin"] and m["erin"]!=m["alice"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from bank.accounts import load_accounts, account_pairs; assert list(load_accounts("accounts.txt"))==[("alice","bob"),("carol","dave"),("bob","carol"),("erin","frank")]; assert list(account_pairs("accounts.txt"))==[("alice","bob"),("bob","alice"),("carol","dave"),("dave","carol"),("bob","carol"),("carol","bob"),("erin","frank"),("frank","erin")]; from bank.report import merged_groups, group_map; g=merged_groups("accounts.txt"); vals=sorted(sorted(v) for v in g.values()); assert vals==[["alice","bob","carol","dave"],["erin","frank"]], vals; m=group_map("accounts.txt"); assert m["dave"]==m["alice"] and m["carol"]==m["alice"] and m["bob"]==m["alice"]; assert m["frank"]==m["erin"] and m["erin"]!=m["alice"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5144
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: banka-hareketleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: birlesim-bulma
+      karmasiklik: duz
+      kalip: generator
+      akis: ic-ice-yapi
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,68 @@
+id: gen-s-7257-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi dizinindeki öğrenci numarası listesi ile not listesini numara üzerinden birleştir; her öğrencinin adını ve notunu numaraya göre artan sırada gecen.txt dosyasına, aynı içeriği numaraya göre azalan sırada ise tersten.txt dosyasına yaz.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/ogrenciler.txt <<'DATA'
+  1001 Ayse
+  1002 Mehmet
+  1003 Zeynep
+  1004 Ali
+  DATA
+  cat > girdi/notlar.txt <<'DATA'
+  1001 85
+  1002 70
+  1003 95
+  1004 60
+  DATA
+
+goal_tr: >
+  girdi dizinindeki ogrenci numarasi listesi ile not listesini numara
+  uzerinden birlestirip her ogrencinin adini ve notunu numaraya gore artan
+  sirada gecen.txt dosyasina, ayni icerigi numaraya gore azalan sirada
+  tersten.txt dosyasina yaz.
+
+reference_solution: |
+  join <(sort girdi/ogrenciler.txt) <(sort girdi/notlar.txt) > gecen.txt
+  sort -nr -k1,1 gecen.txt > tersten.txt
+
+outputs:
+  - {path: gecen.txt, kind: file}
+  - {path: tersten.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: gecen.txt, value: [1001 Ayse 85, 1002 Mehmet 70, 1003 Zeynep 95, 1004 Ali 60]}
+  - {op: file_lines_eq, path: tersten.txt, value: [1004 Ali 60, 1003 Zeynep 95, 1002 Mehmet 70, 1001 Ayse 85]}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7257
+    bundle: birlestir
+    tools:
+    - join
+    - sort
+    konu: ogrenci-notlari
+    hedef: ozetle
+    girdi: log-satiri
+    kaynak: iki-dosya-capraz
+    cikti: birden-cok-dosya
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,66 @@
+id: gen-s-3221-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kargolar.json dosyasındaki her kaydın takip, sehir, durum ve agirlik alanlarını bu sırayla alıp takip numarasına göre artan sırada virgülle ayrılmış olarak ozet.csv dosyasına yaz. ozet.csv dosyasının ilk satırı takip,sehir,durum,agirlik başlığını içersin.
+
+setup: |
+  cat > kargolar.json <<'JSON'
+  [
+    {"takip": "TR1001", "sehir": "Ankara", "durum": "yolda", "agirlik": 3},
+    {"takip": "TR1002", "sehir": "Izmir", "durum": "teslim", "agirlik": 5},
+    {"takip": "TR1003", "sehir": "Ankara", "durum": "teslim", "agirlik": 2},
+    {"takip": "TR1004", "sehir": "Bursa", "durum": "yolda", "agirlik": 7},
+    {"takip": "TR1005", "sehir": "Izmir", "durum": "yolda", "agirlik": 4},
+    {"takip": "TR1006", "sehir": "Ankara", "durum": "iptal", "agirlik": 1}
+  ]
+  JSON
+
+goal_tr: >
+  kargolar.json dosyasindaki her kaydin takip, sehir, durum ve agirlik
+  alanlarini sirasiyla alip takip numarasina gore artan sirada virgulle
+  ayrilmis olarak ozet.csv dosyasina yaz; ilk satira
+  takip,sehir,durum,agirlik basligini koy
+
+reference_solution: |
+  grep -o '"takip": "[^"]*"\|"sehir": "[^"]*"\|"durum": "[^"]*"\|"agirlik": [0-9]*' kargolar.json \
+    | cut -d'"' -f4 | cut -d' ' -f1 > alanlar.txt
+  paste -d',' - - - - alanlar.txt > satirlar.csv
+  ( echo 'takip,sehir,durum,agirlik'; sort -t',' -k1,1 satirlar.csv ) > ozet.csv
+  rm -f alanlar.txt satirlar.csv
+
+outputs:
+  - {path: ozet.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: ozet.csv, value: ['takip,sehir,durum,agirlik', ',,,,', ',,,,', ',,,,', ',,,,', ',,,,', ',,,,', ',,,,Ankara', ',,,,Ankara', ',,,,Ankara', ',,,,Bursa', ',,,,Izmir', ',,,,Izmir', ',,,,TR1001', ',,,,TR1002', ',,,,TR1003', ',,,,TR1004', ',,,,TR1005', ',,,,TR1006', ',,,,iptal', ',,,,teslim', ',,,,teslim', ',,,,yolda', ',,,,yolda', ',,,,yolda']}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3221
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: kargo-takibi
+    hedef: ayikla
+    girdi: json
+    kaynak: tek-dosya
+    cikti: csv
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

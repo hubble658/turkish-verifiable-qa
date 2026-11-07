@@ -1,0 +1,97 @@
+id: gen-s-4082-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) kayitlar dizinindeki her istasyonun veri.log dosyasından ilk ve son satırı alarak her istasyon için en düşük ve en yüksek sıcaklık değerlerini bul.
+
+  2) Bulunan en düşük ve en yüksek sıcaklık değerlerini istasyon adlarına göre artan sırada geçerli bir JSON nesnesi olarak ozet.json dosyasına yaz.
+
+setup: |
+  mkdir -p kayitlar/istasyon_a kayitlar/istasyon_b kayitlar/istasyon_c
+  cat > kayitlar/istasyon_a/veri.log <<'LOG'
+  2024-03-01 06:00 sicaklik=12.5 nem=81
+  2024-03-01 12:00 sicaklik=18.2 nem=64
+  2024-03-01 18:00 sicaklik=15.1 nem=70
+  LOG
+  cat > kayitlar/istasyon_b/veri.log <<'LOG'
+  2024-03-01 06:00 sicaklik=9.8 nem=88
+  2024-03-01 12:00 sicaklik=14.4 nem=75
+  2024-03-01 18:00 sicaklik=11.9 nem=80
+  LOG
+  cat > kayitlar/istasyon_c/veri.log <<'LOG'
+  2024-03-01 06:00 sicaklik=21.3 nem=55
+  2024-03-01 12:00 sicaklik=26.7 nem=48
+  2024-03-01 18:00 sicaklik=23.0 nem=52
+  LOG
+
+goal_tr: >
+  kayitlar dizinindeki her istasyonun veri.log dosyasindan ilk ve son satiri
+  alarak her istasyon icin en dusuk ve en yuksek sicaklik degerlerini bul ve
+  sonucu istasyon adlarina gore artan sirada gecerli bir JSON nesnesi olarak
+  ozet.json dosyasina yaz
+
+reference_solution: |
+  for d in $(find kayitlar -mindepth 1 -maxdepth 1 -type d | sort); do
+    ad=$(basename "$d")
+    ilk=$(head -n 1 "$d/veri.log")
+    son=$(tail -n 1 "$d/veri.log")
+    printf '%s %s\n' "$ad" "$ilk" "$son"
+  done > gecici.txt
+
+  awk '{
+    ad=$1
+    ilk_sic=$5; sub("sicaklik=","",ilk_sic)
+    son_sic=$10; sub("sicaklik=","",son_sic)
+    min=ilk_sic+0
+    max=son_sic+0
+    if (min>max) { t=min; min=max; max=t }
+    printf "%s %.1f %.1f\n", ad, min, max
+  }' gecici.txt > ozet.txt
+
+  {
+    printf '{\n'
+    while read -r ad min max; do
+      printf '  "%s": {"min": %s, "max": %s}' "$ad" "$min" "$max"
+      printf ',\n'
+    done < ozet.txt
+  } > ozet_gecici.txt
+
+  sed '$ s/,$//' ozet_gecici.txt > ozet.json
+  printf '}\n' >> ozet.json
+  rm -f gecici.txt ozet.txt ozet_gecici.txt
+
+outputs:
+  - {path: ozet.json, kind: json}
+
+checks:
+  - {op: json_eq, path: ozet.json, value: {istasyon_a: {min: 0.0, max: 0.0}, '2024-03-01': {min: 0.0, max: 0.0}, istasyon_b: {min: 0.0, max: 0.0}, istasyon_c: {min: 0.0, max: 0.0}}}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4082
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: hava-durumu-kayitlari
+    hedef: ayikla
+    girdi: log-satiri
+    kaynak: dizin-agaci
+    cikti: json
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

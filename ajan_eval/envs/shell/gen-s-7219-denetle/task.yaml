@@ -1,0 +1,75 @@
+id: gen-s-7219-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri altındaki kargolar.jsonl dosyasındaki her kargo id'sini sevkiyat/olaylar.txt içindeki olay satırlarıyla çaprazla. Her id için durum alanını ve o id'ye ait olay satırı sayısını içeren bir JSON nesnesi oluştur; id'ye göre artan sırada olsun ve sonucu geçerli bir JSON olarak sonuc.json dosyasına yaz.
+
+setup: |
+  mkdir -p veri sevkiyat
+  cat > veri/kargolar.jsonl <<'DATA'
+  {"id":"K001","durum":"yolda"}
+  {"id":"K002","durum":"teslim"}
+  {"id":"K003","durum":"yolda"}
+  {"id":"K004","durum":"iptal"}
+  {"id":"K005","durum":"teslim"}
+  {"id":"K006","durum":"yolda"}
+  DATA
+  cat > sevkiyat/olaylar.txt <<'DATA'
+  K001 cikis
+  K003 cikis
+  K002 cikis
+  K005 cikis
+  K001 aktarma
+  K003 aktarma
+  K001 teslim
+  K005 teslim
+  K002 teslim
+  DATA
+
+goal_tr: >
+  veri altindaki jsonl dosyasindaki her kargo id'sini sevkiyat/olaylar.txt
+  icindeki olay satirlariyla caprazla; her id icin durum alanini ve o id'ye
+  ait olay satiri sayisini iceren, id'ye gore artan sirada gecerli bir JSON
+  nesnesi olarak sonuc.json'a yaz.
+
+reference_solution: |
+  grep -h '^{' veri/*.jsonl | sed 's/[{}\"]//g' | sed 's/,/ /' | sort > /tmp/kargo_durum.txt
+  cut -d' ' -f1 sevkiyat/olaylar.txt | sort | uniq -c | awk '{print $2, $1}' | sort > /tmp/kargo_sayi.txt
+  join -a1 -e0 -o 1.1,1.2,2.2 /tmp/kargo_durum.txt /tmp/kargo_sayi.txt | sort > /tmp/kargo_birlesik.txt
+  awk 'BEGIN{printf "{\n"} {printf "  \"%s\": {\"durum\": \"%s\", \"olay\": %d}%s\n", $1, $2, $3, (NR==6?"":",")} END{printf "}\n"}' /tmp/kargo_birlesik.txt > sonuc.json
+
+outputs:
+  - {path: sonuc.json, kind: json}
+
+checks:
+  - {op: json_eq, path: sonuc.json, value: {'id:K001': {durum: 'durum:yolda', olay: 0}, 'id:K002': {durum: 'durum:teslim', olay: 0}, 'id:K003': {durum: 'durum:yolda', olay: 0}, 'id:K004': {durum: 'durum:iptal', olay: 0}, 'id:K005': {durum: 'durum:teslim', olay: 0}, 'id:K006': {durum: 'durum:yolda', olay: 0}}}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7219
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: kargo-takibi
+    hedef: denetle
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: json
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

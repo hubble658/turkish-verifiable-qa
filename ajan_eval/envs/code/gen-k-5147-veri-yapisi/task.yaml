@@ -1,0 +1,152 @@
+id: gen-k-5147-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sensors/cache.py içindeki LRUCache sınıfını, get ve put metotlarıyla gerçek LRU tahliyesi yapacak şekilde tamamla. Ayrıca sensors/rules.py içindeki AlarmEngine sınıfını; feed metodu parçalı okumaları işleyip eşik aşımını saysın, alarm_count metodu ise bu sayıyı önbellekten okusun. Mevcut sensors/errors.py, sensors/cache.py ve sensors/rules.py dosyalarındaki sınıf ve metot adlarını koru.
+
+setup: |
+  mkdir -p sensors
+  cat > sensors/errors.py <<'ERRORS'
+  class AlarmError(Exception):
+      pass
+
+
+  class ThresholdError(AlarmError):
+      pass
+
+
+  class ReadingError(AlarmError):
+      pass
+  ERRORS
+  cat > sensors/cache.py <<'CACHE'
+  class LRUCache:
+      def __init__(self, capacity):
+          self.capacity = capacity
+          self._data = {}
+          self._order = []
+
+      def get(self, key):
+          raise NotImplementedError
+
+      def put(self, key, value):
+          raise NotImplementedError
+  CACHE
+  cat > sensors/rules.py <<'RULES'
+  from sensors.errors import ThresholdError
+  from sensors.cache import LRUCache
+
+
+  class AlarmEngine:
+      def __init__(self, capacity):
+          self.cache = LRUCache(capacity)
+
+      def feed(self, chunks):
+          raise NotImplementedError
+
+      def alarm_count(self, sensor_id):
+          raise NotImplementedError
+  RULES
+
+goal_tr: >
+  sensors/cache.py icindeki LRUCache sinifini (get/put ile gercek LRU
+  tahliyesi) ve sensors/rules.py icindeki AlarmEngine sinifini (feed ile
+  parcali okumalari isleyip esik asimini sayan, alarm_count ile onbellekten
+  okuyan) gerceklestir.
+
+reference_solution: |
+  cat > sensors/cache.py <<'CACHE'
+  class LRUCache:
+      def __init__(self, capacity):
+          self.capacity = capacity
+          self._data = {}
+          self._order = []
+
+      def get(self, key):
+          if key not in self._data:
+              return None
+          self._order.remove(key)
+          self._order.append(key)
+          return self._data[key]
+
+      def put(self, key, value):
+          if key in self._data:
+              self._order.remove(key)
+          elif len(self._data) >= self.capacity:
+              oldest = self._order.pop(0)
+              del self._data[oldest]
+          self._data[key] = value
+          self._order.append(key)
+  CACHE
+  cat > sensors/rules.py <<'RULES'
+  from sensors.errors import ThresholdError
+  from sensors.cache import LRUCache
+
+
+  class AlarmEngine:
+      def __init__(self, capacity):
+          self.cache = LRUCache(capacity)
+          self._counts = {}
+
+      def feed(self, chunks):
+          for chunk in chunks:
+              sensor_id, value, limit = chunk.split(':')
+              value = int(value)
+              limit = int(limit)
+              if value > limit:
+                  self._counts[sensor_id] = self._counts.get(sensor_id, 0) + 1
+                  self.cache.put(sensor_id, self._counts[sensor_id])
+              elif sensor_id not in self._counts:
+                  self._counts[sensor_id] = 0
+                  self.cache.put(sensor_id, 0)
+          return self._counts
+
+      def alarm_count(self, sensor_id):
+          cached = self.cache.get(sensor_id)
+          if cached is None:
+              raise ThresholdError(sensor_id)
+          return cached
+  RULES
+
+outputs:
+  - {path: sensors/cache.py, kind: program, run: 'python3 -c ''from sensors.cache import LRUCache as C; c=C(2); c.put("a",1); c.put("b",2); assert c.get("a")==1; c.put("c",3); assert c.get("b") is None; assert c.get("a")==1; assert c.get("c")==3; from sensors.rules import AlarmEngine as E; from sensors.errors import ThresholdError as T; e=E(2); e.feed(["s1:5:3","s1:2:3","s2:9:1","s1:7:3"]); assert e.alarm_count("s1")==2; assert e.alarm_count("s2")==1; e.feed(["s3:4:1","s4:1:9"]); assert e.alarm_count("s3")==1; assert e.alarm_count("s4")==0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensors.cache import LRUCache as C; c=C(2); c.put("a",1); c.put("b",2); assert c.get("a")==1; c.put("c",3); assert c.get("b") is None; assert c.get("a")==1; assert c.get("c")==3; from sensors.rules import AlarmEngine as E; from sensors.errors import ThresholdError as T; e=E(2); e.feed(["s1:5:3","s1:2:3","s2:9:1","s1:7:3"]); assert e.alarm_count("s1")==2; assert e.alarm_count("s2")==1; e.feed(["s3:4:1","s4:1:9"]); assert e.alarm_count("s3")==1; assert e.alarm_count("s4")==0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5147
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: sensor-alarm-kurallari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: lru-onbellek
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: parcali-akis
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

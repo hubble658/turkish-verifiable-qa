@@ -1,0 +1,114 @@
+id: gen-k-8074-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) fleet/summary.py dosyasındaki make_totaller fonksiyonunu, döndürdüğü closure bir aracın tüm seferlerindeki mesafe ve yakıt değerlerini doğru biçimde toplayacak şekilde düzelt.
+
+  2) Toplama sonucunda hem mesafe hem de yakıt değerlerinin aracın tüm seferleri boyunca birikmesini sağla; yalnızca son seferin değerlerinin kalmamasına dikkat et.
+
+  3) fleet/records.py ve runs.txt dosyalarını değiştirme; yalnızca fleet/summary.py üzerinde çalış.
+
+setup: |
+  mkdir -p fleet
+  cat > fleet/records.py <<'RECORDS'
+  def load_runs(path):
+      runs = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              vehicle, distance, fuel = line.split(',')
+              runs.append((vehicle, float(distance), float(fuel)))
+      return runs
+  RECORDS
+  cat > fleet/summary.py <<'SUMMARY'
+  from fleet.records import load_runs
+
+
+  def make_totaller(path):
+      runs = load_runs(path)
+
+      def totaller(vehicle):
+          total = 0.0
+          for name, distance, fuel in runs:
+              if name == vehicle:
+                  total = distance + fuel
+          return total
+
+      return totaller
+  SUMMARY
+  cat > runs.txt <<'RUNS'
+  van-1,120.0,10.0
+  truck-2,300.0,40.0
+  van-1,80.0,6.0
+  truck-2,200.0,25.0
+  van-1,50.0,4.0
+  RUNS
+
+goal_tr: >
+  fleet/summary.py icindeki make_totaller fonksiyonunun dondurdugu
+  closure'i, bir aracin tum seferlerindeki mesafe ve yakit degerlerini dogru
+  sekilde toplayacak bicimde duzelt.
+
+reference_solution: |
+  cat > fleet/summary.py <<'SUMMARY'
+  from fleet.records import load_runs
+
+
+  def make_totaller(path):
+      runs = load_runs(path)
+
+      def totaller(vehicle):
+          total = 0.0
+          for name, distance, fuel in runs:
+              if name == vehicle:
+                  total += distance + fuel
+          return total
+
+      return totaller
+  SUMMARY
+
+outputs:
+  - {path: fleet/summary.py, kind: program, run: 'python3 -c ''from fleet.summary import make_totaller as m; t=m("runs.txt"); assert t("van-1")==270.0, t("van-1"); assert t("truck-2")==565.0, t("truck-2"); assert t("car-9")==0.0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.summary import make_totaller as m; t=m("runs.txt"); assert t("van-1")==270.0, t("van-1"); assert t("truck-2")==565.0, t("truck-2"); assert t("car-9")==0.0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8074
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: arac-filosu
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-toplama-sirasi
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

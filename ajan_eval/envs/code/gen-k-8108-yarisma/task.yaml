@@ -1,0 +1,120 @@
+id: gen-k-8108-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  flights/streams.py içindeki RouteCounter sınıfını tamamla. Sınıf üzerinde yinelendiğinde, her rota için o rotaya ait toplam koltuk sayısını içeren (rota, toplam_koltuk) çiftlerini üretmeli ve her rotayı yalnızca bir kez vermeli. Bu sayede flights/summary.py içindeki route_totals ve busiest_route fonksiyonları doğru çalışsın.
+
+setup: |
+  mkdir -p flights
+  cat > flights/records.py <<'RECORDS'
+  def read_bookings(path):
+      rows = []
+      with open(path, "r", encoding="ascii") as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              code, route, seats = line.split("|")
+              rows.append((code, route, int(seats)))
+      return rows
+  RECORDS
+  cat > flights/streams.py <<'STREAMS'
+  from flights.records import read_bookings
+
+
+  class RouteCounter:
+      def __init__(self, path):
+          self._rows = read_bookings(path)
+
+      def __iter__(self):
+          raise NotImplementedError
+  STREAMS
+  cat > flights/summary.py <<'SUMMARY'
+  from flights.streams import RouteCounter
+
+
+  def route_totals(path):
+      counter = RouteCounter(path)
+      return {route: total for route, total in counter}
+
+
+  def busiest_route(path):
+      totals = route_totals(path)
+      return max(totals, key=lambda r: totals[r])
+  SUMMARY
+  cat > bookings.txt <<'DATA'
+  TK100|IST-ANK|3
+  TK101|IST-IZM|2
+  TK102|ANK-IZM|5
+  TK103|IST-ANK|4
+  TK104|IST-IZM|1
+  TK105|ANK-IZM|2
+  DATA
+
+goal_tr: >
+  flights/streams.py icindeki RouteCounter sinifini, uzerinde yinelendiginde
+  (rota, toplam_koltuk) ciftlerini rota basina toplam koltuk sayisiyla ve
+  her rotayi yalnizca bir kez uretecek sekilde dolduracak bicimde tamamla;
+  boylece flights/summary.py icindeki route_totals ve busiest_route dogru
+  calissin.
+
+reference_solution: |
+  cat > flights/streams.py <<'STREAMS'
+  from flights.records import read_bookings
+
+
+  class RouteCounter:
+      def __init__(self, path):
+          self._rows = read_bookings(path)
+
+      def __iter__(self):
+          totals = {}
+          for _code, route, seats in self._rows:
+              totals[route] = totals.get(route, 0) + seats
+          for route, total in totals.items():
+              yield route, total
+  STREAMS
+
+outputs:
+  - {path: flights/streams.py, kind: program, run: 'python3 -c ''from flights.summary import route_totals, busiest_route; t=route_totals("bookings.txt"); assert t=={"IST-ANK":7,"IST-IZM":3,"ANK-IZM":7}, t; assert busiest_route("bookings.txt")=="IST-ANK"; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from flights.summary import route_totals, busiest_route; t=route_totals("bookings.txt"); assert t=={"IST-ANK":7,"IST-IZM":3,"ANK-IZM":7}, t; assert busiest_route("bookings.txt")=="IST-ANK"; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8108
+    bundle: yarisma
+    tools:
+    - python3
+    konu: ucus-rezervasyonlari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sayma
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: dosya-okuma
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

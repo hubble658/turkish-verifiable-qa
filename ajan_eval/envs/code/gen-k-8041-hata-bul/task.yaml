@@ -1,0 +1,126 @@
+id: gen-k-8041-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) billing/totals.py dosyasındaki running_totals fonksiyonunu, her siparişten sonraki kümülatif toplamı doğru hesaplayacak biçimde düzelt; her siparişte toplam, o siparişe kadarki tutarların toplamı olsun.
+
+  2) Düzeltme sırasında recording_totals dekoratör sarmalayıcısının işlevi ve yapısı korunsun.
+
+  3) Değişiklikten sonra billing/receipt.py dosyasının doğru makbuz üretmesini sağla.
+
+setup: |
+  mkdir -p billing
+  cat > billing/ledger.py <<'LEDGER'
+  class Ledger:
+      def __init__(self):
+          self._entries = []
+
+      def add(self, order_id, amount):
+          self._entries.append((order_id, amount))
+
+      def entries(self):
+          return list(self._entries)
+  LEDGER
+  cat > billing/totals.py <<'TOTALS'
+  from billing.ledger import Ledger
+
+
+  def recording_totals(fn):
+      def wrapper(ledger):
+          result = fn(ledger)
+          ledger._entries = list(ledger._entries)
+          return result
+      return wrapper
+
+
+  @recording_totals
+  def running_totals(ledger):
+      result = []
+      total = 0
+      for order_id, amount in ledger.entries():
+          total = amount
+          result.append((order_id, total))
+      return result
+  TOTALS
+  cat > billing/receipt.py <<'RECEIPT'
+  from billing.totals import running_totals
+
+
+  def render(ledger):
+      lines = []
+      for order_id, total in running_totals(ledger):
+          lines.append("%s:%.2f" % (order_id, total))
+      return "|".join(lines)
+  RECEIPT
+
+goal_tr: >
+  billing/totals.py icindeki running_totals fonksiyonunu, her siparisten
+  sonraki kumulatif toplami dogru hesaplayacak bicimde duzelt; dekorator
+  sarmalayicisi korunsun ve billing/receipt.py dogru makbuz uretsin.
+
+reference_solution: |
+  cat > billing/totals.py <<'TOTALS'
+  from billing.ledger import Ledger
+
+
+  def recording_totals(fn):
+      def wrapper(ledger):
+          result = fn(ledger)
+          ledger._entries = list(ledger._entries)
+          return result
+      return wrapper
+
+
+  @recording_totals
+  def running_totals(ledger):
+      result = []
+      total = 0
+      for order_id, amount in ledger.entries():
+          total += amount
+          result.append((order_id, total))
+      return result
+  TOTALS
+
+outputs:
+  - {path: billing/totals.py, kind: program, run: 'python3 -c ''from billing.ledger import Ledger; from billing.receipt import render; l=Ledger(); l.add("a",10.0); l.add("b",5.5); l.add("c",2.25); assert render(l)=="a:10.00|b:15.50|c:17.75", render(l); l2=Ledger(); l2.add("x",1.0); assert render(l2)=="x:1.00"; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from billing.ledger import Ledger; from billing.receipt import render; l=Ledger(); l.add("a",10.0); l.add("b",5.5); l.add("c",2.25); assert render(l)=="a:10.00|b:15.50|c:17.75", render(l); l2=Ledger(); l2.add("x",1.0); assert render(l2)=="x:1.00"; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8041
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: siparis-kayitlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-toplama-sirasi
+      karmasiklik: duz
+      kalip: dekorator
+      akis: bellek-ici
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

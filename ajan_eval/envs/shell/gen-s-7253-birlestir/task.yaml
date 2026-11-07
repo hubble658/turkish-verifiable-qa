@@ -1,0 +1,88 @@
+id: gen-s-7253-birlestir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) hastalar.txt ve randevular.txt dosyalarını hasta numarasına göre birleştir.
+  2) Birleşen kayıtlardan bölüm adı küçük harfli olacak şekilde kardiyoloji.txt, ortopedi.txt ve noroloji.txt dosyalarını oluştur.
+  3) Her bölüm dosyasında her satırda hasta numarası, ad soyad, tarih ve saat dikey çizgi ile ayrılmış halde yer alsın.
+  4) Her bölüm dosyasındaki satırlar hasta numarasına göre artan sırada olsun.
+
+setup: |
+  cat > hastalar.txt <<'DATA'
+  101|Ayse Yilmaz|Kardiyoloji
+  102|Mehmet Demir|Ortopedi
+  103|Zeynep Kaya|Noroloji
+  104|Ali Celik|Kardiyoloji
+  105|Fatma Sahin|Ortopedi
+  DATA
+
+  cat > randevular.txt <<'DATA'
+  101|2024-03-01|09:30
+  103|2024-03-01|10:15
+  102|2024-03-02|11:00
+  105|2024-03-02|14:45
+  104|2024-03-03|08:00
+  DATA
+
+goal_tr: >
+  hastalar.txt ve randevular.txt dosyalarini hasta numarasina gore
+  birlestirip, her bolum icin ayri bir dosya olustur; bolum adi kucuk harfli
+  olacak (kardiyoloji.txt, ortopedi.txt, noroloji.txt) ve her satirda hasta
+  numarasi, ad soyad, tarih ve saat dikey cizgi ile ayrilmis halde, hasta
+  numarasina gore artan sirada yer alacak
+
+reference_solution: |
+  cut -d'|' -f1,2 hastalar.txt > h.tmp
+  cut -d'|' -f1,3 randevular.txt > r.tmp
+  join -t'|' h.tmp r.tmp > birlesik.tmp
+  cut -d'|' -f1,2,3 hastalar.txt > hh.tmp
+  cut -d'|' -f1,3,4 birlesik.tmp > rr.tmp
+  join -t'|' hh.tmp rr.tmp | sort -t'|' -k1,1n > tam.tmp
+  cut -d'|' -f3 tam.tmp > bolumler.tmp
+  cut -d'|' -f1,2,4,5 tam.tmp > satirlar.tmp
+  paste -d'|' bolumler.tmp satirlar.tmp > kayitlar.tmp
+  while IFS='|' read -r bolum no ad tarih saat; do
+    dosya=$(echo "$bolum" | tr 'A-Z' 'a-z').txt
+    echo "$no|$ad|$tarih|$saat" >> "$dosya"
+  done < kayitlar.tmp
+  rm -f h.tmp r.tmp birlesik.tmp hh.tmp rr.tmp tam.tmp bolumler.tmp satirlar.tmp kayitlar.tmp
+
+outputs:
+  - {path: kardiyoloji.txt, kind: file}
+  - {path: ortopedi.txt, kind: file}
+  - {path: noroloji.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: kardiyoloji.txt, value: '101|Ayse Yilmaz|09:30|'}
+  - {op: file_content_eq, path: noroloji.txt, value: '103|Zeynep Kaya|10:15|'}
+  - {op: file_content_eq, path: ortopedi.txt, value: '105|Fatma Sahin|14:45|'}
+
+metadata:
+  domain: birlestir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7253
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: hastane-randevulari
+    hedef: birlestir
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: birden-cok-dosya
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

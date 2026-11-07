@@ -1,0 +1,70 @@
+id: gen-s-3201-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri/istasyonlar altındaki .json dosyalarındaki istasyon adını ters çevirip sicaklik_c ile "ad:sicaklik" biçiminde satırlar üret, tekrarları at, sort ile sırala ve ozet.json'a geçerli bir JSON dizisi olarak yaz.
+
+setup: |
+  mkdir -p veri/istasyonlar
+  cat > veri/istasyonlar/ankara.json <<'JSON'
+  {"istasyon":"Ankara","sicaklik_c":21,"nem_pct":40}
+  JSON
+  cat > veri/istasyonlar/izmir.json <<'JSON'
+  {"istasyon":"Izmir","sicaklik_c":29,"nem_pct":55}
+  JSON
+  cat > veri/istasyonlar/ankara_yedek.json <<'JSON'
+  {"istasyon":"Ankara","sicaklik_c":21,"nem_pct":40}
+  JSON
+  cat > veri/istasyonlar/notlar.txt <<'TXT'
+  bu dosya json degil
+  TXT
+
+goal_tr: >
+  veri/istasyonlar altindaki .json dosyalarindan her birindeki istasyon
+  adini ters cevirip sicaklik_c degeriyle birlikte "ad:sicaklik" biciminde
+  tek satira yaz, ayni satirlari tekrar etmeden sort ile sirala ve sonucu
+  gecerli bir JSON dizisi olarak ozet.json dosyasina kaydet.
+
+reference_solution: |
+  find veri/istasyonlar -name '*.json' | sort | while read f; do
+    ad=$(sed 's/.*"istasyon":"\([^"]*\)".*/\1/' "$f" | rev)
+    s=$(sed 's/.*"sicaklik_c":\([0-9-]*\).*/\1/' "$f" | cut -d: -f1)
+    printf '%s:%s\n' "$ad" "$s"
+  done | sort -u > satirlar.txt
+  awk 'BEGIN{printf "["} {printf "%s\"%s\"", (NR>1?",":""), $0} END{print "]"}' satirlar.txt > ozet.json
+
+outputs:
+  - {path: ozet.json, kind: json}
+
+checks:
+  - {op: json_eq, path: ozet.json, value: ['araknA:21', 'rimzI:29']}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3201
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: hava-durumu-kayitlari
+    hedef: donustur
+    girdi: json
+    kaynak: cok-dosya
+    cikti: json
+    kesif: dosyayi-bul
+    uslup: terse
+    direnc: tekrar-eden-kayit
+    bukulme: olcek
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

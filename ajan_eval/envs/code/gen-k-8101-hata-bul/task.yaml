@@ -1,0 +1,122 @@
+id: gen-k-8101-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  pricing/summary.py içindeki summarize fonksiyonundan varsayılan seen={} parametresini kaldır; her çağrı sadece o çağrıda görülen ürünleri döndürsün ve toplam her seferinde doğru hesaplansın.
+
+setup: |
+  mkdir -p pricing
+  cat > pricing/catalog.py <<'CATALOG'
+  def load_catalog(path):
+      items = {}
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              sku, price = line.split(",")
+              items[sku] = float(price)
+      return items
+  CATALOG
+  cat > pricing/iterators.py <<'ITERATORS'
+  from pricing.catalog import load_catalog
+
+
+  class PriceStream:
+      def __init__(self, path, discount=0.0):
+          self._catalog = load_catalog(path)
+          self._discount = discount
+          self._keys = sorted(self._catalog)
+          self._pos = 0
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          if self._pos >= len(self._keys):
+              raise StopIteration
+          sku = self._keys[self._pos]
+          self._pos += 1
+          return sku, self._catalog[sku] * (1.0 - self._discount)
+  ITERATORS
+  cat > pricing/summary.py <<'SUMMARY'
+  from pricing.iterators import PriceStream
+
+
+  def summarize(path, skus, discount=0.0, seen={}):
+      total = 0.0
+      for sku, price in PriceStream(path, discount):
+          if sku in skus:
+              seen[sku] = price
+              total += price
+      return total, dict(seen)
+  SUMMARY
+  cat > prices.txt <<'PRICES'
+  apple,2.00
+  banana,1.50
+  cherry,4.00
+  PRICES
+
+goal_tr: >
+  pricing/summary.py icindeki summarize fonksiyonundaki cagrilar arasinda
+  biriken varsayilan sozlugu kaldir; her cagri yalnizca o cagride gorulen
+  urunleri dondursun ve toplam dogru hesaplansin.
+
+reference_solution: |
+  cat > pricing/summary.py <<'SUMMARY'
+  from pricing.iterators import PriceStream
+
+
+  def summarize(path, skus, discount=0.0):
+      total = 0.0
+      seen = {}
+      for sku, price in PriceStream(path, discount):
+          if sku in skus:
+              seen[sku] = price
+              total += price
+      return total, seen
+  SUMMARY
+
+outputs:
+  - {path: pricing/summary.py, kind: program, run: 'python3 -c ''from pricing.summary import summarize as s; t1,d1=s("prices.txt",{"apple","banana"}); assert abs(t1-3.50)<1e-9, t1; assert d1=={"apple":2.00,"banana":1.50}, d1; t2,d2=s("prices.txt",{"cherry"}); assert abs(t2-4.00)<1e-9, t2; assert d2=={"cherry":4.00}, d2; t3,d3=s("prices.txt",{"apple"},0.5); assert abs(t3-1.00)<1e-9, t3; assert d3=={"apple":1.00}, d3; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from pricing.summary import summarize as s; t1,d1=s("prices.txt",{"apple","banana"}); assert abs(t1-3.50)<1e-9, t1; assert d1=={"apple":2.00,"banana":1.50}, d1; t2,d2=s("prices.txt",{"cherry"}); assert abs(t2-4.00)<1e-9, t2; assert d2=={"cherry":4.00}, d2; t3,d3=s("prices.txt",{"apple"},0.5); assert abs(t3-1.00)<1e-9, t3; assert d3=={"apple":1.00}, d3; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8101
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: urun-fiyatlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: terse
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: mutable-varsayilan
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

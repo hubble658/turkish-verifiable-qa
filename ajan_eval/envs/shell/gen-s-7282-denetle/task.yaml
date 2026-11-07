@@ -1,0 +1,79 @@
+id: gen-s-7282-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  yorumlar klasöründeki urunA.txt ve urunB.txt içinde 5 ile başlayan satırları rapor/urunA.rapor ve rapor/urunB.rapor dosyalarına yaz; bunlardan rapor/urunA.sayi, rapor/urunB.sayi ve rapor/tum.rapor dosyalarını da oluştur.
+
+setup: |
+  mkdir -p yorumlar rapor
+  cat > yorumlar/urunA.txt <<'TXT'
+  5|harika urun|kargo hizli
+  1|berbat|kutu ezik
+  4|iyi|fiyat uygun
+  5|mukemmel|tekrar alirim
+  2|kotu|gec geldi
+  TXT
+  cat > yorumlar/urunB.txt <<'TXT'
+  5|super|sorunsuz
+  1|rezalet|yanlis urun
+  3|orta|idare eder
+  5|cok iyi|hizli kargo
+  2|kotu|iade ettim
+  TXT
+
+goal_tr: >
+  yorumlar klasorundeki her urunA.txt ve urunB.txt dosyasindaki 5 ile
+  baslayan satirlari grep ile suzup xargs ile urun basina ayri rapor
+  dosyasina yaz; rapor/urunA.rapor ve rapor/urunB.rapor dosyalarinda
+  yalnizca bu satirlar bulunsun
+
+reference_solution: |
+  grep '^5|' yorumlar/urunA.txt > rapor/urunA.rapor
+  grep '^5|' yorumlar/urunB.txt > rapor/urunB.rapor
+  find yorumlar -name 'urunB.txt' -print0 | xargs -0 -I{} grep -c '^5|' {} > rapor/urunB.sayi
+  find yorumlar -name 'urunA.txt' -print0 | xargs -0 -I{} grep -c '^5|' {} > rapor/urunA.sayi
+  cat rapor/urunA.rapor rapor/urunB.rapor > rapor/tum.rapor
+
+outputs:
+  - {path: rapor/urunA.rapor, kind: file}
+  - {path: rapor/urunB.rapor, kind: file}
+  - {path: rapor/urunA.sayi, kind: file}
+  - {path: rapor/urunB.sayi, kind: file}
+  - {path: rapor/tum.rapor, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: rapor/tum.rapor, value: [5|harika urun|kargo hizli, 5|mukemmel|tekrar alirim, 5|super|sorunsuz, 5|cok iyi|hizli kargo]}
+  - {op: file_lines_eq, path: rapor/urunA.rapor, value: [5|harika urun|kargo hizli, 5|mukemmel|tekrar alirim]}
+  - {op: file_content_eq, path: rapor/urunA.sayi, value: '2'}
+  - {op: file_lines_eq, path: rapor/urunB.rapor, value: [5|super|sorunsuz, 5|cok iyi|hizli kargo]}
+  - {op: file_content_eq, path: rapor/urunB.sayi, value: '2'}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7282
+    bundle: cok-dosya-ara
+    tools:
+    - xargs
+    - grep
+    konu: urun-yorumlari
+    hedef: denetle
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

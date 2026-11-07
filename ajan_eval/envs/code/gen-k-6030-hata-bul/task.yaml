@@ -1,0 +1,170 @@
+id: gen-k-6030-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) depo/kayit.py dosyasındaki stok_duzeyi fonksiyonunu, bilinmeyen bir ürün sorgulandığında KeyError yerine BilinmeyenUrun istisnası yükseltecek şekilde düzelt.
+
+  2) depo/rapor.py dosyasındaki ozet fonksiyonunu, stok yetersizliği durumunda ürün için YETERSIZ etiketi, bilinmeyen ürün durumunda ise YOK etiketi raporlanacak şekilde düzelt.
+
+setup: |
+  mkdir -p depo
+  cat > depo/kayit.py <<'KAYIT'
+  class EnvanterHatasi(Exception):
+      pass
+
+
+  class BilinmeyenUrun(EnvanterHatasi):
+      pass
+
+
+  class StokYetersiz(EnvanterHatasi):
+      pass
+
+
+  def stok_duzeyi(kayit, urun):
+      return kayit[urun]
+  KAYIT
+  cat > depo/rapor.py <<'RAPOR'
+  from depo.kayit import stok_duzeyi, BilinmeyenUrun, StokYetersiz
+
+
+  def kullan(kayit, urun, adet):
+      mevcut = stok_duzeyi(kayit, urun)
+      if mevcut < adet:
+          raise StokYetersiz(urun)
+      kayit[urun] = mevcut - adet
+      return kayit[urun]
+
+
+  def ozet(kayit, istekler):
+      satirlar = []
+      for urun, adet in istekler:
+          try:
+              kalan = kullan(kayit, urun, adet)
+          except StokYetersiz:
+              satirlar.append("%s:YOK" % urun)
+          except BilinmeyenUrun:
+              satirlar.append("%s:YETERSIZ" % urun)
+          else:
+              satirlar.append("%s:%d" % (urun, kalan))
+      return satirlar
+  RAPOR
+
+goal_tr: >
+  depo/kayit.py ve depo/rapor.py icindeki iki hatayi sirayla gider: once
+  bilinmeyen urun sorgusunda KeyError yerine BilinmeyenUrun istisnasi
+  yukseltilsin, sonra ozet fonksiyonunda stok yetersizligi YETERSIZ,
+  bilinmeyen urun YOK etiketiyle raporlansin.
+
+reference_solution: |
+  cat > depo/kayit.py <<'KAYIT'
+  class EnvanterHatasi(Exception):
+      pass
+
+
+  class BilinmeyenUrun(EnvanterHatasi):
+      pass
+
+
+  class StokYetersiz(EnvanterHatasi):
+      pass
+
+
+  def stok_duzeyi(kayit, urun):
+      if urun not in kayit:
+          raise BilinmeyenUrun(urun)
+      return kayit[urun]
+  KAYIT
+  cat > depo/rapor.py <<'RAPOR'
+  from depo.kayit import stok_duzeyi, BilinmeyenUrun, StokYetersiz
+
+
+  def kullan(kayit, urun, adet):
+      mevcut = stok_duzeyi(kayit, urun)
+      if mevcut < adet:
+          raise StokYetersiz(urun)
+      kayit[urun] = mevcut - adet
+      return kayit[urun]
+
+
+  def ozet(kayit, istekler):
+      satirlar = []
+      for urun, adet in istekler:
+          try:
+              kalan = kullan(kayit, urun, adet)
+          except BilinmeyenUrun:
+              satirlar.append("%s:YOK" % urun)
+          except StokYetersiz:
+              satirlar.append("%s:YETERSIZ" % urun)
+          else:
+              satirlar.append("%s:%d" % (urun, kalan))
+      return satirlar
+  RAPOR
+
+ara_adim: |
+  cat > depo/kayit.py <<'KAYIT'
+  class EnvanterHatasi(Exception):
+      pass
+
+
+  class BilinmeyenUrun(EnvanterHatasi):
+      pass
+
+
+  class StokYetersiz(EnvanterHatasi):
+      pass
+
+
+  def stok_duzeyi(kayit, urun):
+      if urun not in kayit:
+          raise BilinmeyenUrun(urun)
+      return kayit[urun]
+  KAYIT
+
+outputs:
+  - {path: depo/rapor.py, kind: program, run: 'python3 -c ''from depo.rapor import ozet as f; k={"elma":5}; r=f(k,[("elma",2),("elma",9),("armut",1)]); assert r==["elma:3","elma:YETERSIZ","armut:YOK"], r; print("TAMAM")'''}
+  - {path: depo/kayit.py, kind: program, run: 'python3 -c ''from depo.kayit import stok_duzeyi as f, BilinmeyenUrun; k={"elma":5}; assert f(k,"elma")==5; ok=[False]; exec("try:\n    f(k,\"armut\")\nexcept BilinmeyenUrun:\n    ok[0]=True"); assert ok[0]; print("ILERLEME-TAMAM")'''}
+  - {path: depo/kayit.py, kind: program, run: 'python3 -c ''from depo.kayit import EnvanterHatasi, BilinmeyenUrun, StokYetersiz; assert issubclass(BilinmeyenUrun, EnvanterHatasi); assert issubclass(StokYetersiz, EnvanterHatasi); assert BilinmeyenUrun is not StokYetersiz; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.kayit import stok_duzeyi as f, BilinmeyenUrun; k={"elma":5}; assert f(k,"elma")==5; ok=[False]; exec("try:\n    f(k,\"armut\")\nexcept BilinmeyenUrun:\n    ok[0]=True"); assert ok[0]; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.kayit import EnvanterHatasi, BilinmeyenUrun, StokYetersiz; assert issubclass(BilinmeyenUrun, EnvanterHatasi); assert issubclass(StokYetersiz, EnvanterHatasi); assert BilinmeyenUrun is not StokYetersiz; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.rapor import ozet as f; k={"elma":5}; r=f(k,[("elma",2),("elma",9),("armut",1)]); assert r==["elma:3","elma:YETERSIZ","armut:YOK"], r; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-6030
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: depo-envanteri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sozluk-anahtar-hatasi
+      karmasiklik: orta
+      kalip: istisna-hiyerarsisi
+      akis: bellek-ici
+      topoloji: iki-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

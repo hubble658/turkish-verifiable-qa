@@ -1,0 +1,196 @@
+id: gen-k-9607-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 28
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Okul kayıt sistemi üzerinde çalışırken öğrenci transkriptlerinden dönem özeti çıkaran küçük bir modülümüz var; geçenlerde bir öğrencinin not dökümünü verdik ve özet satırındaki ortalama ile en iyi ders adı bir türlü beklediğimiz gibi çıkmadı, iki değer de yanlış görünüyordu. Sorunun nereden kaynaklandığını anlamak için school/summary.py, school/record.py ve school/transcript.py dosyalarını gözden geçirmemiz gerekiyor. stdin'den transkript okunduğunda build_summary fonksiyonunun döndürdüğü özet metnindeki ortalama değeriyle en iyi ders adı birbiriyle tutarlı olsun; şu an ortalama tam sayıya yuvarlanıyor ve en iyi ders yanlış seçiliyor, bu yüzden özet metni hatalı çıkıyor. Bu üç dosyayı, özet doğru ortalamayı ve doğru en iyi dersi verecek şekilde düzeltir misin?
+
+setup: |
+  mkdir -p school
+  cat > school/__init__.py <<'INIT'
+  INIT
+  cat > school/record.py <<'REC'
+  class CourseRecord:
+      def __init__(self, name, grade):
+          self.name = name
+          self.grade = grade
+
+      def __lt__(self, other):
+          return self.grade > other.grade
+
+      def __eq__(self, other):
+          return self.name == other.name and self.grade == other.grade
+
+
+  def parse_records(text):
+      out = []
+      for line in text.strip().splitlines():
+          name, grade = line.split(',')
+          out.append(CourseRecord(name, int(grade)))
+      return out
+  REC
+  cat > school/transcript.py <<'TR'
+  from school.record import parse_records
+
+
+  def average(text):
+      recs = parse_records(text)
+      if not recs:
+          return 0.0
+      total = 0
+      for r in recs:
+          total += r.grade
+      return total // len(recs)
+
+
+  def top_course(text):
+      recs = parse_records(text)
+      if not recs:
+          return None
+      best = recs[0]
+      for r in recs:
+          if r > best:
+              best = r
+      return best.name
+  TR
+  cat > school/summary.py <<'SUM'
+  from school.transcript import average, top_course
+
+
+  def build_summary(text):
+      return "avg=%.1f top=%s" % (average(text), top_course(text))
+  SUM
+  cat > run_summary.py <<'RUN'
+  import sys
+  from school.summary import build_summary
+
+  data = sys.stdin.read()
+  print(build_summary(data))
+  RUN
+
+goal_tr: >
+  stdin'den transkript okundugunda donen ozet metnindeki ortalama ile en iyi
+  ders adi tutarli olsun; su an ortalama tam sayiya yuvarlaniyor ve en iyi
+  ders yanlis seciliyor, bu yuzden ozet yanlis.
+
+reference_solution: |
+  cat > school/record.py <<'REC'
+  class CourseRecord:
+      def __init__(self, name, grade):
+          self.name = name
+          self.grade = grade
+
+      def __lt__(self, other):
+          return self.grade < other.grade
+
+      def __eq__(self, other):
+          return self.name == other.name and self.grade == other.grade
+
+
+  def parse_records(text):
+      out = []
+      for line in text.strip().splitlines():
+          name, grade = line.split(',')
+          out.append(CourseRecord(name, int(grade)))
+      return out
+  REC
+  cat > school/transcript.py <<'TR'
+  from school.record import parse_records
+
+
+  def average(text):
+      recs = parse_records(text)
+      if not recs:
+          return 0.0
+      total = 0
+      for r in recs:
+          total += r.grade
+      return total / len(recs)
+
+
+  def top_course(text):
+      recs = parse_records(text)
+      if not recs:
+          return None
+      best = recs[0]
+      for r in recs:
+          if best < r:
+              best = r
+      return best.name
+  TR
+  cat > school/summary.py <<'SUM'
+  from school.transcript import average, top_course
+
+
+  def build_summary(text):
+      return "avg=%.1f top=%s" % (average(text), top_course(text))
+  SUM
+
+ara_adim: |
+  cat > school/record.py <<'REC'
+  class CourseRecord:
+      def __init__(self, name, grade):
+          self.name = name
+          self.grade = grade
+
+      def __lt__(self, other):
+          return self.grade < other.grade
+
+      def __eq__(self, other):
+          return self.name == other.name and self.grade == other.grade
+
+
+  def parse_records(text):
+      out = []
+      for line in text.strip().splitlines():
+          name, grade = line.split(',')
+          out.append(CourseRecord(name, int(grade)))
+      return out
+  REC
+
+outputs:
+  - {path: school/summary.py, kind: program, run: 'python3 -c ''import subprocess,sys; r=subprocess.run([sys.executable,"run_summary.py"],input="math,90\nart,75\n",capture_output=True,text=True); assert r.stdout.strip()=="avg=82.5 top=math", r.stdout; print("TAMAM")'''}
+  - {path: school/record.py, kind: program, run: 'python3 -c ''from school.record import CourseRecord as C; a=C("math",90); b=C("art",75); assert a>b; assert not (b>a); print("ILERLEME-TAMAM")'''}
+  - {path: school/transcript.py, kind: program, run: 'python3 -c ''from school.transcript import average as f; assert f("math,90\nart,75\n")==82.5; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from school.record import CourseRecord as C; a=C("math",90); b=C("art",75); assert a>b; assert not (b>a); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from school.transcript import average as f; assert f("math,90\nart,75\n")==82.5; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import subprocess,sys; r=subprocess.run([sys.executable,"run_summary.py"],input="math,90\nart,75\n",capture_output=True,text=True); assert r.stdout.strip()=="avg=82.5 top=math", r.stdout; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9607
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: ogrenci-transkripti
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kolay
+    adim: 11
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-karsilastirma
+      karmasiklik: derin
+      kalip: operator-asiri-yukleme
+      akis: stdin-boru
+      topoloji: yildiz
+      zincir: 3
+      regresyon: true
+      bagimli: true
+      kesif_zor: true

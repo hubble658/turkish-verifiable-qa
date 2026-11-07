@@ -1,0 +1,141 @@
+id: gen-k-5127-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  arena/pipeline.py içindeki build_round_reader, verilen metin akışından satır satır okuyup her `round` bloğunu {"round": int, "scores": {isim: puan}} sözlüğüne çevirsin ve bonusları arena/score/rules.py kurallarıyla uygulasın. Dönen closure her çağrıldığında bir sonraki bloğu döndürsün, blok kalmayınca StopIteration yükseltsin.
+
+setup: |
+  mkdir -p arena/parse arena/score
+  cat > arena/__init__.py <<'PY'
+  PY
+  cat > arena/parse/__init__.py <<'PY'
+  PY
+  cat > arena/score/__init__.py <<'PY'
+  PY
+  cat > arena/parse/tokens.py <<'PY'
+  def tokenize(line):
+      """Split a raw log line into (kind, payload) tokens.
+
+      Kinds: 'round', 'player', 'bonus', 'end'.
+      """
+      out = []
+      for chunk in line.split(';'):
+          chunk = chunk.strip()
+          if not chunk:
+              continue
+          head, _, rest = chunk.partition(':')
+          out.append((head.strip(), rest.strip()))
+      return out
+  PY
+  cat > arena/score/rules.py <<'PY'
+  def base_points(place):
+      table = {1: 10, 2: 6, 3: 3}
+      return table.get(place, 1)
+
+
+  def apply_bonus(points, bonus):
+      return points + bonus * 2
+  PY
+  cat > arena/pipeline.py <<'PY'
+  def build_round_reader(stream):
+      """Return a closure that yields one parsed round dict per call."""
+      raise NotImplementedError
+  PY
+
+goal_tr: >
+  arena/pipeline.py icindeki build_round_reader fonksiyonunu, verilen metin
+  akisindan satir satir okuyup her `round` blogunu {"round": int, "scores":
+  {isim: puan}} sozlugune ceviren ve bonuslari arena/score/rules.py
+  kurallariyla uygulayan bir closure dondurecek bicimde yaz; closure her
+  cagrildiginda bir sonraki blogu dondursun, blok kalmayinca StopIteration
+  yukseltsin.
+
+reference_solution: |
+  cat > arena/pipeline.py <<'PY'
+  from arena.parse.tokens import tokenize
+  from arena.score.rules import base_points, apply_bonus
+
+
+  def build_round_reader(stream):
+      """Return a closure that yields one parsed round dict per call."""
+      pending = []
+
+      for raw in stream:
+          line = raw.strip()
+          if not line:
+              continue
+          tokens = tokenize(line)
+          if not tokens:
+              continue
+          pending.append(tokens)
+
+      index = [0]
+
+      def next_round():
+          while index[0] < len(pending):
+              tokens = pending[index[0]]
+              index[0] += 1
+              if tokens[0][0] != 'round':
+                  continue
+              number = int(tokens[0][1])
+              scores = {}
+              for kind, payload in tokens[1:]:
+                  if kind == 'player':
+                      name, _, place = payload.partition('=')
+                      scores[name.strip()] = base_points(int(place))
+                  elif kind == 'bonus':
+                      name, _, amount = payload.partition('=')
+                      name = name.strip()
+                      if name in scores:
+                          scores[name] = apply_bonus(scores[name], int(amount))
+                      else:
+                          scores[name] = apply_bonus(0, int(amount))
+              return {"round": number, "scores": scores}
+          raise StopIteration
+
+      return next_round
+  PY
+
+outputs:
+  - {path: arena/pipeline.py, kind: program, run: 'python3 -c ''import io; from arena.pipeline import build_round_reader as b; s=io.StringIO("round:1;player:ana=1;player:bob=2;bonus:ana=3\nround:2;player:cy=3;player:ana=2\n"); r=b(s); a=r(); assert a=={"round":1,"scores":{"ana":16,"bob":6}}, a; c=r(); assert c=={"round":2,"scores":{"cy":3,"ana":6}}, c; done=[False]; exec("try:\n    r()\nexcept StopIteration:\n    done[0]=True"); assert done[0]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import io; from arena.pipeline import build_round_reader as b; s=io.StringIO("round:1;player:ana=1;player:bob=2;bonus:ana=3\nround:2;player:cy=3;player:ana=2\n"); r=b(s); a=r(); assert a=={"round":1,"scores":{"ana":16,"bob":6}}, a; c=r(); assert c=={"round":2,"scores":{"cy":3,"ana":6}}, c; done=[False]; exec("try:\n    r()\nexcept StopIteration:\n    done[0]=True"); assert done[0]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5127
+    bundle: yarisma
+    tools:
+    - python3
+    konu: oyun-skor-tablosu
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: metin-ayristirma
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: stdin-boru
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

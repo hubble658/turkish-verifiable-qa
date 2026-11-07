@@ -1,0 +1,106 @@
+id: gen-k-5056-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) restaurant/menu.txt dosyasını okuyup menüdeki her yemeğin fiyatını tutan bir OrderCache sınıfı yaz ve bunu restaurant/cache.py dosyasına kaydet.
+
+  2) OrderCache sınıfı, en son kullanılan kayıtları sınırlı sayıda saklayan bir LRU önbelleği olsun; önbellek kapasitesi aşıldığında en eski kullanılan kaydı atsın.
+
+  3) OrderCache sınıfına lookup(name) metodu ekle; bu metot çağrıldığında yemek adını fiyata eşleştirip önbelleğe koysun.
+
+  4) lookup(name) menüde olmayan bir ad için UnknownDishError adında, ValueError alt sınıfı olan bir hata yükseltsin.
+
+setup: |
+  mkdir -p restaurant
+  cat > restaurant/menu.txt <<'MENU'
+  margherita 12.50
+  pepperoni 14.00
+  quattro 15.75
+  marinara 11.00
+  carbonara 16.25
+  MENU
+
+goal_tr: >
+  restaurant/menu.txt dosyasini okuyup menudeki her yemegin fiyatini tutan
+  ve en son kullanilan kayitlari sinirli sayida saklayan bir LRU onbellek
+  sinifi (OrderCache) yaz; sinif `lookup(name)` cagrildiginda yemek adini
+  fiyata eslesterip onbellege koymali, onbellek kapasitesi asildiginda en
+  eski kullanilan kaydi atmalidir ve menude olmayan bir ad icin
+  `UnknownDishError` (ValueError alt sinifi) yukseltmelidir.
+
+reference_solution: |
+  cat > restaurant/cache.py <<'CACHE'
+  class UnknownDishError(ValueError):
+      pass
+
+
+  class OrderCache:
+      def __init__(self, path, capacity=2):
+          self.capacity = capacity
+          self._menu = {}
+          with open(path) as fh:
+              for line in fh:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  name, price = line.split()
+                  self._menu[name] = float(price)
+          self._order = []
+
+      def lookup(self, name):
+          if name not in self._menu:
+              raise UnknownDishError(name)
+          if name in self._order:
+              self._order.remove(name)
+          self._order.append(name)
+          if len(self._order) > self.capacity:
+              self._order.pop(0)
+          return self._menu[name]
+
+      def cached(self):
+          return list(self._order)
+  CACHE
+
+outputs:
+  - {path: restaurant/cache.py, kind: program, run: 'python3 -c ''from restaurant.cache import OrderCache, UnknownDishError; c=OrderCache("restaurant/menu.txt", capacity=2); assert c.lookup("margherita")==12.50; assert c.lookup("pepperoni")==14.00; assert c.cached()==["margherita","pepperoni"]; c.lookup("margherita"); assert c.cached()==["pepperoni","margherita"]; c.lookup("carbonara"); assert c.cached()==["margherita","carbonara"]; ok=[False]; exec("try:\n    c.lookup(\"sushi\")\nexcept UnknownDishError:\n    ok[0]=True"); assert ok[0]; assert issubclass(UnknownDishError, ValueError); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from restaurant.cache import OrderCache, UnknownDishError; c=OrderCache("restaurant/menu.txt", capacity=2); assert c.lookup("margherita")==12.50; assert c.lookup("pepperoni")==14.00; assert c.cached()==["margherita","pepperoni"]; c.lookup("margherita"); assert c.cached()==["pepperoni","margherita"]; c.lookup("carbonara"); assert c.cached()==["margherita","carbonara"]; ok=[False]; exec("try:\n    c.lookup(\"sushi\")\nexcept UnknownDishError:\n    ok[0]=True"); assert ok[0]; assert issubclass(UnknownDishError, ValueError); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5056
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: restoran-siparisleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: lru-onbellek
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: dosya-okuma
+      topoloji: tek-modul
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,111 @@
+id: gen-k-5023-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) fleet/loaders.py dosyasındaki make_capacity_lookup fonksiyonunu, döndürdüğü closure bilinmeyen bir kategori veya bilinmeyen bir birim kimliği ile çağrıldığında KeyError yerine 0 döndürecek şekilde düzelt.
+
+setup: |
+  mkdir -p fleet
+  cat > fleet/registry.py <<'REG'
+  def make_registry():
+      return {
+          "vans": {"V1": 120, "V2": 90},
+          "trucks": {"T1": 300, "T2": 450},
+      }
+  REG
+  cat > fleet/loaders.py <<'LOAD'
+  from fleet.registry import make_registry
+
+
+  def make_capacity_lookup():
+      registry = make_registry()
+
+      def lookup(category, unit_id):
+          return registry[category][unit_id]
+
+      return lookup
+  LOAD
+  cat > fleet/summary.py <<'SUM'
+  from fleet.loaders import make_capacity_lookup
+
+
+  def total_capacity(pairs):
+      lookup = make_capacity_lookup()
+      return sum(lookup(cat, uid) for cat, uid in pairs)
+  SUM
+  cat > fleet/audit.py <<'AUD'
+  from fleet.loaders import make_capacity_lookup
+
+
+  def heaviest(pairs):
+      lookup = make_capacity_lookup()
+      best = None
+      for cat, uid in pairs:
+          cap = lookup(cat, uid)
+          if best is None or cap > best[2]:
+              best = (cat, uid, cap)
+      return best
+  AUD
+
+goal_tr: >
+  fleet/loaders.py icindeki make_capacity_lookup fonksiyonunun dondurdugu
+  closure'i, bilinmeyen kategori veya birim kimligi icin KeyError yerine 0
+  dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > fleet/loaders.py <<'LOAD'
+  from fleet.registry import make_registry
+
+
+  def make_capacity_lookup():
+      registry = make_registry()
+
+      def lookup(category, unit_id):
+          return registry.get(category, {}).get(unit_id, 0)
+
+      return lookup
+  LOAD
+
+outputs:
+  - {path: fleet/loaders.py, kind: program, run: 'python3 -c ''from fleet.summary import total_capacity as t; from fleet.audit import heaviest as h; assert t([("vans","V1"),("trucks","T2")])==570; assert t([("vans","V2"),("boats","B9")])==90; assert t([("planes","P1"),("vans","V9")])==0; assert h([("vans","V1"),("trucks","T2"),("boats","B9")])==("trucks","T2",450); assert h([("boats","B9"),("planes","P1")])==("boats","B9",0); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.summary import total_capacity as t; from fleet.audit import heaviest as h; assert t([("vans","V1"),("trucks","T2")])==570; assert t([("vans","V2"),("boats","B9")])==90; assert t([("planes","P1"),("vans","V9")])==0; assert h([("vans","V1"),("trucks","T2"),("boats","B9")])==("trucks","T2",450); assert h([("boats","B9"),("planes","P1")])==("boats","B9",0); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5023
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: arac-filosu
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sozluk-anahtar-hatasi
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: bellek-ici
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

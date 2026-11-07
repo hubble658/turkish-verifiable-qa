@@ -1,0 +1,74 @@
+id: gen-s-4166-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  muhasebe dizin ağacındaki tüm kayıt.json dosyalarındaki kalem-tutar çiftlerini kaleme göre topla ve her kalem için ozet/<kalem>.txt dosyasına sadece toplam tutarı yaz. Örneğin kira kalemi için ozet/kira.txt, yakit kalemi için ozet/yakit.txt oluşturulsun; her dosyada yalnızca ilgili kalemin toplam tutarı yer alsın.
+
+setup: |
+  mkdir -p muhasebe/2024/ocak muhasebe/2024/subat muhasebe/2023/aralik
+  cat > muhasebe/2024/ocak/kayit.json <<'EOF'
+  {"kalem": "kira", "tutar": 1200}
+  {"kalem": "yakit", "tutar": 340}
+  {"kalem": "kira", "tutar": 1200}
+  EOF
+  cat > muhasebe/2024/subat/kayit.json <<'EOF'
+  {"kalem": "yakit", "tutar": 210}
+  {"kalem": "kira", "tutar": 1200}
+  EOF
+  cat > muhasebe/2023/aralik/kayit.json <<'EOF'
+  {"kalem": "yakit", "tutar": 500}
+  EOF
+  printf '{"kalem": "kira", "tutar": 999}\r\n{"kalem": "yakit", "tutar": 111}\r\n' > muhasebe/2024/ocak/ek.json
+
+goal_tr: >
+  muhasebe dizin agacindaki tum kayit.json dosyalarindaki kalem-tutar
+  ciftlerini kaleme gore toplayip her kalem icin ozet/<kalem>.txt dosyasina
+  sadece toplam tutari yaz
+
+reference_solution: |
+  find muhasebe -name 'kayit.json' > dosyalar.txt
+  xargs cat < dosyalar.txt | tr -d '\r' | grep -o '"kalem": *"[a-z]*", *"tutar": *[0-9]*' > ciftler.txt
+  sed 's/.*"kalem": *"\([a-z]*\)", *"tutar": *\([0-9]*\)/\1 \2/' ciftler.txt > kalem_tutar.txt
+  awk '{toplam[$1]+=$2} END {for (k in toplam) print k, toplam[k]}' kalem_tutar.txt > toplamlar.txt
+  mkdir -p ozet
+  xargs -a toplamlar.txt -n2 sh -c 'echo "$1" > ozet/"$0".txt'
+
+outputs:
+  - {path: ozet, kind: dir}
+  - {path: ozet/kira.txt, kind: file}
+  - {path: ozet/yakit.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: ozet, value: [kira.txt, yakit.txt]}
+  - {op: file_content_eq, path: ozet/kira.txt, value: '3600'}
+  - {op: file_content_eq, path: ozet/yakit.txt, value: '1050'}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4166
+    bundle: cok-dosya-ara
+    tools:
+    - xargs
+    - grep
+    konu: muhasebe-kalemleri
+    hedef: ozetle
+    girdi: json
+    kaynak: dizin-agaci
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: duz-hedef
+    direnc: crlf
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,101 @@
+id: gen-s-3074-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  ölçümler dizin ağacındaki her istasyon için, o istasyondaki tüm ölçüm dosyalarındaki sıcaklık değerlerinin en yükseğini bul. cikti dizininde, istasyon adıyla aynı adlı bir alt dizin oluştur ve içine sadece o en yüksek değeri yazan bir en_yuksek.txt dosyası koy. cikti dizin yapısı girdi istasyon yapısını yansıtsın: cikti/istasyon_a/en_yuksek.txt, cikti/istasyon_b/en_yuksek.txt ve cikti/istasyon_c/en_yuksek.txt dosyaları oluşturulsun.
+
+  Şu şartlar sağlanmalı:
+  - cikti dizini oluşturulmuş olmalı.
+  - cikti/istasyon_a/en_yuksek.txt, cikti/istasyon_b/en_yuksek.txt ve cikti/istasyon_c/en_yuksek.txt dosyaları oluşturulmuş olmalı.
+  - Her en_yuksek.txt dosyası yalnızca ilgili istasyondaki tüm ölçüm dosyalarındaki en yüksek sıcaklık değerini içermeli; başka hiçbir sayı, etiket veya açıklama bulunmamalı.
+  - istasyon_a için en yüksek sıcaklık 25, istasyon_b için 33, istasyon_c için 15 olmalı.
+
+setup: |
+  mkdir -p olcumler/istasyon_a olcumler/istasyon_b olcumler/istasyon_c
+  cat > olcumler/istasyon_a/sicaklik.txt <<'DATA'
+  S01 0023 C
+  S02 0025 C
+  S03 0019 C
+  DATA
+  cat > olcumler/istasyon_b/sicaklik.txt <<'DATA'
+  S01 0031 C
+  S02 0028 C
+  S03 0033 C
+  DATA
+  cat > olcumler/istasyon_c/sicaklik.txt <<'DATA'
+  S01 0012 C
+  S02 0015 C
+  S03 0011 C
+  DATA
+  cat > olcumler/istasyon_a/nem.txt <<'DATA'
+  S01 0045 %
+  S02 0050 %
+  S03 0048 %
+  DATA
+  cat > olcumler/istasyon_b/nem.txt <<'DATA'
+  S01 0060 %
+  S02 0062 %
+  S03 0058 %
+  DATA
+  cat > olcumler/istasyon_c/nem.txt <<'DATA'
+  S01 0070 %
+  S02 0068 %
+  S03 0072 %
+  DATA
+
+goal_tr: >
+  olcumler dizin agacindaki her istasyon icin, o istasyondaki tum olcum
+  dosyalarindaki sicaklik degerlerinin en yuksegini bulup, cikti dizininde
+  istasyon adiyla ayni adli bir alt dizin olusturup icine sadece o en yuksek
+  degeri yazan bir sonuc dosyasi koy (cikti dizin yapisi girdi istasyon
+  yapisini yansitsin)
+
+reference_solution: |
+  find olcumler -type d -mindepth 1 | sort | while read -r istasyon; do
+    ad=$(basename "$istasyon")
+    mkdir -p cikti/"$ad"
+    grep ' C$' "$istasyon"/*.txt | awk '{print $3}' | sort -n | tail -n 1 > cikti/"$ad"/en_yuksek.txt
+  done
+  find cikti -type d -mindepth 1 | sort | xargs -I{} sh -c 'test -f {}/en_yuksek.txt || echo eksik: {}'
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/istasyon_a/en_yuksek.txt, kind: file}
+  - {path: cikti/istasyon_b/en_yuksek.txt, kind: file}
+  - {path: cikti/istasyon_c/en_yuksek.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [istasyon_a, istasyon_b, istasyon_c]}
+  - {op: file_content_eq, path: cikti/istasyon_a/en_yuksek.txt, value: C}
+  - {op: file_content_eq, path: cikti/istasyon_b/en_yuksek.txt, value: C}
+  - {op: file_content_eq, path: cikti/istasyon_c/en_yuksek.txt, value: C}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3074
+    bundle: cok-dosya-ara
+    tools:
+    - xargs
+    - grep
+    konu: sensor-olcumleri
+    hedef: denetle
+    girdi: sabit-genislik
+    kaynak: dizin-agaci
+    cikti: dizin-yapisi
+    kesif: veriye-bak
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

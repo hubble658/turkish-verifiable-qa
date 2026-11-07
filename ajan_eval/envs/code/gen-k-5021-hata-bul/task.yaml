@@ -1,0 +1,153 @@
+id: gen-k-5021-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sensors/rules.py dosyasındaki breached_only fonksiyonu, evaluate fonksiyonunun döndürdüğü sonuçlardaki ihlalleri yanlış süzüyor. breached_only fonksiyonunu, yalnızca breached değeri True olan kayıtları doğru biçimde süzecek ve her ihlal için (sensor_id, seq) ikililerini döndürecek şekilde düzelt.
+
+setup: |
+  mkdir -p sensors
+  cat > sensors/units.py <<'UNITS'
+  KELVIN_OFFSET = 273.15
+
+
+  def celsius_to_kelvin(c):
+      return c + KELVIN_OFFSET
+
+
+  def fahrenheit_to_celsius(f):
+      return (f - 32.0) * 5.0 / 9.0
+  UNITS
+  cat > sensors/readings.py <<'READINGS'
+  from sensors.units import celsius_to_kelvin
+
+
+  def normalize(reading):
+      """Return (sensor_id, kelvin, seq) with kelvin as a float."""
+      sid, value, unit, seq = reading
+      if unit == "C":
+          kelvin = celsius_to_kelvin(value)
+      elif unit == "K":
+          kelvin = value
+      else:
+          raise ValueError("unknown unit: " + unit)
+      return (sid, kelvin, seq)
+  READINGS
+  cat > sensors/rules.py <<'RULES'
+  from sensors.readings import normalize
+
+  # A rule is (sensor_id, threshold_kelvin, direction) where direction is
+  # "above" or "below". A breach is reported as (sensor_id, seq, breached)
+  # with breached being a bool.
+  RULES = [
+      ("boiler", 373.15, "above"),
+      ("freezer", 255.15, "below"),
+  ]
+
+
+  def evaluate(readings):
+      results = []
+      for reading in readings:
+          sid, kelvin, seq = normalize(reading)
+          for rule_sid, threshold, direction in RULES:
+              if rule_sid != sid:
+                  continue
+              if direction == "above":
+                  breached = kelvin > threshold
+              else:
+                  breached = kelvin < threshold
+              results.append((sid, seq, breached))
+      return results
+
+
+  def breached_only(readings):
+      out = []
+      for sid, seq, breached in evaluate(readings):
+          if breached == "yes":
+              out.append((sid, seq))
+      return out
+  RULES
+
+goal_tr: >
+  sensors/rules.py icindeki breached_only fonksiyonunu, evaluate sonucundaki
+  ihlalleri (breached degeri True olanlari) dogru suzup (sensor_id, seq)
+  ciftleri dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > sensors/rules.py <<'RULES'
+  from sensors.readings import normalize
+
+  # A rule is (sensor_id, threshold_kelvin, direction) where direction is
+  # "above" or "below". A breach is reported as (sensor_id, seq, breached)
+  # with breached being a bool.
+  RULES = [
+      ("boiler", 373.15, "above"),
+      ("freezer", 255.15, "below"),
+  ]
+
+
+  def evaluate(readings):
+      results = []
+      for reading in readings:
+          sid, kelvin, seq = normalize(reading)
+          for rule_sid, threshold, direction in RULES:
+              if rule_sid != sid:
+                  continue
+              if direction == "above":
+                  breached = kelvin > threshold
+              else:
+                  breached = kelvin < threshold
+              results.append((sid, seq, breached))
+      return results
+
+
+  def breached_only(readings):
+      out = []
+      for sid, seq, breached in evaluate(readings):
+          if breached is True:
+              out.append((sid, seq))
+      return out
+  RULES
+
+outputs:
+  - {path: sensors/rules.py, kind: program, run: 'python3 -c ''from sensors.rules import breached_only as f; rs=[("boiler",400.0,"K",1),("boiler",300.0,"K",2),("freezer",250.0,"K",3),("freezer",260.0,"K",4)]; assert f(rs)==[("boiler",1),("freezer",3)], f(rs); assert f([])==[]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensors.rules import breached_only as f; rs=[("boiler",400.0,"K",1),("boiler",300.0,"K",2),("freezer",250.0,"K",3),("freezer",260.0,"K",4)]; assert f(rs)==[("boiler",1),("freezer",3)], f(rs); assert f([])==[]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5021
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: sensor-alarm-kurallari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: tip-karismasi
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: bellek-ici
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

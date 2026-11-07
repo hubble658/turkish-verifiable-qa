@@ -1,0 +1,218 @@
+id: gen-k-2001-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  docs/store.py ve docs/index.py içindeki NotImplementedError gövdelerini gerçek uygulamayla doldur; öyle ki stdin'den satır satır okunan her belge bağlı listeye eklensin ve ardından belge sayısı ile tüm token'lar sırayla üretilebilsin. run_index.py hiç değiştirilmeden çalışmaya devam etsin. docs/store.py içindeki DocList sınıfının append, to_list ve count metotları ile docs/index.py içindeki DocIndex sınıfının add_document, all_tokens ve document_count metotları bu işi yapacak şekilde gerçeklenmeli. docs/tokenizer.py dosyasındaki tokenize fonksiyonu kullanılmalı; belge ekleme ve token üretme bu dosyadaki mantığa dayansın. run_index.py her satır için add_document çağırıp sonunda document_count ve all_tokens çıktısını yazdırdığına göre, bu iki dosyadaki uygulama bu akışı bozmadan çalışmalı.
+
+setup: |
+  mkdir -p docs
+  cat > docs/tokenizer.py <<'TOK'
+  def tokenize(text):
+      return [w for w in text.split() if w]
+  TOK
+  cat > docs/store.py <<'STORE'
+  from dataclasses import dataclass
+
+
+  @dataclass
+  class Node:
+      value: str
+      next: "Node" = None
+
+
+  class DocList:
+      def __init__(self):
+          self.head = None
+          self.size = 0
+
+      def append(self, value):
+          raise NotImplementedError
+
+      def to_list(self):
+          raise NotImplementedError
+
+      def count(self):
+          raise NotImplementedError
+  STORE
+  cat > docs/index.py <<'IDX'
+  from docs.store import DocList
+  from docs.tokenizer import tokenize
+
+
+  class DocIndex:
+      def __init__(self):
+          self.docs = DocList()
+
+      def add_document(self, text):
+          raise NotImplementedError
+
+      def all_tokens(self):
+          raise NotImplementedError
+
+      def document_count(self):
+          raise NotImplementedError
+  IDX
+  cat > run_index.py <<'RUN'
+  import sys
+  from docs.index import DocIndex
+
+  index = DocIndex()
+  for line in sys.stdin:
+      line = line.rstrip("\n")
+      if line:
+          index.add_document(line)
+  print(index.document_count())
+  print(" ".join(index.all_tokens()))
+  RUN
+
+goal_tr: >
+  docs/store.py ve docs/index.py icindeki NotImplementedError govdelerini,
+  stdin'den satir satir okunan belgeleri bagli listeye ekleyip belge
+  sayisini ve tum token'lari sirayla uretecek sekilde gercek uygulamayla
+  doldur; run_index.py degismeden calissin.
+
+reference_solution: |
+  cat > docs/store.py <<'STORE'
+  from dataclasses import dataclass
+
+
+  @dataclass
+  class Node:
+      value: str
+      next: "Node" = None
+
+
+  class DocList:
+      def __init__(self):
+          self.head = None
+          self.size = 0
+
+      def append(self, value):
+          node = Node(value)
+          if self.head is None:
+              self.head = node
+          else:
+              cur = self.head
+              while cur.next is not None:
+                  cur = cur.next
+              cur.next = node
+          self.size += 1
+
+      def to_list(self):
+          out = []
+          cur = self.head
+          while cur is not None:
+              out.append(cur.value)
+              cur = cur.next
+          return out
+
+      def count(self):
+          return self.size
+  STORE
+  cat > docs/index.py <<'IDX'
+  from docs.store import DocList
+  from docs.tokenizer import tokenize
+
+
+  class DocIndex:
+      def __init__(self):
+          self.docs = DocList()
+
+      def add_document(self, text):
+          self.docs.append(text)
+
+      def all_tokens(self):
+          result = []
+          for doc in self.docs.to_list():
+              result.extend(tokenize(doc))
+          return result
+
+      def document_count(self):
+          return self.docs.count()
+  IDX
+
+ara_adim: |
+  cat > docs/store.py <<'STORE'
+  from dataclasses import dataclass
+
+
+  @dataclass
+  class Node:
+      value: str
+      next: "Node" = None
+
+
+  class DocList:
+      def __init__(self):
+          self.head = None
+          self.size = 0
+
+      def append(self, value):
+          node = Node(value)
+          if self.head is None:
+              self.head = node
+          else:
+              cur = self.head
+              while cur.next is not None:
+                  cur = cur.next
+              cur.next = node
+          self.size += 1
+
+      def to_list(self):
+          out = []
+          cur = self.head
+          while cur is not None:
+              out.append(cur.value)
+              cur = cur.next
+          return out
+
+      def count(self):
+          return self.size
+  STORE
+
+outputs:
+  - {path: docs/index.py, kind: program, run: 'python3 -c ''import subprocess,sys; r=subprocess.run([sys.executable,"run_index.py"],input="hello world\nfoo bar baz\n",capture_output=True,text=True); assert r.stdout=="2\nhello world foo bar baz\n", repr(r.stdout); print("TAMAM")'''}
+  - {path: docs/store.py, kind: program, run: 'python3 -c ''from docs.store import DocList; d=DocList(); d.append("a"); d.append("b"); assert d.count()==2, d.count(); assert d.to_list()==["a","b"], d.to_list(); print("ILERLEME-TAMAM")'''}
+  - {path: docs/tokenizer.py, kind: program, run: 'python3 -c ''from docs.tokenizer import tokenize; assert tokenize("  a   b ")==["a","b"], tokenize("  a   b "); assert tokenize("")==[]; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import subprocess,sys; r=subprocess.run([sys.executable,"run_index.py"],input="hello world\nfoo bar baz\n",capture_output=True,text=True); assert r.stdout=="2\nhello world foo bar baz\n", repr(r.stdout); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from docs.store import DocList; d=DocList(); d.append("a"); d.append("b"); assert d.count()==2, d.count(); assert d.to_list()==["a","b"], d.to_list(); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-2001
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: metin-belgeleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: bagli-liste
+      karmasiklik: orta
+      kalip: dataclass-dogrulama
+      akis: stdin-boru
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

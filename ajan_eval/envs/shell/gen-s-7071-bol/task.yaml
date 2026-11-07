@@ -1,0 +1,87 @@
+id: gen-s-7071-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  olcumler.tsv dosyasındaki satırları ilk alana göre ayır: sensorA, sensorB ve sensorC için ayrı ayrı sensorA.tsv, sensorB.tsv ve sensorC.tsv dosyaları oluştur. Her dosyada yalnızca ilgili sensöre ait satırlar kalsın. Ardından her sensörün toplam satır sayısını ozet.json dosyasına geçerli JSON olarak yaz.
+
+  Şu şartlar sağlanmalı:
+  - sensorA.tsv yalnızca ilk alanı sensorA olan satırları içermeli.
+  - sensorB.tsv yalnızca ilk alanı sensorB olan satırları içermeli.
+  - sensorC.tsv yalnızca ilk alanı sensorC olan satırları içermeli.
+  - sensorA.tsv, sensorB.tsv ve sensorC.tsv dosyalarındaki satırlar olcumler.tsv içindeki özgün biçimini korumalı.
+  - ozet.json geçerli JSON biçiminde olmalı.
+  - ozet.json içinde sensorA, sensorB ve sensorC için toplam satır sayıları yer almalı.
+  - notlar.txt dosyasına dokunulmamalı.
+
+setup: |
+  cat > olcumler.tsv <<'TSV'
+  sensorA	12	23.5
+  sensorB	7	19.1
+  sensorA	9	21.0
+  sensorC	15	25.4
+  sensorB	3	18.2
+  sensorA	11	20.7
+  sensorC	6	24.9
+  TSV
+  touch notlar.txt
+
+goal_tr: >
+  olcumler.tsv dosyasindaki satirlari ilk alana gore sensorA, sensorB ve
+  sensorC icin ayri dosyalara bol; her dosyada yalnizca o sensorun satirlari
+  kalsin ve toplam satir sayilari ozet.json icine gecerli JSON olarak
+  yazilsin.
+
+reference_solution: |
+  awk -F'\t' '$1=="sensorA"' olcumler.tsv > sensorA.tsv
+  awk -F'\t' '$1=="sensorB"' olcumler.tsv > sensorB.tsv
+  awk -F'\t' '$1=="sensorC"' olcumler.tsv > sensorC.tsv
+  {
+    printf '{\n'
+    printf '  "sensorA": %s,\n' "$(head -n 1000 sensorA.tsv | wc -l)"
+    printf '  "sensorB": %s,\n' "$(head -n 1000 sensorB.tsv | wc -l)"
+    printf '  "sensorC": %s\n' "$(head -n 1000 sensorC.tsv | wc -l)"
+    printf '}\n'
+  } > ozet.json
+  tail -n 3 ozet.json
+
+outputs:
+  - {path: sensorA.tsv, kind: lines}
+  - {path: sensorB.tsv, kind: lines}
+  - {path: sensorC.tsv, kind: lines}
+  - {path: ozet.json, kind: json}
+
+checks:
+  - {op: json_eq, path: ozet.json, value: {sensorA: 3, sensorB: 2, sensorC: 2}}
+  - {op: file_lines_eq, path: sensorA.tsv, value: ["sensorA\t12\t23.5", "sensorA\t9\t21.0", "sensorA\t11\t20.7"]}
+  - {op: file_lines_eq, path: sensorB.tsv, value: ["sensorB\t7\t19.1", "sensorB\t3\t18.2"]}
+  - {op: file_lines_eq, path: sensorC.tsv, value: ["sensorC\t15\t25.4", "sensorC\t6\t24.9"]}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7071
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: sensor-olcumleri
+    hedef: bol
+    girdi: tsv
+    kaynak: tek-dosya
+    cikti: json
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: baslik-yok
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

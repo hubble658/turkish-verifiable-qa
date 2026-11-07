@@ -1,0 +1,76 @@
+id: gen-s-3094-toplu-yeniden-adlandir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  vardiya klasöründeki tüm .json uzantılı dosyaları tara. Her bir .json dosyasının içindeki gun alanını oku ve o dosyayı gun değerine göre YYYY-AA-GG.json biçiminde yeniden adlandır. Örneğin gun değeri 2024-05-01 olan dosyalar vardiya/2024-05-01.json adını almalı, gun değeri 2024-05-02 olan dosya vardiya/2024-05-02.json adını almalı. .json uzantılı olmayan dosyalara, özellikle vardiya/notlar.txt dosyasına dokunma; onların adı ve içeriği değişmemeli.
+
+  Şu şartlar sağlanmalı:
+  - vardiya klasöründeki her .json dosyası, içindeki gun alanındaki değere göre YYYY-AA-GG.json biçiminde yeniden adlandırılmış olmalı.
+  - gun değeri 2024-05-01 olan dosyalar vardiya/2024-05-01.json adıyla, gun değeri 2024-05-02 olan dosya vardiya/2024-05-02.json adıyla bulunmalı.
+  - vardiya/notlar.txt dosyası adı ve içeriği değişmeden yerinde durmalı.
+  - .json uzantılı olmayan hiçbir dosya yeniden adlandırılmamalı.
+
+setup: |
+  mkdir -p vardiya
+  cat > vardiya/v1.json <<'J'
+  {"gun":"2024-05-01","vardiya":"sabah","personel":"Ali"}
+  J
+  cat > vardiya/v2.json <<'J'
+  {"gun":"2024-05-01","vardiya":"aksam","personel":"Ayse"}
+  J
+  cat > vardiya/v3.json <<'J'
+  {"gun":"2024-05-02","vardiya":"gece","personel":"Mehmet"}
+  J
+  cat > vardiya/notlar.txt <<'T'
+  bu dosya json degil
+  T
+
+goal_tr: >
+  vardiya klasorundeki .json uzantili dosyalari tara, her birinin icindeki
+  gun alanini oku ve o dosyayi gun degerine gore YYYY-AA-GG.json biciminde
+  yeniden adlandir; json olmayan dosyalara dokunma.
+
+reference_solution: |
+  find vardiya -type f -name '*.json' | xargs -I{} sh -c 'g=$(grep -o "\"gun\":\"[0-9-]*\"" "{}" | cut -d: -f2 | tr -d "\""); mv "{}" "vardiya/$g.json"'
+
+outputs:
+  - {path: vardiya/2024-05-01.json, kind: file}
+  - {path: vardiya/2024-05-02.json, kind: file}
+  - {path: vardiya/notlar.txt, kind: file}
+
+checks:
+  - {op: json_eq, path: vardiya/2024-05-01.json, value: {gun: '2024-05-01', vardiya: aksam, personel: Ayse}}
+  - {op: json_eq, path: vardiya/2024-05-02.json, value: {gun: '2024-05-02', vardiya: gece, personel: Mehmet}}
+  - {op: not_exists, path: vardiya/v1.json}
+  - {op: not_exists, path: vardiya/v2.json}
+  - {op: not_exists, path: vardiya/v3.json}
+
+metadata:
+  domain: toplu-yeniden-adlandir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3094
+    bundle: bul-tasi
+    tools:
+    - find
+    - xargs
+    konu: personel-vardiyalari
+    hedef: toplu-yeniden-adlandir
+    girdi: json
+    kaynak: cok-dosya
+    cikti: json
+    kesif: veriye-bak
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

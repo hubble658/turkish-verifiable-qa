@@ -1,0 +1,216 @@
+id: gen-k-9628-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) bank/reports/pairs.py dosyasındaki find_pair fonksiyonunu, aynı metin üzerinde art arda çağrıldığında her seferinde doğru çifti bulacak şekilde düzelt.
+
+  2) bank/ledger/stream.py dosyasındaki EntryStream akışını, akış bağlamı kapandıktan sonra da aynı akışın yeniden tüketilebilmesini sağlayacak şekilde düzelt.
+
+  3) bank/ledger/parse.py dosyasındaki ayrıştırmayı, negatif tutarlı hareketlerin toplamda doğru yorumlanmasını sağlayacak şekilde düzelt.
+
+setup: |
+  mkdir -p bank/ledger bank/reports
+  cat > bank/ledger/parse.py <<'PY'
+  def parse_entries(text):
+      rows = []
+      for line in text.splitlines():
+          line = line.strip()
+          if not line:
+              continue
+          parts = line.split(',')
+          rows.append((parts[0], int(parts[1])))
+      return rows
+  PY
+  cat > bank/ledger/stream.py <<'PY'
+  from bank.ledger.parse import parse_entries
+
+
+  class EntryStream:
+      def __init__(self, text):
+          self._rows = parse_entries(text)
+          self._i = 0
+
+      def __enter__(self):
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self._rows = []
+          return False
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          if self._i >= len(self._rows):
+              raise StopIteration
+          row = self._rows[self._i]
+          self._i += 1
+          return row
+  PY
+  cat > bank/reports/pairs.py <<'PY'
+  from bank.ledger.stream import EntryStream
+
+
+  def find_pair(text, target):
+      with EntryStream(text) as stream:
+          rows = list(stream)
+      lo = 0
+      hi = len(rows) - 1
+      while lo < hi:
+          total = rows[lo][1] + rows[hi][1]
+          if total == target:
+              return (rows[lo][0], rows[hi][0])
+          if total < target:
+              hi -= 1
+          else:
+              lo += 1
+      return None
+  PY
+  cat > data.csv <<'CSV'
+  salary,5000
+  coffee,-4
+  rent,-1500
+  bonus,200
+  books,-40
+  CSV
+
+goal_tr: >
+  Banka hareketleri metnini okuyup iki farkli hareketin tutar toplami hedefe
+  esit olan cifti donduren kodu oyle duzelt ki find_pair ayni metin uzerinde
+  art arda cagrildiginda her seferinde dogru cifti bulsun, akis baglami
+  kapandiktan sonra da ayni akis yeniden tuketilebilsin ve negatif tutarli
+  hareketler toplamda dogru yorumlansin.
+
+reference_solution: |
+  cat > bank/ledger/parse.py <<'PY'
+  def parse_entries(text):
+      rows = []
+      for line in text.splitlines():
+          line = line.strip()
+          if not line:
+              continue
+          parts = line.split(',')
+          rows.append((parts[0], int(parts[1])))
+      return rows
+  PY
+  cat > bank/ledger/stream.py <<'PY'
+  from bank.ledger.parse import parse_entries
+
+
+  class EntryStream:
+      def __init__(self, text):
+          self._rows = parse_entries(text)
+          self._i = 0
+
+      def __enter__(self):
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self._i = 0
+          return False
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          if self._i >= len(self._rows):
+              raise StopIteration
+          row = self._rows[self._i]
+          self._i += 1
+          return row
+  PY
+  cat > bank/reports/pairs.py <<'PY'
+  from bank.ledger.stream import EntryStream
+
+
+  def find_pair(text, target):
+      with EntryStream(text) as stream:
+          rows = sorted(stream, key=lambda r: r[1])
+      lo = 0
+      hi = len(rows) - 1
+      while lo < hi:
+          total = rows[lo][1] + rows[hi][1]
+          if total == target:
+              return (rows[lo][0], rows[hi][0])
+          if total < target:
+              lo += 1
+          else:
+              hi -= 1
+      return None
+  PY
+
+ara_adim: |
+  cat > bank/ledger/stream.py <<'PY'
+  from bank.ledger.parse import parse_entries
+
+
+  class EntryStream:
+      def __init__(self, text):
+          self._rows = parse_entries(text)
+          self._i = 0
+
+      def __enter__(self):
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self._i = 0
+          return False
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          if self._i >= len(self._rows):
+              raise StopIteration
+          row = self._rows[self._i]
+          self._i += 1
+          return row
+  PY
+
+outputs:
+  - {path: bank/reports/pairs.py, kind: program, run: 'python3 -c ''from bank.reports.pairs import find_pair as f; t=open("data.csv").read(); assert f(t,4996)==("coffee","salary"), f(t,4996); assert f(t,160)==("books","bonus"), f(t,160); print("TAMAM")'''}
+  - {path: bank/ledger/stream.py, kind: program, run: 'python3 -c ''from bank.ledger.stream import EntryStream as S; t=open("data.csv").read(); s=S(t); s.__enter__(); n1=len(list(s)); s.__exit__(None,None,None); n2=len(list(s)); assert n1==5, n1; assert n2==5, n2; print("ILERLEME-TAMAM")'''}
+  - {path: bank/ledger/parse.py, kind: program, run: 'python3 -c ''from bank.ledger.parse import parse_entries as f; r=f(open("data.csv").read()); assert r==[("salary",5000),("coffee",-4),("rent",-1500),("bonus",200),("books",-40)], r; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from bank.ledger.stream import EntryStream as S; t=open("data.csv").read(); s=S(t); s.__enter__(); n1=len(list(s)); s.__exit__(None,None,None); n2=len(list(s)); assert n1==5, n1; assert n2==5, n2; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from bank.reports.pairs import find_pair as f; t=open("data.csv").read(); assert f(t,4996)==("coffee","salary"), f(t,4996); assert f(t,160)==("books","bonus"), f(t,160); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from bank.ledger.parse import parse_entries as f; r=f(open("data.csv").read()); assert r==[("salary",5000),("coffee",-4),("rent",-1500),("bonus",200),("books",-40)], r; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9628
+    bundle: yarisma
+    tools:
+    - python3
+    konu: banka-hareketleri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: iki-isaretci
+      karmasiklik: derin
+      kalip: context-manager
+      akis: cok-dosya-birlestirme
+      topoloji: paket-alt-paket
+      zincir: 3
+      regresyon: true
+      bagimli: true
+      kesif_zor: true

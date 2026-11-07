@@ -1,0 +1,67 @@
+id: gen-s-3035-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  yorumlar dizinindeki her .txt dosyasını ele alarak, içinde en az 4 puan içeren satırları puan sırasına göre büyükten küçüğe seç ve bu satırların tamamını tek bir liste halinde ciktilar.txt dosyasına yaz. Boş olan veya hiç uygun satırı bulunmayan dosyaları atla.
+
+setup: |
+  mkdir -p yorumlar
+  cat > yorumlar/urun_a.txt <<'EOF'
+  2024-01-01 kullanici1 5 harika urun
+  2024-01-02 kullanici2 1 berbat
+  2024-01-03 kullanici3 4 iyi
+  EOF
+  cat > yorumlar/urun_b.txt <<'EOF'
+  2024-02-01 kullanici4 2 kotu
+  2024-02-02 kullanici5 5 mukemmel
+  EOF
+  cat > yorumlar/urun_c.txt <<'EOF'
+  bos
+  EOF
+
+goal_tr: >
+  yorumlar dizinindeki her .txt dosyasindan en az 4 puan iceren satirlari
+  puan sirasina gore (buyukten kucuge) secip tum satirlari tek bir liste
+  olarak ciktilar.txt dosyasina yaz; bos veya hic uygun satiri olmayan
+  dosyalar atlanir.
+
+reference_solution: |
+  grep -h -E ' [4-5] ' yorumlar/*.txt > /tmp/aday.txt
+  sort -t' ' -k3,3nr /tmp/aday.txt > ciktilar.txt
+  wc -l < ciktilar.txt
+
+outputs:
+  - {path: ciktilar.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: ciktilar.txt, value: [2024-01-01 kullanici1 5 harika urun, 2024-02-02 kullanici5 5 mukemmel, 2024-01-03 kullanici3 4 iyi]}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3035
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: urun-yorumlari
+    hedef: ayikla
+    girdi: log-satiri
+    kaynak: cok-dosya
+    cikti: satir-listesi
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: bos-dosya
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

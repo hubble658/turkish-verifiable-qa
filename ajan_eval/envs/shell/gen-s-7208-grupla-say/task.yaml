@@ -1,0 +1,79 @@
+id: gen-s-7208-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  `olcumler/sicaklik.json` ve `olcumler/nem.json` dosyalarındaki her sensör için, iki dosyadaki toplam kayıt sayısını hesapla. Sonucu sensör koduna göre alfabetik sıralı olarak, her satırda sensör kodu ve sayı bir sekme (TAB) ile ayrılmış biçimde `sensor_sayilari.txt` dosyasına yaz.
+
+  Şu şartlar sağlanmalı:
+  - `sensor_sayilari.txt` dosyası oluşturulmalı.
+  - Her sensör için sayı, `olcumler/sicaklik.json` ve `olcumler/nem.json` dosyalarındaki kayıtların toplamı olmalı.
+  - Satırlar sensör koduna göre alfabetik sıralı olmalı.
+  - Her satır `SENSOR<TAB>SAYI` biçiminde olmalı; sensör kodu ile sayı arasında sekme karakteri bulunmalı.
+  - Dosyada yalnızca bu satırlar yer almalı.
+
+setup: |
+  mkdir -p olcumler
+  cat > olcumler/sicaklik.json <<'JSON'
+  [
+    {"sensor": "S1", "deger": 21},
+    {"sensor": "S2", "deger": 19},
+    {"sensor": "S1", "deger": 23},
+    {"sensor": "S3", "deger": 25},
+    {"sensor": "S2", "deger": 20},
+    {"sensor": "S1", "deger": 22}
+  ]
+  JSON
+  cat > olcumler/nem.json <<'JSON'
+  [
+    {"sensor": "S1", "deger": 40},
+    {"sensor": "S3", "deger": 55},
+    {"sensor": "S2", "deger": 45},
+    {"sensor": "S1", "deger": 42},
+    {"sensor": "S3", "deger": 50},
+    {"sensor": "S2", "deger": 47}
+  ]
+  JSON
+
+goal_tr: >
+  olcumler/sicaklik.json ve olcumler/nem.json dosyalarindaki her sensor icin
+  kayit sayisini iki dosyadaki toplam uzerinden hesaplayip, sensor koduna
+  gore alfabetik sirali olarak "SENSOR<TAB>SAYI" biciminde satir listesi
+  halinde sensor_sayilari.txt dosyasina yaz.
+
+reference_solution: |
+  awk -F'"' '{ if ($2 == "sensor") { sensor = $4; sayi[sensor]++ } } END { for (s in sayi) print s "\t" sayi[s] }' olcumler/sicaklik.json olcumler/nem.json | sort > sensor_sayilari.txt
+
+outputs:
+  - {path: sensor_sayilari.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: sensor_sayilari.txt, value: ["S1\t5", "S2\t4", "S3\t3"]}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7208
+    bundle: awk
+    tools:
+    - awk
+    konu: sensor-olcumleri
+    hedef: grupla-say
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

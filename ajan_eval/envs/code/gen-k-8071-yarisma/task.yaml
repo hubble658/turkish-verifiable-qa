@@ -1,0 +1,150 @@
+id: gen-k-8071-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Küçük lojistik ekibinde rota planlaması artık elle yapılamayacak kadar sıkıştı; gün boyu gelen sevkiyat taleplerini yetiştirmeye çalışırken basit bir yol bulma aracına ihtiyaç duyduk. Depo ağındaki düğümler ve kenar maliyetleri zaten `routes/segments.py` ile `routes/graph.py` içinde çözümleniyor, ağın kendisi de `network.txt` dosyasında duruyor; eksik kalan tek parça bunları kullanan planlayıcı.
+
+  `routes/planner.py` içindeki `RoutePlanner` sınıfını tamamla. `greedy_path` metodu, verilen başlangıç düğümünden hedef düğüme giderken her adımda en ucuz komşuyu seçerek açgözlü bir yol üretsin. `total_cost` metodu ise verilen yolun kenar maliyetlerinin toplamını döndürsün. Sınıftaki hiçbir metot `NotImplementedError` fırlatmasın.
+
+setup: |
+  mkdir -p routes
+  cat > routes/segments.py <<'SEG'
+  def parse_segments(text):
+      """Parse 'A>B:5' lines into a list of (start, end, cost) tuples."""
+      edges = []
+      for line in text.strip().splitlines():
+          line = line.strip()
+          if not line:
+              continue
+          pair, cost = line.split(':')
+          start, end = pair.split('>')
+          edges.append((start.strip(), end.strip(), int(cost)))
+      return edges
+  SEG
+  cat > routes/graph.py <<'GRAPH'
+  from routes.segments import parse_segments
+
+
+  def build_graph(text):
+      """Build adjacency dict: node -> list of (neighbor, cost), sorted by cost."""
+      graph = {}
+      for start, end, cost in parse_segments(text):
+          graph.setdefault(start, []).append((end, cost))
+          graph.setdefault(end, [])
+      for node in graph:
+          graph[node].sort(key=lambda e: (e[1], e[0]))
+      return graph
+  GRAPH
+  cat > routes/planner.py <<'PLANNER'
+  from routes.graph import build_graph
+
+
+  class RoutePlanner:
+      def __init__(self, text):
+          self.graph = build_graph(text)
+
+      def greedy_path(self, start, goal):
+          raise NotImplementedError
+
+      def total_cost(self, path):
+          raise NotImplementedError
+  PLANNER
+  cat > network.txt <<'NET'
+  A>B:1
+  A>C:4
+  B>C:1
+  B>D:5
+  C>D:2
+  D>E:3
+  NET
+
+goal_tr: >
+  routes/planner.py icindeki RoutePlanner sinifini, greedy_path en ucuz
+  komsuyu secerek acgozlu bir yol uretecek ve total_cost o yolun kenar
+  maliyetleri toplamini dondurecek bicimde gerceklestir; hicbir metot
+  NotImplementedError firlatmasin.
+
+reference_solution: |
+  cat > routes/planner.py <<'PLANNER'
+  from routes.graph import build_graph
+
+
+  class RoutePlanner:
+      def __init__(self, text):
+          self.graph = build_graph(text)
+
+      def greedy_path(self, start, goal):
+          if start not in self.graph:
+              return []
+          path = [start]
+          visited = {start}
+          current = start
+          while current != goal:
+              neighbors = [
+                  (n, c) for n, c in self.graph.get(current, [])
+                  if n not in visited
+              ]
+              if not neighbors:
+                  return []
+              nxt = min(neighbors, key=lambda e: (e[1], e[0]))[0]
+              path.append(nxt)
+              visited.add(nxt)
+              current = nxt
+          return path
+
+      def total_cost(self, path):
+          if len(path) < 2:
+              return 0
+          total = 0
+          for i in range(len(path) - 1):
+              a, b = path[i], path[i + 1]
+              for n, c in self.graph.get(a, []):
+                  if n == b:
+                      total += c
+                      break
+          return total
+  PLANNER
+
+outputs:
+  - {path: routes/planner.py, kind: program, run: 'python3 -c ''from routes.planner import RoutePlanner as R; t=open("network.txt").read(); p=R(t); assert p.greedy_path("A","E")==["A","B","C","D","E"], p.greedy_path("A","E"); assert p.total_cost(["A","B","C","D","E"])==7; assert p.greedy_path("A","C")==["A","B","C"]; assert p.total_cost(["A","B","C"])==2; assert p.greedy_path("E","A")==[]; assert p.total_cost(["A"])==0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from routes.planner import RoutePlanner as R; t=open("network.txt").read(); p=R(t); assert p.greedy_path("A","E")==["A","B","C","D","E"], p.greedy_path("A","E"); assert p.total_cost(["A","B","C","D","E"])==7; assert p.greedy_path("A","C")==["A","B","C"]; assert p.total_cost(["A","B","C"])==2; assert p.greedy_path("E","A")==[]; assert p.total_cost(["A"])==0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8071
+    bundle: yarisma
+    tools:
+    - python3
+    konu: yol-tarifi-agi
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: acgozlu
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: ic-ice-yapi
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

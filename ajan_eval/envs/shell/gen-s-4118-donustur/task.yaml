@@ -1,0 +1,68 @@
+id: gen-s-4118-donustur
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kalemler.log'daki GELIR tutarlarından aynı satırdaki GIDER tutarını çıkar, tüm farkların toplamını sonuc.txt'ye sadece sayı olarak yaz.
+
+setup: |
+  cat > kalemler.log <<'LOG'
+  1001|GELIR|1250
+  1002|GIDER|340
+  1003|GELIR|980
+  1004|GIDER|120
+  1005|GELIR|1500
+  1006|GIDER|75
+  1007|GELIR|640
+  1008|GIDER|210
+  1009|GELIR|1100
+  1010|GIDER|95
+  LOG
+
+goal_tr: >
+  kalemler.log dosyasindaki her GELIR satirinin tutarindan ayni satirdaki
+  GIDER tutarini dusup, tum farklarin toplamini sonuc.txt'ye sadece sayi
+  olarak yaz
+
+reference_solution: |
+  sed -n 's/^[0-9]*|GELIR|\([0-9]*\)$/\1/p' kalemler.log > gelir.txt
+  sed -n 's/^[0-9]*|GIDER|\([0-9]*\)$/\1/p' kalemler.log > gider.txt
+  tr '\n' '+' < gelir.txt | sed 's/+$//' > gelir_ifade.txt
+  tr '\n' '+' < gider.txt | sed 's/+$//' > gider_ifade.txt
+  echo "$(cat gelir_ifade.txt)-($(cat gider_ifade.txt))" > ifade.txt
+  sed 's/.*/echo $((&))/' ifade.txt | bash > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '4630'}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4118
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: muhasebe-kalemleri
+    hedef: donustur
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

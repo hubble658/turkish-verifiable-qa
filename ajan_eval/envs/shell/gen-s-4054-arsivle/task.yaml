@@ -1,0 +1,81 @@
+id: gen-s-4054-arsivle
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  notlar.tar.gz arşivini açıp içindeki .ini dosyalarını BOM temizleyerek arsiv-dizini/ altına aynı dizin yapısıyla çıkar; arşivdeki .ini dışındaki dosyalar dışarıda kalsın. Sonuçta arsiv-dizini/notlar.ini ve arsiv-dizini/bom.ini dosyaları oluşsun.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/notlar.ini <<'INI'
+  [ogrenci]
+  ad = Ayse
+  no = 101
+  not = 85
+
+  [ogrenci]
+  ad = Mehmet
+  no = 102
+  not = 90
+  INI
+  printf '\xef\xbb\xbf' > girdi/bom.ini
+  cat >> girdi/bom.ini <<'INI'
+  [ogrenci]
+  ad = Zeynep
+  no = 103
+  not = 75
+  INI
+  tar -czf notlar.tar.gz -C girdi .
+  rm -rf girdi
+
+goal_tr: >
+  notlar.tar.gz arsivini once gzip ile acip sonra tar ile cozerek icindeki
+  .ini dosyalarini BOM temizleyerek arsiv-dizini/ altina ayni dizin
+  yapisiyla cikar, arsivdeki .ini disindaki dosyalari disarida birak
+
+reference_solution: |
+  mkdir -p arsiv-dizini
+  gzip -dc notlar.tar.gz | tar -xf - -C arsiv-dizini
+  find arsiv-dizini -name '*.ini' -type f -print0 | while IFS= read -r -d '' dosya; do
+    sed -i '1s/^\xef\xbb\xbf//' "$dosya"
+  done
+  find arsiv-dizini -type f ! -name '*.ini' -delete
+
+outputs:
+  - {path: arsiv-dizini, kind: dir}
+  - {path: arsiv-dizini/notlar.ini, kind: file}
+  - {path: arsiv-dizini/bom.ini, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: arsiv-dizini, value: [bom.ini, notlar.ini]}
+  - {op: file_lines_eq, path: arsiv-dizini/bom.ini, value: ['[ogrenci]', ad = Zeynep, no = 103, not = 75]}
+  - {op: file_lines_eq, path: arsiv-dizini/notlar.ini, value: ['[ogrenci]', ad = Ayse, no = 101, not = 85, '[ogrenci]', ad = Mehmet, no = 102, not = 90]}
+
+metadata:
+  domain: arsivle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4054
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: ogrenci-notlari
+    hedef: arsivle
+    girdi: ini
+    kaynak: tarball
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: bom
+    bukulme: tuzak-dosya
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,73 @@
+id: gen-s-7020-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  randevular.tsv dosyasındaki her bölüm için kaç randevu olduğunu bölüm adına göre alfabetik sıralı olarak, her bölüm adı anahtar ve randevu sayısı değer olacak şekilde {"bolum": sayi} biçiminde geçerli JSON içeren bolumler.json dosyasını oluştur.
+
+setup: |
+  cat > randevular.tsv <<'TSV'
+  hasta	tarih	bolum	durum
+  Ayse Yilmaz	2024-03-04	Kardiyoloji	tamamlandi
+  Mehmet Demir	2024-03-04	Dahiliye	tamamlandi
+  Fatma Kaya	2024-03-05	Kardiyoloji	iptal
+  Ali Vural	2024-03-05	Ortopedi	tamamlandi
+  Zeynep Ak	2024-03-06	Dahiliye	beklemede
+  Hasan Celik	2024-03-06	Kardiyoloji	tamamlandi
+  Emine Su	2024-03-07	Ortopedi	iptal
+  TSV
+
+goal_tr: >
+  randevular.tsv dosyasindaki her bolum icin kac randevu oldugunu bolum
+  adina gore alfabetik sirali, {"bolum": sayi} biciminde gecerli JSON olarak
+  bolumler.json dosyasina yaz
+
+reference_solution: |
+  tail -n +2 randevular.tsv | cut -f3 | sort | uniq -c | awk '{print $2"\t"$1}' | sort > sayim.tsv
+  {
+    printf '{\n'
+    sep=""
+    while IFS=$'\t' read -r bolum sayi; do
+      printf '%s  "%s": %s' "$sep" "$bolum" "$sayi"
+      sep=",
+  "
+    done < sayim.tsv
+    printf '\n}\n'
+  } > bolumler.json
+  rm -f sayim.tsv
+  cat bolumler.json | tee /dev/null > /dev/null
+
+outputs:
+  - {path: bolumler.json, kind: json}
+
+checks:
+  - {op: json_eq, path: bolumler.json, value: {Dahiliye: 2, Kardiyoloji: 3, Ortopedi: 2}}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7020
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: hastane-randevulari
+    hedef: bol
+    girdi: tsv
+    kaynak: tek-dosya
+    cikti: json
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

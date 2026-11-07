@@ -1,0 +1,69 @@
+id: gen-s-3090-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Öğrenci işleriyle uğraşırken iki ayrı dosyayı yan yana koyup karşılaştırmak bazen epey zaman alıyor; hele dönem sonunda devamsızlık yüzünden kalanları ayıklamak gerektiğinde işler iyice karışıyor. Bugün de elimde notlar ve devam durumu ayrı ayrı tutulmuş, bir de boş bir dosya var ki ne olduğunu ben de tam bilmiyorum. /workspace altındaki sinif/notlar.txt ile sinif/devam.txt dosyalarını öğrenci numarası üzerinden eşleştirip, her iki dosyada da karşılığı bulunan öğrencilerden devam sayısı 0 olanların satırlarını "no ad not devam" sırasıyla gecersiz.txt dosyasına yazmanı istiyorum. sinif/bos.txt dosyası zaten boş olduğu için oradan gecersiz.txt'ye hiçbir satır gelmemeli.
+
+setup: |
+  mkdir -p sinif
+  cat > sinif/notlar.txt <<'TXT'
+  101 Ali 85
+  102 Ayse 90
+  103 Can 70
+  104 Deniz 60
+  105 Ece 95
+  TXT
+  cat > sinif/devam.txt <<'TXT'
+  101 12
+  102 10
+  103 0
+  104 7
+  TXT
+  : > sinif/bos.txt
+
+goal_tr: >
+  sinif/notlar.txt ile sinif/devam.txt dosyalarini ilk alan (ogrenci no)
+  uzerinden caprazla; her iki dosyada da karsiligi olan ogrencilerden devam
+  sayisi 0 olanlarin satirlarini "no ad not devam" biciminde gecersiz.txt
+  dosyasina yaz, sinif/bos.txt bos oldugu icin bu dosyadan hicbir satir
+  gelmemeli.
+
+reference_solution: |
+  awk 'NR==FNR{d[$1]=$2; next} ($1 in d){print $1, $2, $3, d[$1]}' sinif/devam.txt sinif/notlar.txt > /tmp/birlesik.txt
+  awk '$4==0' /tmp/birlesik.txt > gecersiz.txt
+  awk 'END{print NR}' gecersiz.txt
+
+outputs:
+  - {path: gecersiz.txt, kind: lines}
+
+checks:
+  - {op: file_content_eq, path: gecersiz.txt, value: 103 Can 70 0}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3090
+    bundle: awk
+    tools:
+    - awk
+    konu: ogrenci-notlari
+    hedef: dogrula
+    girdi: log-satiri
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: veriye-bak
+    uslup: baglam-gomulu
+    direnc: bos-dosya
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,77 @@
+id: gen-s-7076-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  olcumler klasöründeki sensor_ ile başlayan tüm CSV dosyalarını oku. Her dosyadaki sensor-deger çiftlerini birleştir ve her sensor için toplam değeri hesapla. Sonuçları toplam.json dosyasına {"sensor": toplam, ...} biçiminde geçerli JSON olarak yaz.
+
+setup: |
+  mkdir -p olcumler
+  cat > olcumler/sensor_a.csv <<'CSV'
+  sensor,deger
+  S1,10
+  S2,20
+  S1,30
+  S2,40
+  CSV
+  cat > olcumler/sensor_b.csv <<'CSV'
+  sensor,deger
+  S1,5
+  S3,15
+  S1,25
+  S3,35
+  CSV
+  cat > olcumler/sensor_c.csv <<'CSV'
+  sensor,deger
+  S2,100
+  S4,200
+  S2,300
+  S4,400
+  CSV
+
+goal_tr: >
+  olcumler klasorundeki her sensor_*.csv dosyasindaki sensor-deger
+  ciftlerini birlestirip her sensor icin toplam degeri hesaplayarak
+  toplam.json dosyasina {"sensor": toplam, ...} biciminde gecerli JSON
+  olarak yaz
+
+reference_solution: |
+  cat olcumler/sensor_*.csv | grep -v '^sensor,' > /tmp/all.csv
+  sort -t, -k1,1 /tmp/all.csv > /tmp/sorted.csv
+  awk -F, '{a[$1]+=$2} END{for (k in a) print k","a[k]}' /tmp/sorted.csv | sort -t, -k1,1 > /tmp/totals.csv
+  join -t, -1 1 -2 1 <(sort -t, -k1,1 /tmp/totals.csv) <(sort -t, -k1,1 /tmp/totals.csv) | awk -F, 'BEGIN{printf "{"} {if(NR>1)printf ","; printf "\"%s\":%s", $1, $2} END{print "}"}' > toplam.json
+
+outputs:
+  - {path: toplam.json, kind: json}
+
+checks:
+  - {op: json_eq, path: toplam.json, value: {S1: 70, S2: 460, S3: 50, S4: 600}}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7076
+    bundle: birlestir
+    tools:
+    - join
+    - sort
+    konu: sensor-olcumleri
+    hedef: ozetle
+    girdi: json
+    kaynak: cok-dosya
+    cikti: json
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

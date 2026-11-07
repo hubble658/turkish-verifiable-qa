@@ -1,0 +1,179 @@
+id: gen-k-6017-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 20
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  weblog/parser.py içindeki parse_entry fonksiyonunu ve weblog/report.py içindeki StatusCounter sınıfının count_ok metodunu, access.log satırlarındaki istekleri doğru ayrıştırıp başarılı (status < 400) ve başarısız (status >= 400) istekleri doğru sayacak şekilde düzelt. StatusCounter sınıfının öznitelik ve metot adları değişmemeli. weblog/reader.py dosyasındaki read_lines fonksiyonu satırları okumak için kullanılmaya devam etmeli.
+
+  Şu şartlar sağlanmalı:
+  - weblog/parser.py dosyasındaki parse_entry fonksiyonu access.log satırlarını doğru şekilde ayrıştırmalı ve her satırdan doğru ip ile status değerlerini çıkarmalı.
+  - weblog/report.py dosyasındaki StatusCounter sınıfının count_ok metodu yalnızca status değeri 400'den küçük olan istekleri başarılı saymalı.
+  - StatusCounter sınıfının count_failed metodu status değeri 400 ve üzeri olan istekleri başarısız saymaya devam etmeli.
+  - StatusCounter sınıfının öznitelik ve metot adları (entries, count_ok, count_failed, summary) değişmemeli.
+  - weblog/reader.py dosyasındaki read_lines fonksiyonu okuma için kullanılmalı ve dosya adıyla birlikte korunmalı.
+  - access.log dosyasındaki örnek satırlar üzerinde summary çıktısı ok=2 failed=3 olmalı.
+
+setup: |
+  mkdir -p weblog
+  cat > weblog/reader.py <<'READER'
+  def read_lines(path):
+      with open(path, "r", encoding="utf-8") as fh:
+          return [ln.strip() for ln in fh if ln.strip()]
+  READER
+  cat > weblog/parser.py <<'PARSER'
+  from weblog.reader import read_lines
+
+
+  def parse_entry(line):
+      parts = line.split(" ")
+      ip = parts[0]
+      status = int(parts[0])
+      return {"ip": ip, "status": status}
+
+
+  def load_entries(path):
+      return [parse_entry(ln) for ln in read_lines(path)]
+  PARSER
+  cat > weblog/report.py <<'REPORT'
+  from weblog.parser import load_entries
+
+
+  class StatusCounter:
+      def __init__(self, path):
+          self.entries = load_entries(path)
+
+      def count_ok(self):
+          total = 0
+          for e in self.entries:
+              if e["status"] > 400:
+                  total += 1
+          return total
+
+      def count_failed(self):
+          total = 0
+          for e in self.entries:
+              if e["status"] >= 400:
+                  total += 1
+          return total
+
+      def summary(self):
+          return "ok=%d failed=%d" % (self.count_ok(), self.count_failed())
+  REPORT
+  cat > access.log <<'LOG'
+  10.0.0.1 GET /index 200
+  10.0.0.2 GET /missing 404
+  10.0.0.3 POST /login 302
+  10.0.0.4 GET /admin 403
+  10.0.0.5 GET /boom 500
+  LOG
+
+goal_tr: >
+  weblog/parser.py icindeki parse_entry fonksiyonu ile weblog/report.py
+  icindeki StatusCounter sinifinin count_ok metodu, access.log satirlarini
+  dogru ayristirip basarili (status < 400) ve basarisiz (status >= 400)
+  istekleri dogru sayacak bicimde duzeltilsin; sinifin oznitelik ve metot
+  adlari degismesin.
+
+reference_solution: |
+  cat > weblog/parser.py <<'PARSER'
+  from weblog.reader import read_lines
+
+
+  def parse_entry(line):
+      parts = line.split(" ")
+      ip = parts[0]
+      status = int(parts[-1])
+      return {"ip": ip, "status": status}
+
+
+  def load_entries(path):
+      return [parse_entry(ln) for ln in read_lines(path)]
+  PARSER
+  cat > weblog/report.py <<'REPORT'
+  from weblog.parser import load_entries
+
+
+  class StatusCounter:
+      def __init__(self, path):
+          self.entries = load_entries(path)
+
+      def count_ok(self):
+          total = 0
+          for e in self.entries:
+              if e["status"] < 400:
+                  total += 1
+          return total
+
+      def count_failed(self):
+          total = 0
+          for e in self.entries:
+              if e["status"] >= 400:
+                  total += 1
+          return total
+
+      def summary(self):
+          return "ok=%d failed=%d" % (self.count_ok(), self.count_failed())
+  REPORT
+
+ara_adim: |
+  cat > weblog/parser.py <<'PARSER'
+  from weblog.reader import read_lines
+
+
+  def parse_entry(line):
+      parts = line.split(" ")
+      ip = parts[0]
+      status = int(parts[-1])
+      return {"ip": ip, "status": status}
+
+
+  def load_entries(path):
+      return [parse_entry(ln) for ln in read_lines(path)]
+  PARSER
+
+outputs:
+  - {path: weblog/report.py, kind: program, run: 'python3 -c ''from weblog.report import StatusCounter as C; c=C("access.log"); assert c.summary()=="ok=2 failed=3", c.summary(); assert c.count_ok()==2; assert c.count_failed()==3; print("TAMAM")'''}
+  - {path: weblog/parser.py, kind: program, run: 'python3 -c ''from weblog.parser import parse_entry as f; assert f("10.0.0.1 GET /index 200")=={"ip":"10.0.0.1","status":200}, f("10.0.0.1 GET /index 200"); assert f("10.0.0.5 GET /boom 500")=={"ip":"10.0.0.5","status":500}; print("ILERLEME-TAMAM")'''}
+  - {path: weblog/reader.py, kind: program, run: 'python3 -c ''from weblog.reader import read_lines as f; r=f("access.log"); assert len(r)==5, len(r); assert r[0]=="10.0.0.1 GET /index 200"; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from weblog.parser import parse_entry as f; assert f("10.0.0.1 GET /index 200")=={"ip":"10.0.0.1","status":200}, f("10.0.0.1 GET /index 200"); assert f("10.0.0.5 GET /boom 500")=={"ip":"10.0.0.5","status":500}; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from weblog.report import StatusCounter as C; c=C("access.log"); assert c.summary()=="ok=2 failed=3", c.summary(); assert c.count_ok()==2; assert c.count_failed()==3; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from weblog.reader import read_lines as f; r=f("access.log"); assert len(r)==5, len(r); assert r[0]=="10.0.0.1 GET /index 200"; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-6017
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: web-erisim-loglari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: orta
+    adim: 7
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-karsilastirma
+      karmasiklik: orta
+      kalip: durumlu-sinif
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

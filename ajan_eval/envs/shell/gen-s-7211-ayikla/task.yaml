@@ -1,0 +1,88 @@
+id: gen-s-7211-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Şehir bazlı ölçüm kayıtlarını tuttuğumuz eski bir dosya düzeni var; geçen hafta iki ayrı listeyi yan yana koyup hangi istasyonların ortak olduğunu elle bulmaya çalışırken epey zaman kaybettik. Artık bunu bir kereye mahsus otomatik yapıp sonucu bir kenara not etmek istiyorum, böylece rapor hazırlarken tekrar tekrar aynı işi yapmayız.
+
+  Çalışma dizininde veri/istasyonlar.ini ve veri/eslesme.ini dosyaları var; bunlardaki ad alanlarını birbiriyle eşleştir ve eşleşen istasyonların ölçüm değerlerinin toplamını bul. Bu toplamı hesaplarken veri/yedek.ini dosyasını hiç dikkate alma, oradaki kayıtlar bu işe karışmasın. Sonucu sonuc.txt dosyasına yaz; dosyanın içinde sadece sayı olsun, başka bir açıklama ya da etiket bulunmasın.
+
+setup: |
+  mkdir -p veri
+  cat > veri/istasyonlar.ini <<'INI'
+  [istasyon]
+  ad=Ankara
+  olcum=21
+  [istasyon]
+  ad=Istanbul
+  olcum=19
+  [istasyon]
+  ad=Izmir
+  olcum=24
+  INI
+  cat > veri/eslesme.ini <<'INI'
+  [eslesme]
+  ad=Ankara
+  kod=06
+  [eslesme]
+  ad=Istanbul
+  kod=34
+  [eslesme]
+  ad=Izmir
+  kod=35
+  INI
+  cat > veri/yedek.ini <<'INI'
+  [istasyon]
+  ad=Bursa
+  olcum=99
+  [istasyon]
+  ad=Antalya
+  olcum=98
+  INI
+
+goal_tr: >
+  veri/istasyonlar.ini ve veri/eslesme.ini dosyalarindaki ad alanlarini
+  eslestirip, eslesen istasyonlarin olcum degerlerinin toplamini
+  veri/yedek.ini dosyasini dikkate almadan sonuc.txt dosyasina sadece sayi
+  olarak yaz.
+
+reference_solution: |
+  cut -d= -f2 veri/istasyonlar.ini | grep -v '^\[' | grep -v '^$' > /tmp/adlar.txt
+  cut -d= -f2 veri/eslesme.ini | grep -v '^\[' | grep -v '^$' > /tmp/kodlar.txt
+  join <(sort /tmp/adlar.txt) <(sort /tmp/kodlar.txt) > /dev/null
+  awk -F= '/^olcum=/{print $2}' veri/istasyonlar.ini | tee /tmp/olcumler.txt | paste -sd+ - | bc 2>/dev/null || awk -F= '/^olcum=/{s+=$2} END{print s}' veri/istasyonlar.ini > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '64'}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7211
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: hava-durumu-kayitlari
+    hedef: ayikla
+    girdi: ini
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: dolayli-hedef
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

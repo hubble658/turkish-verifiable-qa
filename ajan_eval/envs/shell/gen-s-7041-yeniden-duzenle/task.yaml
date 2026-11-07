@@ -1,0 +1,73 @@
+id: gen-s-7041-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Sistem ekibinden biri az önce "logları tek tek elle saymaktan bıktım" diye söylendi ve bunu bana bıraktı. Bugün sunucu tarafında epey koşturduk, akşam olunca da logs dizininin içinde ne var ne yok diye bakayım dedim. Bu işi bir kere düzgün yapıp bir daha uğraşmayayım istiyorum.
+
+  logs dizini ağacındaki her .log dosyası için; dosyanın adını, içinde bulunduğu dizin yolunu ve o dosyadaki HATA satırlarının sayısını bir arada görmek istiyorum. Bunların hepsi tek bir JSON nesnesi olarak, dosya yollarına göre artan sırada dizilsin ve sonuc.json dosyasına yazılsın.
+
+setup: |
+  mkdir -p logs/arsiv logs/aktif
+  cat > logs/aktif/sunucu_a.log <<'LOG'
+  2024-01-01 BILGI basladi
+  2024-01-02 HATA disk dolu
+  2024-01-03 UYARI bellek az
+  LOG
+  cat > logs/aktif/sunucu_b.log <<'LOG'
+  2024-01-01 BILGI hazir
+  2024-01-02 HATA baglanti koptu
+  2024-01-03 HATA zaman asimi
+  2024-01-04 BILGI devam
+  LOG
+  cat > logs/arsiv/sunucu_c.log <<'LOG'
+  2024-01-01 UYARI yavas
+  2024-01-02 BILGI tamam
+  LOG
+
+goal_tr: >
+  logs dizini agacindaki her .log dosyasi icin dosya adini, iceren dizin
+  yolunu ve icindeki HATA satir sayisini iceren, dosya yollarina gore artan
+  sirada bir JSON nesnesi uret ve sonuc.json'a yaz.
+
+reference_solution: |
+  find logs -type f -name '*.log' | sort | while read -r f; do
+    n=$(grep -c 'HATA' "$f")
+    printf '%s\t%s\t%s\n' "$(basename "$f")" "$(dirname "$f")" "$n"
+  done > sayimlar.txt
+  awk -F'\t' 'BEGIN{printf "{"} {printf "%s\"%s\": {\"dizin\": \"%s\", \"hata\": %s}", (NR>1?",":""), $1, $2, $3} END{printf "}\n"}' sayimlar.txt > sonuc.json
+
+outputs:
+  - {path: sonuc.json, kind: json}
+
+checks:
+  - {op: json_eq, path: sonuc.json, value: {sunucu_a.log: {dizin: logs/aktif, hata: 1}, sunucu_b.log: {dizin: logs/aktif, hata: 2}, sunucu_c.log: {dizin: logs/arsiv, hata: 0}}}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7041
+    bundle: yol-parcala
+    tools:
+    - basename
+    - dirname
+    konu: sunucu-loglari
+    hedef: yeniden-duzenle
+    girdi: json
+    kaynak: dizin-agaci
+    cikti: json
+    kesif: dosyayi-bul
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,89 @@
+id: gen-s-3233-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kayitlar dizinindeki .ini dosyalarının her biri için, dosyada geçen sicaklik değerini tek satır olarak cikti dizinine aynı adla ancak uzantısı .txt olacak şekilde yaz; yani cikti/istanbul.txt, cikti/ankara.txt ve cikti/izmir.txt dosyalarını oluştur. .ini uzantılı olmayan dosyaları atla.
+
+  Su sartlar saglanmali:
+  - cikti/istanbul.txt, cikti/ankara.txt ve cikti/izmir.txt dosyaları oluşturulmuş olmalı.
+  - Her dosyada yalnızca ilgili şehrin sicaklik değeri tek satır olarak yer almalı; başka metin veya etiket bulunmamalı.
+  - kayitlar/notlar.txt gibi .ini uzantılı olmayan dosyalar için çıktı üretilmemeli.
+  - Çalışma dizini /workspace olmalı ve işlem kayitlar ile cikti dizinleri üzerinde yapılmalı.
+
+setup: |
+  mkdir -p kayitlar cikti
+  cat > kayitlar/istanbul.ini <<'INI'
+  [sehir]
+  ad=istanbul
+  sicaklik=22
+  durum=acik
+  INI
+  cat > kayitlar/ankara.ini <<'INI'
+  [sehir]
+  ad=ankara
+  sicaklik=15
+  durum=parcali
+  INI
+  cat > kayitlar/izmir.ini <<'INI'
+  [sehir]
+  ad=izmir
+  sicaklik=28
+  durum=gunesli
+  INI
+  cat > kayitlar/notlar.txt <<'TXT'
+  bu dosya ini degil
+  sicaklik=99
+  TXT
+
+goal_tr: >
+  kayitlar altindaki .ini dosyalarindan her biri icin, dosya basina sicaklik
+  degerini tek satir olarak cikti/ dizinine ayni adla (uzanti .txt olacak
+  sekilde) yaz; .ini olmayan dosyalar atlanir.
+
+reference_solution: |
+  grep -l 'sicaklik=' kayitlar/*.ini > /tmp/ini_listesi
+  while read -r f; do
+    ad=$(basename "$f" .ini)
+    grep '^sicaklik=' "$f" | cut -d= -f2 | wc -l > /dev/null
+    grep '^sicaklik=' "$f" | cut -d= -f2 > "cikti/$ad.txt"
+  done < /tmp/ini_listesi
+
+outputs:
+  - {path: cikti/istanbul.txt, kind: file}
+  - {path: cikti/ankara.txt, kind: file}
+  - {path: cikti/izmir.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: cikti/ankara.txt, value: '15'}
+  - {op: file_content_eq, path: cikti/istanbul.txt, value: '22'}
+  - {op: file_content_eq, path: cikti/izmir.txt, value: '28'}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3233
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: hava-durumu-kayitlari
+    hedef: ayikla
+    girdi: ini
+    kaynak: cok-dosya
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: bom
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

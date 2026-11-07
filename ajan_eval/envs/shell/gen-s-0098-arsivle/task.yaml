@@ -1,0 +1,74 @@
+id: gen-s-0098-arsivle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kutuphane klasöründeki tüm .tsv dosyalarını kitaplar.tar arşivine paketle.
+
+setup: |
+  mkdir -p kutuphane
+  cat > kutuphane/kitap1.tsv <<'EOF'
+  ID	Baslik	Yazar	Yil
+  1	Kirmizi Baslikli Kiz	Andersen	1835
+  2	Alice Harikalar Diyarinda	Lewis Carroll	1865
+  3	Donusum	Franz Kafka	1915
+  EOF
+  cat > kutuphane/kitap2.tsv <<'EOF'
+  ID	Baslik	Yazar	Yil
+  4	1984	George Orwell	1949
+  5	Fahrenheit 451	Ray Bradbury	1953
+  EOF
+  cat > kutuphane/kitap3.tsv <<'EOF'
+  ID	Baslik	Yazar	Yil
+  6	Bulut Atlasi	David Mitchell
+
+  7	Simyaci	Paulo Coelho	1988
+  EOF
+  cat > kutuphane/bozuk_dosya.txt <<'EOF'
+  Bu dosya TSV degil, silinmeli
+  EOF
+
+goal_tr: >
+  kutuphane klasorundeki tum .tsv dosyalarini bir tar arsivine
+  (kitaplar.tar) paketle
+
+reference_solution: |
+  find kutuphane -type f -name '*.tsv' -print | tar -cf kitaplar.tar -T -
+
+outputs:
+  - {path: kitaplar.tar, kind: file}
+
+checks:
+  - {op: run_stdout_eq, cmd: tar -tf kitaplar.tar | sort, value: 'kutuphane/kitap1.tsv
+
+    kutuphane/kitap2.tsv
+
+    kutuphane/kitap3.tsv'}
+
+metadata:
+  domain: arsivle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-0098
+    bundle: secerek-arsivle
+    tools:
+    - tar
+    - find
+    konu: kutuphane-kayitlari
+    hedef: arsivle
+    girdi: tsv
+    kaynak: cok-dosya
+    cikti: birden-cok-dosya
+    kesif: dolayli-hedef
+    uslup: terse
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 3
+    image: verifiable-dataset/base:latest
+    metadata: {}

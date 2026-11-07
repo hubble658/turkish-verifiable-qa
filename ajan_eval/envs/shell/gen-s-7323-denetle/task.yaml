@@ -1,0 +1,84 @@
+id: gen-s-7323-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  notlar dizin ağacındaki tüm CSV dosyalarını okuyup öğrenci adı, soyadı ve notunu birlestirilmis.csv dosyasına tek bir başlık satırıyla CSV olarak yaz. Ayrıca notu 90 ve üzeri olan öğrencileri onur.csv dosyasına aynı biçimde yaz.
+
+setup: |
+  mkdir -p notlar/sinif_a notlar/sinif_b
+  cat > notlar/sinif_a/notlar.csv <<'CSV'
+  ad,soyad,not
+  ali,yilmaz,85
+  ayse,demir,92
+  CSV
+  cat > notlar/sinif_b/notlar.csv <<'CSV'
+  ad,soyad,not
+  mehmet,kaya,78
+  zeynep,oz,95
+  CSV
+
+goal_tr: >
+  notlar dizin agacindaki tum CSV dosyalarini okuyup ogrenci adi, soyadi ve
+  notunu birlestirilmis.csv dosyasina tek bir baslik satiriyla CSV olarak
+  yaz; notu 90 ve uzeri olan ogrencileri de onur.csv dosyasina ayni bicimde
+  yaz.
+
+reference_solution: |
+  python3 - <<'PY'
+  import csv, os
+  rows = []
+  for root, dirs, files in os.walk('notlar'):
+      for f in sorted(files):
+          if f.endswith('.csv'):
+              with open(os.path.join(root, f), newline='') as fh:
+                  for r in csv.DictReader(fh):
+                      rows.append((r['ad'], r['soyad'], int(r['not'])))
+  with open('birlestirilmis.csv', 'w', newline='') as out:
+      w = csv.writer(out)
+      w.writerow(['ad', 'soyad', 'not'])
+      for ad, soyad, notu in rows:
+          w.writerow([ad, soyad, notu])
+  with open('onur.csv', 'w', newline='') as out:
+      w = csv.writer(out)
+      w.writerow(['ad', 'soyad', 'not'])
+      for ad, soyad, notu in rows:
+          if notu >= 90:
+              w.writerow([ad, soyad, notu])
+  PY
+
+outputs:
+  - {path: birlestirilmis.csv, kind: file}
+  - {path: onur.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: birlestirilmis.csv, value: ['ad,soyad,not', 'ali,yilmaz,85', 'ayse,demir,92', 'mehmet,kaya,78', 'zeynep,oz,95']}
+  - {op: file_lines_eq, path: onur.csv, value: ['ad,soyad,not', 'ayse,demir,92', 'zeynep,oz,95']}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7323
+    bundle: python-veri
+    tools:
+    - python3
+    konu: ogrenci-notlari
+    hedef: denetle
+    girdi: csv
+    kaynak: dizin-agaci
+    cikti: csv
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

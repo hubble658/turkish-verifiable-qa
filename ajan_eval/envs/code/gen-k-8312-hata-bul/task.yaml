@@ -1,0 +1,141 @@
+id: gen-k-8312-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  releases/picker.py dosyasındaki latest_stable fonksiyonu şu anda sürüm numaralarını sözlük sırasına göre karşılaştırıyor ve bu yüzden 1.10.0 ile 1.2.0 karşılaştırmasında yanlış sonuç veriyor. Bu fonksiyonu, sürümleri sayısal parçalarına göre karşılaştırıp en yüksek sürümlü stable paketin adını döndürecek biçimde düzelt; dosyanın geri kalanı ve diğer dosyalar olduğu gibi kalmalı. Fonksiyon hâlâ releases.txt gibi bir veri dosyasının yolunu parametre olarak almalı ve stable olmayan paketleri yok saymalı.
+
+setup: |
+  mkdir -p releases
+  cat > releases/model.py <<'MODEL'
+  from abc import ABC, abstractmethod
+
+
+  class ReleaseSource(ABC):
+      @abstractmethod
+      def load(self, path):
+          ...
+
+
+  class Version:
+      def __init__(self, text):
+          parts = text.split(".")
+          self.parts = tuple(int(p) for p in parts)
+
+      def __repr__(self):
+          return "Version(" + ".".join(str(p) for p in self.parts) + ")"
+
+
+  class Release:
+      def __init__(self, name, version, stable):
+          self.name = name
+          self.version = version
+          self.stable = stable
+
+      def __repr__(self):
+          return "Release(%s, %s, %s)" % (self.name, self.version, self.stable)
+  MODEL
+  cat > releases/reader.py <<'READER'
+  from releases.model import Release, ReleaseSource, Version
+
+
+  class FileReleaseSource(ReleaseSource):
+      def load(self, path):
+          releases = []
+          with open(path) as handle:
+              for line in handle:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  name, version, flag = line.split(";")
+                  releases.append(Release(name, Version(version), flag == "stable"))
+          return releases
+  READER
+  cat > releases/picker.py <<'PICKER'
+  from releases.reader import FileReleaseSource
+
+
+  def latest_stable(path):
+      source = FileReleaseSource()
+      releases = source.load(path)
+      best = None
+      for release in releases:
+          if release.stable:
+              if best is None or str(best.version) < str(release.version):
+                  best = release
+      if best is None:
+          return None
+      return best.name
+  PICKER
+  cat > releases.txt <<'DATA'
+  alpha;1.2.0;stable
+  beta;2.0.0;beta
+  alpha;1.10.0;stable
+  gamma;0.9.0;stable
+  DATA
+
+goal_tr: >
+  releases/picker.py icindeki latest_stable fonksiyonunu, surum numaralarini
+  sozluk sirasina gore degil sayisal parcalarina gore karsilastirip en
+  yuksek surumlu stable paketin adini dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > releases/picker.py <<'PICKER'
+  from releases.reader import FileReleaseSource
+
+
+  def latest_stable(path):
+      source = FileReleaseSource()
+      releases = source.load(path)
+      best = None
+      for release in releases:
+          if release.stable:
+              if best is None or best.version.parts < release.version.parts:
+                  best = release
+      if best is None:
+          return None
+      return best.name
+  PICKER
+
+outputs:
+  - {path: releases/picker.py, kind: program, run: 'python3 -c ''from releases.picker import latest_stable as f; assert f("releases.txt")=="alpha", f("releases.txt"); import os; open("tmp_rel.txt","w").write("x;1.2.0;stable\ny;1.10.0;stable\n"); assert f("tmp_rel.txt")=="y", f("tmp_rel.txt"); open("tmp_rel.txt","w").write("x;3.0.0;beta\ny;2.5.0;beta\n"); assert f("tmp_rel.txt") is None; open("tmp_rel.txt","w").write("p;2.0.0;stable\nq;2.0.1;stable\n"); assert f("tmp_rel.txt")=="q"; os.remove("tmp_rel.txt"); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from releases.picker import latest_stable as f; assert f("releases.txt")=="alpha", f("releases.txt"); import os; open("tmp_rel.txt","w").write("x;1.2.0;stable\ny;1.10.0;stable\n"); assert f("tmp_rel.txt")=="y", f("tmp_rel.txt"); open("tmp_rel.txt","w").write("x;3.0.0;beta\ny;2.5.0;beta\n"); assert f("tmp_rel.txt") is None; open("tmp_rel.txt","w").write("p;2.0.0;stable\nq;2.0.1;stable\n"); assert f("tmp_rel.txt")=="q"; os.remove("tmp_rel.txt"); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8312
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: yazilim-surumleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kapsam-hatasi
+      karmasiklik: duz
+      kalip: abc-protokol
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

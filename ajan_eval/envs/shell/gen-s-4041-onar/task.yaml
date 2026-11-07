@@ -1,0 +1,85 @@
+id: gen-s-4041-onar
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  yorumlar.log'u ürün adına göre ayır; cikti/urun_A.txt, cikti/urun_B.txt ve cikti/urun_C.txt dosyalarının her birinde sadece "toplam=<sayi>" ve "adet=<sayi>" satırları olsun.
+
+setup: |
+  cat > yorumlar.log <<'LOG'
+  2024-01-01|urun=A|puan=5|yorum=harika urun
+  2024-01-02|urun=B|puan=2|yorum=kotu
+  2024-01-03|urun=A|puan=4|yorum=iyi
+  2024-01-04|urun=C|puan=1|yorum=berbat
+  2024-01-05|urun=B|puan=5|yorum=cok iyi
+  2024-01-06|urun=A|puan=3|yorum=orta
+  2024-01-07|urun=C|puan=4|yorum=begendim
+  2024-01-08|urun=B|puan=1|yorum=rezalet
+  2024-01-09|urun=A|puan=5|yorum=mukemmel
+  2024-01-10|urun=C|puan=2|yorum=vasat
+  LOG
+
+goal_tr: >
+  yorumlar.log icindeki her satiri urun adina gore ayirip her urun icin
+  puanlarin toplamini ve yorum sayisini iceren birer ozet dosyasi uret:
+  urun_A.txt, urun_B.txt ve urun_C.txt dosyalarinin her birinde sadece
+  "toplam=<sayi>" ve "adet=<sayi>" satirlari olsun.
+
+reference_solution: |
+  python3 - <<'PY'
+  import os
+  os.makedirs("cikti", exist_ok=True)
+  t = {}
+  c = {}
+  with open("yorumlar.log") as f:
+      for line in f:
+          line = line.strip()
+          if not line:
+              continue
+          parts = line.split("|")
+          urun = parts[1].split("=")[1]
+          puan = int(parts[2].split("=")[1])
+          t[urun] = t.get(urun, 0) + puan
+          c[urun] = c.get(urun, 0) + 1
+  for u in t:
+      with open("cikti/urun_%s.txt" % u, "w") as out:
+          out.write("toplam=%d\nadet=%d\n" % (t[u], c[u]))
+  PY
+
+outputs:
+  - {path: cikti/urun_A.txt, kind: file}
+  - {path: cikti/urun_B.txt, kind: file}
+  - {path: cikti/urun_C.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: cikti/urun_A.txt, value: [toplam=17, adet=4]}
+  - {op: file_lines_eq, path: cikti/urun_B.txt, value: [toplam=8, adet=3]}
+  - {op: file_lines_eq, path: cikti/urun_C.txt, value: [toplam=7, adet=3]}
+
+metadata:
+  domain: onar
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4041
+    bundle: python-veri
+    tools:
+    - python3
+    konu: urun-yorumlari
+    hedef: onar
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: birden-cok-dosya
+    kesif: dolayli-hedef
+    uslup: terse
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

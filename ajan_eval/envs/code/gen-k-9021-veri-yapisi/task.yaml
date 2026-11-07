@@ -1,0 +1,197 @@
+id: gen-k-9021-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  center/records.py, center/counts.py ve center/report.py içindeki NotImplementedError gövdelerini gerçek gerçekleştirmelerle doldur. CallLog bağlı listeye kayıt ekleyip uzunluğunu ve listesini döndürsün, count_pairs (arayan,aranan) çiftlerinin sayısını sözlük olarak versin, busiest_pair en çok geçen çifti döndürsün.
+
+setup: |
+  mkdir -p center
+  cat > center/records.py <<'RECORDS'
+  class CallNode:
+      __slots__ = ("caller", "callee", "next")
+
+      def __init__(self, caller, callee, next=None):
+          self.caller = caller
+          self.callee = callee
+          self.next = next
+
+
+  class CallLog:
+      def __init__(self):
+          self.head = None
+          self._count = 0
+
+      def add(self, caller, callee):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+
+      def to_list(self):
+          raise NotImplementedError
+  RECORDS
+  cat > center/counts.py <<'COUNTS'
+  from center.records import CallLog
+
+
+  def count_pairs(log):
+      raise NotImplementedError
+  COUNTS
+  cat > center/report.py <<'REPORT'
+  from center.records import CallLog
+  from center.counts import count_pairs
+
+
+  def busiest_pair(log):
+      raise NotImplementedError
+  REPORT
+
+goal_tr: >
+  center/records.py, center/counts.py ve center/report.py icindeki
+  NotImplementedError govdelerini gercek gerceklestirmelerle doldur; CallLog
+  bagli listeye kayit ekleyip uzunlugunu ve listesini dondursun, count_pairs
+  (arayan,aranan) ciftlerinin sayisini sozluk olarak versin, busiest_pair en
+  cok gecen cifti dondursun.
+
+reference_solution: |
+  cat > center/records.py <<'RECORDS'
+  class CallNode:
+      __slots__ = ("caller", "callee", "next")
+
+      def __init__(self, caller, callee, next=None):
+          self.caller = caller
+          self.callee = callee
+          self.next = next
+
+
+  class CallLog:
+      def __init__(self):
+          self.head = None
+          self._count = 0
+
+      def add(self, caller, callee):
+          self.head = CallNode(caller, callee, self.head)
+          self._count += 1
+
+      def __len__(self):
+          return self._count
+
+      def to_list(self):
+          out = []
+          node = self.head
+          while node is not None:
+              out.append((node.caller, node.callee))
+              node = node.next
+          out.reverse()
+          return out
+  RECORDS
+  cat > center/counts.py <<'COUNTS'
+  from center.records import CallLog
+
+
+  def count_pairs(log):
+      tally = {}
+      for caller, callee in log.to_list():
+          key = (caller, callee)
+          tally[key] = tally.get(key, 0) + 1
+      return tally
+  COUNTS
+  cat > center/report.py <<'REPORT'
+  from center.records import CallLog
+  from center.counts import count_pairs
+
+
+  def busiest_pair(log):
+      tally = count_pairs(log)
+      if not tally:
+          return None
+      best = None
+      best_n = -1
+      for key in sorted(tally):
+          n = tally[key]
+          if n > best_n:
+              best = key
+              best_n = n
+      return best
+  REPORT
+
+ara_adim: |
+  cat > center/records.py <<'RECORDS'
+  class CallNode:
+      __slots__ = ("caller", "callee", "next")
+
+      def __init__(self, caller, callee, next=None):
+          self.caller = caller
+          self.callee = callee
+          self.next = next
+
+
+  class CallLog:
+      def __init__(self):
+          self.head = None
+          self._count = 0
+
+      def add(self, caller, callee):
+          self.head = CallNode(caller, callee, self.head)
+          self._count += 1
+
+      def __len__(self):
+          return self._count
+
+      def to_list(self):
+          out = []
+          node = self.head
+          while node is not None:
+              out.append((node.caller, node.callee))
+              node = node.next
+          out.reverse()
+          return out
+  RECORDS
+
+outputs:
+  - {path: center/report.py, kind: program, run: 'python3 -c ''from center.records import CallLog; from center.report import busiest_pair as f; L=CallLog(); L.add("a","b"); L.add("c","d"); L.add("a","b"); assert f(L)==("a","b"), f(L); print("TAMAM")'''}
+  - {path: center/records.py, kind: program, run: 'python3 -c ''from center.records import CallLog; L=CallLog(); L.add("a","b"); L.add("c","d"); assert len(L)==2, len(L); assert L.to_list()==[("a","b"),("c","d")], L.to_list(); print("ILERLEME-TAMAM")'''}
+  - {path: center/counts.py, kind: program, run: 'python3 -c ''from center.records import CallLog; from center.counts import count_pairs as f; L=CallLog(); L.add("a","b"); L.add("a","b"); L.add("c","d"); assert f(L)=={("a","b"):2,("c","d"):1}, f(L); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from center.records import CallLog; from center.counts import count_pairs as f; L=CallLog(); L.add("a","b"); L.add("a","b"); L.add("c","d"); assert f(L)=={("a","b"):2,("c","d"):1}, f(L); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from center.records import CallLog; L=CallLog(); L.add("a","b"); L.add("c","d"); assert len(L)==2, len(L); assert L.to_list()==[("a","b"),("c","d")], L.to_list(); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from center.records import CallLog; from center.report import busiest_pair as f; L=CallLog(); L.add("a","b"); L.add("c","d"); L.add("a","b"); assert f(L)==("a","b"), f(L); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9021
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: cagri-merkezi-kayitlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: terse
+    direnc: yok
+    bukulme: kolay
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: bagli-liste
+      karmasiklik: orta
+      kalip: duz-fonksiyon
+      akis: bellek-ici
+      topoloji: elmas
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

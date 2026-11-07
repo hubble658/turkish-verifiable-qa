@@ -1,0 +1,64 @@
+id: gen-s-3169-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) envanter.csv dosyasındaki adet sütununda değeri 0'dan büyük olan satırların sayısını bul.
+  2) Bulduğun bu sayıyı sonuc.txt dosyasına yaz.
+  3) sonuc.txt dosyasının içinde yalnızca bu sayı olsun, başka hiçbir şey olmasın.
+
+setup: |
+  cat > envanter.csv <<'CSV'
+  urun,adet,fiyat
+  kalem,10,5
+  defter,3,12
+  silgi,7,2
+  cetvel,0,4
+  CSV
+  cat > envanter.csv.bak <<'CSV'
+  urun,adet,fiyat
+  kalem,999,5
+  CSV
+  mkdir -p yedek
+  cp envanter.csv yedek/envanter.csv
+
+goal_tr: >
+  envanter.csv dosyasindaki adet sutunu 0'dan buyuk olan satir sayisini
+  sonuc.txt dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  python3 -c "import csv; print(sum(1 for r in csv.DictReader(open('envanter.csv')) if int(r['adet'])>0))" > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '3'}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3169
+    bundle: python-veri
+    tools:
+    - python3
+    konu: envanter
+    hedef: dogrula
+    girdi: csv
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

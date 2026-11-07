@@ -1,0 +1,61 @@
+id: gen-s-3011-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri klasöründeki .json dosyalarını incele; durum alanı "yolda" olan kayıtların kargo değerlerini, dosya adına göre artan sırada, her biri kendi satırında olacak şekilde yolda.txt dosyasına yaz. Ayrıca bu satırların sayısını adet.txt dosyasına yalnızca bir sayı olarak yaz; yolda.txt dosyasının sonunda satır sonu karakteri bulunmasın.
+
+setup: |
+  mkdir -p veri
+  printf '{"kargo":"K001","durum":"yolda"}\n{"kargo":"K002","durum":"teslim"}\n{"kargo":"K003","durum":"yolda"}' > veri/a.json
+  printf '{"kargo":"K004","durum":"teslim"}\n{"kargo":"K005","durum":"yolda"}' > veri/b.json
+  printf '{"kargo":"K006","durum":"teslim"}\n' > veri/c.json
+  printf 'bu bir tuzak dosyadir kargo yolda teslim\n' > veri/notlar.txt
+
+goal_tr: >
+  veri klasorundeki .json dosyalarinda durum alani "yolda" olan kayitlarin
+  kargo degerlerini, dosya adina gore artan sirada, her biri kendi satirinda
+  olacak sekilde yolda.txt dosyasina yaz ve satir sayisini adet.txt
+  dosyasina sadece sayi olarak yaz (yolda.txt sonunda newline olmasin).
+
+reference_solution: |
+  grep -h '"durum":"yolda"' veri/*.json | sed 's/.*"kargo":"\([^"]*\)".*/\1/' > yolda.txt
+  printf '%s' "$(cat yolda.txt)" > yolda.txt
+  wc -l < yolda.txt > adet.txt
+
+outputs:
+  - {path: yolda.txt, kind: lines}
+  - {path: adet.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: adet.txt, value: '2'}
+  - {op: file_lines_eq, path: yolda.txt, value: [K001, K003, K005]}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3011
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: kargo-takibi
+    hedef: ozetle
+    girdi: json
+    kaynak: cok-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: son-newline-yok
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

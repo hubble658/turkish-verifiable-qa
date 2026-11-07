@@ -1,0 +1,63 @@
+id: gen-s-7093-onar
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  siparisler.json dosyasındaki bozuk JSON satırlarında eksik olan kapanış süslü parantezini satır sonuna ekleyerek her satırı geçerli hale getir ve düzeltilmiş tüm satırları sırasıyla duzeltilmis.txt dosyasına yaz.
+
+setup: |
+  cat > siparisler.json <<'JSON'
+  {"masa":1,"yemek":"corba","adet":2}
+  {"masa":2,"yemek":"salata","adet":1
+  {"masa":3,"yemek":"kebap","adet":3}
+  {"masa":4,"yemek":"corba","adet":1}
+  {"masa":5,"yemek":"kebap","adet":2}
+  JSON
+  cat > siparisler.json.bak <<'JSON'
+  {"masa":9,"yemek":"pilav","adet":7}
+  JSON
+
+goal_tr: >
+  siparisler.json dosyasindaki bozuk JSON satirlarinda eksik olan kapanis
+  suslu parantezini satir sonuna ekleyerek her satiri gecerli hale getir ve
+  duzeltilmis tum satirlari sirasiyla duzeltilmis.txt dosyasina yaz
+
+reference_solution: |
+  sed '/}$/!s/$/}/' siparisler.json > duzeltilmis.txt
+  tr -d ' ' < duzeltilmis.txt > gecici.txt && mv gecici.txt duzeltilmis.txt
+
+outputs:
+  - {path: duzeltilmis.txt, kind: lines}
+  - {path: siparisler.json, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: duzeltilmis.txt, value: ['{"masa":1,"yemek":"corba","adet":2}', '{"masa":2,"yemek":"salata","adet":1}', '{"masa":3,"yemek":"kebap","adet":3}', '{"masa":4,"yemek":"corba","adet":1}', '{"masa":5,"yemek":"kebap","adet":2}']}
+
+metadata:
+  domain: onar
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7093
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: restoran-siparisleri
+    hedef: onar
+    girdi: json
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

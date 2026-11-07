@@ -1,0 +1,98 @@
+id: gen-s-4037-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  arsiv dizinindeki tüm .ini dosyalarını tarih bölümlerine göre gün değerine göre grupla; her gün için şehir adını ve sıcaklık değerini içeren bir satır yaz. Her günü, gün adıyla aynı isimde bir .txt dosyasına dök; örneğin 2024-03-01.txt ve 2024-03-02.txt oluşsun. Bu dosyaları cikti dizini altında topla. Son olarak tüm çıktı dosyalarını tek bir hava.tar arşivine koy.
+
+setup: |
+  mkdir -p arsiv
+  cat > arsiv/istanbul.ini <<'INI'
+  [tarih]
+  gun = 2024-03-01
+  sicaklik = 12
+  nem = 78
+  durum = yagmurlu
+  INI
+  cat > arsiv/ankara.ini <<'INI'
+  [tarih]
+  gun = 2024-03-01
+  sicaklik = 7
+  nem = 55
+  durum = bulutlu
+  INI
+  cat > arsiv/izmir.ini <<'INI'
+  [tarih]
+  gun = 2024-03-02
+  sicaklik = 19
+  nem = 62
+  durum = gunesli
+  INI
+  printf '%s' '[tarih]
+  gun = 2024-03-02
+  sicaklik = 15
+  nem = 70
+  durum = parcali-bulutlu' > arsiv/bursa.ini
+
+goal_tr: >
+  arsiv dizinindeki tum .ini dosyalarini tarih bolumlerine gore gun degerine
+  gore gruplayip her gun icin sehir adini ve sicaklik degerini iceren bir
+  satir yazan, gun adiyla ayni isimde bir .txt dosyasina (or.
+  2024-03-01.txt) dokup bu dosyalari cikti dizini altinda toplayan ve tum
+  cikti dosyalarini tek bir hava.tar arsivine koy
+
+reference_solution: |
+  mkdir -p cikti
+  find arsiv -name '*.ini' -type f | while read -r f; do
+    sehir=$(basename "$f" .ini)
+    gun=$(awk -F' = ' '/^gun/{print $2}' "$f")
+    sicaklik=$(awk -F' = ' '/^sicaklik/{print $2}' "$f")
+    printf '%s %s\n' "$sehir" "$sicaklik" >> "cikti/$gun.txt"
+  done
+  find cikti -name '*.txt' -type f | sort | while read -r t; do
+    sort -o "$t" "$t"
+  done
+  tar -cf hava.tar -C cikti .
+
+outputs:
+  - {path: cikti/2024-03-01.txt, kind: file}
+  - {path: cikti/2024-03-02.txt, kind: file}
+  - {path: hava.tar, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: cikti/2024-03-01.txt, value: [ankara 7, istanbul 12]}
+  - {op: file_lines_eq, path: cikti/2024-03-02.txt, value: [bursa 15, izmir 19]}
+  - {op: run_stdout_eq, cmd: tar -tf hava.tar | sort, value: './
+
+    ./2024-03-01.txt
+
+    ./2024-03-02.txt'}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4037
+    bundle: secerek-arsivle
+    tools:
+    - tar
+    - find
+    konu: hava-durumu-kayitlari
+    hedef: yeniden-duzenle
+    girdi: ini
+    kaynak: iki-dosya-capraz
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: duz-hedef
+    direnc: son-newline-yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,66 @@
+id: gen-s-4115-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) veri/kargo.csv dosyasını oku.
+  2) Göndericilere göre teslim edilen kargo sayılarını hesapla.
+  3) Sonucu, her gönderici adı ve o göndericiye ait teslim edilen kargo sayısını içeren bir JSON nesnesi olarak veri/ozet.json dosyasına yaz.
+
+setup: |
+  mkdir -p /workspace/veri
+  cat > /workspace/veri/kargo.csv <<'CSV'
+  takip_no,gonderen,alici,durum
+  TR001,Ali,Veli,Teslim Edildi
+  TR002,Ayse,Mehmet,Yolda
+  TR003,Ali,Fatma,Teslim Edildi
+  TR004,Zeynep,Can,Yolda
+  TR005,Mehmet,Ayse,Teslim Edildi
+  TR006,Ali,Veli,Yolda
+  TR007,Fatma,Zeynep,Teslim Edildi
+  TR008,Can,Mehmet,Yolda
+  CSV
+
+goal_tr: >
+  veri/kargo.csv dosyasindaki gondericilere gore teslim edilen kargo
+  sayilarini veri/ozet.json dosyasina gonderici ve teslim sayisini iceren
+  JSON nesnesi olarak yaz
+
+reference_solution: |
+  cd /workspace
+  grep 'Teslim Edildi' veri/kargo.csv | cut -d, -f2 | sort | uniq -c | awk '{print $2, $1}' | paste -sd, - | sed 's/\([^,]*\) \([0-9]*\)/"\1":\2/g' | sed 's/^/{/' | sed 's/$/}/' > veri/ozet.json
+
+outputs:
+  - {path: veri/ozet.json, kind: json, run: cat veri/ozet.json, expected: {Ali: 2, Fatma: 1, Mehmet: 1}}
+
+checks:
+  - {op: json_eq, path: veri/ozet.json, value: {Ali: 2, Fatma: 1, Mehmet: 1}}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4115
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: kargo-takibi
+    hedef: ozetle
+    girdi: csv
+    kaynak: tek-dosya
+    cikti: json
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

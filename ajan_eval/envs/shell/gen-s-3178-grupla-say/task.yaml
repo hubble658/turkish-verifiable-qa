@@ -1,0 +1,80 @@
+id: gen-s-3178-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  vardiya/kayitlar.log dosyasındaki her satırda ilk alan vardiya adı, ikinci alan personel adıdır. Her vardiya için o vardiyada geçen satır sayısını, vardiya adıyla aynı adlı bir dosyaya yalnızca sayı olarak yaz. Bu dosyaları vardiya/ozet dizini altında topla.
+
+  Su sartlar saglanmali:
+  - vardiya/ozet dizini oluşturulmalı.
+  - vardiya/ozet/GUNDUZ.txt, vardiya/ozet/GECE.txt ve vardiya/ozet/AKSAM.txt dosyaları oluşturulmalı.
+  - Her dosyada yalnızca o vardiyaya ait satır sayısı, sadece sayı olarak yer almalı.
+  - vardiya/kayitlar.log dosyasındaki vardiya adları (GUNDUZ, GECE, AKSAM) doğru şekilde sayılmalı.
+
+setup: |
+  mkdir -p vardiya
+  cat > vardiya/kayitlar.log <<'LOG'
+  GUNDUZ ali depo
+  GECE veli kasa
+  GUNDUZ ayse depo
+  GECE ali kasa
+  GUNDUZ veli depo
+  AKSAM ayse kasa
+  GECE ayse depo
+  GUNDUZ  ali   kasa
+  AKSAM veli depo
+  GUNDUZ can kasa
+  LOG
+
+goal_tr: >
+  vardiya/kayitlar.log icindeki her satirda ilk alan vardiya adi, ikinci
+  alan personel adidir; her vardiya icin o vardiyada gecen satir sayisini
+  vardiya adiyla ayni adli bir dosyaya yalnizca sayi olarak yaz ve bu
+  dosyalari vardiya/ozet dizini altinda topla.
+
+reference_solution: |
+  mkdir -p vardiya/ozet
+  cut -d' ' -f1 vardiya/kayitlar.log | sort -u | while read v; do
+    grep "^$v " vardiya/kayitlar.log | wc -l > "vardiya/ozet/$v.txt"
+  done
+
+outputs:
+  - {path: vardiya/ozet, kind: dir}
+  - {path: vardiya/ozet/GUNDUZ.txt, kind: file}
+  - {path: vardiya/ozet/GECE.txt, kind: file}
+  - {path: vardiya/ozet/AKSAM.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: vardiya/ozet, value: [AKSAM.txt, GECE.txt, GUNDUZ.txt]}
+  - {op: file_content_eq, path: vardiya/ozet/AKSAM.txt, value: '2'}
+  - {op: file_content_eq, path: vardiya/ozet/GECE.txt, value: '3'}
+  - {op: file_content_eq, path: vardiya/ozet/GUNDUZ.txt, value: '5'}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3178
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: personel-vardiyalari
+    hedef: grupla-say
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: dolayli-hedef
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,144 @@
+id: gen-k-8368-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  fleet/mileage.py içindeki MileageSummary sınıfını düzelt. Şu an aynı nesnenin path alanı yeni bir dosyaya çevrilip totals() yeniden çağrıldığında yine eski dosyanın toplamlarını döndürüyor; bu davranış değişsin. Yani bir nesne önce bir günlük dosyasına bakıp totals() çağrıldıktan sonra path alanı başka bir günlük dosyasına ayarlanır ve totals() tekrar çağrılırsa, artık yeni dosyanın toplamları dönmeli; eski dosyanın toplamları dönmemeli. Sınıfın geri kalan davranışı, yani aynı path için tekrar tekrar çağrıldığında tutarlı sonuç vermesi ve top(k) metodunun çalışması korunsun. Değişiklik yalnızca fleet/mileage.py dosyasında yapılsın.
+
+setup: |
+  mkdir -p fleet/trips
+  cat > fleet/trips/__init__.py <<'INIT'
+  INIT
+  cat > fleet/__init__.py <<'INIT'
+  INIT
+  cat > fleet/trips/reader.py <<'READER'
+  class TripReader:
+      """Streams (vehicle, km) records from a trip log file."""
+
+      def __init__(self, path):
+          self.path = path
+
+      def __iter__(self):
+          with open(self.path) as fh:
+              for line in fh:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  vehicle, km = line.split(",")
+                  yield vehicle, int(km)
+  READER
+  cat > fleet/mileage.py <<'MILEAGE'
+  from fleet.trips.reader import TripReader
+
+
+  class MileageSummary:
+      """Accumulates total km per vehicle over a trip log."""
+
+      def __init__(self, path):
+          self.path = path
+          self._totals = None
+
+      def _load(self):
+          totals = {}
+          for vehicle, km in TripReader(self.path):
+              totals[vehicle] = totals.get(vehicle, 0) + km
+          return totals
+
+      def totals(self):
+          if self._totals is None:
+              self._totals = self._load()
+          return dict(self._totals)
+
+      def top(self, k):
+          rows = sorted(self.totals().items(), key=lambda r: (-r[1], r[0]))
+          return [v for v, _ in rows[:k]]
+  MILEAGE
+  cat > trips.log <<'LOG'
+  van-1,120
+  truck-2,300
+  van-1,80
+  car-3,50
+  truck-2,20
+  LOG
+  cat > trips2.log <<'LOG'
+  van-1,10
+  car-3,7
+  LOG
+
+goal_tr: >
+  fleet/mileage.py icindeki MileageSummary sinifini, ayni nesnenin path
+  alani yeni bir dosyaya cevrilip totals() tekrar cagrildiginde eski
+  dosyanin toplamlarini dondurmeyecek bicimde duzelt.
+
+reference_solution: |
+  cat > fleet/mileage.py <<'MILEAGE'
+  from fleet.trips.reader import TripReader
+
+
+  class MileageSummary:
+      """Accumulates total km per vehicle over a trip log."""
+
+      def __init__(self, path):
+          self.path = path
+          self._cache_path = None
+          self._totals = None
+
+      def _load(self):
+          totals = {}
+          for vehicle, km in TripReader(self.path):
+              totals[vehicle] = totals.get(vehicle, 0) + km
+          return totals
+
+      def totals(self):
+          if self._totals is None or self._cache_path != self.path:
+              self._totals = self._load()
+              self._cache_path = self.path
+          return dict(self._totals)
+
+      def top(self, k):
+          rows = sorted(self.totals().items(), key=lambda r: (-r[1], r[0]))
+          return [v for v, _ in rows[:k]]
+  MILEAGE
+
+outputs:
+  - {path: fleet/mileage.py, kind: program, run: 'python3 -c ''from fleet.mileage import MileageSummary as M; s=M("trips.log"); a=s.totals(); assert a=={"van-1":200,"truck-2":320,"car-3":50}, a; assert s.top(2)==["truck-2","van-1"], s.top(2); s.path="trips2.log"; b=s.totals(); assert b=={"van-1":10,"car-3":7}, b; assert s.top(1)==["van-1"], s.top(1); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.mileage import MileageSummary as M; s=M("trips.log"); a=s.totals(); assert a=={"van-1":200,"truck-2":320,"car-3":50}, a; assert s.top(2)==["truck-2","van-1"], s.top(2); s.path="trips2.log"; b=s.totals(); assert b=={"van-1":10,"car-3":7}, b; assert s.top(1)==["van-1"], s.top(1); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8368
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: arac-filosu
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-durum-sifirlama
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: dosya-okuma
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

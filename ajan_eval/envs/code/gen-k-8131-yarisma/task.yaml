@@ -1,0 +1,97 @@
+id: gen-k-8131-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+prompt: 'stock/pkg/sets.py dosyasını oluştur. Bu dosya, her satırında bir hareket kaydı bulunan bir metin dosyasını okuyup
+  işleyecek şekilde olsun: her satırdaki kayıt bir harf ve virgülle ayrılmış ürünlerden oluşuyor; ürünleri temizleyip her
+  satır için bir ürün kümesi elde et. Ardından StockSets adında bir dataclass üret; bu dataclass satırlar arasında paylaşılan
+  (birden fazla satırda geçen) ürünlerin kümesini, hiçbir satırda geçmeyen ürünlerin kümesini ve yalnızca tek bir satırda
+  geçen ürünlerin kümesini döndürsün.
+
+
+  build_sets(metin, urunler) dosya içeriğini ve ürün listesini alıp StockSets döndürsün; alanlar shared, absent, unique kümeleri
+  olsun (hiçbir satırda geçmeyen, verilen ürün listesine göre).
+
+  '
+setup: 'mkdir -p stock/pkg
+
+  cat > stock/__init__.py <<''PY''
+
+  PY
+
+  cat > stock/pkg/__init__.py <<''PY''
+
+  PY
+
+  cat > data.txt <<''TXT''
+
+  A: apple, pear, apple, plum
+
+  B: pear, pear, kiwi
+
+  C: plum, plum, plum, apple
+
+  TXT
+
+  '
+goal_tr: 'stock/pkg/sets.py dosyasini yaz: her satirdaki hareket kaydindan (harf, virgulle ayrilmis urunler) urunleri temizleyip
+  kume haline getir ve satirlar arasinda paylasilan urunlerin, hic gecmeyen urunlerin ve yalnizca tek satirda gecen urunlerin
+  kumelerini donduren StockSets dataclass''ini uret.
+
+  '
+reference_solution: "cat > stock/pkg/sets.py <<'PY'\nfrom dataclasses import dataclass, field\n\n\n@dataclass\nclass StockSets:\n\
+  \    shared: set = field(default_factory=set)\n    absent: set = field(default_factory=set)\n    unique: set = field(default_factory=set)\n\
+  \n\ndef parse_records(text):\n    records = {}\n    for line in text.strip().splitlines():\n        label, items = line.split(':')\n\
+  \        records[label.strip()] = set(i.strip() for i in items.split(',') if i.strip())\n    return records\n\n\ndef build_sets(text,\
+  \ universe):\n    records = parse_records(text)\n    universe = set(universe)\n    counts = {}\n    for items in records.values():\n\
+  \        for item in items:\n            counts[item] = counts.get(item, 0) + 1\n    shared = {i for i, c in counts.items()\
+  \ if c >= 2}\n    unique = {i for i, c in counts.items() if c == 1}\n    absent = universe - set(counts)\n    return StockSets(shared,\
+  \ absent, unique)\nPY\n"
+outputs:
+- path: stock/pkg/sets.py
+  kind: program
+  run: python3 -c 'from stock.pkg.sets import build_sets, StockSets; t=open("data.txt").read(); u=["apple","pear","plum","kiwi","fig"];
+    r=build_sets(t,u); assert isinstance(r,StockSets); assert r.shared=={"apple","pear","plum"}, r.shared; assert r.absent=={"fig"},
+    r.absent; assert r.unique=={"kiwi"}, r.unique; assert build_sets(t,[]).absent==set(); print("TAMAM")'
+checks:
+- op: run_stdout_eq
+  cmd: python3 -c 'from stock.pkg.sets import build_sets, StockSets; t=open("data.txt").read(); u=["apple","pear","plum","kiwi","fig"];
+    r=build_sets(t,u); assert isinstance(r,StockSets); assert r.shared=={"apple","pear","plum"}, r.shared; assert r.absent=={"fig"},
+    r.absent; assert r.unique=={"kiwi"}, r.unique; assert build_sets(t,[]).absent==set(); print("TAMAM")'
+  value: TAMAM
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8131
+    bundle: yarisma
+    tools:
+    - python3
+    konu: stok-hareketleri
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kume-islemleri
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: ic-ice-yapi
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false
+  duzeltme:
+    neden: gizli_sart
+    not: build_sets imzası ve alan adları yazmıyordu.

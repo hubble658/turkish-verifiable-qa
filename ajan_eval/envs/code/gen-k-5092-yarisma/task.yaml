@@ -1,0 +1,139 @@
+id: gen-k-5092-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  exam/report.py içindeki Report sınıfına totals, ranking ve best_subject metotlarını ekle. Eşitlikte öğrenci adı, ders seçiminde ders adı alfabetik önce gelsin.
+
+setup: |
+  mkdir -p exam
+  cat > exam/store.py <<'STORE'
+  class ResultStore:
+      def __init__(self):
+          self._records = {}
+
+      def add(self, student, subject, score):
+          self._records.setdefault(student, {})[subject] = score
+
+      def subjects_of(self, student):
+          return self._records.get(student, {})
+
+      def all_students(self):
+          return list(self._records.keys())
+  STORE
+  cat > exam/parse.py <<'PARSE'
+  from exam.store import ResultStore
+
+
+  def parse_lines(lines):
+      store = ResultStore()
+      for raw in lines:
+          line = raw.strip()
+          if not line:
+              continue
+          student, subject, score = line.split(";")
+          store.add(student, subject, int(score))
+      return store
+  PARSE
+  cat > exam/report.py <<'REPORT'
+  from exam.parse import parse_lines
+
+
+  class Report:
+      def __init__(self, lines):
+          self.store = parse_lines(lines)
+
+      def totals(self):
+          raise NotImplementedError
+
+      def ranking(self):
+          raise NotImplementedError
+
+      def best_subject(self, student):
+          raise NotImplementedError
+  REPORT
+  cat > data.txt <<'DATA'
+  ada;math;90
+  ada;physics;70
+  bora;math;60
+  bora;physics;85
+  bora;chem;85
+  cem;math;100
+  DATA
+
+goal_tr: >
+  exam/report.py icindeki Report sinifini, ogrenci toplamlarini hesaplayan
+  totals, toplamlara gore buyukten kucuge siralanmis ogrenci listesini
+  donduren ranking ve bir ogrencinin en yuksek puanli dersini donduren
+  best_subject metotlariyla tamamla; esitlikte ogrenci adi alfabetik, ders
+  seciminde birden fazla en yuksek puan varsa ders adi alfabetik olarak once
+  gelen secilsin.
+
+reference_solution: |
+  cat > exam/report.py <<'REPORT'
+  from exam.parse import parse_lines
+
+
+  class Report:
+      def __init__(self, lines):
+          self.store = parse_lines(lines)
+
+      def totals(self):
+          result = {}
+          for student in self.store.all_students():
+              result[student] = sum(self.store.subjects_of(student).values())
+          return result
+
+      def ranking(self):
+          totals = self.totals()
+          return sorted(totals.keys(), key=lambda s: (-totals[s], s))
+
+      def best_subject(self, student):
+          subjects = self.store.subjects_of(student)
+          if not subjects:
+              return None
+          return sorted(subjects.keys(), key=lambda k: (-subjects[k], k))[0]
+  REPORT
+
+outputs:
+  - {path: exam/report.py, kind: program, run: 'python3 -c ''from exam.report import Report; lines=open("data.txt").read().splitlines(); r=Report(lines); assert r.totals()=={"ada":160,"bora":230,"cem":100}, r.totals(); assert r.ranking()==["bora","ada","cem"], r.ranking(); assert r.best_subject("ada")=="math"; assert r.best_subject("bora")=="chem"; assert r.best_subject("cem")=="math"; assert r.best_subject("yok") is None; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from exam.report import Report; lines=open("data.txt").read().splitlines(); r=Report(lines); assert r.totals()=={"ada":160,"bora":230,"cem":100}, r.totals(); assert r.ranking()==["bora","ada","cem"], r.ranking(); assert r.best_subject("ada")=="math"; assert r.best_subject("bora")=="chem"; assert r.best_subject("cem")=="math"; assert r.best_subject("yok") is None; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5092
+    bundle: yarisma
+    tools:
+    - python3
+    konu: sinav-sonuclari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: terse
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin-kullanimi
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: ic-ice-yapi
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,93 @@
+id: gen-k-8126-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  farm/summary.py içindeki best_plots fonksiyonunu düzelt; fonksiyon en yüksek verimli k tarlanın adını, azalan verime göre sıralı olarak döndürsün. Aynı verime sahip tarlalar arasında ise dosyadaki sıra korunsun. Bunun için farm/ranking.py dosyasını da güncelle.
+
+setup: |
+  mkdir -p farm
+  cat > farm/plots.py <<'PLOTS'
+  def parse_plots(text):
+      rows = []
+      for line in text.strip().splitlines():
+          name, yield_str = line.split(',')
+          rows.append((name, float(yield_str)))
+      return rows
+  PLOTS
+  cat > farm/ranking.py <<'RANKING'
+  def rank_by_yield(rows):
+      ordered = sorted(rows, key=lambda r: r[1])
+      return [name for name, _ in ordered]
+  RANKING
+  cat > farm/summary.py <<'SUMMARY'
+  from farm.plots import parse_plots
+  from farm.ranking import rank_by_yield
+
+
+  def best_plots(text, k):
+      rows = parse_plots(text)
+      ranked = rank_by_yield(rows)
+      return ranked[:k]
+  SUMMARY
+  cat > yields.csv <<'CSV'
+  north,12.5
+  south,9.0
+  east,12.5
+  west,7.5
+  CSV
+
+goal_tr: >
+  farm/summary.py icindeki best_plots fonksiyonunu, en yuksek verimli k
+  tarlanin adini esit verimde dosyadaki sirayi koruyarak azalan verime gore
+  dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > farm/ranking.py <<'RANKING'
+  def rank_by_yield(rows):
+      ordered = sorted(rows, key=lambda r: r[1], reverse=True)
+      return [name for name, _ in ordered]
+  RANKING
+
+outputs:
+  - {path: farm/ranking.py, kind: program, run: 'python3 -c ''from farm.summary import best_plots as f; t=open("yields.csv").read(); assert f(t,2)==["north","east"], f(t,2); assert f(t,1)==["north"]; assert f(t,4)==["north","east","south","west"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from farm.summary import best_plots as f; t=open("yields.csv").read(); assert f(t,2)==["north","east"], f(t,2); assert f(t,1)==["north"]; assert f(t,4)==["north","east","south","west"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8126
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: tarim-verim-olcumleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-kararsizligi
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: cok-dosya-birlestirme
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

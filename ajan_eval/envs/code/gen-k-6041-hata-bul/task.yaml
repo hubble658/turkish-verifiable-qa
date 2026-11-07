@@ -1,0 +1,151 @@
+id: gen-k-6041-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) depo/oku.py, depo/isle.py ve depo/rapor.py dosyalarındaki tip karışmalarını gider; zincirde miktar ve yön değerlerinin tutarlı tiplerde taşınmasını sağla.
+
+  2) depo/rapor.py içindeki stok_dengesi fonksiyonunun, her ürünün net stok miktarını doğru hesaplayıp ürün adlarını net miktarlara eşleyen bir sözlük döndürmesini sağla; her hareket bu toplama yansısın, ürün başına tek bir değer atamasıyla son hareketin diğerlerini ezmesi engellensin.
+
+  3) Değişiklikleri hareketler.txt içeriğine karşı çalıştırarak vida, somun ve pul için net stok miktarlarının doğru çıktığını doğrula.
+
+setup: |
+  mkdir -p depo
+  cat > depo/oku.py <<'OKU'
+  def satirlari_uret(yol):
+      """Dosyadaki her satiri (islem_id, urun, miktar, yon) demeti olarak uretir."""
+      with open(yol, encoding="utf-8") as f:
+          for line in f:
+              line = line.strip()
+              if not line:
+                  continue
+              parcalar = line.split(";")
+              yield parcalar[0], parcalar[1], parcalar[2], parcalar[3]
+  OKU
+  cat > depo/isle.py <<'ISLE'
+  from depo.oku import satirlari_uret
+
+
+  def hareketleri_uret(yol):
+      """Her satiri miktar int, yon +1/-1 olacak sekilde uretir."""
+      for islem_id, urun, miktar, yon in satirlari_uret(yol):
+          yon_degeri = 1 if yon == "GIRIS" else -1
+          yield islem_id, urun, miktar, yon_degeri
+  ISLE
+  cat > depo/rapor.py <<'RAPOR'
+  from depo.isle import hareketleri_uret
+
+
+  def stok_dengesi(yol):
+      """Urun -> net stok miktari sozlugu dondurur."""
+      denge = {}
+      for islem_id, urun, miktar, yon_degeri in hareketleri_uret(yol):
+          denge[urun] = yon_degeri
+      return denge
+  RAPOR
+  cat > hareketler.txt <<'VERI'
+  H1;vida;10;GIRIS
+  H2;somun;5;GIRIS
+  H3;vida;4;CIKIS
+  H4;somun;7;CIKIS
+  H5;pul;3;GIRIS
+  VERI
+
+goal_tr: >
+  depo/oku.py, depo/isle.py ve depo/rapor.py zincirindeki tip karismalarini
+  gidererek stok_dengesi fonksiyonunun her urunun net stok miktarini dogru
+  hesaplamasini sagla.
+
+reference_solution: |
+  cat > depo/oku.py <<'OKU'
+  def satirlari_uret(yol):
+      """Dosyadaki her satiri (islem_id, urun, miktar, yon) demeti olarak uretir."""
+      with open(yol, encoding="utf-8") as f:
+          for line in f:
+              line = line.strip()
+              if not line:
+                  continue
+              parcalar = line.split(";")
+              yield parcalar[0], parcalar[1], int(parcalar[2]), parcalar[3]
+  OKU
+  cat > depo/isle.py <<'ISLE'
+  from depo.oku import satirlari_uret
+
+
+  def hareketleri_uret(yol):
+      """Her satiri miktar int, yon +1/-1 olacak sekilde uretir."""
+      for islem_id, urun, miktar, yon in satirlari_uret(yol):
+          yon_degeri = 1 if yon == "GIRIS" else -1
+          yield islem_id, urun, miktar, yon_degeri
+  ISLE
+  cat > depo/rapor.py <<'RAPOR'
+  from depo.isle import hareketleri_uret
+
+
+  def stok_dengesi(yol):
+      """Urun -> net stok miktari sozlugu dondurur."""
+      denge = {}
+      for islem_id, urun, miktar, yon_degeri in hareketleri_uret(yol):
+          denge[urun] = denge.get(urun, 0) + miktar * yon_degeri
+      return denge
+  RAPOR
+
+ara_adim: |
+  cat > depo/oku.py <<'OKU'
+  def satirlari_uret(yol):
+      """Dosyadaki her satiri (islem_id, urun, miktar, yon) demeti olarak uretir."""
+      with open(yol, encoding="utf-8") as f:
+          for line in f:
+              line = line.strip()
+              if not line:
+                  continue
+              parcalar = line.split(";")
+              yield parcalar[0], parcalar[1], int(parcalar[2]), parcalar[3]
+  OKU
+
+outputs:
+  - {path: depo/rapor.py, kind: program, run: 'python3 -c ''from depo.rapor import stok_dengesi as f; d=f("hareketler.txt"); assert d=={"vida":6,"somun":-2,"pul":3}, d; print("TAMAM")'''}
+  - {path: depo/oku.py, kind: program, run: 'python3 -c ''from depo.oku import satirlari_uret as f; r=list(f("hareketler.txt")); assert r[0]==("H1","vida",10,"GIRIS"), r[0]; assert isinstance(r[0][2], int), type(r[0][2]); print("ILERLEME-TAMAM")'''}
+  - {path: depo/isle.py, kind: program, run: 'python3 -c ''from depo.isle import hareketleri_uret as f; r=list(f("hareketler.txt")); assert r[0]==("H1","vida",10,1), r[0]; assert r[2][3]==-1, r[2]; assert r[4][3]==1, r[4]; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.oku import satirlari_uret as f; r=list(f("hareketler.txt")); assert r[0]==("H1","vida",10,"GIRIS"), r[0]; assert isinstance(r[0][2], int), type(r[0][2]); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.rapor import stok_dengesi as f; d=f("hareketler.txt"); assert d=={"vida":6,"somun":-2,"pul":3}, d; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.isle import hareketleri_uret as f; r=list(f("hareketler.txt")); assert r[0]==("H1","vida",10,1), r[0]; assert r[2][3]==-1, r[2]; assert r[4][3]==1, r[4]; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-6041
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: stok-hareketleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: tip-karismasi
+      karmasiklik: orta
+      kalip: generator
+      akis: cok-dosya-birlestirme
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

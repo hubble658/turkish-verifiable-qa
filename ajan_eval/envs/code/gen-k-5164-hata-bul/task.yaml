@@ -1,0 +1,164 @@
+id: gen-k-5164-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  versions/resolver.py içindeki pick_latest fonksiyonunu, verilen sürüm listesinden kısıtı sağlayan en yüksek sürümü döndürecek biçimde düzelt. versions/registry.py dosyasındaki mevcut yapıya ve hata sınıflarına dokunma; fonksiyon yine kısıtı sağlayan sürüm yoksa hata vermeye devam etsin.
+
+setup: |
+  mkdir -p versions
+  cat > versions/registry.py <<'REGISTRY'
+  class VersionError(Exception):
+      pass
+
+
+  class ParseError(VersionError):
+      pass
+
+
+  class ConstraintError(VersionError):
+      pass
+
+
+  def parse_version(text):
+      parts = text.split(".")
+      nums = []
+      for p in parts:
+          if not p.isdigit():
+              raise ParseError("bad segment: " + p)
+          nums.append(int(p))
+      return tuple(nums)
+
+
+  def compare(a, b):
+      a = parse_version(a)
+      b = parse_version(b)
+      n = max(len(a), len(b))
+      for i in range(n):
+          x = a[i] if i < len(a) else 0
+          y = b[i] if i < len(b) else 0
+          if x != y:
+              return -1 if x < y else 1
+      return 0
+  REGISTRY
+  cat > versions/resolver.py <<'RESOLVER'
+  from versions.registry import parse_version, compare, ConstraintError
+
+
+  def _bounds(spec):
+      op = spec[:2]
+      if op in (">=", "<=", "==", "!="):
+          return op, spec[2:]
+      op = spec[0]
+      if op in (">", "<"):
+          return op, spec[1:]
+      raise ConstraintError("bad spec: " + spec)
+
+
+  def pick_latest(versions, spec):
+      op, target = _bounds(spec)
+      ok = []
+      for v in versions:
+          c = compare(v, target)
+          if op == ">=" and c >= 0:
+              ok.append(v)
+          elif op == ">" and c > 0:
+              ok.append(v)
+          elif op == "<=" and c <= 0:
+              ok.append(v)
+          elif op == "<" and c < 0:
+              ok.append(v)
+          elif op == "==" and c == 0:
+              ok.append(v)
+          elif op == "!=" and c != 0:
+              ok.append(v)
+      if not ok:
+          raise ConstraintError("no match for " + spec)
+      ok.sort(key=parse_version)
+      return ok[-2]
+  RESOLVER
+
+goal_tr: >
+  versions/resolver.py icindeki pick_latest fonksiyonunu, verilen surum
+  listesinden kisiti saglayan EN YUKSEK surumu dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > versions/resolver.py <<'RESOLVER'
+  from versions.registry import parse_version, compare, ConstraintError
+
+
+  def _bounds(spec):
+      op = spec[:2]
+      if op in (">=", "<=", "==", "!="):
+          return op, spec[2:]
+      op = spec[0]
+      if op in (">", "<"):
+          return op, spec[1:]
+      raise ConstraintError("bad spec: " + spec)
+
+
+  def pick_latest(versions, spec):
+      op, target = _bounds(spec)
+      ok = []
+      for v in versions:
+          c = compare(v, target)
+          if op == ">=" and c >= 0:
+              ok.append(v)
+          elif op == ">" and c > 0:
+              ok.append(v)
+          elif op == "<=" and c <= 0:
+              ok.append(v)
+          elif op == "<" and c < 0:
+              ok.append(v)
+          elif op == "==" and c == 0:
+              ok.append(v)
+          elif op == "!=" and c != 0:
+              ok.append(v)
+      if not ok:
+          raise ConstraintError("no match for " + spec)
+      ok.sort(key=parse_version)
+      return ok[-1]
+  RESOLVER
+
+outputs:
+  - {path: versions/resolver.py, kind: program, run: 'python3 -c ''from versions.resolver import pick_latest as f; from versions.registry import ConstraintError; vs=["1.2.0","1.10.0","2.0.0","1.9.3"]; assert f(vs,">=1.2.0")=="2.0.0", f(vs,">=1.2.0"); assert f(vs,"<2.0.0")=="1.10.0", f(vs,"<2.0.0"); assert f(vs,">1.2.0")=="2.0.0"; assert f(vs,"<=1.9.3")=="1.9.3"; assert f(vs,"==1.10.0")=="1.10.0"; assert f(vs,"!=2.0.0")=="1.10.0"; r=f(vs,">=1.2.0"); assert r=="2.0.0"; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from versions.resolver import pick_latest as f; from versions.registry import ConstraintError; vs=["1.2.0","1.10.0","2.0.0","1.9.3"]; assert f(vs,">=1.2.0")=="2.0.0", f(vs,">=1.2.0"); assert f(vs,"<2.0.0")=="1.10.0", f(vs,"<2.0.0"); assert f(vs,">1.2.0")=="2.0.0"; assert f(vs,"<=1.9.3")=="1.9.3"; assert f(vs,"==1.10.0")=="1.10.0"; assert f(vs,"!=2.0.0")=="1.10.0"; r=f(vs,">=1.2.0"); assert r=="2.0.0"; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5164
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: yazilim-surumleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: zor
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: off-by-one
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: bellek-ici
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

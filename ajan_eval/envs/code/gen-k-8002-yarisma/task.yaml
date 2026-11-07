@@ -1,0 +1,138 @@
+id: gen-k-8002-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  weblog/analyzer.py dosyasını oluştur. Bu dosyada, weblog/records.py içindeki PathCounter soyut protokolünü somutlaştıran bir DailyCounter sınıfı tanımla. DailyCounter, add metoduyla verilen yolu saysın ve best metoduyla en çok istenen yolu döndürsün; sayılar eşit olduğunda alfabetik olarak küçük olan yol kazansın. Ayrıca analyzer.py içinde en_popular_paths fonksiyonunu tanımla; bu fonksiyon iç içe sözlük yapısını (gün -> yol -> durum listesi) alsın, her gün için bir DailyCounter kullansın ve gün gün biriken sayaçlarla {gün: yol} biçiminde bir sözlük döndürsün.
+
+setup: |
+  mkdir -p weblog
+  cat > weblog/records.py <<'REC'
+  from abc import ABC, abstractmethod
+
+
+  class PathCounter(ABC):
+      """Soyut protokol: her gun icin yol sayimini tutan sayac."""
+
+      @abstractmethod
+      def add(self, path, status):
+          raise NotImplementedError
+
+      @abstractmethod
+      def best(self):
+          raise NotImplementedError
+
+
+  class LogRecord:
+      __slots__ = ("path", "status")
+
+      def __init__(self, path, status):
+          self.path = path
+          self.status = status
+
+
+  def parse_lines(lines):
+      out = []
+      for line in lines:
+          line = line.strip()
+          if not line:
+              continue
+          path, status = line.split(" ")
+          out.append(LogRecord(path, int(status)))
+      return out
+  REC
+  cat > weblog/nested.py <<'NEST'
+  def group_by_day(records_by_day):
+      """records_by_day: {day: [LogRecord, ...]} -> {day: {path: [status,...]}}"""
+      grouped = {}
+      for day, records in records_by_day.items():
+          by_path = {}
+          for rec in records:
+              by_path.setdefault(rec.path, []).append(rec.status)
+          grouped[day] = by_path
+      return grouped
+  NEST
+
+goal_tr: >
+  weblog/analyzer.py dosyasini yaz: weblog/records.py icindeki PathCounter
+  soyut protokolunu somutlastiran bir DailyCounter sinifi tanimla (add ile
+  yolu say, best ile en cok istenen yolu dondur, esitlikte alfabetik kucuk
+  kazanir) ve ic ice sozluk yapisini (gun -> yol -> durum listesi) alip her
+  gun icin bir DailyCounter kullanan, gun gun biriken sayaclarla {gun: yol}
+  donduren en_popular_paths fonksiyonunu tanimla.
+
+reference_solution: |
+  cat > weblog/analyzer.py <<'AN'
+  from weblog.records import PathCounter
+
+
+  class DailyCounter(PathCounter):
+      def __init__(self):
+          self._counts = {}
+
+      def add(self, path, status):
+          self._counts[path] = self._counts.get(path, 0) + 1
+
+      def best(self):
+          best_path = None
+          best_count = -1
+          for path in sorted(self._counts):
+              if self._counts[path] > best_count:
+                  best_count = self._counts[path]
+                  best_path = path
+          return best_path
+
+
+  def en_popular_paths(grouped):
+      popular = {}
+      for day in sorted(grouped):
+          counter = DailyCounter()
+          for path in sorted(grouped[day]):
+              for status in grouped[day][path]:
+                  counter.add(path, status)
+          popular[day] = counter.best()
+      return popular
+  AN
+
+outputs:
+  - {path: weblog/analyzer.py, kind: program, run: 'python3 -c ''from weblog.analyzer import en_popular_paths as f, DailyCounter; from weblog.records import PathCounter; assert issubclass(DailyCounter, PathCounter); c=DailyCounter(); c.add("/a",200); c.add("/a",200); c.add("/b",200); c.add("/b",200); c.add("/b",500); assert c.best()=="/b"; g={"d1":{"/a":[200,200],"/b":[200,200,200]},"d2":{"/x":[404],"/y":[404]}}; r=f(g); assert r=={"d1":"/b","d2":"/x"}, r; assert f({"d3":{"/z":[200,200],"/m":[500,500]}})=={"d3":"/m"}; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from weblog.analyzer import en_popular_paths as f, DailyCounter; from weblog.records import PathCounter; assert issubclass(DailyCounter, PathCounter); c=DailyCounter(); c.add("/a",200); c.add("/a",200); c.add("/b",200); c.add("/b",200); c.add("/b",500); assert c.best()=="/b"; g={"d1":{"/a":[200,200],"/b":[200,200,200]},"d2":{"/x":[404],"/y":[404]}}; r=f(g); assert r=={"d1":"/b","d2":"/x"}, r; assert f({"d3":{"/z":[200,200],"/m":[500,500]}})=={"d3":"/m"}; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8002
+    bundle: yarisma
+    tools:
+    - python3
+    konu: web-erisim-loglari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: dinamik-programlama
+      karmasiklik: duz
+      kalip: abc-protokol
+      akis: ic-ice-yapi
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

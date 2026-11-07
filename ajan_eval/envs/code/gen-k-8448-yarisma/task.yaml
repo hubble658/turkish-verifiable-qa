@@ -1,0 +1,122 @@
+id: gen-k-8448-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  school/transcript.py dosyasına, school/records.py içindeki read_records fonksiyonunu kullanan bir generator fonksiyonu ekle: top_courses(path, k). Bu fonksiyon verilen path için her dersin kaç kaydı olduğunu saysın ve kayıt sayısına göre azalan sırada, eşitlik durumunda ders adına göre artan sırada ilk k ders adını döndürsün.
+
+setup: |
+  mkdir -p school
+  cat > school/records.py <<'RECORDS'
+  def read_records(path):
+      with open(path, "r", encoding="utf-8") as fh:
+          for raw in fh:
+              line = raw.strip()
+              if not line:
+                  continue
+              sid, course, grade = line.split(";")
+              yield sid, course, grade
+  RECORDS
+  cat > school/transcript.py <<'TRANSCRIPT'
+  from school.records import read_records
+
+
+  def count_by_student(path):
+      counts = {}
+      for sid, course, grade in read_records(path):
+          counts[sid] = counts.get(sid, 0) + 1
+      return counts
+
+
+  def count_by_grade(path):
+      counts = {}
+      for sid, course, grade in read_records(path):
+          counts[grade] = counts.get(grade, 0) + 1
+      return counts
+  TRANSCRIPT
+  cat > grades.txt <<'GRADES'
+  s01;math;A
+  s01;phys;B
+  s02;math;A
+  s01;chem;A
+  s02;phys;C
+  s03;math;B
+  s02;chem;A
+  GRADES
+
+goal_tr: >
+  school/transcript.py icinde read_records uzerinden calisan bir generator
+  fonksiyonu `top_courses(path, k)` yaz; her ders icin kayit sayisini sayip,
+  sayiya gore azalan (esitlikte ders adina gore artan) sirali ilk k ders
+  adini dondursun.
+
+reference_solution: |
+  cat > school/transcript.py <<'TRANSCRIPT'
+  from school.records import read_records
+
+
+  def count_by_student(path):
+      counts = {}
+      for sid, course, grade in read_records(path):
+          counts[sid] = counts.get(sid, 0) + 1
+      return counts
+
+
+  def count_by_grade(path):
+      counts = {}
+      for sid, course, grade in read_records(path):
+          counts[grade] = counts.get(grade, 0) + 1
+      return counts
+
+
+  def top_courses(path, k):
+      counts = {}
+      for sid, course, grade in read_records(path):
+          counts[course] = counts.get(course, 0) + 1
+      ordered = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
+      for name, _ in ordered[:k]:
+          yield name
+  TRANSCRIPT
+
+outputs:
+  - {path: school/transcript.py, kind: program, run: 'python3 -c ''from school.transcript import top_courses as f; r=list(f("grades.txt",2)); assert r==["math","chem"], r; assert list(f("grades.txt",1))==["math"]; assert list(f("grades.txt",3))==["math","chem","phys"]; assert list(f("grades.txt",0))==[]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from school.transcript import top_courses as f; r=list(f("grades.txt",2)); assert r==["math","chem"], r; assert list(f("grades.txt",1))==["math"]; assert list(f("grades.txt",3))==["math","chem","phys"]; assert list(f("grades.txt",0))==[]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8448
+    bundle: yarisma
+    tools:
+    - python3
+    konu: ogrenci-transkripti
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sayma
+      karmasiklik: duz
+      kalip: generator
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

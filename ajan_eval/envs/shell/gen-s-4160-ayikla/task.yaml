@@ -1,0 +1,74 @@
+id: gen-s-4160-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  arsiv/odunc.txt ve arsiv/iade.txt dosyalarını karşılaştır; yalnızca odunc.txt içinde bulunup iade.txt içinde hiç geçmeyen kayıtları seç. Bu kayıtları arsiv/odunc.ayiklanmis dosyasına yaz. arsiv/odunc.txt.yedek dosyasına dokunma.
+
+setup: |
+  mkdir -p arsiv
+  cat > arsiv/odunc.txt <<'TXT'
+  101 Nutuk
+  102 Pusula
+  103 Nutuk
+  104 Yildizlar
+  105 Pusula
+  TXT
+  cat > arsiv/iade.txt <<'TXT'
+  102 Pusula
+  104 Yildizlar
+  104 Yildizlar
+  TXT
+  cat > arsiv/odunc.txt.yedek <<'TXT'
+  999 SahteKayit
+  TXT
+
+goal_tr: >
+  arsiv/odunc.txt ile arsiv/iade.txt dosyalarini karsilastirip yalnizca
+  odunc.txt icinde olup iade.txt icinde hic gecmeyen kayitlari, odunc.txt
+  uzantisini .ayiklanmis yaparak arsiv/odunc.ayiklanmis dosyasina yaz.
+
+reference_solution: |
+  head -n -0 arsiv/odunc.txt > /tmp/odunc.tmp
+  tail -n +1 /tmp/odunc.tmp > arsiv/odunc.ayiklanmis
+  while read -r satir; do
+    if grep -qxF "$satir" arsiv/iade.txt; then
+      grep -vxF "$satir" arsiv/odunc.ayiklanmis > /tmp/filtre.tmp
+      mv /tmp/filtre.tmp arsiv/odunc.ayiklanmis
+    fi
+  done < arsiv/odunc.txt
+
+outputs:
+  - {path: arsiv/odunc.ayiklanmis, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: arsiv/odunc.ayiklanmis, value: [101 Nutuk, 103 Nutuk, 105 Pusula]}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4160
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: kutuphane-kayitlari
+    hedef: ayikla
+    girdi: duz-metin
+    kaynak: iki-dosya-capraz
+    cikti: yeniden-adlandirilmis
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

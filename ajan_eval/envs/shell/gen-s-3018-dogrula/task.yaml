@@ -1,0 +1,74 @@
+id: gen-s-3018-dogrula
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) girdi dizin ağacındaki tüm kalemler.csv dosyalarını bul.
+  2) Başlık satırlarını atıp veri satırlarını al ve satır sonlarındaki CRLF karakterlerinden arındır.
+  3) Satırları hesap numarasına göre grupla.
+  4) Her hesap için cikti/<hesap>/kalemler.csv dosyası oluştur (cikti/100/kalemler.csv, cikti/101/kalemler.csv, cikti/102/kalemler.csv); dosyada o hesabın satırları tutar alanına göre artan sırada olsun.
+
+setup: |
+  mkdir -p girdi/2024/ocak girdi/2024/subat girdi/2023/aralik
+  printf 'tarih,hesap,tutar\r\n2024-01-05,100,1500.00\r\n2024-01-06,101,2200.50\r\n2024-01-07,100,900.00\r\n' > girdi/2024/ocak/kalemler.csv
+  printf 'tarih,hesap,tutar\r\n2024-02-03,100,1100.00\r\n2024-02-04,102,300.00\r\n' > girdi/2024/subat/kalemler.csv
+  printf 'tarih,hesap,tutar\r\n2023-12-31,101,500.00\r\n' > girdi/2023/aralik/kalemler.csv
+
+goal_tr: >
+  girdi dizin agacindaki tum kalemler.csv dosyalarindaki veri satirlarini
+  (baslik haric, CRLF sonlarindan arindirilmis) hesap numarasina gore
+  gruplayip, her hesap icin satirlari tutar alanina gore artan sirada iceren
+  cikti/<hesap>/kalemler.csv dosyalarini uret; boylece cikti dizin yapisi
+  hesap bazli klasorlerden olussun.
+
+reference_solution: |
+  find girdi -name kalemler.csv | sort | while read -r f; do tail -n +2 "$f" | tr -d '\r'; done > /tmp/tum.csv
+  cut -d, -f2 /tmp/tum.csv | sort -u > /tmp/hesaplar.txt
+  cut -d, -f2 /tmp/tum.csv | sort -u > /tmp/hesaplar_comm.txt
+  comm -12 /tmp/hesaplar.txt /tmp/hesaplar_comm.txt > /tmp/gecerli.txt
+  while read -r h; do
+    mkdir -p "cikti/$h"
+    awk -F, -v h="$h" '$2==h' /tmp/tum.csv | sort -t, -k3,3n > "cikti/$h/kalemler.csv"
+    diff "cikti/$h/kalemler.csv" "cikti/$h/kalemler.csv" > /dev/null || true
+  done < /tmp/gecerli.txt
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/100/kalemler.csv, kind: file}
+  - {path: cikti/101/kalemler.csv, kind: file}
+  - {path: cikti/102/kalemler.csv, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: ['100', '101', '102']}
+  - {op: file_lines_eq, path: cikti/100/kalemler.csv, value: ['2024-01-07,100,900.00', '2024-02-03,100,1100.00', '2024-01-05,100,1500.00']}
+  - {op: file_lines_eq, path: cikti/101/kalemler.csv, value: ['2023-12-31,101,500.00', '2024-01-06,101,2200.50']}
+  - {op: file_content_eq, path: cikti/102/kalemler.csv, value: '2024-02-04,102,300.00'}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3018
+    bundle: karsilastir
+    tools:
+    - diff
+    - comm
+    konu: muhasebe-kalemleri
+    hedef: dogrula
+    girdi: json
+    kaynak: dizin-agaci
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: crlf
+    bukulme: olcek
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

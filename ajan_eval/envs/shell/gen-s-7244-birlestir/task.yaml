@@ -1,0 +1,83 @@
+id: gen-s-7244-birlestir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri dizini altındaki her sensor alt dizinindeki olcum.txt dosyalarını tek bir kayıt listesinde birleştir; tekrar eden satırları ele ve kalan her kaydı aynı dizindeki etiket.txt dosyasından sensor kimliğine göre etiketle. Sonuçta birlestirilmis.txt ve etiketli.txt dosyalarını üret; etiketli.txt içinde her kayıt sensor kimliğine karşılık gelen etiketle birlikte yer alsın.
+
+setup: |
+  mkdir -p veri/sensor_a veri/sensor_b
+  cat > veri/sensor_a/olcum.txt <<'EOF'
+  s01 2024-01-01 10:00 21
+  s02 2024-01-01 10:00 22
+  s03 2024-01-01 10:00 23
+  s01 2024-01-01 10:00 21
+  s04 2024-01-01 10:00 24
+  EOF
+  cat > veri/sensor_b/olcum.txt <<'EOF'
+  s02 2024-01-01 10:00 22
+  s05 2024-01-01 10:00 25
+  s01 2024-01-01 10:00 21
+  s06 2024-01-01 10:00 26
+  EOF
+  cat > veri/sensor_a/etiket.txt <<'EOF'
+  s01 alfa
+  s02 beta
+  s03 gama
+  s04 delta
+  EOF
+  cat > veri/sensor_b/etiket.txt <<'EOF'
+  s02 beta
+  s05 epsilon
+  s06 zeta
+  EOF
+
+goal_tr: >
+  veri dizini altindaki her sensor alt dizinindeki olcum.txt dosyalarini tek
+  bir kayit listesinde birlestir, tekrar eden satirlari ele ve her kaydi
+  ayni dizindeki etiket.txt dosyasindan sensor kimligine gore etiketle,
+  cikti olarak birlestirilmis.txt ve etiketli.txt dosyalarini uret
+
+reference_solution: |
+  find veri -name olcum.txt | sort | xargs cat | sort -u > birlestirilmis.txt
+  find veri -name etiket.txt | sort | xargs cat | sort -u > etiketler.txt
+  sort -k1,1 birlestirilmis.txt > /tmp/b.txt
+  sort -k1,1 etiketler.txt > /tmp/e.txt
+  join -1 1 -2 1 /tmp/b.txt /tmp/e.txt > etiketli.txt
+
+outputs:
+  - {path: birlestirilmis.txt, kind: file}
+  - {path: etiketli.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: birlestirilmis.txt, value: ['s01 2024-01-01 10:00 21', 's02 2024-01-01 10:00 22', 's03 2024-01-01 10:00 23', 's04 2024-01-01 10:00 24', 's05 2024-01-01 10:00 25', 's06 2024-01-01 10:00 26']}
+  - {op: file_lines_eq, path: etiketli.txt, value: ['s01 2024-01-01 10:00 21 alfa', 's02 2024-01-01 10:00 22 beta', 's03 2024-01-01 10:00 23 gama', 's04 2024-01-01 10:00 24 delta', 's05 2024-01-01 10:00 25 epsilon', 's06 2024-01-01 10:00 26 zeta']}
+
+metadata:
+  domain: birlestir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7244
+    bundle: birlestir
+    tools:
+    - join
+    - sort
+    konu: sensor-olcumleri
+    hedef: birlestir
+    girdi: log-satiri
+    kaynak: dizin-agaci
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: tekrar-eden-kayit
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

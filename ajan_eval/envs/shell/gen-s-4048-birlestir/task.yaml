@@ -1,0 +1,80 @@
+id: gen-s-4048-birlestir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  olcumler klasöründeki s1.txt, s2.txt ve s3.txt dosyalarının her satırındaki ikinci ve üçüncü sütunda yer alan sıfır dolgulu sayıları topla ve bu toplamın tüm dosyalar üzerindeki sonucunu sonuc.txt dosyasına yalnızca sayı olarak yaz.
+
+  Şu şartlar sağlanmalı:
+  - olcumler klasöründeki s1.txt, s2.txt ve s3.txt dosyalarının tamamı işlenmeli.
+  - Her satırın ikinci ve üçüncü sütunundaki sıfır dolgulu sayılar toplanmalı.
+  - Toplam, tüm dosyaların tüm satırları üzerinden tek bir sonuç olarak hesaplanmalı.
+  - Sonuç, sonuc.txt dosyasına yalnızca sayı olarak yazılmalı; başka hiçbir metin veya biçimlendirme bulunmamalı.
+
+setup: |
+  mkdir -p olcumler
+  cat > olcumler/s1.txt <<'TXT'
+  S01 00012 00045
+  S02 00031 00008
+  S03 00007 00022
+  TXT
+  cat > olcumler/s2.txt <<'TXT'
+  S01 00005 00060
+  S02 00019 00011
+  S03 00044 00003
+  TXT
+  cat > olcumler/s3.txt <<'TXT'
+  S01 00028 00017
+  S02 00009 00033
+  S03 00015 00026
+  TXT
+
+goal_tr: >
+  olcumler klasorundeki her s1.txt, s2.txt, s3.txt dosyasindaki her satirin
+  ikinci ve ucuncu sutunlarindaki sifir dolgulu sayilari topla ve tum
+  dosyalar uzerindeki bu toplamin sonucunu sonuc.txt dosyasina sadece sayi
+  olarak yaz
+
+reference_solution: |
+  find olcumler -type f -name 's*.txt' | sort > dosyalar.txt
+  cut -c6-10 dosyalar.txt >/dev/null 2>&1 || true
+  cut -d' ' -f2 dosyalar.txt >/dev/null 2>&1 || true
+  cut -d' ' -f2 olcumler/s1.txt olcumler/s2.txt olcumler/s3.txt > a.txt
+  cut -d' ' -f3 olcumler/s1.txt olcumler/s2.txt olcumler/s3.txt > b.txt
+  paste -d'\n' a.txt b.txt | sort > degerler.txt
+  awk '{t+=$1} END{print t}' degerler.txt > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '395'}
+
+metadata:
+  domain: birlestir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4048
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: sensor-olcumleri
+    hedef: birlestir
+    girdi: sabit-genislik
+    kaynak: cok-dosya
+    cikti: tek-sayi
+    kesif: veriye-bak
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: olcek
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,95 @@
+id: gen-s-3103-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) "muhasebe arsivi" klasöründeki "hesap plani.csv" ve "hareketler.csv" dosyalarını kod alanında birleştirerek her hesap için toplam tutarı hesapla.
+
+  2) Hesapların toplam tutarlarını içeren "muhasebe arsivi/ciktilar/hesap ozeti.txt" dosyasını oluştur.
+
+  3) Hesapların toplam tutarlarını içeren "muhasebe arsivi/ciktilar/genel ozet.csv" dosyasını oluştur.
+
+  4) "ciktilar" klasörünü önce tar ile paketle, ardından gzip ile sıkıştırarak "muhasebe arsivi/muhasebe cikti.tar.gz" arşivini oluştur.
+
+setup: |
+  mkdir -p "muhasebe arsivi"
+  cat > "muhasebe arsivi/hesap plani.csv" <<'CSV'
+  kod,ad
+  100,Kasa
+  101,Alinan Cekler
+  102,Bankalar
+  120,Alicilar
+  320,Saticilar
+  600,Yurt Ici Satislar
+  CSV
+
+  cat > "muhasebe arsivi/hareketler.csv" <<'CSV'
+  tarih,kod,tutar
+  2024-01-05,100,1500.00
+  2024-01-06,120,2500.50
+  2024-01-07,600,8000.00
+  2024-01-08,102,300.25
+  2024-01-09,320,4200.75
+  2024-01-10,100,950.00
+  2024-01-11,600,12000.00
+  2024-01-12,120,1750.00
+  CSV
+
+goal_tr: >
+  "muhasebe arsivi" klasorundeki hesap plani.csv ve hareketler.csv
+  dosyalarini kod alaninda birlestirip her hesap icin toplam tutari
+  hesaplayarak ciktilar/hesap ozeti.txt ve ciktilar/genel ozet.csv
+  dosyalarini uret, ardindan ciktilar klasorunu once tar ile paketleyip gzip
+  ile muhasebe cikti.tar.gz arsivine sikistir.
+
+reference_solution: |
+  cd "muhasebe arsivi"
+  mkdir -p ciktilar
+  awk -F, 'NR==FNR && FNR>1 {ad[$1]=$2; next} FNR>1 {toplam[$2]+=$3} END {for (k in ad) printf "%s|%s|%.2f\n", k, ad[k], toplam[k]+0}' hesap plani.csv hareketler.csv | sort -t'|' -k1,1n > "ciktilar/hesap ozeti.txt"
+  awk -F'|' '{toplam+=$3; printf "%s,%s,%.2f\n", $1, $2, $3} END {printf "TOPLAM,,%.2f\n", toplam}' "ciktilar/hesap ozeti.txt" > "ciktilar/genel ozet.csv"
+  tar -cf "muhasebe cikti.tar" ciktilar
+  gzip -f "muhasebe cikti.tar"
+  cd ..
+
+outputs:
+  - {path: muhasebe arsivi/ciktilar/hesap ozeti.txt, kind: file}
+  - {path: muhasebe arsivi/ciktilar/genel ozet.csv, kind: file}
+  - {path: muhasebe arsivi/muhasebe cikti.tar.gz, kind: file}
+
+checks:
+  - {op: file_content_eq, path: muhasebe arsivi/ciktilar/genel ozet.csv, value: 'TOPLAM,,0.00'}
+  - {op: is_file, path: muhasebe arsivi/ciktilar/hesap ozeti.txt}
+  - {op: run_stdout_eq, cmd: tar -tzf 'muhasebe arsivi/muhasebe cikti.tar.gz' | sort, value: 'ciktilar/
+
+    ciktilar/genel ozet.csv
+
+    ciktilar/hesap ozeti.txt'}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3103
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: muhasebe-kalemleri
+    hedef: donustur
+    girdi: csv
+    kaynak: iki-dosya-capraz
+    cikti: birden-cok-dosya
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: bosluklu-ad
+    bukulme: olcek
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

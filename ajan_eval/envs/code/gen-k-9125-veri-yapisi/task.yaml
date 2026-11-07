@@ -1,0 +1,158 @@
+id: gen-k-9125-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 18
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  shift/roster.py içindeki read_roster fonksiyonunun doctor rolündeki kayıtları atlamasını kaldır, böylece bu rol için de kayıtlar okunup işlenmeye başlansın. Ayrıca shift/queue.py içindeki make_queue fabrikasını gerçek bir FIFO kuyruğu olarak çalışacak biçimde gerçekleştir; ilk eklenen öğenin ilk çıkarılmasını sağla. Bu iki değişiklik birlikte shift/plan.py içindeki build_plan fonksiyonunun vardiyaları dosyadaki sırayla döndürmesini sağlamalı.
+
+setup: |
+  mkdir -p shift
+  cat > shift/roster.py <<'ROSTER'
+  def read_roster(path):
+      entries = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              name, role, hours = line.split(';')
+              if role == 'doctor':
+                  continue
+              entries.append({'name': name, 'role': role, 'hours': int(hours)})
+      return entries
+  ROSTER
+  cat > shift/queue.py <<'QUEUE'
+  def make_queue():
+      items = []
+
+      def push(item):
+          items.append(item)
+
+      def pop():
+          if not items:
+              raise IndexError('empty')
+          return items[0]
+
+      def size():
+          return len(items)
+
+      return push, pop, size
+  QUEUE
+  cat > shift/plan.py <<'PLAN'
+  from shift.roster import read_roster
+  from shift.queue import make_queue
+
+
+  def build_plan(path):
+      entries = read_roster(path)
+      push, pop, size = make_queue()
+      for entry in entries:
+          push(entry)
+      plan = []
+      while size() > 0:
+          plan.append(pop())
+      return plan
+  PLAN
+  cat > roster.txt <<'DATA'
+  ada;nurse;8
+  bora;nurse;6
+  cem;doctor;10
+  DATA
+
+goal_tr: >
+  shift/roster.py icindeki read_roster fonksiyonunun doctor rolundeki
+  kayitlari atlamasini kaldir ve shift/queue.py icindeki make_queue
+  fabrikasini gercek bir FIFO kuyrugu olacak bicimde gerceklestir; boylece
+  build_plan vardiyalari dosyadaki sirayla dondurur.
+
+reference_solution: |
+  cat > shift/roster.py <<'ROSTER'
+  def read_roster(path):
+      entries = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              name, role, hours = line.split(';')
+              entries.append({'name': name, 'role': role, 'hours': int(hours)})
+      return entries
+  ROSTER
+  cat > shift/queue.py <<'QUEUE'
+  def make_queue():
+      items = []
+
+      def push(item):
+          items.append(item)
+
+      def pop():
+          if not items:
+              raise IndexError('empty')
+          return items.pop(0)
+
+      def size():
+          return len(items)
+
+      return push, pop, size
+  QUEUE
+
+ara_adim: |
+  cat > shift/roster.py <<'ROSTER'
+  def read_roster(path):
+      entries = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              name, role, hours = line.split(';')
+              entries.append({'name': name, 'role': role, 'hours': int(hours)})
+      return entries
+  ROSTER
+
+outputs:
+  - {path: shift/queue.py, kind: program, run: 'python3 -c ''from shift.plan import build_plan as f; p=f("roster.txt"); assert [e["name"] for e in p]==["ada","bora","cem"], [e["name"] for e in p]; print("TAMAM")'''}
+  - {path: shift/roster.py, kind: program, run: 'python3 -c ''from shift.roster import read_roster as f; r=f("roster.txt"); assert [e["name"] for e in r]==["ada","bora","cem"], [e["name"] for e in r]; print("ILERLEME-TAMAM")'''}
+  - {path: shift/plan.py, kind: program, run: 'python3 -c ''from shift.queue import make_queue; push,pop,size=make_queue(); push("x"); push("y"); assert size()==2; assert pop()=="x"; assert pop()=="y"; assert size()==0; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from shift.plan import build_plan as f; p=f("roster.txt"); assert [e["name"] for e in p]==["ada","bora","cem"], [e["name"] for e in p]; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from shift.roster import read_roster as f; r=f("roster.txt"); assert [e["name"] for e in r]==["ada","bora","cem"], [e["name"] for e in r]; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from shift.queue import make_queue; push,pop,size=make_queue(); push("x"); push("y"); assert size()==2; assert pop()=="x"; assert pop()=="y"; assert size()==0; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9125
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: vardiya-cizelgesi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 6
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kuyruk
+      karmasiklik: orta
+      kalip: closure-fabrika
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

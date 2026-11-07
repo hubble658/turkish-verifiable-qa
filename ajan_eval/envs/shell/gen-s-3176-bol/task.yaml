@@ -1,0 +1,77 @@
+id: gen-s-3176-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sunucu.ini dosyasındaki her bölümü kendi adıyla bir .bolum dosyasına yaz. Dosya adı bölüm adı olsun; içerik ise bölümün başlığından sonraki satırlar olsun. Yani genel bölümü genel.bolum dosyasına, disk bölümü disk.bolum dosyasına, ag bölümü ag.bolum dosyasına, uyari bölümü ise uyari.bolum dosyasına yazılsın. Bu dosyaların içine bölüm başlığı satırı dahil edilmesin, yalnızca başlıktan sonra gelen satırlar yer alsın; sunucu.ini dosyasının kendisi de olduğu gibi kalsın.
+
+setup: |
+  cat > sunucu.ini <<'INI'
+  [genel]
+  ad=web01
+  durum=aktif
+
+  [disk]
+  kullanim=75
+  esik=90
+  not=kok bolum
+
+  [ag]
+  adres=10.0.0.5
+  port=8080
+  protokol=https
+
+  [uyari]
+  seviye=2
+  mesaj=bellek az
+  INI
+
+goal_tr: >
+  sunucu.ini dosyasindaki her bolumu kendi adiyla bir .bolum dosyasina yaz;
+  dosya adi bolum adi, icerik ise bolumun basligindan sonraki satirlar
+  olsun.
+
+reference_solution: |
+  awk '/^\[/{name=$0; gsub(/[\[\]]/,"",name); file=name".bolum"; next} {print > file}' sunucu.ini
+  for f in *.bolum; do head -n 1 "$f" > "$f.tmp" && tail -n +2 "$f" >> "$f.tmp" && mv "$f.tmp" "$f"; done
+
+outputs:
+  - {path: genel.bolum, kind: file}
+  - {path: disk.bolum, kind: file}
+  - {path: ag.bolum, kind: file}
+  - {path: uyari.bolum, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: ag.bolum, value: [adres=10.0.0.5, port=8080, protokol=https]}
+  - {op: file_lines_eq, path: disk.bolum, value: [kullanim=75, esik=90, not=kok bolum]}
+  - {op: file_lines_eq, path: genel.bolum, value: [ad=web01, durum=aktif]}
+  - {op: file_lines_eq, path: uyari.bolum, value: [seviye=2, mesaj=bellek az]}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3176
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: sunucu-loglari
+    hedef: bol
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: birden-cok-dosya
+    kesif: dolayli-hedef
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

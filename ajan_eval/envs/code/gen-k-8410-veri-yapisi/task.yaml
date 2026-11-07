@@ -1,0 +1,140 @@
+id: gen-k-8410-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Sabah toplantısında hasat verilerini bölge bölge karşılaştırmamız gerektiği ortaya çıktı; elimizde zaten farm/yields.txt dosyası var ama bunu işleyip anlamlı bir özet çıkaracak bir aracımız yok. Günün geri kalanında da benzer sorular gelmeye devam ediyor, o yüzden artık tek seferlik bir çözüm yerine tekrar kullanılabilir bir modül yazmak istiyorum.
+
+  farm/analyze.py adında tek dosyalı bir modül oluştur. Bu modülde farm/yields.txt dosyasındaki her bölge satırından bölge adını ve o bölgenin verimlerini okuyacak bir parse_yields fonksiyonu olsun; bu fonksiyon dosya adını alıp bölge:verimler şeklinde bir sözlük döndürsün. Geçersiz bir satırla karşılaşıldığında YieldError adında, ValueError alt sınıfı olan bir hata fırlatılsın; dosya eksik olduğunda ise YieldError alt sınıfı olan YieldFileError fırlatılsın.
+
+  Aynı modülde YieldGraph adında bir sınıf olsun; bu sınıf komşuluk grafiğini gezip en yüksek ortalama verime sahip bölge zincirini bulabilsin ve bunu best_chain metodu üzerinden sunsun.
+
+setup: |
+  mkdir -p farm
+  cat > farm/yields.txt <<'DATA'
+  north:12,9,15,10
+  south:7,8,6,9
+  east:20,18,22,19
+  west:5,4,6,5
+  DATA
+
+goal_tr: >
+  farm/yields.txt dosyasindaki her bolge satirindan bolge adini ve verimleri
+  okuyup, komsuluk grafigini gezen ve en yuksek ortalama verime sahip bolge
+  zincirini bulan bir `YieldGraph` sinifi ile `parse_yields` fonksiyonunu
+  (dosya adi alip bolge:verimler sozlugu donduren) ve `best_chain` metodunu
+  iceren tek dosyali `farm/analyze.py` modulunu yaz; `parse_yields` gecersiz
+  satir icin `YieldError` (ValueError alt sinifi), eksik dosya icin
+  `YieldFileError` (YieldError alt sinifi) firlatmali.
+
+reference_solution: |
+  cat > farm/analyze.py <<'PY'
+  class YieldError(ValueError):
+      pass
+
+
+  class YieldFileError(YieldError):
+      pass
+
+
+  def parse_yields(path):
+      try:
+          with open(path, "r", encoding="ascii") as fh:
+              raw = fh.read()
+      except OSError as exc:
+          raise YieldFileError("cannot read file: %s" % path) from exc
+      result = {}
+      for line in raw.splitlines():
+          line = line.strip()
+          if not line:
+              continue
+          if ":" not in line:
+              raise YieldError("missing separator: %r" % line)
+          name, rest = line.split(":", 1)
+          name = name.strip()
+          if not name:
+              raise YieldError("empty region name: %r" % line)
+          parts = [p.strip() for p in rest.split(",")]
+          values = []
+          for p in parts:
+              try:
+                  values.append(float(p))
+              except ValueError:
+                  raise YieldError("bad number %r in %r" % (p, line))
+          if not values:
+              raise YieldError("no values for region %r" % name)
+          result[name] = values
+      if not result:
+          raise YieldError("no regions parsed from %s" % path)
+      return result
+
+
+  class YieldGraph:
+      def __init__(self, regions):
+          self.regions = regions
+          self._neighbors = {}
+          names = list(regions.keys())
+          for i, name in enumerate(names):
+              nxt = names[(i + 1) % len(names)]
+              self._neighbors[name] = [nxt]
+
+      def average(self, name):
+          vals = self.regions[name]
+          return sum(vals) / len(vals)
+
+      def walk(self, start):
+          seen = []
+          current = start
+          while current not in seen:
+              seen.append(current)
+              current = self._neighbors[current][0]
+          return seen
+
+      def best_chain(self, start):
+          chain = self.walk(start)
+          chain.sort(key=lambda n: (-self.average(n), n))
+          return chain
+  PY
+
+outputs:
+  - {path: farm/analyze.py, kind: program, run: 'python3 -c ''from farm.analyze import parse_yields, YieldGraph, YieldError, YieldFileError; d=parse_yields("farm/yields.txt"); assert d["north"]==[12.0,9.0,15.0,10.0]; g=YieldGraph(d); assert g.walk("north")==["north","south","east","west"]; assert g.walk("east")==["east","west","north","south"]; assert g.best_chain("north")==["east","north","south","west"]; assert isinstance(YieldFileError("x"), YieldError); assert issubclass(YieldError, ValueError); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from farm.analyze import parse_yields, YieldGraph, YieldError, YieldFileError; d=parse_yields("farm/yields.txt"); assert d["north"]==[12.0,9.0,15.0,10.0]; g=YieldGraph(d); assert g.walk("north")==["north","south","east","west"]; assert g.walk("east")==["east","west","north","south"]; assert g.best_chain("north")==["east","north","south","west"]; assert isinstance(YieldFileError("x"), YieldError); assert issubclass(YieldError, ValueError); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8410
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: tarim-verim-olcumleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: graf-gezinme
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: dosya-okuma
+      topoloji: tek-modul
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

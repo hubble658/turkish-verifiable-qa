@@ -1,0 +1,95 @@
+id: gen-k-8354-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  lib/loans.py içindeki fine_for fonksiyonunu, kayıttaki tüm item ağırlıklarının toplamının gün sayısı ile oranının çarpımını ekleyerek doğru ceza tutarını döndürecek biçimde düzelt. lib/rates.py dosyası değişmemeli.
+
+setup: |
+  mkdir -p lib
+  cat > lib/rates.py <<'RATES'
+  DEFAULT_RATE = 0.05
+
+
+  def apply_rate(fn):
+      def wrapper(record, rate=DEFAULT_RATE):
+          return fn(record, rate) + record["days"] * rate
+      return wrapper
+  RATES
+  cat > lib/loans.py <<'LOANS'
+  from lib.rates import apply_rate
+
+
+  @apply_rate
+  def fine_for(record, rate):
+      base = 0.0
+      for item in record["items"]:
+          base = base - item["weight"]
+      return base
+  LOANS
+  cat > records.txt <<'TXT'
+  alice|3|2.0,1.0,4.0
+  bob|1|5.0
+  carol|0|2.0,2.0
+  TXT
+
+goal_tr: >
+  lib/loans.py icindeki fine_for fonksiyonunu, kayittaki tum item
+  agirliklarinin toplamina gun sayisi ile oranin carpimini ekleyerek dogru
+  ceza tutarini dondurecek bicimde duzelt; lib/rates.py degismemeli.
+
+reference_solution: |
+  cat > lib/loans.py <<'LOANS'
+  from lib.rates import apply_rate
+
+
+  @apply_rate
+  def fine_for(record, rate):
+      base = 0.0
+      for item in record["items"]:
+          base = base + item["weight"]
+      return base
+  LOANS
+
+outputs:
+  - {path: lib/loans.py, kind: program, run: 'python3 -c ''import lib.loans as m; from lib.loans import fine_for as f; r1={"days":3,"items":[{"weight":2.0},{"weight":1.0},{"weight":4.0}]}; r2={"days":1,"items":[{"weight":5.0}]}; r3={"days":0,"items":[{"weight":2.0},{"weight":2.0}]}; assert abs(f(r1)-7.15)<1e-9, f(r1); assert abs(f(r2)-5.05)<1e-9, f(r2); assert abs(f(r3)-4.0)<1e-9, f(r3); assert abs(f(r1,0.1)-7.3)<1e-9, f(r1,0.1); assert abs(f({"days":2,"items":[{"weight":1.5},{"weight":0.5}]})-2.1)<1e-9; assert m.fine_for.__name__=="wrapper" or True; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import lib.loans as m; from lib.loans import fine_for as f; r1={"days":3,"items":[{"weight":2.0},{"weight":1.0},{"weight":4.0}]}; r2={"days":1,"items":[{"weight":5.0}]}; r3={"days":0,"items":[{"weight":2.0},{"weight":2.0}]}; assert abs(f(r1)-7.15)<1e-9, f(r1); assert abs(f(r2)-5.05)<1e-9, f(r2); assert abs(f(r3)-4.0)<1e-9, f(r3); assert abs(f(r1,0.1)-7.3)<1e-9, f(r1,0.1); assert abs(f({"days":2,"items":[{"weight":1.5},{"weight":0.5}]})-2.1)<1e-9; assert m.fine_for.__name__=="wrapper" or True; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8354
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kutuphane-oduncleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-toplama-sirasi
+      karmasiklik: duz
+      kalip: dekorator
+      akis: bellek-ici
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

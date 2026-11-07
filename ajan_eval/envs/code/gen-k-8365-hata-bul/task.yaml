@@ -1,0 +1,127 @@
+id: gen-k-8365-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sessions/store.py içindeki SessionStore.last_active metodunu düzelt; süresi dolmamış oturumlar arasından en son aktif olan k kullanıcının adını dosyadaki sıraya göre (eşit bitiş anında önce gelen önce) döndürsün.
+
+setup: |
+  mkdir -p sessions
+  cat > sessions/store.py <<'STORE'
+  class SessionStore:
+      def __init__(self):
+          self._rows = []
+
+      def load(self, path):
+          with open(path) as fh:
+              for line in fh:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  user, ts, dur = line.split(',')
+                  self._rows.append((user, int(ts), int(dur)))
+
+      def _visible(self, now):
+          return [r for r in self._rows if r[1] <= now < r[1] + r[2]]
+
+      def last_active(self, now, k):
+          rows = self._visible(now)
+          rows.sort(key=lambda r: r[1] + r[2])
+          ordered = []
+          for r in rows:
+              if r[0] not in ordered:
+                  ordered.append(r[0])
+          return list(set(ordered))[:k]
+  STORE
+  cat > sessions/report.py <<'REPORT'
+  from sessions.store import SessionStore
+
+
+  def recent_users(path, now, k):
+      store = SessionStore()
+      store.load(path)
+      return store.last_active(now, k)
+  REPORT
+  cat > log.csv <<'CSV'
+  alice,10,5
+  bob,12,5
+  carol,10,5
+  dave,12,5
+  CSV
+
+goal_tr: >
+  sessions/store.py icindeki SessionStore.last_active metodunu, suresi
+  dolmamis oturumlar arasindan en son aktif olan k kullanicinin adini
+  dosyadaki siraya gore (esit bitis aninda once gelen once) dondurecek
+  bicimde duzelt.
+
+reference_solution: |
+  cat > sessions/store.py <<'STORE'
+  class SessionStore:
+      def __init__(self):
+          self._rows = []
+
+      def load(self, path):
+          with open(path) as fh:
+              for line in fh:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  user, ts, dur = line.split(',')
+                  self._rows.append((user, int(ts), int(dur)))
+
+      def _visible(self, now):
+          return [r for r in self._rows if r[1] <= now < r[1] + r[2]]
+
+      def last_active(self, now, k):
+          rows = self._visible(now)
+          rows.sort(key=lambda r: r[1] + r[2])
+          ordered = []
+          for r in rows:
+              if r[0] not in ordered:
+                  ordered.append(r[0])
+          return ordered[:k]
+  STORE
+
+outputs:
+  - {path: sessions/store.py, kind: program, run: 'python3 -c ''from sessions.report import recent_users as f; assert f("log.csv",13,4)==["alice","carol","bob","dave"], f("log.csv",13,4); assert f("log.csv",13,2)==["alice","carol"], f("log.csv",13,2); assert f("log.csv",13,1)==["alice"]; assert f("log.csv",100,2)==[]; assert f("log.csv",14,4)==["alice","carol","bob","dave"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sessions.report import recent_users as f; assert f("log.csv",13,4)==["alice","carol","bob","dave"], f("log.csv",13,4); assert f("log.csv",13,2)==["alice","carol"], f("log.csv",13,2); assert f("log.csv",13,1)==["alice"]; assert f("log.csv",100,2)==[]; assert f("log.csv",14,4)==["alice","carol","bob","dave"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8365
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kullanici-oturumlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-kararsizligi
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

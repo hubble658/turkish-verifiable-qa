@@ -1,0 +1,153 @@
+id: gen-k-6025-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  restoran/siparis.py, restoran/toplam.py ve restoran/rapor/olustur.py dosyalarında çalışan bir düzeltme istiyorum. restoran/toplam.py içindeki masa_toplamlari fonksiyonu şu anda aynı masaya ait siparişleri doğru şekilde biriktirmiyor; bu fonksiyonun aynı masanın tüm siparişlerini doğru biçimde toplayıp her masa için doğru toplam tutarı döndürmesini istiyorum. restoran/rapor/olustur.py içindeki kumulatif fonksiyonu ise başlık satırını atlayıp yalnızca veri satırlarını işleyecek hale getirmelisin; böylece bu fonksiyon doğru kümülatif masa toplamlarını döndürsün. restoran/siparis.py dosyasındaki yardımcı fonksiyonlar bu düzeltmelerle uyumlu kalmalı.
+
+setup: |
+  mkdir -p restoran/rapor
+  cat > restoran/veri.txt <<'VERI'
+  masa,urun,adet,fiyat
+  1,cay,3,10
+  1,kahve,2,25
+  2,cay,5,10
+  2,kahve,1,25
+  2,tost,2,40
+  3,tost,4,40
+  3,kahve,3,25
+  VERI
+  cat > restoran/siparis.py <<'SIPARIS'
+  def oku_satirlar(path):
+      with open(path, "r", encoding="ascii") as fh:
+          lines = [ln.strip() for ln in fh if ln.strip()]
+      return lines[1:]
+
+
+  def ayir(line):
+      parts = line.split(",")
+      return parts[0], parts[1], int(parts[2]), int(parts[3])
+  SIPARIS
+  cat > restoran/toplam.py <<'TOPLAM'
+  from restoran.siparis import ayir
+
+
+  def masa_toplamlari(rows):
+      acc = {}
+      for line in rows:
+          masa, urun, adet, fiyat = ayir(line)
+          acc[masa] = acc[masa] + adet * fiyat
+      return acc
+  TOPLAM
+  cat > restoran/rapor/olustur.py <<'OLUSTUR'
+  from restoran.toplam import masa_toplamlari
+
+
+  def kumulatif(path):
+      with open(path, "r", encoding="ascii") as fh:
+          rows = [ln.strip() for ln in fh if ln.strip()]
+      toplamlar = masa_toplamlari(rows)
+      sirali = sorted(toplamlar.items())
+      sonuc = []
+      running = 0
+      for masa, tutar in sirali:
+          running = running + tutar
+          sonuc.append((masa, running))
+      return sonuc
+  OLUSTUR
+
+goal_tr: >
+  restoran/toplam.py icindeki masa_toplamlari fonksiyonunu ayni masanin
+  siparislerini dogru biriktirecek sekilde, restoran/rapor/olustur.py
+  icindeki kumulatif fonksiyonunu ise baslik satirini atlayip yalnizca veri
+  satirlarini isleyecek sekilde duzelt; boylece kumulatif masa toplamlari
+  dogru dondurulsun.
+
+reference_solution: |
+  cat > restoran/toplam.py <<'TOPLAM'
+  from restoran.siparis import ayir
+
+
+  def masa_toplamlari(rows):
+      acc = {}
+      for line in rows:
+          masa, urun, adet, fiyat = ayir(line)
+          acc[masa] = acc.get(masa, 0) + adet * fiyat
+      return acc
+  TOPLAM
+  cat > restoran/rapor/olustur.py <<'OLUSTUR'
+  from restoran.siparis import oku_satirlar
+  from restoran.toplam import masa_toplamlari
+
+
+  def kumulatif(path):
+      rows = oku_satirlar(path)
+      toplamlar = masa_toplamlari(rows)
+      sirali = sorted(toplamlar.items())
+      sonuc = []
+      running = 0
+      for masa, tutar in sirali:
+          running = running + tutar
+          sonuc.append((masa, running))
+      return sonuc
+  OLUSTUR
+
+ara_adim: |
+  cat > restoran/toplam.py <<'TOPLAM'
+  from restoran.siparis import ayir
+
+
+  def masa_toplamlari(rows):
+      acc = {}
+      for line in rows:
+          masa, urun, adet, fiyat = ayir(line)
+          acc[masa] = acc.get(masa, 0) + adet * fiyat
+      return acc
+  TOPLAM
+
+outputs:
+  - {path: restoran/siparis.py, kind: program, run: 'python3 -c ''from restoran.siparis import oku_satirlar as f, ayir as g; r=f("restoran/veri.txt"); assert len(r)==7, len(r); assert r[0]=="1,cay,3,10", r[0]; assert g("2,tost,2,40")==("2","tost",2,40); print("REGRESYON-TAMAM")'''}
+  - {path: restoran/toplam.py, kind: program, run: 'python3 -c ''from restoran.toplam import masa_toplamlari as f; from restoran.siparis import oku_satirlar as g; r=g("restoran/veri.txt"); assert f(r)=={"1":80,"2":155,"3":235}, f(r); print("ILERLEME-TAMAM")'''}
+  - {path: restoran/rapor/olustur.py, kind: program, run: 'python3 -c ''from restoran.rapor.olustur import kumulatif as f; assert f("restoran/veri.txt")==[("1",80),("2",235),("3",470)], f("restoran/veri.txt"); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from restoran.rapor.olustur import kumulatif as f; assert f("restoran/veri.txt")==[("1",80),("2",235),("3",470)], f("restoran/veri.txt"); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from restoran.toplam import masa_toplamlari as f; from restoran.siparis import oku_satirlar as g; r=g("restoran/veri.txt"); assert f(r)=={"1":80,"2":155,"3":235}, f(r); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from restoran.siparis import oku_satirlar as f, ayir as g; r=f("restoran/veri.txt"); assert len(r)==7, len(r); assert r[0]=="1,cay,3,10", r[0]; assert g("2,tost,2,40")==("2","tost",2,40); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-6025
+    bundle: yarisma
+    tools:
+    - python3
+    konu: restoran-siparisleri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: onek-toplam
+      karmasiklik: orta
+      kalip: closure-fabrika
+      akis: dosya-okuma
+      topoloji: elmas
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

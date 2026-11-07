@@ -1,0 +1,78 @@
+id: gen-s-3174-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  vardiya/aktif dizinindeki .log dosyalarındaki her satırı "dosyaadi|saat|isim|gorev" biçimine dönüştür ve tüm bu dönüştürülmüş satırları vardiya_listesi.txt dosyasına yaz. Satırlar önce dosya adına göre artan, aynı dosya içinde ise saat değerine göre artan sırada olsun. .tar.gz dosyaları ve vardiya/arsiv altındaki dosyalar bu listeye dahil edilmesin.
+
+  Şu şartlar sağlanmalı:
+  - vardiya_listesi.txt dosyası oluşturulmalı.
+  - Yalnızca vardiya/aktif dizinindeki .log dosyaları işlenmeli.
+  - .tar.gz uzantılı dosyalar dahil edilmemeli.
+  - vardiya/arsiv altındaki dosyalar dahil edilmemeli.
+  - Her satır "dosyaadi|saat|isim|gorev" biçiminde olmalı.
+  - Satırlar dosya adına göre artan sırada, aynı dosya içinde saat değerine göre artan sırada yazılmalı.
+
+setup: |
+  mkdir -p vardiya/arsiv vardiya/aktif
+  cat > vardiya/aktif/pazartesi.log <<'LOG'
+  08:00 Ayse KASA
+  12:00 Ayse KASA
+  08:00 Mehmet DEPO
+  16:00 Mehmet DEPO
+  LOG
+  cat > vardiya/aktif/sali.log <<'LOG'
+  09:00 Zeynep KASA
+  13:00 Zeynep KASA
+  09:00 Ali DEPO
+  LOG
+  cat > vardiya/arsiv/2019.log <<'LOG'
+  10:00 Can KASA
+  LOG
+  tar -czf vardiya/aktif/yedek.log.tar.gz -C vardiya/aktif pazartesi.log sali.log
+
+goal_tr: >
+  vardiya/aktif dizinindeki .log dosyalarindaki satirlari
+  "dosyaadi|saat|isim|gorev" bicimine cevirip dosya adina gore artan, ayni
+  dosya icinde saat degerine gore artan sirada vardiya_listesi.txt dosyasina
+  yaz; .tar.gz dosyalari ve vardiya/arsiv altindaki dosyalar dahil
+  edilmesin.
+
+reference_solution: |
+  tar -tzf vardiya/aktif/yedek.log.tar.gz >/dev/null 2>&1 || true
+  find vardiya/aktif -type f -name '*.log' | sort | while read -r f; do base=$(basename "$f"); sort "$f" | awk -v b="$base" -F' ' '{print b "|" $1 "|" $2 "|" $3}'; done > vardiya_listesi.txt
+
+outputs:
+  - {path: vardiya_listesi.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: vardiya_listesi.txt, value: ['pazartesi.log|08:00|Ayse|KASA', 'pazartesi.log|08:00|Mehmet|DEPO', 'pazartesi.log|12:00|Ayse|KASA', 'pazartesi.log|16:00|Mehmet|DEPO', 'sali.log|09:00|Ali|DEPO', 'sali.log|09:00|Zeynep|KASA', 'sali.log|13:00|Zeynep|KASA']}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3174
+    bundle: secerek-arsivle
+    tools:
+    - tar
+    - find
+    konu: personel-vardiyalari
+    hedef: yeniden-duzenle
+    girdi: log-satiri
+    kaynak: dizin-agaci
+    cikti: satir-listesi
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

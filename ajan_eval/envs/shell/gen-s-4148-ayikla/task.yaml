@@ -1,0 +1,55 @@
+id: gen-s-4148-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kargo.csv dosyasındaki CRLF satır sonlarını temizle ve başlık satırını atla; durum alanı teslim olan kayıtların takip_no değerlerini, her satırda bir tane olacak şekilde teslim.txt dosyasına yaz.
+
+setup: |
+  printf 'takip_no,durum,sehir\r\nTR1001,yolda,Istanbul\r\nTR1002,teslim,Ankara\r\nTR1003,yolda,Izmir\r\nTR1004,iptal,Bursa\r\nTR1005,teslim,Antalya\r\n' > kargo.csv
+
+goal_tr: >
+  kargo.csv dosyasindaki CRLF satir sonlarini temizleyip baslik satirini
+  atlayarak durum alani teslim olan kayitlarin takip_no degerlerini her
+  satirda bir tane olacak sekilde teslim.txt dosyasina yaz
+
+reference_solution: |
+  tr -d '\r' < kargo.csv > temiz.csv
+  tail -n +2 temiz.csv > govde.csv
+  awk -F, '$2=="teslim"{print $1}' govde.csv > teslim.txt
+  head -n 5 teslim.txt
+
+outputs:
+  - {path: teslim.txt, kind: lines, run: cat teslim.txt}
+
+checks:
+  - {op: file_lines_eq, path: teslim.txt, value: [TR1002, TR1005]}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4148
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: kargo-takibi
+    hedef: ayikla
+    girdi: csv
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: veriye-bak
+    uslup: kisit-sakli
+    direnc: crlf
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

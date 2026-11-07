@@ -1,0 +1,174 @@
+id: gen-k-2021-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  route/stack.py içindeki RouteStack sınıfını ve walk generator'ünü, rota parçalarını doğru sırayla biriktirip geri dönecek şekilde tamamla. Ayrıca route/describe.py içindeki describe fonksiyonunu, yığından baştan sona doğru yolu üretecek biçimde düzelt.
+
+setup: |
+  mkdir -p route
+  cat > route/stack.py <<'STACK'
+  class RouteStack:
+      def __init__(self):
+          self._items = []
+
+      def push(self, item):
+          self._items.append(item)
+
+      def pop(self):
+          return self._items.pop()
+
+      def peek(self):
+          return self._items[-1]
+
+      def __len__(self):
+          return len(self._items)
+
+
+  def walk(segments):
+      stack = RouteStack()
+      for seg in segments:
+          if seg == "BACK":
+              stack.pop()
+          else:
+              stack.push(seg)
+      return stack
+  STACK
+  cat > route/describe.py <<'DESCRIBE'
+  from route.stack import walk
+
+
+  def describe(segments):
+      stack = walk(segments)
+      parts = []
+      while len(stack) > 0:
+          parts.append(stack.pop())
+      return "/".join(parts)
+  DESCRIBE
+
+goal_tr: >
+  route/stack.py icindeki RouteStack sinifini ve walk generator'unu, rota
+  parcalarini dogru sirayla biriktirip geri donecek sekilde tamamla;
+  route/describe.py icindeki describe fonksiyonunu da yigindan bastan sona
+  dogru yolu uretecek bicimde duzelt.
+
+reference_solution: |
+  cat > route/stack.py <<'STACK'
+  class RouteStack:
+      def __init__(self):
+          self._items = []
+
+      def push(self, item):
+          self._items.append(item)
+
+      def pop(self):
+          return self._items.pop()
+
+      def peek(self):
+          return self._items[-1]
+
+      def __len__(self):
+          return len(self._items)
+
+      def __iter__(self):
+          for item in self._items:
+              yield item
+
+
+  def walk(segments):
+      stack = RouteStack()
+      for seg in segments:
+          if seg == "BACK":
+              stack.pop()
+          else:
+              stack.push(seg)
+      yield from stack
+  STACK
+  cat > route/describe.py <<'DESCRIBE'
+  from route.stack import walk
+
+
+  def describe(segments):
+      parts = list(walk(segments))
+      return "/".join(parts)
+  DESCRIBE
+
+ara_adim: |
+  cat > route/stack.py <<'STACK'
+  class RouteStack:
+      def __init__(self):
+          self._items = []
+
+      def push(self, item):
+          self._items.append(item)
+
+      def pop(self):
+          return self._items.pop()
+
+      def peek(self):
+          return self._items[-1]
+
+      def __len__(self):
+          return len(self._items)
+
+      def __iter__(self):
+          for item in self._items:
+              yield item
+
+
+  def walk(segments):
+      stack = RouteStack()
+      for seg in segments:
+          if seg == "BACK":
+              stack.pop()
+          else:
+              stack.push(seg)
+      yield from stack
+  STACK
+
+outputs:
+  - {path: route/describe.py, kind: program, run: 'python3 -c ''from route.describe import describe as f; assert f(["a","b","c"])=="a/b/c", f(["a","b","c"]); assert f(["a","b","BACK","c"])=="a/c", f(["a","b","BACK","c"]); assert f([])==""; print("TAMAM")'''}
+  - {path: route/stack.py, kind: program, run: 'python3 -c ''from route.stack import walk as f; assert list(f(["a","b","c"]))==["a","b","c"], list(f(["a","b","c"])); print("ILERLEME-TAMAM")'''}
+  - {path: route/stack.py, kind: program, run: python3 -c 'from route.stack import RouteStack as S; s=S(); s.push("x"); s.push("y"); assert s.peek()=="y"; assert s.pop()=="y"; assert len(s)==1; print("REGRESYON-TAMAM")'}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from route.describe import describe as f; assert f(["a","b","c"])=="a/b/c", f(["a","b","c"]); assert f(["a","b","BACK","c"])=="a/c", f(["a","b","BACK","c"]); assert f([])==""; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from route.stack import walk as f; assert list(f(["a","b","c"]))==["a","b","c"], list(f(["a","b","c"])); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: python3 -c 'from route.stack import RouteStack as S; s=S(); s.push("x"); s.push("y"); assert s.peek()=="y"; assert s.pop()=="y"; assert len(s)==1; print("REGRESYON-TAMAM")', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-2021
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: yol-tarifi-agi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin
+      karmasiklik: orta
+      kalip: generator
+      akis: ic-ice-yapi
+      topoloji: iki-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

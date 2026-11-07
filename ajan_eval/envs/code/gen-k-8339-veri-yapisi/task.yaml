@@ -1,0 +1,243 @@
+id: gen-k-8339-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  callcenter/cache.py içindeki LRUCache sınıfını (kapasite sınırlı, en son kullanılan sonda olacak şekilde get/put/__len__/__contains__/__iter__), callcenter/stats.py içindeki AgentStats.total_for ve leaderboard'u ve callcenter/report.py içindeki Report sınıfını, calls.txt dosyasından okunan kayıtlarla doğru toplamları ve azalan toplam sonra alfabetik ajan adı sırasında liderlik tablosunu üretecek biçimde gerçekleştir.
+
+setup: |
+  mkdir -p callcenter
+  cat > callcenter/records.py <<'RECORDS'
+  class Record:
+      __slots__ = ("agent", "duration")
+
+      def __init__(self, agent, duration):
+          self.agent = agent
+          self.duration = duration
+
+      def __repr__(self):
+          return "Record(%r, %r)" % (self.agent, self.duration)
+
+
+  def load_records(path):
+      out = []
+      with open(path, "r", encoding="ascii") as fh:
+          for line in fh:
+              line = line.strip()
+              if not line or line.startswith("#"):
+                  continue
+              agent, duration = line.split(",")
+              out.append(Record(agent.strip(), int(duration)))
+      return out
+  RECORDS
+  cat > callcenter/cache.py <<'CACHE'
+  class LRUCache:
+      def __init__(self, capacity):
+          self.capacity = capacity
+          self._store = {}
+          self._order = []
+
+      def get(self, key):
+          raise NotImplementedError
+
+      def put(self, key, value):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+
+      def __contains__(self, key):
+          raise NotImplementedError
+
+      def __iter__(self):
+          raise NotImplementedError
+  CACHE
+  cat > callcenter/stats.py <<'STATS'
+  from callcenter.cache import LRUCache
+
+
+  class AgentStats:
+      def __init__(self, capacity):
+          self._cache = LRUCache(capacity)
+          self._totals = {}
+
+      def total_for(self, agent, records):
+          raise NotImplementedError
+
+      def leaderboard(self, records):
+          raise NotImplementedError
+  STATS
+  cat > callcenter/report.py <<'REPORT'
+  from callcenter.records import load_records
+  from callcenter.stats import AgentStats
+
+
+  class Report:
+      def __init__(self, path, capacity):
+          self.path = path
+          self.capacity = capacity
+          self.stats = AgentStats(capacity)
+
+      def load(self):
+          return load_records(self.path)
+
+      def leaderboard(self):
+          return self.stats.leaderboard(self.load())
+
+      def total(self, agent):
+          return self.stats.total_for(agent, self.load())
+  REPORT
+  cat > calls.txt <<'CALLS'
+  # agent,duration
+  ada,120
+  bora,45
+  ada,30
+  cem,300
+  bora,15
+  ada,10
+  cem,60
+  deniz,90
+  CALLS
+
+goal_tr: >
+  callcenter/cache.py icindeki LRUCache sinifini (kapasite sinirli, en son
+  kullanilan sonda olacak sekilde get/put/__len__/__contains__/__iter__),
+  callcenter/stats.py icindeki AgentStats.total_for ve leaderboard'u ve
+  callcenter/report.py icindeki Report sinifini, calls.txt dosyasindan
+  okunan kayitlarla dogru toplamlari ve azalan toplam sonra alfabetik ajan
+  adi sirasinda liderlik tablosunu uretecek bicimde gerceklestir.
+
+reference_solution: |
+  cat > callcenter/cache.py <<'CACHE'
+  class LRUCache:
+      def __init__(self, capacity):
+          if capacity <= 0:
+              raise ValueError("capacity must be positive")
+          self.capacity = capacity
+          self._store = {}
+          self._order = []
+
+      def _touch(self, key):
+          self._order.remove(key)
+          self._order.append(key)
+
+      def get(self, key):
+          if key not in self._store:
+              return None
+          self._touch(key)
+          return self._store[key]
+
+      def put(self, key, value):
+          if key in self._store:
+              self._store[key] = value
+              self._touch(key)
+              return
+          self._store[key] = value
+          self._order.append(key)
+          if len(self._order) > self.capacity:
+              oldest = self._order.pop(0)
+              del self._store[oldest]
+
+      def __len__(self):
+          return len(self._store)
+
+      def __contains__(self, key):
+          return key in self._store
+
+      def __iter__(self):
+          return iter(list(self._order))
+  CACHE
+  cat > callcenter/stats.py <<'STATS'
+  from callcenter.cache import LRUCache
+
+
+  class AgentStats:
+      def __init__(self, capacity):
+          self._cache = LRUCache(capacity)
+          self._totals = {}
+
+      def total_for(self, agent, records):
+          cached = self._cache.get(agent)
+          if cached is not None:
+              return cached
+          total = 0
+          for rec in records:
+              if rec.agent == agent:
+                  total += rec.duration
+          self._cache.put(agent, total)
+          return total
+
+      def leaderboard(self, records):
+          agents = []
+          seen = set()
+          for rec in records:
+              if rec.agent not in seen:
+                  seen.add(rec.agent)
+                  agents.append(rec.agent)
+          rows = [(name, self.total_for(name, records)) for name in agents]
+          rows.sort(key=lambda row: (-row[1], row[0]))
+          return rows
+  STATS
+  cat > callcenter/report.py <<'REPORT'
+  from callcenter.records import load_records
+  from callcenter.stats import AgentStats
+
+
+  class Report:
+      def __init__(self, path, capacity):
+          self.path = path
+          self.capacity = capacity
+          self.stats = AgentStats(capacity)
+
+      def load(self):
+          return load_records(self.path)
+
+      def leaderboard(self):
+          return self.stats.leaderboard(self.load())
+
+      def total(self, agent):
+          return self.stats.total_for(agent, self.load())
+  REPORT
+
+outputs:
+  - {path: callcenter/cache.py, kind: program, run: 'python3 -c ''from callcenter.cache import LRUCache; c=LRUCache(2); c.put("a",1); c.put("b",2); assert c.get("a")==1; c.put("c",3); assert c.get("b") is None; assert len(c)==2; assert "a" in c and "c" in c and "b" not in c; assert list(c)==["a","c"]; c.put("a",9); assert c.get("a")==9 and len(c)==2; assert list(c)==["c","a"]; from callcenter.report import Report; r=Report("calls.txt",2); assert r.total("ada")==160; assert r.total("cem")==360; assert r.leaderboard()==[("cem",360),("ada",160),("deniz",90),("bora",60)]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from callcenter.cache import LRUCache; c=LRUCache(2); c.put("a",1); c.put("b",2); assert c.get("a")==1; c.put("c",3); assert c.get("b") is None; assert len(c)==2; assert "a" in c and "c" in c and "b" not in c; assert list(c)==["a","c"]; c.put("a",9); assert c.get("a")==9 and len(c)==2; assert list(c)==["c","a"]; from callcenter.report import Report; r=Report("calls.txt",2); assert r.total("ada")==160; assert r.total("cem")==360; assert r.leaderboard()==[("cem",360),("ada",160),("deniz",90),("bora",60)]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8339
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: cagri-merkezi-kayitlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: zor
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: lru-onbellek
+      karmasiklik: duz
+      kalip: operator-asiri-yukleme
+      akis: dosya-okuma
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,84 @@
+id: gen-s-4074-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) girdi/hava.csv dosyasındaki her şehir için ölçümlerin ortalamasını hesapla.
+
+  2) cikti adında bir dizin oluştur.
+
+  3) Her şehir için cikti/ dizininde şehir adıyla aynı isimde bir dosya oluştur: cikti/ankara.txt, cikti/izmir.txt ve cikti/bursa.txt.
+
+  4) Her dosyaya yalnızca o şehrin ortalama değerini yaz; ortalama tam sayı değilse iki ondalık basamakla yaz.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/hava.csv <<'CSV'
+  sehir,tarih,olcum
+  ankara,2024-01-01,12
+  ankara,2024-01-02,14
+  ankara,2024-01-03,11
+  izmir,2024-01-01,18
+  izmir,2024-01-02,20
+  izmir,2024-01-03,19
+  bursa,2024-01-01,9
+  bursa,2024-01-02,10
+  bursa,2024-01-03,8
+  CSV
+  printf 'sehir,tarih,olcum\n' > girdi/bozuk.csv
+
+goal_tr: >
+  girdi/hava.csv dosyasindaki her sehir icin ortalama olcumu hesaplayip
+  cikti/ dizininde sehir adiyla ayni isimde, yalnizca ortalama degeri iceren
+  bir dosya olustur; ortalama tam sayi degilse iki ondalik basamakla yaz.
+
+reference_solution: |
+  mkdir -p cikti
+  cut -d, -f1,3 girdi/hava.csv | tail -n +2 | sort > /tmp/hv_sirali
+  cut -d, -f1 /tmp/hv_sirali | uniq -c | awk '{print $2}' | sort > /tmp/hv_sehirler
+  cut -d, -f1 /tmp/hv_sirali | uniq > /tmp/hv_sehir_uniq
+  paste -d' ' /tmp/hv_sehirler /tmp/hv_sehir_uniq > /dev/null
+  while read -r sehir; do
+    cut -d, -f1,3 girdi/hava.csv | tail -n +2 | awk -F, -v s="$sehir" '$1==s{sum+=$2; n++} END{printf "%.2f\n", sum/n}' > "cikti/$sehir.txt"
+  done < /tmp/hv_sehir_uniq
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/ankara.txt, kind: file}
+  - {path: cikti/izmir.txt, kind: file}
+  - {path: cikti/bursa.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [ankara.txt, bursa.txt, izmir.txt]}
+  - {op: file_content_eq, path: cikti/ankara.txt, value: '12.33'}
+  - {op: file_content_eq, path: cikti/bursa.txt, value: '9.00'}
+  - {op: file_content_eq, path: cikti/izmir.txt, value: '19.00'}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4074
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: hava-durumu-kayitlari
+    hedef: ozetle
+    girdi: csv
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: dolayli-hedef
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

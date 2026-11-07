@@ -1,0 +1,75 @@
+id: gen-s-7246-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) vardiya dizin ağacındaki .vrd uzantılı tüm dosyaları bul.
+  2) Bulunan her .vrd dosyasındaki her satırın ilk sütunundaki personel kodunu çıkar.
+  3) Çıkarılan tüm personel kodlarını tekrarsız şekilde alfabetik sıralı olarak cikti/personel.txt dosyasına yaz; dosyada her satırda yalnızca bir personel kodu olsun.
+  4) cikti/personel.txt dosyasındaki personel kodlarının toplam sayısını cikti/personel_sayisi.txt dosyasına yaz; dosyada yalnızca sayı olsun.
+
+setup: |
+  mkdir -p vardiya/arsiv vardiya/aktif
+  cat > vardiya/aktif/pazartesi.vrd <<'EOF'
+  A101 08:00 16:00
+  A102 16:00 00:00
+  A103 08:00 16:00
+  EOF
+  cat > vardiya/aktif/sali.vrd <<'EOF'
+  A101 00:00 08:00
+  A104 08:00 16:00
+  A102 16:00 00:00
+  EOF
+  cat > vardiya/arsiv/2019.vrd <<'EOF'
+  A999 08:00 16:00
+  EOF
+  cat > vardiya/aktif/notlar.txt <<'EOF'
+  bu dosya vardiya degil
+  EOF
+
+goal_tr: >
+  vardiya dizin agacindaki .vrd uzantili tum dosyalari bulup her satirin ilk
+  sutunundaki personel kodunu cikar, tum kodlari tekrarsiz sekilde alfabetik
+  sirali olarak cikti/personel.txt dosyasina yaz
+
+reference_solution: |
+  mkdir -p cikti
+  find vardiya -name '*.vrd' | sort | xargs grep -h . | cut -d' ' -f1 | sort -u > cikti/personel.txt
+  wc -l < cikti/personel.txt > cikti/personel_sayisi.txt
+
+outputs:
+  - {path: cikti/personel.txt, kind: file}
+  - {path: cikti/personel_sayisi.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: cikti/personel.txt, value: [A101, A102, A103, A104, A999]}
+  - {op: file_content_eq, path: cikti/personel_sayisi.txt, value: '5'}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7246
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: personel-vardiyalari
+    hedef: ayikla
+    girdi: sabit-genislik
+    kaynak: dizin-agaci
+    cikti: dizin-yapisi
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

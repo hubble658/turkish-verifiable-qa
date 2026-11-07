@@ -1,0 +1,63 @@
+id: gen-s-4013-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) notlar.txt dosyasındaki tekrar eden satırları tek bir örneğe indirge.
+  2) Tekrarı kaldırılmış satırlardan ilk 3 satırı ilk3.txt dosyasına yaz.
+
+setup: |
+  cat > notlar.txt <<'TXT'
+  Ali 85
+  Ayse 90
+  Ali 85
+  Mehmet 70
+  Ayse 90
+  Zeynep 60
+  Mehmet 70
+  Ali 85
+  TXT
+
+goal_tr: >
+  notlar.txt dosyasindaki tekrar eden satirlari tek bir ornege indirgeyip
+  ilk 3 satiri ilk3.txt dosyasina yaz
+
+reference_solution: |
+  sort notlar.txt | uniq > benzersiz.txt
+  head -n 3 benzersiz.txt > ilk3.txt
+  tail -n +1 ilk3.txt > ilk3.txt.tmp && mv ilk3.txt.tmp ilk3.txt
+
+outputs:
+  - {path: ilk3.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: ilk3.txt, value: [Ali 85, Ayse 90, Mehmet 70]}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4013
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: ogrenci-notlari
+    hedef: bol
+    girdi: duz-metin
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: tekrar-eden-kayit
+    bukulme: olcek
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

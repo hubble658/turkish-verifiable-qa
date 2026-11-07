@@ -1,0 +1,169 @@
+id: gen-k-9506-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 24
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  slots.txt'teki araliklardan coverage üretiliyor ama bir aralık kayboluyor ve örtüşen/bitişik aralıklar birleşmiyor. orders/schedule.py, orders/parse.py ve orders/windows.py'yi düzelt; coverage tam ve doğru birleşmiş listeyi döndürsün.
+
+setup: |
+  mkdir -p orders
+  touch orders/__init__.py
+  cat > orders/parse.py <<'PARSE'
+  def load_slots(path):
+      slots = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              a, b = line.split(",")
+              slots.append((int(a), int(b) - 1))
+      return slots
+  PARSE
+  cat > orders/windows.py <<'WINDOWS'
+  def normalize(rows):
+      out = []
+      for start, end in rows:
+          if start > end:
+              start, end = end, start
+          out.append((start, end))
+      out.sort()
+      return out
+
+
+  def merge(rows):
+      result = []
+      for start, end in normalize(rows):
+          if result and start <= result[-1][1]:
+              prev_start, prev_end = result[-1]
+              result[-1] = (prev_start, end)
+          else:
+              result.append((start, end))
+      return result
+  WINDOWS
+  cat > orders/schedule.py <<'SCHEDULE'
+  from orders.parse import load_slots
+  from orders.windows import merge
+
+
+  def coverage(path):
+      merged = merge(load_slots(path))
+      return merged[:-1]
+  SCHEDULE
+  cat > slots.txt <<'SLOTS'
+  5,10
+  1,3
+  12,15
+  11,11
+  20,25
+  SLOTS
+
+goal_tr: >
+  slots.txt dosyasindaki zaman araliklarindan uretilen coverage sonucu
+  araliklardan birini kaybediyor ve ortusen ya da bitisik araliklari tek
+  aralik haline getirmiyor; coverage tam ve dogru birlestirilmis aralik
+  listesini dondursun.
+
+reference_solution: |
+  cat > orders/parse.py <<'PARSE'
+  def load_slots(path):
+      slots = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              a, b = line.split(",")
+              slots.append((int(a), int(b)))
+      return slots
+  PARSE
+  cat > orders/windows.py <<'WINDOWS'
+  def normalize(rows):
+      out = []
+      for start, end in rows:
+          if start > end:
+              start, end = end, start
+          out.append((start, end))
+      out.sort()
+      return out
+
+
+  def merge(rows):
+      result = []
+      for start, end in normalize(rows):
+          if result and start <= result[-1][1] + 1:
+              prev_start, prev_end = result[-1]
+              result[-1] = (prev_start, max(prev_end, end))
+          else:
+              result.append((start, end))
+      return result
+  WINDOWS
+  cat > orders/schedule.py <<'SCHEDULE'
+  from orders.parse import load_slots
+  from orders.windows import merge
+
+
+  def coverage(path):
+      return merge(load_slots(path))
+  SCHEDULE
+
+ara_adim: |
+  cat > orders/parse.py <<'PARSE'
+  def load_slots(path):
+      slots = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              a, b = line.split(",")
+              slots.append((int(a), int(b)))
+      return slots
+  PARSE
+
+outputs:
+  - {path: orders/schedule.py, kind: program, run: 'python3 -c ''from orders.schedule import coverage as f; assert f("slots.txt")==[(1,3),(5,15),(20,25)], f("slots.txt"); print("TAMAM")'''}
+  - {path: orders/parse.py, kind: program, run: 'python3 -c ''from orders.parse import load_slots as f; assert f("slots.txt")==[(5,10),(1,3),(12,15),(11,11),(20,25)], f("slots.txt"); print("ILERLEME-TAMAM")'''}
+  - {path: orders/windows.py, kind: program, run: 'python3 -c ''from orders.windows import normalize as f; assert f([(7,2),(4,4)])==[(2,7),(4,4)], f([(7,2),(4,4)]); assert f([])==[]; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from orders.parse import load_slots as f; assert f("slots.txt")==[(5,10),(1,3),(12,15),(11,11),(20,25)], f("slots.txt"); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from orders.schedule import coverage as f; assert f("slots.txt")==[(1,3),(5,15),(20,25)], f("slots.txt"); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from orders.windows import normalize as f; assert f([(7,2),(4,4)])==[(2,7),(4,4)], f([(7,2),(4,4)]); assert f([])==[]; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9506
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: siparis-kayitlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 9
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: aralik-birlestirme
+      karmasiklik: derin
+      kalip: duz-fonksiyon
+      akis: cok-dosya-birlestirme
+      topoloji: iki-modul-zincir
+      zincir: 3
+      regresyon: true
+      bagimli: true
+      kesif_zor: true

@@ -1,0 +1,75 @@
+id: gen-s-4146-toplu-yeniden-adlandir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  muhasebe/defter_a.txt ve muhasebe/defter_b.txt'deki ilk alanları karşılaştır; yalnızca tek dosyada geçen 1001, 1003, 1004 ve 1005 numaraları için muhasebe/ayrik/ altında 1001, 1003, 1004, 1005 adlı dosyaları oluştur, içine o numaranın tek dosyadaki tutarını (üçüncü alan) yaz. İki dosyada da geçen numaralar için dosya oluşturma.
+
+setup: |
+  mkdir -p muhasebe
+  cat > muhasebe/defter_a.txt <<'A'
+  1001|alacak|1200
+  1002|borc|450
+  1003|alacak|780
+  A
+  cat > muhasebe/defter_b.txt <<'B'
+  1002|borc|450
+  1004|alacak|310
+  1005|borc|990
+  B
+
+goal_tr: >
+  muhasebe/defter_a.txt ve muhasebe/defter_b.txt dosyalarindaki kalem
+  numaralarini (ilk alan) karsilastirip yalnizca tek dosyada gecen numaralar
+  icin muhasebe/ayrik/ altinda numara adli, icinde o numaranin yalnizca bir
+  dosyadaki tutarini (ucuncu alan) yazan dosya olustur; iki dosyada da gecen
+  numaralar icin dosya olusturma
+
+reference_solution: |
+  mkdir -p muhasebe/ayrik
+  cut -d'|' -f1 muhasebe/defter_a.txt muhasebe/defter_b.txt | sort | uniq -c | awk '$1==1{print $2}' > /tmp/ayrik.txt
+  cat /tmp/ayrik.txt | xargs -I{} sh -c 'grep "^$1|" muhasebe/defter_a.txt muhasebe/defter_b.txt | cut -d"|" -f3 > muhasebe/ayrik/$1' _ {}
+  find muhasebe/ayrik -type f | sort
+
+outputs:
+  - {path: muhasebe/ayrik, kind: dir}
+  - {path: muhasebe/ayrik/1001, kind: file}
+  - {path: muhasebe/ayrik/1003, kind: file}
+  - {path: muhasebe/ayrik/1004, kind: file}
+  - {path: muhasebe/ayrik/1005, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: muhasebe/ayrik, value: ['1001', '1003', '1004', '1005']}
+  - {op: file_content_eq, path: muhasebe/ayrik/1001, value: '1200'}
+  - {op: file_content_eq, path: muhasebe/ayrik/1003, value: '780'}
+  - {op: file_content_eq, path: muhasebe/ayrik/1004, value: '310'}
+  - {op: file_content_eq, path: muhasebe/ayrik/1005, value: '990'}
+
+metadata:
+  domain: toplu-yeniden-adlandir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4146
+    bundle: bul-tasi
+    tools:
+    - find
+    - xargs
+    konu: muhasebe-kalemleri
+    hedef: toplu-yeniden-adlandir
+    girdi: log-satiri
+    kaynak: iki-dosya-capraz
+    cikti: dizin-yapisi
+    kesif: veriye-bak
+    uslup: terse
+    direnc: yok
+    bukulme: olcek
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

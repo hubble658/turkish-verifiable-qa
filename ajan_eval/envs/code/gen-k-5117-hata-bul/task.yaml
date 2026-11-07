@@ -1,0 +1,137 @@
+id: gen-k-5117-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  bank/statement.py dosyasındaki Statement sınıfı şu an labels ve amounts listelerindeki son elemanı atlıyor; bu yüzden accounts.txt içindeki bir satır hareket olarak sayılmıyor. Statement sınıfını, labels ve amounts listelerinin tüm elemanlarından birer Entry oluşturacak biçimde düzelt; böylece accounts.txt dosyasındaki her satır hareket olarak hesaba katılsın. Sınıfın mevcut davranışı ve diğer dosyalar (bank/records.py ve bank/audit.py) olduğu gibi kalsın, yalnızca bank/statement.py içindeki Statement sınıfı bu isteği karşılayacak şekilde güncellensin.
+
+setup: |
+  mkdir -p bank
+  cat > bank/records.py <<'RECORDS'
+  from abc import ABC, abstractmethod
+
+
+  class Ledger(ABC):
+      def __init__(self, entries):
+          self._entries = entries
+
+      @abstractmethod
+      def entries(self):
+          raise NotImplementedError
+
+      def balance(self):
+          total = 0.0
+          for e in self.entries():
+              total += e.amount
+          return total
+  RECORDS
+  cat > bank/audit.py <<'AUDIT'
+  from bank.records import Ledger
+
+
+  class Audit(Ledger):
+      def __init__(self, entries, opening):
+          super().__init__(entries)
+          self._opening = opening
+
+      def entries(self):
+          return list(self._entries)
+
+      def closing(self):
+          return self._opening + self.balance()
+  AUDIT
+  cat > bank/statement.py <<'STMT'
+  from bank.audit import Audit
+
+
+  class Entry:
+      def __init__(self, label, amount):
+          self.label = label
+          self.amount = amount
+
+
+  class Statement(Audit):
+      def __init__(self, labels, amounts, opening):
+          entries = []
+          for i in range(len(labels) - 1):
+              entries.append(Entry(labels[i], amounts[i]))
+          super().__init__(entries, opening)
+
+      def labels(self):
+          return [e.label for e in self.entries()]
+  STMT
+  cat > accounts.txt <<'TXT'
+  salary,1200.0
+  rent,-450.0
+  food,-120.0
+  TXT
+
+goal_tr: >
+  bank/statement.py icindeki Statement sinifini, labels ve amounts
+  listelerinin tum elemanlarindan Entry olusturacak bicimde duzelt; boylece
+  accounts.txt satirlarinin tamami hareket olarak sayilsin.
+
+reference_solution: |
+  cat > bank/statement.py <<'STMT'
+  from bank.audit import Audit
+
+
+  class Entry:
+      def __init__(self, label, amount):
+          self.label = label
+          self.amount = amount
+
+
+  class Statement(Audit):
+      def __init__(self, labels, amounts, opening):
+          entries = []
+          for i in range(len(labels)):
+              entries.append(Entry(labels[i], amounts[i]))
+          super().__init__(entries, opening)
+
+      def labels(self):
+          return [e.label for e in self.entries()]
+  STMT
+
+outputs:
+  - {path: bank/statement.py, kind: program, run: 'python3 -c ''from bank.statement import Statement as S; from bank.records import Ledger as L; rows=[l.split(",") for l in open("accounts.txt").read().strip().splitlines()]; lab=[r[0] for r in rows]; amt=[float(r[1]) for r in rows]; assert issubclass(S,L); s=S(lab,amt,100.0); assert s.labels()==["salary","rent","food"], s.labels(); assert abs(s.closing()-730.0)<1e-9, s.closing(); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from bank.statement import Statement as S; from bank.records import Ledger as L; rows=[l.split(",") for l in open("accounts.txt").read().strip().splitlines()]; lab=[r[0] for r in rows]; amt=[float(r[1]) for r in rows]; assert issubclass(S,L); s=S(lab,amt,100.0); assert s.labels()==["salary","rent","food"], s.labels(); assert abs(s.closing()-730.0)<1e-9, s.closing(); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5117
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: banka-hareketleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: off-by-one
+      karmasiklik: duz
+      kalip: abc-protokol
+      akis: cok-dosya-birlestirme
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

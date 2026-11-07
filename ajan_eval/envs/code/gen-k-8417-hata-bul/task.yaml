@@ -1,0 +1,110 @@
+id: gen-k-8417-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  bank/statement.py dosyasındaki Statement.load metodu şu an boş satıra denk geldiğinde işlemeyi kesiyor; bunu boş satırları atlayıp dosyadaki tüm satırları işleyecek şekilde düzelt. Ayrıca total() metodu tüm hareketlerin toplamını döndürsün.
+
+setup: |
+  mkdir -p bank
+  cat > bank/ledger.py <<'LEDGER'
+  class Ledger:
+      def __init__(self):
+          self._entries = []
+
+      def add(self, amount):
+          self._entries.append(amount)
+
+      def balance(self):
+          total = 0
+          for amount in self._entries:
+              total += amount
+          return total
+  LEDGER
+  cat > bank/statement.py <<'STATEMENT'
+  from bank.ledger import Ledger
+
+
+  class Statement:
+      def __init__(self):
+          self.ledger = Ledger()
+
+      def load(self, lines):
+          for line in lines:
+              line = line.strip()
+              if not line:
+                  return
+              self.ledger.add(int(line))
+
+      def total(self):
+          return self.ledger.balance()
+  STATEMENT
+  printf '10\n20\n30\n' > txn.txt
+
+goal_tr: >
+  bank/statement.py icindeki Statement.load metodunu, bos satirlari atlayip
+  tum satirlari isleyecek ve total() tum hareketlerin toplamini dondurecek
+  bicimde duzelt.
+
+reference_solution: |
+  cat > bank/statement.py <<'STATEMENT'
+  from bank.ledger import Ledger
+
+
+  class Statement:
+      def __init__(self):
+          self.ledger = Ledger()
+
+      def load(self, lines):
+          for line in lines:
+              line = line.strip()
+              if not line:
+                  continue
+              self.ledger.add(int(line))
+
+      def total(self):
+          return self.ledger.balance()
+  STATEMENT
+
+outputs:
+  - {path: bank/statement.py, kind: program, run: 'python3 -c ''import sys; from bank.statement import Statement as S; s=S(); s.load(open("txn.txt")); assert s.total()==60, s.total(); t=S(); t.load(["5","","7","",""]); assert t.total()==12, t.total(); u=S(); u.load("1\n2\n3\n4\n".splitlines()); assert u.total()==10, u.total(); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import sys; from bank.statement import Statement as S; s=S(); s.load(open("txn.txt")); assert s.total()==60, s.total(); t=S(); t.load(["5","","7","",""]); assert t.total()==12, t.total(); u=S(); u.load("1\n2\n3\n4\n".splitlines()); assert u.total()==10, u.total(); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8417
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: banka-hareketleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: erken-donus
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: stdin-boru
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

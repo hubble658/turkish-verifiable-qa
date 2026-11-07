@@ -1,0 +1,76 @@
+id: gen-s-7018-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) girdi klasöründeki her .txt dosyasındaki anahtar=deger satırlarını oku.
+  2) Her satırdaki anahtarı ve değeri ayır.
+  3) Dosya adını, uzantısı olmadan ilk sütun olarak kullan.
+  4) Her satır için dosya adı, anahtar, deger biçiminde CSV satırları oluştur.
+  5) Tüm bu satırları olcumler.csv dosyasına yaz.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/sensor_a.txt <<'TXT'
+  sicaklik=21.5
+  nem=48
+  basinc=1013
+  TXT
+  cat > girdi/sensor_b.txt <<'TXT'
+  sicaklik=19.0
+  nem=52
+  basinc=1009
+  TXT
+  cat > girdi/sensor_c.txt <<'TXT'
+  sicaklik=23.2
+  nem=45
+  basinc=1015
+  TXT
+
+goal_tr: >
+  girdi klasorundeki her .txt dosyasindaki anahtar=deger satirlarini, dosya
+  adi ilk sutun olacak sekilde anahtar,deger CSV'sine donusturup
+  olcumler.csv dosyasina yaz; dosya adinda uzanti olmasin.
+
+reference_solution: |
+  for f in girdi/*.txt; do
+    ad=$(basename "$f" .txt)
+    cut -d= -f1,2 "$f" | while IFS='=' read -r k v; do
+      echo "$ad,$k,$v"
+    done
+  done | tee olcumler.csv > /dev/null
+
+outputs:
+  - {path: olcumler.csv, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: olcumler.csv, value: ['sensor_a,sicaklik,21.5', 'sensor_a,nem,48', 'sensor_a,basinc,1013', 'sensor_b,sicaklik,19.0', 'sensor_b,nem,52', 'sensor_b,basinc,1009', 'sensor_c,sicaklik,23.2', 'sensor_c,nem,45', 'sensor_c,basinc,1015']}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7018
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: sensor-olcumleri
+    hedef: donustur
+    girdi: duz-metin
+    kaynak: cok-dosya
+    cikti: csv
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,129 @@
+id: gen-k-8349-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  billing/invoice.py dosyasındaki invoice_for fonksiyonunu düzelt. Fonksiyon, kullanım planın dahil ettiği miktarı aşmadığında ek ücret yazmamalı ve hiçbir durumda negatif ek ücret hesaplamamalı. Böylece usage.txt dosyasındaki her satır için doğru fatura tutarı üretilsin; her satır bir plan adı ve kullanım miktarı içeriyor.
+
+setup: |
+  mkdir -p billing
+  cat > billing/plans.py <<'PLANS'
+  PLANS = {
+      "basic": {"base": 10.0, "included": 2, "overage": 3.0},
+      "plus": {"base": 25.0, "included": 5, "overage": 2.0},
+      "pro": {"base": 60.0, "included": 10, "overage": 1.0},
+  }
+  PLANS["trial"] = {"base": 0.0, "included": 0, "overage": 0.0}
+
+
+  def plan_limits(name):
+      return PLANS[name]
+  PLANS
+  cat > billing/meter.py <<'METER'
+  from billing.plans import plan_limits
+
+
+  def make_meter(plan):
+      limits = plan_limits(plan)
+      state = {"used": 0}
+
+      def record(units):
+          state["used"] += units
+
+      def billable():
+          return state["used"] - limits["included"]
+
+      return record, billable
+  METER
+  cat > billing/invoice.py <<'INVOICE'
+  from billing.meter import make_meter
+
+
+  def invoice_for(plan, usage):
+      record, billable = make_meter(plan)
+      for units in usage:
+          record(units)
+      over = billable()
+      limits = _limits(plan)
+      total = limits["base"] + over * limits["overage"]
+      return round(total, 2)
+
+
+  def _limits(plan):
+      from billing.plans import plan_limits
+      return plan_limits(plan)
+  INVOICE
+  cat > usage.txt <<'USAGE'
+  basic 1
+  basic 1
+  plus 7
+  trial 4
+  pro 10
+  USAGE
+
+goal_tr: >
+  billing/invoice.py icindeki invoice_for fonksiyonunu, kullanim dahil
+  edilen miktari asmadiginda ek ucret yazmayacak ve hicbir durumda negatif
+  ek ucret hesaplamayacak bicimde duzelt; boylece stdin'den okunan her satir
+  icin dogru fatura tutari uretilsin.
+
+reference_solution: |
+  cat > billing/invoice.py <<'INVOICE'
+  from billing.meter import make_meter
+  from billing.plans import plan_limits
+
+
+  def invoice_for(plan, usage):
+      record, billable = make_meter(plan)
+      for units in usage:
+          record(units)
+      over = billable()
+      if over < 0:
+          over = 0
+      limits = plan_limits(plan)
+      total = limits["base"] + over * limits["overage"]
+      return round(total, 2)
+  INVOICE
+
+outputs:
+  - {path: billing/invoice.py, kind: program, run: 'python3 -c ''import sys; from billing.invoice import invoice_for as f; assert f("basic",[1,1])==10.0, f("basic",[1,1]); assert f("basic",[1,1,1])==13.0, f("basic",[1,1,1]); assert f("plus",[7])==29.0, f("plus",[7]); assert f("trial",[4])==0.0, f("trial",[4]); assert f("pro",[10])==60.0, f("pro",[10]); assert f("pro",[3])==60.0, f("pro",[3]); assert f("pro",[12])==62.0, f("pro",[12]); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import sys; from billing.invoice import invoice_for as f; assert f("basic",[1,1])==10.0, f("basic",[1,1]); assert f("basic",[1,1,1])==13.0, f("basic",[1,1,1]); assert f("plus",[7])==29.0, f("plus",[7]); assert f("trial",[4])==0.0, f("trial",[4]); assert f("pro",[10])==60.0, f("pro",[10]); assert f("pro",[3])==60.0, f("pro",[3]); assert f("pro",[12])==62.0, f("pro",[12]); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8349
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: abonelik-planlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kenar-durum
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: stdin-boru
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,95 @@
+id: gen-k-1046-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+prompt: 'sessions/store.py içindeki SessionStore sınıfını, token''ları bir trie içinde tutacak biçimde gerçekleştir. add,
+  has, count ve with_prefix metotları doğru çalışmalı. add aynı token''ı ikinci kez eklendiğinde onu yeniden eklememeli; has
+  daha önce eklenmiş bir token için doğru sonucu vermeli; count bir kullanıcının eklediği token sayısını döndürmeli; with_prefix
+  ise verilen öneğe sahip token''ları sıralı bir liste olarak döndürmeli. Sınıf sessions/audit.py içindeki AuditedSessions
+  tarafından da kullanıldığı için metot imzaları başlangıçtakiyle aynı kalmalı.
+
+
+  add, token yeni eklendiyse True, zaten varsa False döndürsün.
+
+  '
+setup: "mkdir -p sessions\ncat > sessions/store.py <<'STORE'\nclass SessionStore:\n    def __init__(self):\n        self.root\
+  \ = {}\n\n    def add(self, user, token):\n        raise NotImplementedError\n\n    def has(self, user, token):\n      \
+  \  raise NotImplementedError\n\n    def count(self, user):\n        raise NotImplementedError\n\n    def with_prefix(self,\
+  \ user, prefix):\n        raise NotImplementedError\nSTORE\ncat > sessions/audit.py <<'AUDIT'\nfrom sessions.store import\
+  \ SessionStore\n\n\nclass AuditedSessions(SessionStore):\n    def __init__(self):\n        super().__init__()\n        self.log\
+  \ = []\n\n    def add(self, user, token):\n        super().add(user, token)\n        self.log.append((\"add\", user, token))\n\
+  \n    def has(self, user, token):\n        ok = super().has(user, token)\n        self.log.append((\"has\", user, token,\
+  \ ok))\n        return ok\nAUDIT\ncat > sessions/__init__.py <<'INIT'\nfrom sessions.store import SessionStore\nfrom sessions.audit\
+  \ import AuditedSessions\n\n__all__ = [\"SessionStore\", \"AuditedSessions\"]\nINIT\n"
+goal_tr: 'sessions/store.py icindeki SessionStore sinifini, token''lar bir trie''de tutulacak ve add/has/count/with_prefix
+  metotlari dogru calisacak bicimde gerceklestir; add ayni token''i ikinci kez eklememeli, with_prefix verilen onekle baslayan
+  token''lari sirali liste olarak dondurmeli.
+
+  '
+reference_solution: "cat > sessions/store.py <<'STORE'\nclass SessionStore:\n    def __init__(self):\n        self.root =\
+  \ {}\n        self.tokens = 0\n\n    def add(self, user, token):\n        node = self.root.setdefault(user, {})\n      \
+  \  for ch in token:\n            node = node.setdefault(ch, {})\n        if node.get(\"#\"):\n            return False\n\
+  \        node[\"#\"] = True\n        self.tokens += 1\n        return True\n\n    def has(self, user, token):\n        node\
+  \ = self.root.get(user)\n        if node is None:\n            return False\n        for ch in token:\n            node\
+  \ = node.get(ch)\n            if node is None:\n                return False\n        return bool(node.get(\"#\"))\n\n \
+  \   def count(self, user):\n        node = self.root.get(user)\n        if node is None:\n            return 0\n       \
+  \ total = 0\n        stack = [node]\n        while stack:\n            cur = stack.pop()\n            if cur.get(\"#\"):\n\
+  \                total += 1\n            for key, child in cur.items():\n                if key != \"#\":\n            \
+  \        stack.append(child)\n        return total\n\n    def with_prefix(self, user, prefix):\n        node = self.root.get(user)\n\
+  \        if node is None:\n            return []\n        for ch in prefix:\n            node = node.get(ch)\n         \
+  \   if node is None:\n                return []\n        out = []\n        stack = [(node, prefix)]\n        while stack:\n\
+  \            cur, acc = stack.pop()\n            if cur.get(\"#\"):\n                out.append(acc)\n            for key,\
+  \ child in cur.items():\n                if key != \"#\":\n                    stack.append((child, acc + key))\n      \
+  \  out.sort()\n        return out\nSTORE\n"
+outputs:
+- path: sessions/store.py
+  kind: program
+  run: python3 -c 'from sessions import SessionStore, AuditedSessions; s=SessionStore(); assert s.add("u","abc") is True;
+    assert s.add("u","abc") is False; assert s.add("u","abd") is True; assert s.add("u","x") is True; assert s.has("u","abc")
+    is True; assert s.has("u","ab") is False; assert s.has("v","abc") is False; assert s.count("u")==3; assert s.with_prefix("u","ab")==["abc","abd"];
+    assert s.with_prefix("u","")==["abc","abd","x"]; assert s.with_prefix("u","z")==[]; a=AuditedSessions(); a.add("u","t1");
+    assert a.has("u","t1") is True; assert a.log==[("add","u","t1"),("has","u","t1",True)]; assert a.count("u")==1; print("TAMAM")'
+checks:
+- op: run_stdout_eq
+  cmd: python3 -c 'from sessions import SessionStore, AuditedSessions; s=SessionStore(); assert s.add("u","abc") is True;
+    assert s.add("u","abc") is False; assert s.add("u","abd") is True; assert s.add("u","x") is True; assert s.has("u","abc")
+    is True; assert s.has("u","ab") is False; assert s.has("v","abc") is False; assert s.count("u")==3; assert s.with_prefix("u","ab")==["abc","abd"];
+    assert s.with_prefix("u","")==["abc","abd","x"]; assert s.with_prefix("u","z")==[]; a=AuditedSessions(); a.add("u","t1");
+    assert a.has("u","t1") is True; assert a.log==[("add","u","t1"),("has","u","t1",True)]; assert a.count("u")==1; print("TAMAM")'
+  value: TAMAM
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-1046
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: kullanici-oturumlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: trie
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: bellek-ici
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false
+  duzeltme:
+    neden: gizli_sart
+    not: add dönüş değeri aranıyordu.

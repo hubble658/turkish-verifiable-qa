@@ -1,0 +1,104 @@
+id: gen-k-8204-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  stock/summary.py içindeki net_totals fonksiyonunu düzelt: her SKU için tüm hareketleri toplayıp ara toplam negatife düşse bile durmadan son sözlüğü döndürsün.
+
+setup: |
+  mkdir -p stock
+  cat > stock/movements.py <<'MOV'
+  def parse_movements(text):
+      rows = []
+      for line in text.strip().splitlines():
+          sku, delta = line.split(',')
+          rows.append((sku, int(delta)))
+      return rows
+
+
+  def collect(text):
+      return parse_movements(text)
+  MOV
+  cat > stock/summary.py <<'SUM'
+  from stock.movements import collect
+
+
+  def net_totals(text):
+      totals = {}
+      for sku, delta in collect(text):
+          if sku not in totals:
+              totals[sku] = 0
+          totals[sku] = totals[sku] + delta
+          if totals[sku] < 0:
+              return totals
+      return totals
+  SUM
+  cat > moves.txt <<'TXT'
+  bolt,5
+  nut,-2
+  bolt,-10
+  nut,7
+  washer,3
+  TXT
+
+goal_tr: >
+  stock/summary.py icindeki net_totals fonksiyonunu, her SKU icin tum
+  hareketleri toplayip ara toplam negatife dusse bile durmadan son sozlugu
+  dondurecek bicimde duzelt
+
+reference_solution: |
+  cat > stock/summary.py <<'SUM'
+  from stock.movements import collect
+
+
+  def net_totals(text):
+      totals = {}
+      for sku, delta in collect(text):
+          if sku not in totals:
+              totals[sku] = 0
+          totals[sku] = totals[sku] + delta
+      return totals
+  SUM
+
+outputs:
+  - {path: stock/summary.py, kind: program, run: 'python3 -c ''from stock.summary import net_totals as f; t=open("moves.txt").read(); assert f(t)=={"bolt":-5,"nut":5,"washer":3}, f(t); assert f("a,-1\na,-1\nb,4\n")=={"a":-2,"b":4}; assert f("x,1\n")=={"x":1}; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from stock.summary import net_totals as f; t=open("moves.txt").read(); assert f(t)=={"bolt":-5,"nut":5,"washer":3}, f(t); assert f("a,-1\na,-1\nb,4\n")=={"a":-2,"b":4}; assert f("x,1\n")=={"x":1}; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8204
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: stok-hareketleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: erken-donus
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: cok-dosya-birlestirme
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,85 @@
+id: gen-s-3243-donustur
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sensor_olcumleri.txt dosyasındaki satırları incele; değer alanı geçerli bir sayı olan her satırı sensor adına göre grupla. Her sensor için cikti dizini altında sensor_<ad>.csv adlı bir dosya oluştur ve o sensore ait satırlardaki tarih ile değer alanlarını, başlık satırı olmadan, her satırda tarih ve değer gelecek şekilde yaz. Sonuçta cikti/sensor_S1.csv, cikti/sensor_S2.csv ve cikti/sensor_S3.csv dosyaları oluşmalı; geçersiz ya da boş değer içeren satırlar hiçbir çıktı dosyasına girmemeli.
+
+setup: |
+  cat > sensor_olcumleri.txt <<'DATA'
+  sensor_adi,tarih,deger
+  S1,2024-01-01,23.5
+  S2,2024-01-01,18.2
+  S1,2024-01-02,24.1
+  S3,2024-01-02,abc
+  S2,2024-01-03,19.0
+  S1,2024-01-03,25.3
+  S4,2024-01-03,
+  S3,2024-01-04,21.7
+  S2,2024-01-04,17.8
+  S1,2024-01-04,26.0
+  DATA
+
+goal_tr: >
+  sensor_olcumleri.txt icindeki gecerli deger iceren her satiri sensor adina
+  gore ayirip her sensor icin cikti/sensor_<ad>.csv dosyasina basliksiz
+  olarak tarih ve deger alanlarini yaz
+
+reference_solution: |
+  python3 - <<'PY'
+  import os
+  os.makedirs('cikti', exist_ok=True)
+  with open('sensor_olcumleri.txt') as f:
+      lines = f.read().splitlines()
+  for line in lines[1:]:
+      parts = line.split(',')
+      if len(parts) != 3:
+          continue
+      name, tarih, deger = parts
+      try:
+          float(deger)
+      except ValueError:
+          continue
+      with open(f'cikti/sensor_{name}.csv', 'a') as out:
+          out.write(f'{tarih},{deger}\n')
+  PY
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/sensor_S1.csv, kind: file}
+  - {path: cikti/sensor_S2.csv, kind: file}
+  - {path: cikti/sensor_S3.csv, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [sensor_S1.csv, sensor_S2.csv, sensor_S3.csv]}
+  - {op: file_lines_eq, path: cikti/sensor_S1.csv, value: ['2024-01-01,23.5', '2024-01-02,24.1', '2024-01-03,25.3', '2024-01-04,26.0']}
+  - {op: file_lines_eq, path: cikti/sensor_S2.csv, value: ['2024-01-01,18.2', '2024-01-03,19.0', '2024-01-04,17.8']}
+  - {op: file_content_eq, path: cikti/sensor_S3.csv, value: '2024-01-04,21.7'}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3243
+    bundle: python-veri
+    tools:
+    - python3
+    konu: sensor-olcumleri
+    hedef: donustur
+    girdi: duz-metin
+    kaynak: tek-dosya
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

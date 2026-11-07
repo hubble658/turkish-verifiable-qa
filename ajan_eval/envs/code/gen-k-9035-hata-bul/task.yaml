@@ -1,0 +1,184 @@
+id: gen-k-9035-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 18
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Dün gece nöbet vardiyasında sensör paneli yine karıştı; dört beş farklı kanaldan gelen sıcaklık kayıtlarını tek tek elle sıralamaktan yorulduk. Küçük bir arızadan sonra rapor çıktılarını kontrol ederken peak_readings ile hottest fonksiyonlarının birbirinden farklı davrandığını fark ettim, bu yüzden /workspace içindeki sensor/report.py dosyasını elden geçirmemiz gerekiyor.
+
+  sensor/report.py içindeki peak_readings fonksiyonunu, verilen kayıtlar arasından en yüksek k sıcaklığa sahip olanları büyükten küçüğe doğru döndürecek biçimde düzelt. Fonksiyonun k parametresi pozitif değilse sensor/stream.py içindeki SensorError hatası yine fırlatılmalı; küçük veya sıfır bir k değeri için sessizce boş liste döndürmesin. Aynı dosyadaki hottest fonksiyonunun davranışı ise hiç değişmemeli, en yüksek sıcaklığa sahip tek kaydın adını eskisi gibi döndürmeye devam etmeli.
+
+  Değişiklikleri sensor/report.py üzerinde yap; sensor/stream.py dosyasına dokunmamıza gerek yok, oradaki SensorStream ve SensorError olduğu gibi kalsın. İşin sonunda sensor/report.py yine çalışır durumda olsun ve iki fonksiyon kendi aralarında tutarlı sonuç versin.
+
+setup: |
+  mkdir -p sensor
+  cat > sensor/stream.py <<'STREAM'
+  class SensorError(Exception):
+      pass
+
+
+  class SensorStream:
+      def __init__(self, rows):
+          self._rows = list(rows)
+          self._i = 0
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          if self._i >= len(self._rows):
+              raise StopIteration
+          row = self._rows[self._i]
+          self._i += 1
+          return row
+
+      def read_all(self):
+          return [r for r in self]
+  STREAM
+  cat > sensor/report.py <<'REPORT'
+  from sensor.stream import SensorStream, SensorError
+
+
+  def peak_readings(rows, k):
+      if k <= 0:
+          raise SensorError("k must be positive")
+      stream = SensorStream(rows)
+      data = stream.read_all()
+      data.sort(key=lambda r: r[1])
+      return [r[0] for r in data[:k]]
+
+
+  def hottest(rows):
+      stream = SensorStream(rows)
+      data = stream.read_all()
+      best = None
+      for name, temp in data:
+          if best is None or temp > best[1]:
+              best = (name, temp)
+      return best[0]
+  REPORT
+
+goal_tr: >
+  sensor/report.py icindeki peak_readings fonksiyonunu, en yuksek k
+  sicakligi buyukten kucuge dogru dondurecek bicimde duzelt; hottest
+  fonksiyonunun davranisi degismemeli.
+
+reference_solution: |
+  cat > sensor/stream.py <<'STREAM'
+  class SensorError(Exception):
+      pass
+
+
+  class SensorStream:
+      def __init__(self, rows):
+          self._rows = list(rows)
+          self._i = 0
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          if self._i >= len(self._rows):
+              raise StopIteration
+          row = self._rows[self._i]
+          self._i += 1
+          return row
+
+      def read_all(self):
+          self._i = 0
+          return [r for r in self]
+  STREAM
+  cat > sensor/report.py <<'REPORT'
+  from sensor.stream import SensorStream, SensorError
+
+
+  def peak_readings(rows, k):
+      if k <= 0:
+          raise SensorError("k must be positive")
+      stream = SensorStream(rows)
+      data = stream.read_all()
+      data.sort(key=lambda r: r[1], reverse=True)
+      return [r[0] for r in data[:k]]
+
+
+  def hottest(rows):
+      stream = SensorStream(rows)
+      data = stream.read_all()
+      best = None
+      for name, temp in data:
+          if best is None or temp > best[1]:
+              best = (name, temp)
+      return best[0]
+  REPORT
+
+ara_adim: |
+  cat > sensor/stream.py <<'STREAM'
+  class SensorError(Exception):
+      pass
+
+
+  class SensorStream:
+      def __init__(self, rows):
+          self._rows = list(rows)
+          self._i = 0
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          if self._i >= len(self._rows):
+              raise StopIteration
+          row = self._rows[self._i]
+          self._i += 1
+          return row
+
+      def read_all(self):
+          self._i = 0
+          return [r for r in self]
+  STREAM
+
+outputs:
+  - {path: sensor/report.py, kind: program, run: 'python3 -c ''from sensor.report import peak_readings as f; assert f([("a",30),("b",10),("c",20)],2)==["a","c"], f([("a",30),("b",10),("c",20)],2); assert f([("a",30),("b",10),("c",20)],3)==["a","c","b"]; print("TAMAM")'''}
+  - {path: sensor/stream.py, kind: program, run: 'python3 -c ''from sensor.stream import SensorStream as S; s=S([("a",1),("b",2)]); assert s.read_all()==[("a",1),("b",2)], s.read_all(); assert s.read_all()==[("a",1),("b",2)], s.read_all(); print("ILERLEME-TAMAM")'''}
+  - {path: sensor/report.py, kind: program, run: 'python3 -c ''from sensor.report import hottest as f; assert f([("a",30),("b",10),("c",20)])==("a"), f([("a",30),("b",10),("c",20)]); assert f([("x",5)])==("x"); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensor.report import peak_readings as f; assert f([("a",30),("b",10),("c",20)],2)==["a","c"], f([("a",30),("b",10),("c",20)],2); assert f([("a",30),("b",10),("c",20)],3)==["a","c","b"]; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensor.report import hottest as f; assert f([("a",30),("b",10),("c",20)])==("a"), f([("a",30),("b",10),("c",20)]); assert f([("x",5)])==("x"); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensor.stream import SensorStream as S; s=S([("a",1),("b",2)]); assert s.read_all()==[("a",1),("b",2)], s.read_all(); assert s.read_all()==[("a",1),("b",2)], s.read_all(); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9035
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: sensor-serisi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kolay
+    adim: 6
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-kararsizligi
+      karmasiklik: orta
+      kalip: istisna-hiyerarsisi
+      akis: bellek-ici
+      topoloji: iki-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

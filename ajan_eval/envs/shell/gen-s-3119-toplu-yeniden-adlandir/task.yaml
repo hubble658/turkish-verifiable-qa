@@ -1,0 +1,75 @@
+id: gen-s-3119-toplu-yeniden-adlandir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi/notlar_a.txt ile girdi/notlar_b.txt'deki sabit genişlikli öğrenci kayıtlarını birleştirip numara, ad, ders ve not alanlarıyla, öğrenci numarasına göre artan sıralı geçerli bir JSON dizisi olarak cikti/notlar.json'a yaz. Sonra iki girdi dosyasını arsiv/ dizinine taşı (arsiv/notlar_a.txt, arsiv/notlar_b.txt).
+
+setup: |
+  mkdir -p girdi arsiv
+  cat > girdi/notlar_a.txt <<'EOF'
+  2024001 Ali    Matematik 085
+  2024002 Ayse   Fizik     090
+  2024003 Can    Kimya     072
+  EOF
+  cat > girdi/notlar_b.txt <<'EOF'
+  2024004 Deniz  Biyoloji  068
+  2024005 Ece    Tarih     095
+  2024006 Fatih  Cografya  081
+  EOF
+
+goal_tr: >
+  girdi/notlar_a.txt ve girdi/notlar_b.txt dosyalarindaki sabit genislikli
+  ogrenci kayitlarini birlestirip her ogrenci icin numara, ad, ders ve not
+  alanlarini iceren kayitlari ogrenci numarasina gore artan sirada tutan
+  gecerli bir JSON dizisi olarak cikti/notlar.json dosyasina yaz; ardindan
+  bu iki girdi dosyasini arsiv/ dizinine tasi.
+
+reference_solution: |
+  mkdir -p cikti
+  cat girdi/notlar_a.txt girdi/notlar_b.txt > gecici.txt
+  awk '{printf "{\"numara\":\"%s\",\"ad\":\"%s\",\"ders\":\"%s\",\"not\":%d}\n", $1, $2, $3, $4}' gecici.txt | sort > satirlar.txt
+  { printf '[\n'; paste -sd, satirlar.txt; printf '\n]\n'; } > cikti/notlar.json
+  mv girdi/notlar_a.txt girdi/notlar_b.txt arsiv/
+  rm -f gecici.txt satirlar.txt
+
+outputs:
+  - {path: cikti/notlar.json, kind: json}
+  - {path: arsiv/notlar_a.txt, kind: file}
+  - {path: arsiv/notlar_b.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: arsiv/notlar_a.txt, value: [2024001 Ali    Matematik 085, 2024002 Ayse   Fizik     090, 2024003 Can    Kimya     072]}
+  - {op: file_lines_eq, path: arsiv/notlar_b.txt, value: [2024004 Deniz  Biyoloji  068, 2024005 Ece    Tarih     095, 2024006 Fatih  Cografya  081]}
+  - {op: json_eq, path: cikti/notlar.json, value: [{numara: '2024001', ad: Ali, ders: Matematik, not: 85}, {numara: '2024002', ad: Ayse, ders: Fizik, not: 90}, {numara: '2024003', ad: Can, ders: Kimya, not: 72}, {numara: '2024004', ad: Deniz, ders: Biyoloji, not: 68}, {numara: '2024005', ad: Ece, ders: Tarih, not: 95}, {numara: '2024006', ad: Fatih, ders: Cografya, not: 81}]}
+  - {op: not_exists, path: girdi/notlar_a.txt}
+  - {op: not_exists, path: girdi/notlar_b.txt}
+
+metadata:
+  domain: toplu-yeniden-adlandir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3119
+    bundle: dosya-duzen
+    tools:
+    - mkdir
+    - mv
+    konu: ogrenci-notlari
+    hedef: toplu-yeniden-adlandir
+    girdi: sabit-genislik
+    kaynak: iki-dosya-capraz
+    cikti: json
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: olcek
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

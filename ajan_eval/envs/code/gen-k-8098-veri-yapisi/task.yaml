@@ -1,0 +1,151 @@
+id: gen-k-8098-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Bugün ekip içi konuşmalarda oturum izlerini birleştirmekten bahsettik; kimin hangi sayfayı ne zaman ziyaret ettiği dağınık duruyor ve bunu tek bir yerden yürütebilir hale getirmek istiyoruz. Öğleden sonra da mevcut oturum izleme kodunun üstünden geçtik, bazı metotların hâlâ eksik olduğunu gördük.
+
+  `/workspace` altındaki `sessions/trace/walker.py` dosyasındaki `SessionWalker` sınıfına iki yeni metot ekle: `reachable(start)` ve `depth(start)`. `reachable` verilen başlangıç kullanıcısından, ortak ziyaret edilen sayfalar üzerinden zincirleme ulaşılabilen tüm kullanıcı adlarını döndürsün. `depth` ise yine aynı başlangıç kullanıcısından en uzaktaki kullanıcıya kadar olan adım sayısını döndürsün. Mevcut `add` davranışı ve `sessions/user.py` içindeki `User` yapısı olduğu gibi kalsın; sadece `walker.py` içindeki bu iki metodu çalışır hâle getir.
+
+setup: |
+  mkdir -p sessions/trace
+  cat > sessions/__init__.py <<'PY'
+  PY
+  cat > sessions/trace/__init__.py <<'PY'
+  PY
+  cat > sessions/user.py <<'PY'
+  class User:
+      def __init__(self, name):
+          self.name = name
+          self.visits = []
+
+      def visit(self, page):
+          self.visits.append(page)
+  PY
+  cat > sessions/trace/walker.py <<'PY'
+  from sessions.user import User
+
+
+  class SessionWalker:
+      def __init__(self):
+          self.users = {}
+
+      def add(self, name, pages):
+          u = User(name)
+          for p in pages:
+              u.visit(p)
+          self.users[name] = u
+
+      def reachable(self, start):
+          raise NotImplementedError
+
+      def depth(self, start):
+          raise NotImplementedError
+  PY
+  cat > sessions/__main__.py <<'PY'
+  from sessions.trace.walker import SessionWalker
+
+  W = SessionWalker()
+  W.add("a", ["home", "cart"])
+  W.add("b", ["cart", "pay"])
+  W.add("c", ["pay", "done"])
+  print(W.reachable("a"))
+  PY
+
+goal_tr: >
+  sessions/trace/walker.py icindeki SessionWalker sinifina, kullanicilari
+  ortak ziyaret edilen sayfalar uzerinden baglayan reachable(start) ve
+  depth(start) metotlarini ekle; reachable start kullanicisindan ortak sayfa
+  zinciriyle ulasilabilen tum kullanici adlarini, depth ise en uzak
+  kullaniciya olan adim sayisini dondursun.
+
+reference_solution: |
+  cat > sessions/trace/walker.py <<'PY'
+  from sessions.user import User
+
+
+  class SessionWalker:
+      def __init__(self):
+          self.users = {}
+
+      def add(self, name, pages):
+          u = User(name)
+          for p in pages:
+              u.visit(p)
+          self.users[name] = u
+
+      def _neighbors(self, name):
+          pages = set(self.users[name].visits)
+          out = []
+          for other, u in self.users.items():
+              if other != name and pages & set(u.visits):
+                  out.append(other)
+          return out
+
+      def reachable(self, start):
+          seen = {start}
+          stack = [start]
+          while stack:
+              cur = stack.pop()
+              for nxt in self._neighbors(cur):
+                  if nxt not in seen:
+                      seen.add(nxt)
+                      stack.append(nxt)
+          return sorted(seen)
+
+      def depth(self, start):
+          seen = {start: 0}
+          queue = [start]
+          far = 0
+          while queue:
+              cur = queue.pop(0)
+              for nxt in self._neighbors(cur):
+                  if nxt not in seen:
+                      seen[nxt] = seen[cur] + 1
+                      far = max(far, seen[nxt])
+                      queue.append(nxt)
+          return far
+  PY
+
+outputs:
+  - {path: sessions/trace/walker.py, kind: program, run: 'python3 -c ''from sessions.trace.walker import SessionWalker as S; w=S(); w.add("a",["home","cart"]); w.add("b",["cart","pay"]); w.add("c",["pay","done"]); w.add("d",["other"]); assert w.reachable("a")==["a","b","c"], w.reachable("a"); assert w.reachable("d")==["d"]; assert w.depth("a")==2, w.depth("a"); assert w.depth("d")==0; assert w.depth("c")==2; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sessions.trace.walker import SessionWalker as S; w=S(); w.add("a",["home","cart"]); w.add("b",["cart","pay"]); w.add("c",["pay","done"]); w.add("d",["other"]); assert w.reachable("a")==["a","b","c"], w.reachable("a"); assert w.reachable("d")==["d"]; assert w.depth("a")==2, w.depth("a"); assert w.depth("d")==0; assert w.depth("c")==2; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8098
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: kullanici-oturumlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kolay
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: graf-gezinme
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: bellek-ici
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

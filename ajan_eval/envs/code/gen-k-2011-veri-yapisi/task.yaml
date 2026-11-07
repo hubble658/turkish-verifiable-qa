@@ -1,0 +1,204 @@
+id: gen-k-2011-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) resto/kitchen/cache.py içindeki LRUCache sınıfını gerçekleştir; kapasitesi verilen önbellekte kayıtlar en son kullanılma sırasına göre tutulsun, get çağrısı kaydı bulup döndürsün ve onu en son kullanılan konuma taşısın, put çağrısı yeni kaydı eklesin ya da var olanı güncellesin, kapasite aşılınca en eski kayıt düşürülsün, size ise o anki kayıt sayısını döndürsün.
+
+  2) resto/kitchen/planner.py içindeki cached(capacity) dekoratörünü gerçekleştir; dekoratör bir fonksiyonu, çağrıları LRUCache.get üzerinden karşılanan en son kullanılan önbellekle sarmalasın ve kapasite aşılınca en eski kayıt düşürülsün.
+
+  3) Dekoratörün sardığı plan(dish) fonksiyonunda önbellek durumu plan.cache ile görülebilsin ve her çağrı sayısı plan.calls["n"] üzerinden izlenebilsin; plan.cache önbellek nesnesini, plan.calls ise çağrı sayacını tutsun.
+
+setup: |
+  mkdir -p resto/kitchen
+  cat > resto/kitchen/recipes.py <<'PY'
+  MENU = {
+      "pizza": {"base": {"dough": 2, "sauce": 3}, "toppings": ["cheese", "basil"]},
+      "salad": {"base": {"leaves": 5}, "toppings": ["tomato", "cucumber"]},
+      "soup": {"base": {"broth": 4}, "toppings": ["carrot"]},
+  }
+
+
+  def ingredient_names(dish):
+      spec = MENU[dish]
+      names = []
+      for part in spec.values():
+          if isinstance(part, dict):
+              names.extend(part.keys())
+          else:
+              names.extend(part)
+      return names
+  PY
+  cat > resto/kitchen/cache.py <<'PY'
+  class LRUCache:
+      def __init__(self, capacity):
+          raise NotImplementedError
+
+      def get(self, key):
+          raise NotImplementedError
+
+      def put(self, key, value):
+          raise NotImplementedError
+
+      def size(self):
+          raise NotImplementedError
+  PY
+  cat > resto/kitchen/planner.py <<'PY'
+  from resto.kitchen.cache import LRUCache
+  from resto.kitchen.recipes import ingredient_names
+
+
+  def cached(capacity):
+      raise NotImplementedError
+
+
+  @cached(2)
+  def plan(dish):
+      return ingredient_names(dish)
+  PY
+
+goal_tr: >
+  resto/kitchen/cache.py icindeki LRUCache sinifini ve
+  resto/kitchen/planner.py icindeki cached(capacity) dekoratorunu,
+  plan(dish) cagrisini en son kullanilan onbellekle sarmalayacak bicimde
+  gerceklestir: onbellek isabeti LRUCache.get ile saglanmali, kapasite
+  asilinca en eski kayit dusurulmeli ve plan.cache ile plan.calls["n"]
+  uzerinden onbellek durumu gorulebilmeli.
+
+reference_solution: |
+  cat > resto/kitchen/cache.py <<'PY'
+  class LRUCache:
+      def __init__(self, capacity):
+          if capacity <= 0:
+              raise ValueError("capacity must be positive")
+          self.capacity = capacity
+          self._store = {}
+          self._order = []
+
+      def get(self, key):
+          if key not in self._store:
+              return None
+          self._order.remove(key)
+          self._order.append(key)
+          return self._store[key]
+
+      def put(self, key, value):
+          if key in self._store:
+              self._order.remove(key)
+          self._store[key] = value
+          self._order.append(key)
+          while len(self._order) > self.capacity:
+              oldest = self._order.pop(0)
+              del self._store[oldest]
+
+      def size(self):
+          return len(self._store)
+  PY
+  cat > resto/kitchen/planner.py <<'PY'
+  from functools import wraps
+
+  from resto.kitchen.cache import LRUCache
+  from resto.kitchen.recipes import ingredient_names
+
+
+  def cached(capacity):
+      def decorator(func):
+          cache = LRUCache(capacity)
+          calls = {"n": 0}
+
+          @wraps(func)
+          def wrapper(dish):
+              hit = cache.get(dish)
+              if hit is not None:
+                  return hit
+              calls["n"] += 1
+              value = func(dish)
+              cache.put(dish, value)
+              return value
+
+          wrapper.cache = cache
+          wrapper.calls = calls
+          return wrapper
+
+      return decorator
+
+
+  @cached(2)
+  def plan(dish):
+      return ingredient_names(dish)
+  PY
+
+ara_adim: |
+  cat > resto/kitchen/cache.py <<'PY'
+  class LRUCache:
+      def __init__(self, capacity):
+          if capacity <= 0:
+              raise ValueError("capacity must be positive")
+          self.capacity = capacity
+          self._store = {}
+          self._order = []
+
+      def get(self, key):
+          if key not in self._store:
+              return None
+          self._order.remove(key)
+          self._order.append(key)
+          return self._store[key]
+
+      def put(self, key, value):
+          if key in self._store:
+              self._order.remove(key)
+          self._store[key] = value
+          self._order.append(key)
+          while len(self._order) > self.capacity:
+              oldest = self._order.pop(0)
+              del self._store[oldest]
+
+      def size(self):
+          return len(self._store)
+  PY
+
+outputs:
+  - {path: resto/kitchen/planner.py, kind: program, run: 'python3 -c ''from resto.kitchen.planner import plan as f; a=f("pizza"); assert a==["dough","sauce","cheese","basil"], a; assert f("pizza")==a; assert f.calls["n"]==1, f.calls; assert f.cache.size()==1; f("salad"); f("soup"); assert f.cache.size()==2, f.cache.size(); f("pizza"); assert f.cache.size()==2; print("TAMAM")'''}
+  - {path: resto/kitchen/cache.py, kind: program, run: 'python3 -c ''from resto.kitchen.cache import LRUCache as C; c=C(2); assert c.get("x") is None; c.put("a",1); c.put("b",2); assert c.get("a")==1; c.put("c",3); assert c.get("b") is None; assert c.get("a")==1; assert c.get("c")==3; assert c.size()==2; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from resto.kitchen.cache import LRUCache as C; c=C(2); assert c.get("x") is None; c.put("a",1); c.put("b",2); assert c.get("a")==1; c.put("c",3); assert c.get("b") is None; assert c.get("a")==1; assert c.get("c")==3; assert c.size()==2; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from resto.kitchen.planner import plan as f; a=f("pizza"); assert a==["dough","sauce","cheese","basil"], a; assert f("pizza")==a; assert f.calls["n"]==1, f.calls; assert f.cache.size()==1; f("salad"); f("soup"); assert f.cache.size()==2, f.cache.size(); f("pizza"); assert f.cache.size()==2; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-2011
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: restoran-siparisleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: lru-onbellek
+      karmasiklik: orta
+      kalip: dekorator
+      akis: ic-ice-yapi
+      topoloji: yildiz
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

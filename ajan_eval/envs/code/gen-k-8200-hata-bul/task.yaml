@@ -1,0 +1,128 @@
+id: gen-k-8200-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  depot/place.py dosyasındaki Placer.place_all metodunu düzelt. Metot, her eşyayı boyutuna uyan raflar arasından o anda en çok boş yeri olan rafa tam olarak yerleştirsin; eşitlik durumunda raf kimliği küçük olan raf seçilsin. Sonuç olarak eşya kimliğinden raf kimliğine bir eşleme döndürsün. Boyutu hiçbir rafa sığmayan eşyalar atlanmalı ve bu eşyalar sonuç eşlemesinde yer almamalı.
+
+setup: |
+  mkdir -p depot
+  cat > depot/slots.py <<'SLOTS'
+  class Slot:
+      def __init__(self, slot_id, capacity):
+          self.slot_id = slot_id
+          self.capacity = capacity
+          self.items = []
+
+      def free(self):
+          return self.capacity - len(self.items)
+
+      def place(self, item):
+          if self.free() <= 0:
+              return False
+          self.items.append(item)
+          return True
+
+
+  class Bay:
+      def __init__(self):
+          self.slots = {}
+
+      def add_slot(self, slot_id, capacity):
+          self.slots[slot_id] = Slot(slot_id, capacity)
+  SLOTS
+  cat > depot/place.py <<'PLACE'
+  from depot.slots import Bay
+
+
+  class Placer:
+      def __init__(self, bay):
+          self.bay = bay
+
+      def place_all(self, items):
+          """items: list of (item_id, size). Returns dict item_id -> slot_id."""
+          result = {}
+          for item_id, size in items:
+              for slot_id in sorted(self.bay.slots):
+                  slot = self.bay.slots[slot_id]
+                  if slot.free() >= size:
+                      slot.place(item_id)
+                      result[item_id] = slot_id
+                      break
+          return result
+  PLACE
+
+goal_tr: >
+  depot/place.py icindeki Placer.place_all metodunu, her esyayi boyutuna
+  uyan raflar arasindan o an en cok bos yeri olana (esitlikte raf kimligi
+  kucuk olana) tam olarak yerlestirip esya kimliginden raf kimligine esleme
+  dondurecek ve boyutu hicbir rafa sigmayan esyalari atlayacak sekilde
+  duzelt.
+
+reference_solution: |
+  cat > depot/place.py <<'PLACE'
+  from depot.slots import Bay
+
+
+  class Placer:
+      def __init__(self, bay):
+          self.bay = bay
+
+      def place_all(self, items):
+          """items: list of (item_id, size). Returns dict item_id -> slot_id."""
+          result = {}
+          for item_id, size in items:
+              candidates = [
+                  s for s in self.bay.slots.values() if s.free() >= size
+              ]
+              if not candidates:
+                  continue
+              best = max(candidates, key=lambda s: (s.free(), [-ord(c) for c in s.slot_id]))
+              for _ in range(size):
+                  best.place(item_id)
+              result[item_id] = best.slot_id
+          return result
+  PLACE
+
+outputs:
+  - {path: depot/place.py, kind: program, run: 'python3 -c ''from depot.slots import Bay; from depot.place import Placer; b=Bay(); b.add_slot("A",3); b.add_slot("B",3); p=Placer(b); r=p.place_all([("x",2),("y",2)]); assert r=={"x":"A","y":"B"}, r; assert b.slots["A"].free()==1, b.slots["A"].free(); assert b.slots["B"].free()==1, b.slots["B"].free(); b2=Bay(); b2.add_slot("A",2); p2=Placer(b2); r2=p2.place_all([("big",5),("s",1)]); assert r2=={"s":"A"}, r2; assert b2.slots["A"].free()==1, b2.slots["A"].free(); b3=Bay(); b3.add_slot("A",4); b3.add_slot("B",4); p3=Placer(b3); r3=p3.place_all([("m",3),("n",3)]); assert r3=={"m":"A","n":"B"}, r3; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depot.slots import Bay; from depot.place import Placer; b=Bay(); b.add_slot("A",3); b.add_slot("B",3); p=Placer(b); r=p.place_all([("x",2),("y",2)]); assert r=={"x":"A","y":"B"}, r; assert b.slots["A"].free()==1, b.slots["A"].free(); assert b.slots["B"].free()==1, b.slots["B"].free(); b2=Bay(); b2.add_slot("A",2); p2=Placer(b2); r2=p2.place_all([("big",5),("s",1)]); assert r2=={"s":"A"}, r2; assert b2.slots["A"].free()==1, b2.slots["A"].free(); b3=Bay(); b3.add_slot("A",4); b3.add_slot("B",4); p3=Placer(b3); r3=p3.place_all([("m",3),("n",3)]); assert r3=={"m":"A","n":"B"}, r3; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8200
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: depo-raf-yerlesimi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: tip-karismasi
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: bellek-ici
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

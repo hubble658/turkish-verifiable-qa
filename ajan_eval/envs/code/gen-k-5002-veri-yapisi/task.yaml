@@ -1,0 +1,128 @@
+id: gen-k-5002-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  tracking/core/merge.py içindeki SpanMerger sınıfını, tracking/intervals/types.py'deki AbstractMerger sözleşmesini uygulayarak, verilen (baş, son) kapalı aralıklarını birleştirip artan sıralı ve kesişen aralıkların tek aralıkta toplandığı bir liste döndürecek şekilde gerçekleştir.
+
+setup: |
+  mkdir -p tracking/intervals tracking/core
+  cat > tracking/core/__init__.py <<'INIT'
+  INIT
+  cat > tracking/intervals/__init__.py <<'INIT'
+  INIT
+  cat > tracking/intervals/types.py <<'TYPES'
+  from abc import ABC, abstractmethod
+  from typing import Iterable, Tuple
+
+
+  def normalize(span: Tuple[int, int]) -> Tuple[int, int]:
+      a, b = span
+      if a > b:
+          a, b = b, a
+      return a, b
+
+
+  def sort_spans(spans: Iterable[Tuple[int, int]]) -> list:
+      return sorted(normalize(s) for s in spans)
+
+
+  class AbstractMerger(ABC):
+      @abstractmethod
+      def merge(self, spans: Iterable[Tuple[int, int]]) -> list:
+          """Return non-overlapping spans sorted by start."""
+
+      def coverage(self, spans):
+          return self.merge(spans)
+  TYPES
+  cat > tracking/core/merge.py <<'MERGE'
+  from tracking.intervals.types import AbstractMerger, sort_spans
+
+
+  class SpanMerger(AbstractMerger):
+      def merge(self, spans):
+          raise NotImplementedError
+
+
+  class Tracker:
+      def __init__(self):
+          self._merger = SpanMerger()
+
+      def coverage(self, spans):
+          return self._merger.coverage(spans)
+  MERGE
+
+goal_tr: >
+  tracking/core/merge.py icindeki SpanMerger sinifini, AbstractMerger soyut
+  sinifindan gelen sozlesmeyi uygulayarak verilen (bas, son) kapali
+  araliklarini birlestirip artan sirali, kesisen araliklarin tek aralikta
+  toplandigi bir liste dondurecek bicimde gerceklestir.
+
+reference_solution: |
+  cat > tracking/core/merge.py <<'MERGE'
+  from tracking.intervals.types import AbstractMerger, sort_spans
+
+
+  class SpanMerger(AbstractMerger):
+      def merge(self, spans):
+          ordered = sort_spans(spans)
+          result = []
+          for start, end in ordered:
+              if result and start <= result[-1][1]:
+                  if end > result[-1][1]:
+                      result[-1] = (result[-1][0], end)
+              else:
+                  result.append((start, end))
+          return result
+
+
+  class Tracker:
+      def __init__(self):
+          self._merger = SpanMerger()
+
+      def coverage(self, spans):
+          return self._merger.coverage(spans)
+  MERGE
+
+outputs:
+  - {path: tracking/core/merge.py, kind: program, run: 'python3 -c ''from tracking.core.merge import Tracker; t=Tracker(); assert t.coverage([(5,7),(1,3),(2,4)])==[(1,4),(5,7)]; assert t.coverage([(1,10),(2,3),(4,5)])==[(1,10)]; assert t.coverage([(9,3)])==[(3,9)]; assert t.coverage([])==[]; assert t.coverage([(1,2),(2,3),(3,4)])==[(1,4)]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from tracking.core.merge import Tracker; t=Tracker(); assert t.coverage([(5,7),(1,3),(2,4)])==[(1,4),(5,7)]; assert t.coverage([(1,10),(2,3),(4,5)])==[(1,10)]; assert t.coverage([(9,3)])==[(3,9)]; assert t.coverage([])==[]; assert t.coverage([(1,2),(2,3),(3,4)])==[(1,4)]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5002
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: kargo-takibi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: kolay
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: aralik-birlestirme
+      karmasiklik: duz
+      kalip: abc-protokol
+      akis: bellek-ici
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

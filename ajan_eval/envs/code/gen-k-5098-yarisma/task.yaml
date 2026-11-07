@@ -1,0 +1,131 @@
+id: gen-k-5098-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  grid/schedule.py içindeki greedy_shed fonksiyonunu düzelt. Fonksiyon kök sayacı asla kapatmasın ve bir sayacı kapattığında o sayacın tüm alt ağacını da kapanmış saysın. Her adımda bütçeye sığdırılabilen en yüksek yüklü sayacı seçip kapatsın ve kapatılan sayaçların kimliklerini yüksekten düşüğe doğru döndürsün.
+
+setup: |
+  mkdir -p grid
+  cat > grid/readings.py <<'READINGS'
+  def load_meters(rows):
+      meters = {}
+      for row in rows:
+          mid = row["id"]
+          if mid not in meters:
+              meters[mid] = {"id": mid, "loads": [], "parent": row.get("parent")}
+          meters[mid]["loads"].append(row["load"])
+      return meters
+  READINGS
+  cat > grid/totals.py <<'TOTALS'
+  def subtree_total(meters, mid):
+      node = meters[mid]
+      total = sum(node["loads"])
+      for other_id, other in meters.items():
+          if other["parent"] == mid:
+              total += subtree_total(meters, other_id)
+      return total
+  TOTALS
+  cat > grid/schedule.py <<'SCHEDULE'
+  from grid.totals import subtree_total
+
+
+  def greedy_shed(meters, root, budget):
+      order = sorted(meters.keys(), key=lambda m: subtree_total(meters, m))
+      shed = []
+      spent = 0
+      for mid in order:
+          if mid == root:
+              continue
+          cost = subtree_total(meters, mid)
+          if spent + cost <= budget:
+              shed.append(mid)
+              spent += cost
+      return shed
+  SCHEDULE
+
+goal_tr: >
+  grid/schedule.py icindeki greedy_shed fonksiyonunu, kok sayaci asla
+  kapatmadan ve bir sayac kapatildiginda onun tum alt agacini da kapanmis
+  sayarak, her adimda butceye sigdirilabilen en yuksek yuklu sayaci secip
+  kapatacak ve kapatilan sayaclarin kimliklerini yuksekten dusuge dogru
+  dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > grid/schedule.py <<'SCHEDULE'
+  from grid.totals import subtree_total
+
+
+  def greedy_shed(meters, root, budget):
+      def subtree_ids(mid):
+          found = [mid]
+          for other_id, other in meters.items():
+              if other["parent"] == mid:
+                  found.extend(subtree_ids(other_id))
+          return found
+
+      closed = set()
+      shed = []
+      spent = 0
+      while True:
+          best = None
+          best_cost = None
+          for mid in sorted(meters):
+              if mid == root or mid in closed:
+                  continue
+              cost = subtree_total(meters, mid)
+              if spent + cost <= budget and (best_cost is None or cost > best_cost):
+                  best = mid
+                  best_cost = cost
+          if best is None:
+              break
+          shed.append(best)
+          spent += best_cost
+          for x in subtree_ids(best):
+              closed.add(x)
+      shed.sort(key=lambda m: subtree_total(meters, m), reverse=True)
+      return shed
+  SCHEDULE
+
+outputs:
+  - {path: grid/schedule.py, kind: program, run: 'python3 -c ''from grid.readings import load_meters; from grid.schedule import greedy_shed; rows=[{"id":"R","load":0,"parent":None},{"id":"A","load":3,"parent":"R"},{"id":"B","load":10,"parent":"R"},{"id":"C","load":8,"parent":"A"}]; m=load_meters(rows); assert greedy_shed(m,"R",12)==["A"]; assert greedy_shed(m,"R",25)==["A","B"]; assert greedy_shed(m,"R",11)==["A"]; assert greedy_shed(m,"R",8)==["C"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from grid.readings import load_meters; from grid.schedule import greedy_shed; rows=[{"id":"R","load":0,"parent":None},{"id":"A","load":3,"parent":"R"},{"id":"B","load":10,"parent":"R"},{"id":"C","load":8,"parent":"A"}]; m=load_meters(rows); assert greedy_shed(m,"R",12)==["A"]; assert greedy_shed(m,"R",25)==["A","B"]; assert greedy_shed(m,"R",11)==["A"]; assert greedy_shed(m,"R",8)==["C"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5098
+    bundle: yarisma
+    tools:
+    - python3
+    konu: elektrik-sayaclari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: acgozlu
+      karmasiklik: duz
+      kalip: ozyineleme
+      akis: ic-ice-yapi
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,219 @@
+id: gen-k-9102-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  callcenter/tree.py içindeki ikili arama ağacının arama işlevi hatalı çalışıyor; agent_for_duration fonksiyonu calls.txt içindeki bir süreye karşılık gelen temsilci adını doğru döndürmüyor. callcenter/report.py içindeki total_calls fonksiyonu da çağrı sayısını yanlış hesaplıyor. callcenter/tree.py ve callcenter/report.py dosyalarındaki bu sorunları gider; agent_for_duration ve total_calls fonksiyonları calls.txt dosyasındaki verilere göre doğru sonucu döndürsün. callcenter/loader.py dosyası calls.txt dosyasını satır satır okuyup her satırdaki çağrı kimliği, temsilci adı ve süre bilgisini ayrıştırmaya devam etsin; gerekirse bu dosyayı da gözden geçir.
+
+setup: |
+  mkdir -p callcenter
+  cat > callcenter/loader.py <<'LOADER'
+  def load_calls(path):
+      rows = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              cid, agent, dur = line.split(',')
+              rows.append((cid, agent, int(dur)))
+      return rows
+  LOADER
+  cat > callcenter/tree.py <<'TREE'
+  from callcenter.loader import load_calls
+
+
+  def make_index(path):
+      calls = load_calls(path)
+      root = None
+
+      def insert(node, key, value):
+          if node is None:
+              return {"key": key, "value": value, "left": None, "right": None}
+          if key < node["key"]:
+              node["left"] = insert(node["left"], key, value)
+          else:
+              node["right"] = insert(node["right"], key, value)
+          return node
+
+      for cid, agent, dur in calls:
+          root = insert(root, dur, agent)
+
+      def search(node, key):
+          while node is not None:
+              if key == node["key"]:
+                  return node["value"]
+              return None
+          return None
+
+      def count(node):
+          if node is None:
+              return 0
+          return 1 + count(node["left"]) + count(node["right"])
+
+      return {"root": root, "search": search, "count": count}
+  TREE
+  cat > callcenter/report.py <<'REPORT'
+  from callcenter.tree import make_index
+
+
+  def agent_for_duration(path, seconds):
+      index = make_index(path)
+      return index["search"](index["root"], seconds)
+
+
+  def total_calls(path):
+      index = make_index(path)
+      return index["count"](index["root"]) - 1
+  REPORT
+  cat > calls.txt <<'CALLS'
+  c1,ayse,120
+  c2,mehmet,45
+  c3,zeynep,300
+  c4,ali,75
+  c5,deniz,210
+  CALLS
+
+goal_tr: >
+  callcenter/tree.py icindeki ikili arama agacinin aramasini ve
+  callcenter/report.py icindeki total_calls sayimini duzelt;
+  agent_for_duration ve total_calls calls.txt uzerinden dogru sonucu
+  dondursun.
+
+reference_solution: |
+  cat > callcenter/tree.py <<'TREE'
+  from callcenter.loader import load_calls
+
+
+  def make_index(path):
+      calls = load_calls(path)
+      root = None
+
+      def insert(node, key, value):
+          if node is None:
+              return {"key": key, "value": value, "left": None, "right": None}
+          if key < node["key"]:
+              node["left"] = insert(node["left"], key, value)
+          else:
+              node["right"] = insert(node["right"], key, value)
+          return node
+
+      for cid, agent, dur in calls:
+          root = insert(root, dur, agent)
+
+      def search(node, key):
+          while node is not None:
+              if key == node["key"]:
+                  return node["value"]
+              if key < node["key"]:
+                  node = node["left"]
+              else:
+                  node = node["right"]
+          return None
+
+      def count(node):
+          if node is None:
+              return 0
+          return 1 + count(node["left"]) + count(node["right"])
+
+      return {"root": root, "search": search, "count": count}
+  TREE
+  cat > callcenter/report.py <<'REPORT'
+  from callcenter.tree import make_index
+
+
+  def agent_for_duration(path, seconds):
+      index = make_index(path)
+      return index["search"](index["root"], seconds)
+
+
+  def total_calls(path):
+      index = make_index(path)
+      return index["count"](index["root"])
+  REPORT
+
+ara_adim: |
+  cat > callcenter/tree.py <<'TREE'
+  from callcenter.loader import load_calls
+
+
+  def make_index(path):
+      calls = load_calls(path)
+      root = None
+
+      def insert(node, key, value):
+          if node is None:
+              return {"key": key, "value": value, "left": None, "right": None}
+          if key < node["key"]:
+              node["left"] = insert(node["left"], key, value)
+          else:
+              node["right"] = insert(node["right"], key, value)
+          return node
+
+      for cid, agent, dur in calls:
+          root = insert(root, dur, agent)
+
+      def search(node, key):
+          while node is not None:
+              if key == node["key"]:
+                  return node["value"]
+              if key < node["key"]:
+                  node = node["left"]
+              else:
+                  node = node["right"]
+          return None
+
+      def count(node):
+          if node is None:
+              return 0
+          return 1 + count(node["left"]) + count(node["right"])
+
+      return {"root": root, "search": search, "count": count}
+  TREE
+
+outputs:
+  - {path: callcenter/report.py, kind: program, run: 'python3 -c ''from callcenter.report import total_calls as f; assert f("calls.txt")==5, f("calls.txt"); print("TAMAM")'''}
+  - {path: callcenter/tree.py, kind: program, run: 'python3 -c ''from callcenter.tree import make_index as f; ix=f("calls.txt"); assert ix["search"](ix["root"],45)=="mehmet", ix["search"](ix["root"],45); assert ix["search"](ix["root"],210)=="deniz"; print("ILERLEME-TAMAM")'''}
+  - {path: callcenter/loader.py, kind: program, run: 'python3 -c ''from callcenter.loader import load_calls as f; rows=f("calls.txt"); assert len(rows)==5, len(rows); assert rows[0]==("c1","ayse",120), rows[0]; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from callcenter.report import total_calls as f; assert f("calls.txt")==5, f("calls.txt"); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from callcenter.tree import make_index as f; ix=f("calls.txt"); assert ix["search"](ix["root"],45)=="mehmet", ix["search"](ix["root"],45); assert ix["search"](ix["root"],210)=="deniz"; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from callcenter.loader import load_calls as f; rows=f("calls.txt"); assert len(rows)==5, len(rows); assert rows[0]==("c1","ayse",120), rows[0]; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9102
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: cagri-merkezi-kayitlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: ikili-arama-agaci
+      karmasiklik: orta
+      kalip: closure-fabrika
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

@@ -1,0 +1,71 @@
+id: gen-s-7100-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+prompt: 'Şehir bazlı günlük olay kayıtlarını tuttuğumuz ayrı ayrı dosyalar birikti ve artık bunları tek tek açıp bakmak yerine
+  toplu bir özet görmek istiyoruz. Her şehir için toplam olay sayısını ve kaç kayıt olduğunu bir arada görebileceğimiz tek
+  bir çıktı yeterli olacak. kayitlar klasöründeki tüm tsv dosyalarını birleştirip her şehir için olay_sayisi toplamını ve
+  kayıt sayısını hesapla, sonucu geçerli JSON olarak sonuc.json dosyasına yaz.
+
+
+  JSON biçimi: [{"sehir": "<şehir>", "toplam_olay": <sayı>, "kayit_sayisi": <sayı>}].
+
+  '
+setup: "mkdir -p kayitlar\ncat > kayitlar/istanbul.tsv <<'TSV'\ntarih\tsehir\tolay_sayisi\n2024-01-01\tistanbul\t3\n2024-01-02\t\
+  istanbul\t0\n2024-01-03\tistanbul\t5\nTSV\ncat > kayitlar/ankara.tsv <<'TSV'\ntarih\tsehir\tolay_sayisi\n2024-01-01\tankara\t\
+  1\n2024-01-02\tankara\t7\n2024-01-03\tankara\t2\nTSV\ncat > kayitlar/izmir.tsv <<'TSV'\ntarih\tsehir\tolay_sayisi\n2024-01-01\t\
+  izmir\t4\n2024-01-02\tizmir\t4\n2024-01-03\tizmir\t4\nTSV\n"
+goal_tr: 'kayitlar klasorundeki tum tsv dosyalarini birlestirip her sehir icin olay_sayisi toplamini ve kayit sayisini hesaplayarak
+  sonuc.json dosyasina gecerli JSON olarak yaz
+
+  '
+reference_solution: "cat > denetle.py <<'PY'\nimport glob, json\ntoplam = {}\nkayit = {}\nfor yol in sorted(glob.glob(\"kayitlar/*.tsv\"\
+  )):\n    with open(yol) as f:\n        satirlar = f.read().splitlines()\n    for satir in satirlar[1:]:\n        if not\
+  \ satir.strip():\n            continue\n        alanlar = satir.split(\"\\t\")\n        sehir = alanlar[1]\n        olay\
+  \ = int(alanlar[2])\n        toplam[sehir] = toplam.get(sehir, 0) + olay\n        kayit[sehir] = kayit.get(sehir, 0) + 1\n\
+  sonuc = []\nfor sehir in sorted(toplam):\n    sonuc.append({\"sehir\": sehir, \"toplam_olay\": toplam[sehir], \"kayit_sayisi\"\
+  : kayit[sehir]})\nwith open(\"sonuc.json\", \"w\") as f:\n    json.dump(sonuc, f, indent=2)\n    f.write(\"\\n\")\nPY\n\
+  python3 denetle.py\n"
+outputs:
+- path: sonuc.json
+  kind: json
+checks:
+- op: json_eq
+  path: sonuc.json
+  value:
+  - sehir: ankara
+    toplam_olay: 10
+    kayit_sayisi: 3
+  - sehir: istanbul
+    toplam_olay: 8
+    kayit_sayisi: 3
+  - sehir: izmir
+    toplam_olay: 12
+    kayit_sayisi: 3
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7100
+    bundle: python-veri
+    tools:
+    - python3
+    konu: hava-durumu-kayitlari
+    hedef: denetle
+    girdi: tsv
+    kaynak: cok-dosya
+    cikti: json
+    kesif: dosyayi-bul
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}
+  duzeltme:
+    neden: gizli_sart
+    not: JSON yapısı istemde yoktu.

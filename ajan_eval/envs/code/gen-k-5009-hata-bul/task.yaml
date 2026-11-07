@@ -1,0 +1,126 @@
+id: gen-k-5009-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  roster/plan.py dosyasındaki ShiftPlan sınıfını context manager olarak koru; yani sınıfın mevcut context manager davranışını bozma. Bu sınıftaki is_covered metodunu, bir gün için toplam saat gereken eşiğe eşit olduğunda da o günü kapsandı sayacak şekilde düzelt. Başlangıçtaki roster/loader.py, roster/coverage.py, roster/plan.py ve schedule.txt dosyaları yerinde kalsın; yalnızca roster/plan.py içeriği bu düzeltmeyi yansıtacak biçimde güncellensin.
+
+setup: |
+  mkdir -p roster
+  cat > roster/loader.py <<'LOADER'
+  def load_shifts(rows):
+      result = {}
+      for row in rows:
+          day = row["day"]
+          if day not in result:
+              result[day] = []
+          result[day].append({"who": row["who"], "hours": row["hours"]})
+      return result
+  LOADER
+  cat > roster/coverage.py <<'COVERAGE'
+  from roster.loader import load_shifts
+
+
+  def total_hours(rows, day):
+      table = load_shifts(rows)
+      return sum(s["hours"] for s in table.get(day, []))
+  COVERAGE
+  cat > roster/plan.py <<'PLAN'
+  from roster.coverage import total_hours
+
+
+  class ShiftPlan:
+      def __init__(self, rows):
+          self.rows = rows
+
+      def __enter__(self):
+          self._entered = True
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self._entered = False
+          return False
+
+      def is_covered(self, day, need):
+          total = total_hours(self.rows, day)
+          if total > need:
+              return True
+          return False
+  PLAN
+  cat > schedule.txt <<'TXT'
+  day=mon who=ada hours=6
+  day=mon who=bo hours=3
+  day=tue who=cy hours=4
+  TXT
+
+goal_tr: >
+  roster/plan.py icindeki ShiftPlan sinifini context-manager olarak koruyup
+  is_covered metodunu, gun bazinda toplam saat gereken esige esit oldugunda
+  da kapsandi sayacak sekilde duzelt.
+
+reference_solution: |
+  cat > roster/plan.py <<'PLAN'
+  from roster.coverage import total_hours
+
+
+  class ShiftPlan:
+      def __init__(self, rows):
+          self.rows = rows
+
+      def __enter__(self):
+          self._entered = True
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self._entered = False
+          return False
+
+      def is_covered(self, day, need):
+          total = total_hours(self.rows, day)
+          if total >= need:
+              return True
+          return False
+  PLAN
+
+outputs:
+  - {path: roster/plan.py, kind: program, run: 'python3 -c ''from roster.plan import ShiftPlan as P; rows=[{"day":"mon","who":"ada","hours":6},{"day":"mon","who":"bo","hours":3},{"day":"tue","who":"cy","hours":4}]; p=P(rows); assert p.is_covered("mon",9) is True, p.is_covered("mon",9); assert p.is_covered("mon",10) is False; assert p.is_covered("tue",4) is True; assert p.is_covered("wed",1) is False; c=P(rows); m=c.__enter__(); assert m is c; assert c.is_covered("mon",9) is True; c.__exit__(None,None,None); assert c.is_covered("tue",4) is True; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from roster.plan import ShiftPlan as P; rows=[{"day":"mon","who":"ada","hours":6},{"day":"mon","who":"bo","hours":3},{"day":"tue","who":"cy","hours":4}]; p=P(rows); assert p.is_covered("mon",9) is True, p.is_covered("mon",9); assert p.is_covered("mon",10) is False; assert p.is_covered("tue",4) is True; assert p.is_covered("wed",1) is False; c=P(rows); m=c.__enter__(); assert m is c; assert c.is_covered("mon",9) is True; c.__exit__(None,None,None); assert c.is_covered("tue",4) is True; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5009
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: vardiya-cizelgesi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kapsam-hatasi
+      karmasiklik: duz
+      kalip: context-manager
+      akis: ic-ice-yapi
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

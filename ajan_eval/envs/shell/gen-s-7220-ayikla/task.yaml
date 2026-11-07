@@ -1,0 +1,60 @@
+id: gen-s-7220-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi/birincil.log ve girdi/ikincil.log dosyalarındaki sabit genişlikli kayıtlardan ID alanı ilk 3 karakter, DURUM alanı 4-11 karakter aralığı olan satırları ayıklamanı istiyorum. Sadece her iki dosyada da DURUM değeri HATA olan ID'leri artan sırada sonuc.json dosyasına {"hatali_idler": [...]} biçiminde yaz.
+
+setup: |
+  mkdir -p girdi
+  printf 'ID  DURUM   SURE\n100 OK      12\n101 HATA    34\n102 OK      56\n103 HATA    78\n104 OK      90' > girdi/birincil.log
+  printf 'ID  DURUM   SURE\n100 OK      12\n101 OK      34\n102 OK      56\n103 HATA    78\n104 OK      90\n105 HATA    11' > girdi/ikincil.log
+  printf 'ID  DURUM   SURE\n999 HATA    99\n998 HATA    98\n' > girdi/ARSIV_tuzak.log
+
+goal_tr: >
+  girdi/birincil.log ve girdi/ikincil.log dosyalarindaki sabit genislikli
+  kayitlardan ID alani ilk 3 karakter, DURUM alani 4-11 karakter araligi
+  olan satirlari ayikla; yalnizca her iki dosyada da DURUM degeri HATA olan
+  ID'leri artan sirada sonuc.json dosyasina {"hatali_idler": [...]}
+  biciminde yaz.
+
+reference_solution: |
+  tee /dev/null /dev/null > /dev/null
+  cut -c1-3,4-11 girdi/birincil.log | grep 'HATA' | cut -c1-3 | sort > /tmp/a.txt
+  cut -c1-3,4-11 girdi/ikincil.log | grep 'HATA' | cut -c1-3 | sort > /tmp/b.txt
+  comm -12 /tmp/a.txt /tmp/b.txt | sed 's/^/    "/; s/$/",/' | sed '$ s/,$//' | { echo '{'; echo '  "hatali_idler": ['; cat; echo '  ]'; echo '}'; } > sonuc.json
+
+outputs:
+  - {path: sonuc.json, kind: json}
+
+checks:
+  - {op: json_eq, path: sonuc.json, value: {hatali_idler: ['103']}}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7220
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: sunucu-loglari
+    hedef: ayikla
+    girdi: sabit-genislik
+    kaynak: iki-dosya-capraz
+    cikti: json
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: son-newline-yok
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

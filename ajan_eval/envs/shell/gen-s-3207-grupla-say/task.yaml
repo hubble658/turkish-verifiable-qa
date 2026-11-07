@@ -1,0 +1,90 @@
+id: gen-s-3207-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Muhasebe ekibi aylardır kayıtları klasör klasör gezip elle özet çıkarıyor, artık buna bir son vermek istiyoruz. Yıl sonu kapanışı yaklaşırken bu işi bir kerede ve tutarlı biçimde yapabileceğimiz bir düzene ihtiyacımız var. Çalışma dizinindeki muhasebe ağacında yer alan her kayitlar.txt dosyasını oku: her satırda ilk 4 karakter kalem kodu, sonraki 5 karakter tür (GELIR ya da GIDER), kalan 9 karakter ise tutar olsun. Kalem kodlarının ilk iki hanesine göre, tür bazında kayıt sayısını ve tutar toplamını hesapla; her kalem kodu öneki için cikti/<onek>/ozet.txt dosyasına "TUR SAYI TOPLAM" biçiminde iki satır (GELIR ve GIDER) yaz. Girdi ağacının yapısını koruyarak cikti dizinini oluştur; yani cikti/10/ozet.txt, cikti/20/ozet.txt ve cikti/30/ozet.txt dosyaları ortaya çıksın.
+
+setup: |
+  mkdir -p muhasebe/2024/ocak muhasebe/2024/subat muhasebe/2025/ocak
+  cat > muhasebe/2024/ocak/kayitlar.txt <<'EOF'
+  1001GELIR      000012500
+  1002GIDER      000003400
+  1003GELIR      000008900
+  1004GIDER      000001200
+  1005GELIR      000015000
+  EOF
+  cat > muhasebe/2024/subat/kayitlar.txt <<'EOF'
+  2001GELIR      000007700
+  2002GIDER      000002250
+  2003GELIR      000010000
+  2004GIDER      000000950
+  EOF
+  cat > muhasebe/2025/ocak/kayitlar.txt <<'EOF'
+  3001GELIR      000020000
+  3002GIDER      000005500
+  3003GELIR      000003300
+  EOF
+
+goal_tr: >
+  muhasebe dizin agacindaki her kayitlar.txt dosyasini oku; her satirin ilk
+  4 karakterini kalem kodu, sonraki 5 karakterini tur (GELIR/GIDER), kalan 9
+  karakterini tutar say; kalem kodlarinin ilk iki hanesine gore tur bazinda
+  kayit sayisini ve tutar toplamini hesapla ve her kalem kodu oneki icin
+  cikti/<onek>/ozet.txt dosyasina "TUR SAYI TOPLAM" biciminde iki satir
+  (GELIR ve GIDER) yaz; cikti dizinini girdi agacinin yapisini koruyarak
+  olustur
+
+reference_solution: |
+  mkdir -p cikti
+  find muhasebe -type f -name 'kayitlar.txt' | sort | while read -r f; do
+    awk '{ kalem=substr($0,1,4); tur=substr($0,5,5); tutar=substr($0,10,9)+0; onek=substr(kalem,1,2); print onek, tur, tutar }' "$f"
+  done > /tmp/kalemler.txt
+  wc -l < /tmp/kalemler.txt > /tmp/satir_sayisi.txt
+  cut -d' ' -f1 /tmp/kalemler.txt | sort -u | while read -r onek; do
+    mkdir -p "cikti/$onek"
+    for tur in GELIR GIDER; do
+      grep -E "^$onek $tur " /tmp/kalemler.txt | awk -v t="$tur" '{ s+=$3; n+=1 } END { printf "%s %d %d\n", t, n+0, s+0 }'
+    done > "cikti/$onek/ozet.txt"
+  done
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/10/ozet.txt, kind: file}
+  - {path: cikti/20/ozet.txt, kind: file}
+  - {path: cikti/30/ozet.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: ['10', '20', '30']}
+  - {op: file_lines_eq, path: cikti/10/ozet.txt, value: [GELIR 3 0, GIDER 2 0]}
+  - {op: file_lines_eq, path: cikti/20/ozet.txt, value: [GELIR 2 0, GIDER 2 0]}
+  - {op: file_lines_eq, path: cikti/30/ozet.txt, value: [GELIR 2 0, GIDER 1 0]}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3207
+    bundle: dizin-istatistik
+    tools:
+    - wc
+    - find
+    konu: muhasebe-kalemleri
+    hedef: grupla-say
+    girdi: sabit-genislik
+    kaynak: dizin-agaci
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

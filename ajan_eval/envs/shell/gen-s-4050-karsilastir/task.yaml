@@ -1,0 +1,122 @@
+id: gen-s-4050-karsilastir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  gonderiler klasöründeki once.ini ve sonra.ini dosyalarını kargo numarasına göre karşılaştır. Her iki dosyada da bulunan kayıtlar arasından durum, şehir veya ağırlık alanlarından en az biri değişmiş olanları seç ve kargo numarasına göre artan sırada, her kayıt için kargo numarası ile değişen alanların eski ve yeni değerlerini içeren bir JSON dizisi olarak degisimler.json dosyasına yaz.
+
+  Su sartlar saglanmali:
+  - gonderiler/once.ini ve gonderiler/sonra.ini dosyaları karşılaştırılmalı.
+  - Yalnızca her iki dosyada da bulunan kargo numaraları dikkate alınmalı.
+  - durum, sehir veya agirlik alanlarından en az biri değişmiş kayıtlar seçilmeli.
+  - Kayıtlar kargo numarasına göre artan sırada olmalı.
+  - Sonuç degisimler.json dosyasına bir JSON dizisi olarak yazılmalı.
+  - Dizideki her öğe kargo numarasını ve değişen alanların eski ve yeni değerlerini içermeli.
+
+setup: |
+  mkdir -p gonderiler
+  cat > gonderiler/once.ini <<'INI'
+  [TK1001]
+  durum=yolda
+  sehir=Ankara
+  agirlik=3
+
+  [TK1002]
+  durum=teslim
+  sehir=Izmir
+  agirlik=1
+
+  [TK1003]
+  durum=yolda
+  sehir=Bursa
+  agirlik=7
+
+  [TK1004]
+  durum=iptal
+  sehir=Adana
+  agirlik=2
+  INI
+  cat > gonderiler/sonra.ini <<'INI'
+  [TK1001]
+  durum=teslim
+  sehir=Ankara
+  agirlik=3
+
+  [TK1003]
+  durum=yolda
+  sehir=Istanbul
+  agirlik=9
+
+  [TK1005]
+  durum=yolda
+  sehir=Konya
+  agirlik=4
+  INI
+
+goal_tr: >
+  gonderiler klasorundeki once.ini ve sonra.ini dosyalarini kargo numarasina
+  gore karsilastir; her iki dosyada da bulunan kayitlardan durum, sehir veya
+  agirlik alanlarindan en az biri degismis olanlari kargo numarasina gore
+  artan sirada, kargo numarasi ile degisen alanlarin eski ve yeni
+  degerlerini iceren bir JSON dizisi olarak degisimler.json dosyasina yaz
+
+reference_solution: |
+  cd gonderiler
+  for f in once.ini sonra.ini; do
+    awk -F= '/^\[/{k=substr($0,2,length($0)-2); next} {print k"\t"$1"\t"$2}' "$f" | sort > "$f.tsv"
+  done
+  cut -f1 once.ini.tsv > once.keys
+  cut -f1 sonra.ini.tsv > sonra.keys
+  comm -12 once.keys sonra.keys > ortak.keys
+  cut -f1 once.ini.tsv | diff - once.keys > /dev/null
+  join -t"$(printf '\t')" -j1 once.ini.tsv sonra.ini.tsv > ortak.tsv
+  awk -F'\t' 'BEGIN{printf "["; n=0}
+    $2!=$5 || $3!=$6 || $4!=$7 {
+      if(n>0) printf ",";
+      printf "{\"kargo\":\"%s\",\"degisenler\":{", $1;
+      m=0;
+      if($2!=$5){ if(m>0) printf ","; printf "\"durum\":{\"eski\":\"%s\",\"yeni\":\"%s\"}", $2, $5; m=1 }
+      if($3!=$6){ if(m>0) printf ","; printf "\"sehir\":{\"eski\":\"%s\",\"yeni\":\"%s\"}", $3, $6; m=1 }
+      if($4!=$7){ if(m>0) printf ","; printf "\"agirlik\":{\"eski\":\"%s\",\"yeni\":\"%s\"}", $4, $7; m=1 }
+      printf "}}";
+      n++
+    }
+    END{printf "]\n"}' ortak.tsv > ../degisimler.json
+  cd ..
+  rm -rf gonderiler
+
+outputs:
+  - {path: degisimler.json, kind: json}
+
+checks:
+  - {op: json_eq, path: degisimler.json, value: [{kargo: TK1001, degisenler: {durum: {eski: '', yeni: '3'}, agirlik: {eski: agirlik, yeni: ''}}}, {kargo: TK1001, degisenler: {durum: {eski: '', yeni: teslim}, agirlik: {eski: durum, yeni: ''}}}, {kargo: TK1001, degisenler: {durum: {eski: '', yeni: Ankara}, agirlik: {eski: sehir, yeni: ''}}}, {kargo: TK1001, degisenler: {durum: {eski: agirlik, yeni: ''}, sehir: {eski: '3', yeni: ''}}}, {kargo: TK1001, degisenler: {durum: {eski: agirlik, yeni: '3'}, sehir: {eski: '3', yeni: ''}, agirlik: {eski: agirlik, yeni: ''}}}, {kargo: TK1001, degisenler: {durum: {eski: agirlik, yeni: teslim}, sehir: {eski: '3', yeni: ''}, agirlik: {eski: durum, yeni: ''}}}, {kargo: TK1001, degisenler: {durum: {eski: agirlik, yeni: Ankara}, sehir: {eski: '3', yeni: ''}, agirlik: {eski: sehir, yeni: ''}}}, {kargo: TK1001, degisenler: {durum: {eski: durum, yeni: ''}, sehir: {eski: yolda, yeni: ''}}}, {kargo: TK1001, degisenler: {durum: {eski: durum, yeni: '3'}, sehir: {eski: yolda, yeni: ''}, agirlik: {eski: agirlik, yeni: ''}}}, {kargo: TK1001, degisenler: {durum: {eski: durum, yeni: teslim}, sehir: {eski: yolda, yeni: ''}, agirlik: {eski: durum, yeni: ''}}}, {kargo: TK1001, degisenler: {durum: {eski: durum, yeni: Ankara}, sehir: {eski: yolda, yeni: ''}, agirlik: {eski: sehir, yeni: ''}}}, {kargo: TK1001, degisenler: {durum: {eski: sehir, yeni: ''}, sehir: {eski: Ankara, yeni: ''}}}, {kargo: TK1001, degisenler: {durum: {eski: sehir, yeni: '3'}, sehir: {eski: Ankara, yeni: ''}, agirlik: {eski: agirlik, yeni: ''}}}, {kargo: TK1001, degisenler: {durum: {eski: sehir, yeni: teslim}, sehir: {eski: Ankara, yeni: ''}, agirlik: {eski: durum, yeni: ''}}}, {kargo: TK1001, degisenler: {durum: {eski: sehir, yeni: Ankara}, sehir: {eski: Ankara, yeni: ''}, agirlik: {eski: sehir, yeni: ''}}}, {kargo: TK1003, degisenler: {durum: {eski: '', yeni: '9'}, agirlik: {eski: agirlik, yeni: ''}}}, {kargo: TK1003, degisenler: {durum: {eski: '', yeni: yolda}, agirlik: {eski: durum, yeni: ''}}}, {kargo: TK1003, degisenler: {durum: {eski: '', yeni: Istanbul}, agirlik: {eski: sehir, yeni: ''}}}, {kargo: TK1003, degisenler: {durum: {eski: agirlik, yeni: ''}, sehir: {eski: '7', yeni: ''}}}, {kargo: TK1003, degisenler: {durum: {eski: agirlik, yeni: '9'}, sehir: {eski: '7', yeni: ''}, agirlik: {eski: agirlik, yeni: ''}}}, {kargo: TK1003, degisenler: {durum: {eski: agirlik, yeni: yolda}, sehir: {eski: '7', yeni: ''}, agirlik: {eski: durum, yeni: ''}}}, {kargo: TK1003, degisenler: {durum: {eski: agirlik, yeni: Istanbul}, sehir: {eski: '7', yeni: ''}, agirlik: {eski: sehir, yeni: ''}}}, {kargo: TK1003, degisenler: {durum: {eski: durum, yeni: ''}, sehir: {eski: yolda, yeni: ''}}}, {kargo: TK1003, degisenler: {durum: {eski: durum, yeni: '9'}, sehir: {eski: yolda, yeni: ''}, agirlik: {eski: agirlik, yeni: ''}}}, {kargo: TK1003, degisenler: {durum: {eski: durum, yeni: yolda}, sehir: {eski: yolda, yeni: ''}, agirlik: {eski: durum, yeni: ''}}}, {kargo: TK1003, degisenler: {durum: {eski: durum, yeni: Istanbul}, sehir: {eski: yolda, yeni: ''}, agirlik: {eski: sehir, yeni: ''}}}, {kargo: TK1003, degisenler: {durum: {eski: sehir, yeni: ''}, sehir: {eski: Bursa, yeni: ''}}}, {kargo: TK1003, degisenler: {durum: {eski: sehir, yeni: '9'}, sehir: {eski: Bursa, yeni: ''}, agirlik: {eski: agirlik, yeni: ''}}}, {kargo: TK1003, degisenler: {durum: {eski: sehir, yeni: yolda}, sehir: {eski: Bursa, yeni: ''}, agirlik: {eski: durum, yeni: ''}}}, {kargo: TK1003, degisenler: {durum: {eski: sehir, yeni: Istanbul}, sehir: {eski: Bursa, yeni: ''}, agirlik: {eski: sehir, yeni: ''}}}]}
+  - {op: not_exists, path: gonderiler}
+
+metadata:
+  domain: karsilastir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4050
+    bundle: karsilastir
+    tools:
+    - diff
+    - comm
+    konu: kargo-takibi
+    hedef: karsilastir
+    girdi: ini
+    kaynak: iki-dosya-capraz
+    cikti: json
+    kesif: dosyayi-bul
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,136 @@
+id: gen-k-8122-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  depot/planner.py içindeki place fonksiyonunu düzelt. Bir yerlestirme rafın kapasitesini aştığında o yerlestirmenin rafa hiç yazılmamış olmasını sağla; fonksiyon yalnızca başarıyla yerlestirilen ürünlerin adlarını döndürsün.
+
+setup: |
+  mkdir -p depot
+  cat > depot/errors.py <<'ERR'
+  class DepotError(Exception):
+      pass
+
+
+  class SlotConflict(DepotError):
+      def __init__(self, slot, occupant):
+          super().__init__("slot %s dolu: %s" % (slot, occupant))
+          self.slot = slot
+          self.occupant = occupant
+
+
+  class UnknownSlot(DepotError):
+      def __init__(self, slot):
+          super().__init__("bilinmeyen slot: %s" % slot)
+          self.slot = slot
+
+
+  class OverCapacity(DepotError):
+      def __init__(self, slot, weight):
+          super().__init__("kapasite asildi: %s -> %s" % (slot, weight))
+          self.slot = slot
+          self.weight = weight
+  ERR
+  cat > depot/racks.py <<'RACKS'
+  from depot.errors import SlotConflict, UnknownSlot
+
+
+  class Rack:
+      def __init__(self, name, capacity):
+          self.name = name
+          self.capacity = capacity
+          self.slots = {}
+
+      def put(self, slot, item, weight):
+          if slot in self.slots:
+              raise SlotConflict(slot, self.slots[slot][0])
+          self.slots[slot] = (item, weight)
+          return True
+
+      def get(self, slot):
+          if slot not in self.slots:
+              raise UnknownSlot(slot)
+          return self.slots[slot]
+
+      def total_weight(self):
+          return sum(w for _, w in self.slots.values())
+  RACKS
+  cat > depot/planner.py <<'PLANNER'
+  from depot.errors import OverCapacity
+  from depot.racks import Rack
+
+
+  def place(rack, placements):
+      placed = []
+      for slot, item, weight in placements:
+          rack.put(slot, item, weight)
+          placed.append(item)
+          if rack.total_weight() > rack.capacity:
+              raise OverCapacity(rack.name, rack.total_weight())
+      return placed
+  PLANNER
+
+goal_tr: >
+  depot/planner.py icindeki place fonksiyonunu, bir yerlestirme kapasiteyi
+  astiginda o yerlestirmenin rafa hic yazilmamis olmasini saglayacak ve
+  yalnizca basariyla yerlestirilen urunlerin adlarini dondurecek bicimde
+  duzelt.
+
+reference_solution: |
+  cat > depot/planner.py <<'PLANNER'
+  from depot.errors import OverCapacity
+  from depot.racks import Rack
+
+
+  def place(rack, placements):
+      placed = []
+      for slot, item, weight in placements:
+          if rack.total_weight() + weight > rack.capacity:
+              raise OverCapacity(rack.name, rack.total_weight() + weight)
+          rack.put(slot, item, weight)
+          placed.append(item)
+      return placed
+  PLANNER
+
+outputs:
+  - {path: depot/planner.py, kind: program, run: 'python3 -c ''from depot.planner import place; from depot.racks import Rack; from depot.errors import OverCapacity; r=Rack("A",10); assert place(r,[("s1","kutu",4),("s2","varil",5)])==["kutu","varil"]; assert r.total_weight()==9; r2=Rack("B",6); caught=[False]; exec("try:\n    place(r2,[(\"s1\",\"kutu\",4),(\"s2\",\"varil\",5)])\nexcept OverCapacity as e:\n    caught[0]=True\n    assert e.slot==\"B\" and e.weight==9"); assert caught[0]; assert r2.slots=={"s1":("kutu",4)}; assert r2.total_weight()==4; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depot.planner import place; from depot.racks import Rack; from depot.errors import OverCapacity; r=Rack("A",10); assert place(r,[("s1","kutu",4),("s2","varil",5)])==["kutu","varil"]; assert r.total_weight()==9; r2=Rack("B",6); caught=[False]; exec("try:\n    place(r2,[(\"s1\",\"kutu\",4),(\"s2\",\"varil\",5)])\nexcept OverCapacity as e:\n    caught[0]=True\n    assert e.slot==\"B\" and e.weight==9"); assert caught[0]; assert r2.slots=={"s1":("kutu",4)}; assert r2.total_weight()==4; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8122
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: depo-raf-yerlesimi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: erken-donus
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: bellek-ici
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

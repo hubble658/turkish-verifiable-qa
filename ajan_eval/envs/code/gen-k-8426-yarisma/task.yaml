@@ -1,0 +1,129 @@
+id: gen-k-8426-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Okulun kayıt işlerini dijital ortama taşıma çalışmaları devam ediyor; elimizdeki öğrenci listeleri artık büyüdükçe elle bakmak zorlaşıyor, o yüzden küçük bir arama modülü yazmamız gerekiyor. Bu sırada roster.txt içindeki ham kayıtları okuyup düzenli bir yapıya çeviren bir yükleyicimiz de hazır durumda. Şimdi sıra bu ikisini birleştirmeye geldi.
+
+  school/records/loader.py içindeki Student ve load_students tanımlarını kullanarak school/records/index.py dosyasını oluştur. Bu dosyada roster.txt dosyasını okuyup öğrencileri sid değerine göre artan sırada tutan bir StudentIndex sınıfı olsun; students özelliği sıralı bir Student listesi olarak dursun ve find(sid) metodu verilen sid bulunursa ilgili Student nesnesini, bulunamazsa None döndürsün. Arama işlemi ikili arama ile yapılsın.
+
+setup: |
+  mkdir -p school/records
+  cat > school/records/__init__.py <<'A'
+  A
+  cat > school/__init__.py <<'A'
+  A
+  cat > school/records/loader.py <<'LOADER'
+  from dataclasses import dataclass
+
+
+  @dataclass
+  class Student:
+      sid: int
+      name: str
+      grade: float
+
+
+  def load_students(path):
+      rows = []
+      with open(path, encoding="utf-8") as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              sid, name, grade = line.split(";")
+              rows.append(Student(int(sid), name, float(grade)))
+      return rows
+  LOADER
+  cat > roster.txt <<'DATA'
+  3;ayse;88.5
+  1;burak;72.0
+  4;cem;95.0
+  2;deniz;61.5
+  DATA
+
+goal_tr: >
+  school/records/loader.py icindeki Student ve load_students tanimlarini
+  kullanarak, roster.txt dosyasini okuyup ogrencileri sid degerine gore
+  artan sirada tutan ve verilen bir sid icin ikili arama yapan
+  school/records/index.py dosyasini yaz; StudentIndex sinifinin students
+  ozelligi sirali Student listesi, find(sid) metodu sid bulunursa Student
+  nesnesini bulunamazsa None dondursun.
+
+reference_solution: |
+  cat > school/records/index.py <<'INDEX'
+  from dataclasses import dataclass
+
+  from school.records.loader import Student, load_students
+
+
+  @dataclass
+  class StudentIndex:
+      _rows: list
+
+      @classmethod
+      def from_file(cls, path):
+          rows = load_students(path)
+          rows.sort(key=lambda s: s.sid)
+          return cls(rows)
+
+      @property
+      def students(self):
+          return list(self._rows)
+
+      def find(self, sid):
+          lo, hi = 0, len(self._rows) - 1
+          while lo <= hi:
+              mid = (lo + hi) // 2
+              cur = self._rows[mid].sid
+              if cur == sid:
+                  return self._rows[mid]
+              if cur < sid:
+                  lo = mid + 1
+              else:
+                  hi = mid - 1
+          return None
+  INDEX
+
+outputs:
+  - {path: school/records/index.py, kind: program, run: 'python3 -c ''import school.records.index as m; from school.records.loader import Student as St; assert hasattr(m,"StudentIndex"), "no class"; idx=m.StudentIndex.from_file("roster.txt"); s=idx.students; assert [x.sid for x in s]==[1,2,3,4], [x.sid for x in s]; assert all(isinstance(x,St) for x in s), "not Student"; assert idx.find(4)==St(4,"cem",95.0), idx.find(4); assert idx.find(2)==St(2,"deniz",61.5); assert idx.find(3)==St(3,"ayse",88.5); assert idx.find(1)==St(1,"burak",72.0); assert idx.find(9) is None; assert idx.find(0) is None; assert idx.find(5) is None; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import school.records.index as m; from school.records.loader import Student as St; assert hasattr(m,"StudentIndex"), "no class"; idx=m.StudentIndex.from_file("roster.txt"); s=idx.students; assert [x.sid for x in s]==[1,2,3,4], [x.sid for x in s]; assert all(isinstance(x,St) for x in s), "not Student"; assert idx.find(4)==St(4,"cem",95.0), idx.find(4); assert idx.find(2)==St(2,"deniz",61.5); assert idx.find(3)==St(3,"ayse",88.5); assert idx.find(1)==St(1,"burak",72.0); assert idx.find(9) is None; assert idx.find(0) is None; assert idx.find(5) is None; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8426
+    bundle: yarisma
+    tools:
+    - python3
+    konu: ogrenci-transkripti
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-ikili-arama
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: dosya-okuma
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

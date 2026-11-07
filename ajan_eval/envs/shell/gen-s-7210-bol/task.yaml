@@ -1,0 +1,74 @@
+id: gen-s-7210-bol
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Kütüphane otomasyonuna geçen hafta başladık ama eski kayıtlar hâlâ eski usulde tutuluyor; dün akşam arşivdeki kitap listesini görünce bu işi bir an önce derli toplu hale getirmemiz gerektiğini anladım. Elimizde arsiv.tar.gz diye bir sıkıştırılmış dosya var, içinde de kitaplar.txt bulunuyor; satırlarında alanlar dikey çubukla ayrılmış durumda, bizim yeni sisteme aktarırken ise virgülle ayrılmış bir yapı istiyoruz. Bu yüzden arsiv.tar.gz içindeki kitaplar.txt dosyasını açıp satırlarındaki dikey çubukla ayrılmış alanları virgülle ayrılmış hale getirerek kitaplar.csv dosyasına yazmanı istiyorum. Ardından da kitaplar.csv dosyasını gzip ile sıkıştırıp kitaplar.csv.gz dosyasını oluştur, böylece hem düzenli hem de arşivlenebilir bir kayıt elimizde olsun.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/kitaplar.txt <<'TXT'
+  978-1-4028-9462-6|Kirmizi Kitap|Roman|2001
+  978-0-306-40615-7|Mavi Kitap|Bilim|1999
+  978-0-13-110362-7|Yesil Kitap|Teknik|1985
+  978-1-56619-909-4|Sari Kitap|Roman|2010
+  978-0-201-63361-2|Siyah Kitap|Teknik|1994
+  TXT
+  tar -czf arsiv.tar.gz -C girdi kitaplar.txt
+  rm -rf girdi
+
+goal_tr: >
+  arsiv.tar.gz icindeki kitaplar.txt dosyasini acip satirlarindaki dikey
+  cubukla ayrilmis alanlari virgulle ayrilmis olarak kitaplar.csv dosyasina
+  yaz, ardindan kitaplar.csv dosyasini gzip ile sikistirip kitaplar.csv.gz
+  olustur
+
+reference_solution: |
+  tar -xzf arsiv.tar.gz kitaplar.txt
+  tr '|' ',' < kitaplar.txt > kitaplar.csv
+  gzip -k kitaplar.csv
+
+outputs:
+  - {path: kitaplar.csv, kind: file}
+  - {path: kitaplar.csv.gz, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: kitaplar.csv, value: ['978-1-4028-9462-6,Kirmizi Kitap,Roman,2001', '978-0-306-40615-7,Mavi Kitap,Bilim,1999', '978-0-13-110362-7,Yesil Kitap,Teknik,1985', '978-1-56619-909-4,Sari Kitap,Roman,2010', '978-0-201-63361-2,Siyah Kitap,Teknik,1994']}
+  - {op: run_stdout_eq, cmd: gzip -dc kitaplar.csv.gz, value: '978-1-4028-9462-6,Kirmizi Kitap,Roman,2001
+
+    978-0-306-40615-7,Mavi Kitap,Bilim,1999
+
+    978-0-13-110362-7,Yesil Kitap,Teknik,1985
+
+    978-1-56619-909-4,Sari Kitap,Roman,2010
+
+    978-0-201-63361-2,Siyah Kitap,Teknik,1994'}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7210
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: kutuphane-kayitlari
+    hedef: bol
+    girdi: duz-metin
+    kaynak: tarball
+    cikti: csv
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: yok
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

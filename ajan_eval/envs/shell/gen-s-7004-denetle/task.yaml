@@ -1,0 +1,87 @@
+id: gen-s-7004-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi/sensor_a.csv ile girdi/sensor_b.csv'de zamanı ortak olan ve iki dosyada da sıcaklığı boş olmayan satırların sıcaklıklarını cikti/denetim/sensor_a/sicaklik.txt ve cikti/denetim/sensor_b/sicaklik.txt'ye yaz. Ortak zamanları da sıralı olarak cikti/denetim/ortak.txt'ye kaydet.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/sensor_a.csv <<'CSV'
+  zaman,sicaklik
+  t01,20
+  t02,21
+  t03,
+  t04,23
+  CSV
+  cat > girdi/sensor_b.csv <<'CSV'
+  zaman,sicaklik
+  t01,19
+  t02,22
+  t03,25
+  t05,24
+  CSV
+
+goal_tr: >
+  girdi altindaki sensor_a.csv ve sensor_b.csv dosyalarindaki zaman
+  sutununda ortak olan satirlari karsilastirip, her iki dosyada da sicaklik
+  degeri bos olmayan ortak zamanlar icin
+  cikti/denetim/<dosya-adi>/sicaklik.txt yollarina ilgili sicaklik
+  degerlerini yaz ve ortak zamanlari cikti/denetim/ortak.txt dosyasina
+  sirali olarak kaydet.
+
+reference_solution: |
+  for f in girdi/sensor_a.csv girdi/sensor_b.csv; do
+    ad=$(basename "$f" .csv)
+    d=$(dirname "$f")/../cikti/denetim/$ad
+    mkdir -p "$d"
+    awk -F, 'NR>1 && $2!="" {print $1","$2}' "$f" | sort > "$d/tmp.txt"
+  done
+  comm -12 <(cut -d, -f1 cikti/denetim/sensor_a/tmp.txt | sort) <(cut -d, -f1 cikti/denetim/sensor_b/tmp.txt | sort) > cikti/denetim/ortak.txt
+  for ad in sensor_a sensor_b; do
+    while IFS=, read -r z s; do
+      grep "^$z," "cikti/denetim/$ad/tmp.txt" | cut -d, -f2
+    done < cikti/denetim/ortak.txt > "cikti/denetim/$ad/sicaklik.txt"
+    rm -f "cikti/denetim/$ad/tmp.txt"
+  done
+
+outputs:
+  - {path: cikti/denetim/ortak.txt, kind: lines}
+  - {path: cikti/denetim/sensor_a/sicaklik.txt, kind: lines}
+  - {path: cikti/denetim/sensor_b/sicaklik.txt, kind: lines}
+  - {path: cikti/denetim, kind: dir}
+
+checks:
+  - {op: dir_entries_eq, path: cikti/denetim, value: [ortak.txt, sensor_a, sensor_b]}
+  - {op: file_lines_eq, path: cikti/denetim/ortak.txt, value: [t01, t02]}
+  - {op: file_lines_eq, path: cikti/denetim/sensor_a/sicaklik.txt, value: ['20', '21']}
+  - {op: file_lines_eq, path: cikti/denetim/sensor_b/sicaklik.txt, value: ['19', '22']}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7004
+    bundle: yol-parcala
+    tools:
+    - basename
+    - dirname
+    konu: sensor-olcumleri
+    hedef: denetle
+    girdi: csv
+    kaynak: iki-dosya-capraz
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

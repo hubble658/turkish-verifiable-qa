@@ -1,0 +1,99 @@
+id: gen-k-5083-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  flights.txt dosyasındaki "KOD,gun,kalkis,varis,sure" biçimli satırları okuyup (gun, varis) anahtarına göre artan sırada tutan bir FlightIndex sınıfını flights.py içine yaz. Bu sınıf, before(day, cutoff) çağrıldığında yalnızca o güne ait ve varış saati cutoff'tan küçük olan uçuşları artan sırada döndürmeli; find(day, arr) çağrıldığında ise tam eşleşen uçuşu ikili arama ile bulmalı.
+
+setup: |
+  cat > flights.txt <<'DATA'
+  TK100,1,09:00,10:30,120
+  TK200,1,11:00,12:15,90
+  TK300,2,07:45,09:00,75
+  TK400,2,14:30,16:00,110
+  TK500,3,06:15,07:45,80
+  TK600,3,18:00,19:20,95
+  TK700,4,08:00,09:30,85
+  TK800,4,21:00,22:45,100
+  DATA
+
+goal_tr: >
+  flights.txt dosyasindaki "KOD,gun,kalkis,varis,sure" bicimli satirlari
+  okuyup (gun, varis) anahtarina gore artan sirada tutan, before(day,
+  cutoff) ile yalnizca o gune ait ve varis saati cutoff'tan kucuk ucuslari
+  artan sirada donduren, find(day, arr) ile tam eslesen ucusu ikili arama
+  ile bulan FlightIndex sinifini flights.py icine yaz.
+
+reference_solution: |
+  cat > flights.py <<'PY'
+  import bisect
+
+
+  class FlightIndex:
+      def __init__(self, path):
+          self._rows = []
+          with open(path) as fh:
+              for line in fh:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  code, day, dep, arr, dur = line.split(",")
+                  self._rows.append((code, int(day), dep, arr, int(dur)))
+          self._rows.sort(key=lambda r: (r[1], r[3]))
+          self._keys = [(r[1], r[3]) for r in self._rows]
+
+      def before(self, day, cutoff):
+          lo = bisect.bisect_left(self._keys, (day, ""))
+          hi = bisect.bisect_left(self._keys, (day, cutoff))
+          return self._rows[lo:hi]
+
+      def find(self, day, arr):
+          target = (day, arr)
+          i = bisect.bisect_left(self._keys, target)
+          if i < len(self._keys) and self._keys[i] == target:
+              return self._rows[i]
+          return None
+  PY
+
+outputs:
+  - {path: flights.py, kind: program, run: 'python3 -c ''from flights import FlightIndex as F; ix=F("flights.txt"); r=ix.before(2,"10:00"); assert [x[0] for x in r]==["TK300"], r; assert ix.before(2,"07:00")==[]; assert ix.find(2,"09:00")[0]=="TK300"; assert ix.find(2,"07:45") is None; assert [x[0] for x in ix.before(3,"23:59")]==["TK500","TK600"], ix.before(3,"23:59"); assert [x[0] for x in ix.before(1,"23:59")]==["TK100","TK200"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from flights import FlightIndex as F; ix=F("flights.txt"); r=ix.before(2,"10:00"); assert [x[0] for x in r]==["TK300"], r; assert ix.before(2,"07:00")==[]; assert ix.find(2,"09:00")[0]=="TK300"; assert ix.find(2,"07:45") is None; assert [x[0] for x in ix.before(3,"23:59")]==["TK500","TK600"], ix.before(3,"23:59"); assert [x[0] for x in ix.before(1,"23:59")]==["TK100","TK200"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5083
+    bundle: yarisma
+    tools:
+    - python3
+    konu: ucus-rezervasyonlari
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-ikili-arama
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: parcali-akis
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

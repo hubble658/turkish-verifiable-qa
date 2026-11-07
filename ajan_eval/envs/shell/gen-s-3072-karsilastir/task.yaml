@@ -1,0 +1,70 @@
+id: gen-s-3072-karsilastir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Dün akşam eski arşiv betiklerini temizlerken fark ettim ki geçen yılın kayıtlarında bazı dosyalar düzgün kapanmamış; son satırları yarım kalmış. Bu yüzden arşivdeki metin dosyalarını bir elden geçirmem gerekiyor. Sabah da aralık.txt ile ilgili bir karşılaştırma yapmam lazım, o yüzden şu iki işi sırayla halletmek istiyorum.
+
+  Önce arsiv dizin ağacındaki tüm .txt dosyalarına bak; son satırında newline olmayanları bul. Bulduğun her dosyanın son satırını, dosya yolunu da başına koyarak "yol: satır" biçiminde, artan yol sırasına göre karsilastirma.txt dosyasına yaz. Sonra karsilastirma.txt ile aralık.txt dosyasını comm ile karşılaştır ve yalnızca karsilastirma.txt'de bulunanları fark.txt dosyasına yaz. Ayrıca bu iki dosya arasındaki farkı da diff.txt dosyasına çıkar.
+
+setup: |
+  mkdir -p arsiv/2023 arsiv/2024
+  printf '2024-01-01 gunes 12\n2024-01-02 yagmur 9\n2024-01-03 bulutlu 11' > arsiv/2024/ocak.txt
+  printf '2023-12-01 kar 2\n2023-12-02 sis 4\n2023-12-03 ruzgar 7\n' > arsiv/2023/aralik.txt
+  printf 'okuma basarisiz\n' > arsiv/2023/notlar.txt
+
+goal_tr: >
+  arsiv dizin agacindaki .txt dosyalarindan son satirinda newline
+  olmayanlari bulup, her birinin son satirini dosya yolu ile birlikte "yol:
+  satir" biciminde artan yol sirasina gore karsilastirma.txt dosyasina yaz;
+  ardindan karsilastirma.txt ile aralik.txt dosyasini comm ile karsilastirip
+  yalnizca karsilastirma.txt'de olanlari fark.txt dosyasina yaz.
+
+reference_solution: |
+  find arsiv -type f -name '*.txt' | sort | while read -r f; do
+    if [ -n "$(tail -c 1 "$f")" ]; then
+      printf '%s: %s\n' "$f" "$(tail -n 1 "$f")"
+    fi
+  done > karsilastirma.txt
+  printf 'arsiv/2023/aralik.txt: 2023-12-03 ruzgar 7\n' > aralik.txt
+  comm -23 karsilastirma.txt aralik.txt > fark.txt
+  diff karsilastirma.txt aralik.txt > diff.txt || true
+
+outputs:
+  - {path: karsilastirma.txt, kind: lines}
+  - {path: fark.txt, kind: lines}
+  - {path: diff.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: diff.txt, value: [1c1, '< arsiv/2024/ocak.txt: 2024-01-03 bulutlu 11', '---', '> arsiv/2023/aralik.txt: 2023-12-03 ruzgar 7']}
+  - {op: file_content_eq, path: fark.txt, value: 'arsiv/2024/ocak.txt: 2024-01-03 bulutlu 11'}
+  - {op: file_content_eq, path: karsilastirma.txt, value: 'arsiv/2024/ocak.txt: 2024-01-03 bulutlu 11'}
+
+metadata:
+  domain: karsilastir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3072
+    bundle: karsilastir
+    tools:
+    - diff
+    - comm
+    konu: hava-durumu-kayitlari
+    hedef: karsilastir
+    girdi: log-satiri
+    kaynak: dizin-agaci
+    cikti: satir-listesi
+    kesif: dosyayi-bul
+    uslup: baglam-gomulu
+    direnc: son-newline-yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

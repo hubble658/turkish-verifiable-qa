@@ -1,0 +1,129 @@
+id: gen-k-8371-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  roster/core/plan.py dosyasındaki Plan.is_valid metodunu düzelt. Metot, aynı işçiye ait sıfır uzunluklu vardiyaları ya da tam komşu (bitişik) vardiyaları çakışmış saymasın; yalnızca gerçekten çakışan vardiyalar geçersiz kılsın. Farklı işçilerin aynı saatte vardiyası olması geçerli kabul edilmeye devam etsin.
+
+setup: |
+  mkdir -p roster roster/core
+  cat > roster/core/shifts.py <<'SHIFTS'
+  from dataclasses import dataclass
+
+
+  @dataclass
+  class Shift:
+      worker: str
+      start: int
+      end: int
+
+      def overlaps(self, other):
+          return self.start < other.end and other.start < self.end
+  SHIFTS
+  cat > roster/core/plan.py <<'PLAN'
+  from dataclasses import dataclass, field
+  from roster.core.shifts import Shift
+
+
+  @dataclass
+  class Plan:
+      shifts: list = field(default_factory=list)
+
+      def add(self, shift):
+          self.shifts.append(shift)
+
+      def is_valid(self):
+          for i, a in enumerate(self.shifts):
+              for b in self.shifts[i + 1:]:
+                  if a.worker == b.worker and a.overlaps(b):
+                      return False
+          return True
+  PLAN
+  cat > roster/service.py <<'SERVICE'
+  from roster.core.plan import Plan
+
+
+  def build_plan(rows):
+      plan = Plan()
+      for worker, start, end in rows:
+          from roster.core.shifts import Shift
+          plan.add(Shift(worker, start, end))
+      return plan
+
+
+  def schedule_ok(rows):
+      return build_plan(rows).is_valid()
+  SERVICE
+
+goal_tr: >
+  roster/core/plan.py icindeki Plan.is_valid metodunu, ayni iscinin sifir
+  uzunluklu ya da tam komsu (bitisik) vardiyalari cakismis saymayacak
+  bicimde duzelt; farkli iscilerin ayni saatte olmasi gecerli kalsin.
+
+reference_solution: |
+  cat > roster/core/plan.py <<'PLAN'
+  from dataclasses import dataclass, field
+  from roster.core.shifts import Shift
+
+
+  @dataclass
+  class Plan:
+      shifts: list = field(default_factory=list)
+
+      def add(self, shift):
+          self.shifts.append(shift)
+
+      def is_valid(self):
+          for i, a in enumerate(self.shifts):
+              for b in self.shifts[i + 1:]:
+                  if a.worker != b.worker:
+                      continue
+                  if a.start == a.end or b.start == b.end:
+                      continue
+                  if a.overlaps(b):
+                      return False
+          return True
+  PLAN
+
+outputs:
+  - {path: roster/core/plan.py, kind: program, run: 'python3 -c ''from roster.service import schedule_ok as f; assert f([("ana",0,8),("ana",8,16)])==True; assert f([("ana",0,8),("ana",7,16)])==False; assert f([("ana",0,0),("ana",0,8)])==True; assert f([("ana",0,8),("bo",3,9)])==True; assert f([("ana",0,8),("bo",3,9),("ana",8,12)])==True; assert f([("ana",0,8),("ana",4,4)])==True; assert f([("ana",0,8),("ana",4,4),("ana",3,5)])==False; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from roster.service import schedule_ok as f; assert f([("ana",0,8),("ana",8,16)])==True; assert f([("ana",0,8),("ana",7,16)])==False; assert f([("ana",0,0),("ana",0,8)])==True; assert f([("ana",0,8),("bo",3,9)])==True; assert f([("ana",0,8),("bo",3,9),("ana",8,12)])==True; assert f([("ana",0,8),("ana",4,4)])==True; assert f([("ana",0,8),("ana",4,4),("ana",3,5)])==False; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8371
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: vardiya-cizelgesi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kenar-durum
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: bellek-ici
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

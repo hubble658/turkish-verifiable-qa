@@ -1,0 +1,66 @@
+id: gen-s-7032-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  vardiya dizinindeki her .log dosyasını işle; her dosyanın satırlarındaki üçüncü alanı ters çevir ve her dosya için ters çevrilmiş bu adlardan bir satır oluştur. Elde ettiğin ters çevrilmiş adları alfabetik olarak sıralayıp vardiya/ozet.txt dosyasına yaz.
+
+setup: |
+  mkdir -p vardiya
+  cat > vardiya/gun1.log <<'LOG'
+  08:00|A3|Ali|giris
+  16:00|A3|Ali|cikis
+  09:00|B1|Veli|giris
+  17:30|B1|Veli|cikis
+  LOG
+  cat > vardiya/gun2.log <<'LOG'
+  08:15|A3|Ali|giris
+  16:05|A3|Ali|cikis
+  10:00|C2|Ayse|giris
+  18:00|C2|Ayse|cikis
+  LOG
+
+goal_tr: >
+  vardiya dizinindeki her .log dosyasinin satirlarindaki ucuncu alani ters
+  cevirip, dosya basina bir satir olacak sekilde ters cevrilmis adlari
+  alfabetik sirali olarak vardiya/ozet.txt dosyasina yaz
+
+reference_solution: |
+  cut -d'|' -f3 vardiya/gun1.log | rev | sort -u > vardiya/ozet.txt
+  cut -d'|' -f3 vardiya/gun2.log | rev | sort -u >> vardiya/ozet.txt
+  sort -u -o vardiya/ozet.txt vardiya/ozet.txt
+
+outputs:
+  - {path: vardiya/ozet.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: vardiya/ozet.txt, value: [esyA, ilA, ileV]}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7032
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: personel-vardiyalari
+    hedef: ayikla
+    girdi: log-satiri
+    kaynak: cok-dosya
+    cikti: satir-listesi
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

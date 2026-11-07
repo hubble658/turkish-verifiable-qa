@@ -1,0 +1,174 @@
+id: gen-k-8150-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  depo/agac/dugum.py ve depo/agac/trie.py'deki Dugum ve Trie sınıflarını, depo/kayit.py'deki kayit_defteri fabrikasının kaydet/bul/musteri_siparisleri/iptal işlevleriyle tutarlı çalışacak şekilde gerçekleştir.
+
+setup: |
+  mkdir -p depo/agac
+  cat > depo/agac/dugum.py <<'DUGUM'
+  class Dugum:
+      def __init__(self):
+          raise NotImplementedError
+  DUGUM
+  cat > depo/agac/trie.py <<'TRIE'
+  class Trie:
+      def __init__(self):
+          raise NotImplementedError
+
+      def ekle(self, anahtar, deger):
+          raise NotImplementedError
+
+      def ara(self, anahtar):
+          raise NotImplementedError
+
+      def on_ek(self, onek):
+          raise NotImplementedError
+
+      def sil(self, anahtar):
+          raise NotImplementedError
+  TRIE
+  cat > depo/kayit.py <<'KAYIT'
+  from depo.agac.trie import Trie
+
+
+  def kayit_defteri():
+      trie = Trie()
+
+      def kaydet(siparis_no, musteri):
+          trie.ekle(siparis_no, musteri)
+
+      def bul(siparis_no):
+          return trie.ara(siparis_no)
+
+      def musteri_siparisleri(musteri_onek):
+          return trie.on_ek(musteri_onek)
+
+      def iptal(siparis_no):
+          return trie.sil(siparis_no)
+
+      return kaydet, bul, musteri_siparisleri, iptal
+  KAYIT
+
+goal_tr: >
+  depo/agac/dugum.py ve depo/agac/trie.py icindeki Dugum ve Trie
+  siniflarini, depo/kayit.py'deki kayit_defteri fabrikasinin
+  kaydet/bul/musteri_siparisleri/iptal islevleriyle tutarli calisacak
+  bicimde gerceklestir.
+
+reference_solution: |
+  cat > depo/agac/dugum.py <<'DUGUM'
+  class Dugum:
+      def __init__(self):
+          self.cocuklar = {}
+          self.deger = None
+          self.son = False
+  DUGUM
+  cat > depo/agac/trie.py <<'TRIE'
+  from depo.agac.dugum import Dugum
+
+
+  class Trie:
+      def __init__(self):
+          self.kok = Dugum()
+
+      def ekle(self, anahtar, deger):
+          dugum = self.kok
+          for harf in anahtar:
+              if harf not in dugum.cocuklar:
+                  dugum.cocuklar[harf] = Dugum()
+              dugum = dugum.cocuklar[harf]
+          dugum.son = True
+          dugum.deger = deger
+
+      def ara(self, anahtar):
+          dugum = self.kok
+          for harf in anahtar:
+              if harf not in dugum.cocuklar:
+                  return None
+              dugum = dugum.cocuklar[harf]
+          if dugum.son:
+              return dugum.deger
+          return None
+
+      def on_ek(self, onek):
+          dugum = self.kok
+          for harf in onek:
+              if harf not in dugum.cocuklar:
+                  return []
+              dugum = dugum.cocuklar[harf]
+          sonuc = []
+          self._topla(dugum, onek, sonuc)
+          sonuc.sort()
+          return sonuc
+
+      def _topla(self, dugum, birikim, sonuc):
+          if dugum.son:
+              sonuc.append(birikim)
+          for harf in sorted(dugum.cocuklar):
+              self._topla(dugum.cocuklar[harf], birikim + harf, sonuc)
+
+      def sil(self, anahtar):
+          dugum = self.kok
+          yol = []
+          for harf in anahtar:
+              if harf not in dugum.cocuklar:
+                  return False
+              yol.append((dugum, harf))
+              dugum = dugum.cocuklar[harf]
+          if not dugum.son:
+              return False
+          dugum.son = False
+          dugum.deger = None
+          for ebeveyn, harf in reversed(yol):
+              cocuk = ebeveyn.cocuklar[harf]
+              if cocuk.son or cocuk.cocuklar:
+                  break
+              del ebeveyn.cocuklar[harf]
+          return True
+  TRIE
+
+outputs:
+  - {path: depo/agac/dugum.py, kind: program, run: 'python3 -c ''from depo.kayit import kayit_defteri as k; kaydet,bul,musteri_siparisleri,iptal=k(); kaydet("A100","ali"); kaydet("A101","ali"); kaydet("B200","burak"); assert bul("A100")=="ali" and bul("A101")=="ali"; assert bul("A999") is None; assert musteri_siparisleri("A1")==["A100","A101"], musteri_siparisleri("A1"); assert musteri_siparisleri("Z")==[]; assert iptal("A100") is True and bul("A100") is None; assert musteri_siparisleri("A1")==["A101"]; assert iptal("A100") is False; print("TAMAM")'''}
+  - {path: depo/agac/trie.py, kind: program, run: 'python3 -c ''from depo.kayit import kayit_defteri as k; kaydet,bul,musteri_siparisleri,iptal=k(); kaydet("A100","ali"); kaydet("A101","ali"); kaydet("B200","burak"); assert bul("A100")=="ali" and bul("A101")=="ali"; assert bul("A999") is None; assert musteri_siparisleri("A1")==["A100","A101"], musteri_siparisleri("A1"); assert musteri_siparisleri("Z")==[]; assert iptal("A100") is True and bul("A100") is None; assert musteri_siparisleri("A1")==["A101"]; assert iptal("A100") is False; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.kayit import kayit_defteri as k; kaydet,bul,musteri_siparisleri,iptal=k(); kaydet("A100","ali"); kaydet("A101","ali"); kaydet("B200","burak"); assert bul("A100")=="ali" and bul("A101")=="ali"; assert bul("A999") is None; assert musteri_siparisleri("A1")==["A100","A101"], musteri_siparisleri("A1"); assert musteri_siparisleri("Z")==[]; assert iptal("A100") is True and bul("A100") is None; assert musteri_siparisleri("A1")==["A101"]; assert iptal("A100") is False; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8150
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: siparis-kayitlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: trie
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: ic-ice-yapi
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

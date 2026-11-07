@@ -1,0 +1,175 @@
+id: gen-k-8424-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Atolyedeki küçük turnuva aracını geçen hafta aceleyle yazmıştım, skor tablosu kısmı hiç düzgün çalışmıyor. Bugün nihayet oturup arena/table.py dosyasındaki ScoreTable sınıfını elden geçirmek istiyorum. Şu an bir oyuncu eklenirken toplamlar yanlış gidiyor ve olmayan bir oyuncu sorulduğunda düzgün bir hata da vermiyor.
+
+  ScoreTable sınıfını öyle düzelt ki, tabloda olmayan bir oyuncu için sorgu yapıldığında UnknownPlayerError yükseltilsin ve her oyuncunun toplamı doğru tutulsun. scores.txt dosyası yüklendiğinde total("ada") 15, total("bora") 8 ve leader() "cengiz" döndürmeli. Sadece arena/table.py ile ilgileniyorum, diğer dosyalara dokunma.
+
+setup: |
+  mkdir -p arena
+  cat > arena/scores.py <<'SCORES'
+  class ScoreError(Exception):
+      pass
+
+
+  class UnknownPlayerError(ScoreError):
+      def __init__(self, player):
+          super().__init__("unknown player: " + player)
+          self.player = player
+
+
+  class InvalidScoreError(ScoreError):
+      def __init__(self, value):
+          super().__init__("invalid score: " + repr(value))
+          self.value = value
+
+
+  def parse_line(line):
+      player, raw = line.split(":")
+      try:
+          value = int(raw)
+      except ValueError:
+          raise InvalidScoreError(raw)
+      return player, value
+  SCORES
+  cat > arena/table.py <<'TABLE'
+  from arena.scores import parse_line, UnknownPlayerError, InvalidScoreError
+
+
+  class ScoreTable:
+      def __init__(self):
+          self._totals = {}
+          self._names = []
+
+      def load(self, path):
+          with open(path, "r", encoding="ascii") as handle:
+              for line in handle:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  player, value = parse_line(line)
+                  self.add(player, value)
+          return self
+
+      def add(self, player, value):
+          if player not in self._names:
+              self._names.append(player)
+          self._totals[player] += value
+          return self
+
+      def total(self, player):
+          if player not in self._names:
+              raise UnknownPlayerError(player)
+          return self._totals[player]
+
+      def leader(self):
+          if not self._names:
+              raise ScoreError("empty table")
+          best = self._names[0]
+          for name in self._names:
+              if self._totals[name] > self._totals[best]:
+                  best = name
+          return best
+  TABLE
+  cat > arena/__init__.py <<'INIT'
+  INIT
+  cat > scores.txt <<'DATA'
+  ada:10
+  bora:7
+  ada:5
+  cengiz:20
+  bora:1
+  DATA
+
+goal_tr: >
+  arena/table.py icindeki ScoreTable sinifini, bilinmeyen oyuncu icin
+  UnknownPlayerError yuksetecek ve her oyuncunun toplamini dogru tutacak
+  bicimde duzelt; scores.txt yuklendiginde total("ada") 15, total("bora") 8,
+  leader() "cengiz" dondurmeli.
+
+reference_solution: |
+  cat > arena/table.py <<'TABLE'
+  from arena.scores import parse_line, UnknownPlayerError, InvalidScoreError
+
+
+  class ScoreTable:
+      def __init__(self):
+          self._totals = {}
+          self._names = []
+
+      def load(self, path):
+          with open(path, "r", encoding="ascii") as handle:
+              for line in handle:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  player, value = parse_line(line)
+                  self.add(player, value)
+          return self
+
+      def add(self, player, value):
+          if player not in self._totals:
+              self._names.append(player)
+              self._totals[player] = 0
+          self._totals[player] += value
+          return self
+
+      def total(self, player):
+          if player not in self._totals:
+              raise UnknownPlayerError(player)
+          return self._totals[player]
+
+      def leader(self):
+          if not self._names:
+              raise ScoreError("empty table")
+          best = self._names[0]
+          for name in self._names:
+              if self._totals[name] > self._totals[best]:
+                  best = name
+          return best
+  TABLE
+
+outputs:
+  - {path: arena/table.py, kind: program, run: 'python3 -c ''from arena.table import ScoreTable; from arena.scores import UnknownPlayerError; t=ScoreTable().load("scores.txt"); assert t.total("ada")==15, t.total("ada"); assert t.total("bora")==8, t.total("bora"); assert t.total("cengiz")==20; assert t.leader()=="cengiz"; ok=False; exec("try:\n    t.total(\"zeynep\")\nexcept UnknownPlayerError:\n    ok=True"); assert ok; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from arena.table import ScoreTable; from arena.scores import UnknownPlayerError; t=ScoreTable().load("scores.txt"); assert t.total("ada")==15, t.total("ada"); assert t.total("bora")==8, t.total("bora"); assert t.total("cengiz")==20; assert t.leader()=="cengiz"; ok=False; exec("try:\n    t.total(\"zeynep\")\nexcept UnknownPlayerError:\n    ok=True"); assert ok; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8424
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: oyun-skor-tablosu
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sozluk-anahtar-hatasi
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: dosya-okuma
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

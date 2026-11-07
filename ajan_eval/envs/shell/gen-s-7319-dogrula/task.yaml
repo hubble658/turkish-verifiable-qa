@@ -1,0 +1,64 @@
+id: gen-s-7319-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) vardiya.txt dosyasını incele; her satırda tam olarak üç alan (isim, giriş, çıkış) bulunması ve giriş ile çıkış değerlerinin SS:DD biçiminde olması gerekiyor.
+
+  2) Bu koşullara uymayan satırların toplam sayısını belirle.
+
+  3) Bulduğun sayıyı sonuc.txt dosyasına yalnızca sayı olarak, başka hiçbir metin veya açıklama eklemeden yaz.
+
+setup: |
+  cat > vardiya.txt <<'EOF'
+  Ali 09:00 17:00
+  Ayse 09:00 17:00
+  Mehmet 13:00 21:00
+  Fatma 13:00 21:00
+  Can 17:00 23:00
+  Zeynep 17:00 23:00
+  EOF
+
+goal_tr: >
+  vardiya.txt dosyasindaki her satirda tam olarak uc alan (isim, giris,
+  cikis) olup giris ve cikis degerleri SS:DD biciminde oldugu durumda, bu
+  bicime uymayan satir sayisini sonuc.txt'ye sadece sayi olarak yaz.
+
+reference_solution: |
+  sed 's/[0-9]/#/g' vardiya.txt | tr -s ' ' | grep -vcE '^[A-Za-z]+ #[#]:[#][#] #[#]:[#][#]$' > sonuc.txt
+  true
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '0'}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7319
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: personel-vardiyalari
+    hedef: dogrula
+    girdi: duz-metin
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: bom
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

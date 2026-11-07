@@ -1,0 +1,67 @@
+id: gen-s-4006-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) veri/defter.txt ve veri/kurlar.txt dosyalarını ilk sütundaki kalem numarasına göre birleştir.
+  2) Birleşen her kalem için ikinci sütundaki tutar ile kurunun çarpımlarını hesapla ve bu çarpımların toplamını bul.
+  3) Bulduğun toplamı sonuc.txt dosyasına sadece sayı olarak yaz.
+
+setup: |
+  mkdir -p veri
+  cat > veri/defter.txt <<'D'
+  1001 500
+  1002 125
+  1003 75
+  D
+  cat > veri/kurlar.txt <<'K'
+  1001 2
+  1002 4
+  1003 8
+  K
+
+goal_tr: >
+  veri/defter.txt ve veri/kurlar.txt dosyalarini ilk sutundaki kalem
+  numarasina gore birlestirip her kalemin ikinci sutundaki tutar ile kurunun
+  carpimlarinin toplamini sonuc.txt dosyasina sadece sayi olarak yaz.
+
+reference_solution: |
+  join veri/defter.txt veri/kurlar.txt | awk '{t+=$2*$3} END{print t}' > sonuc.txt
+  base=$(basename veri/defter.txt)
+  dir=$(dirname veri/kurlar.txt)
+  test -n "$base" && test -n "$dir"
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '2100'}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4006
+    bundle: yol-parcala
+    tools:
+    - basename
+    - dirname
+    konu: muhasebe-kalemleri
+    hedef: yeniden-duzenle
+    girdi: sabit-genislik
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,72 @@
+id: gen-s-7036-arsivle
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  arsiv_girdi dizinindeki yalnızca .csv dosyalarını, dizin yapısını koruyarak arsiv.tar dosyasında topla. Ayrıca arsiv.tar içindeki .csv dosyalarının adlarını, satır başına bir tane olacak şekilde arsiv_icerik.txt dosyasına yaz.
+
+setup: |
+  mkdir -p arsiv_girdi
+  cat > arsiv_girdi/istanbul.csv <<'CSV'
+  tarih,sehir,sicaklik
+  2024-01-01,Istanbul,7
+  2024-01-02,Istanbul,9
+  2024-01-03,Istanbul,6
+  CSV
+  cat > arsiv_girdi/ankara.csv <<'CSV'
+  tarih,sehir,sicaklik
+  2024-01-01,Ankara,2
+  2024-01-02,Ankara,4
+  2024-01-03,Ankara,1
+  CSV
+  touch arsiv_girdi/notlar.txt
+  echo "bu bir gunluk not" > arsiv_girdi/notlar.txt
+
+goal_tr: >
+  arsiv_girdi dizinindeki yalnizca .csv dosyalarini, dizin yapisini
+  koruyarak arsiv.tar dosyasinda topla ve arsiv.tar icindeki .csv
+  dosyalarinin adlarini satir basina bir tane olacak sekilde
+  arsiv_icerik.txt dosyasina yaz.
+
+reference_solution: |
+  find arsiv_girdi -name '*.csv' -print0 | tar --null -cf arsiv.tar --files-from=-
+  tar -tf arsiv.tar | grep '\.csv$' > arsiv_icerik.txt
+
+outputs:
+  - {path: arsiv.tar, kind: file}
+  - {path: arsiv_icerik.txt, kind: lines}
+
+checks:
+  - {op: run_stdout_eq, cmd: tar -tf arsiv.tar | sort, value: 'arsiv_girdi/ankara.csv
+
+    arsiv_girdi/istanbul.csv'}
+  - {op: file_lines_eq, path: arsiv_icerik.txt, value: [arsiv_girdi/istanbul.csv, arsiv_girdi/ankara.csv]}
+
+metadata:
+  domain: arsivle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7036
+    bundle: secerek-arsivle
+    tools:
+    - tar
+    - find
+    konu: hava-durumu-kayitlari
+    hedef: arsivle
+    girdi: csv
+    kaynak: iki-dosya-capraz
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,5 +1,5 @@
 {
- "guncelleme": "2026-10-30",
+ "guncelleme": "2026-11-05",
  "aciklama": "Alt setlerin köken bilgisi. Birleştirmede her kayda ilgili setin 'uretim' nesnesi eklenebilir. Yollar verifiable-data/ köküne görelidir.",
  "setler": [
   {
@@ -156,7 +156,7 @@
   },
   {
    "ad": "meb_tekli",
-   "soru_sayisi": 2914,
+   "soru_sayisi": 2809,
    "dosyalar": [
     "korpus/verifiable_dataset_v6_son.jsonl"
    ],
@@ -185,7 +185,8 @@
     "ham": 4108,
     "tutarli_ve_tekrarsiz": 3507,
     "kisa_cevap": 2946,
-    "anlamca_tekrarsiz": 2914
+    "anlamca_tekrarsiz": 2914,
+    "duzeltme_2026_11_02": 2809
    },
    "zorluk_olcumu": {
     "Mistral-Small-3.2-24B": 0.692
@@ -199,7 +200,7 @@
   },
   {
    "ad": "meb_capraz",
-   "soru_sayisi": 3993,
+   "soru_sayisi": 3991,
    "dosyalar": [
     "korpus/uretim3k/capraz_son.jsonl"
    ],
@@ -233,7 +234,8 @@
     "uretilen": 5723,
     "hakem_tut": 4569,
     "kisa_cevap_ve_tekrarsiz": 4132,
-    "anlamca_tekrarsiz": 3993
+    "anlamca_tekrarsiz": 3993,
+    "duzeltme_2026_11_02": 3991
    },
    "zorluk_olcumu": {
     "Mistral-Small-3.2-24B": 0.703
@@ -346,7 +348,7 @@
   },
   {
    "ad": "sql_sehir_acik_veri",
-   "soru_sayisi": 17895,
+   "soru_sayisi": 17785,
    "dosyalar": [
     "sql_arastirma/uretim/pilot_sorular_buyuk.jsonl",
     "sql_arastirma/uretim/kayseri_sorular.jsonl",
@@ -587,7 +589,8 @@
     }
    ],
    "notlar": [
-    "2026-10-30: 2.243 birebir tekrar atildi (20.138 -> 17.895); YONTEM.md S11"
+    "2026-10-30: 2.243 birebir tekrar atildi (20.138 -> 17.895); YONTEM.md S11",
+    "2026-11-01: Manisa sorulari cikarildi (lisans dogrulanamadi); YONTEM.md S11"
    ]
   },
   {
@@ -1141,7 +1144,7 @@
   },
   {
    "ad": "sql_cikti_tahmini",
-   "soru_sayisi": 3424,
+   "soru_sayisi": 3321,
    "dosyalar": [
     "sql_arastirma/uretim/cikti_tahmini/sorular_dengeli.jsonl",
     "sql_arastirma/uretim/cikti_tahmini/agregasyon_sorular.jsonl",
@@ -1269,12 +1272,13 @@
     "2026-10-28: hesapsiz grup 66 -> 561; 3000 satiri asan 603 hesapsiz SQL buyuk tablolarin rastgele 300/600 satirlik kesiginde yeniden calistirildi, 495 kaldi (uret_hesapsiz_kesik.py)"
    ],
    "notlar": [
-    "2026-10-30: Istanbul ROUND'lu dilim basina 32 (3.292 -> 990, fazlasi sorular_fazla_istanbul.jsonl), ROUND'lu kesik 736 eklendi (Dunya Bankasi 598, Eurostat 120, Izmir 18); 4.990 -> 3.424; YONTEM.md S11"
+    "2026-10-30: Istanbul ROUND'lu dilim basina 32 (3.292 -> 990, fazlasi sorular_fazla_istanbul.jsonl), ROUND'lu kesik 736 eklendi (Dunya Bankasi 598, Eurostat 120, Izmir 18); 4.990 -> 3.424; YONTEM.md S11",
+    "2026-11-01: Manisa sorulari cikarildi (lisans dogrulanamadi); YONTEM.md S11"
    ]
   },
   {
    "ad": "sql_turspider",
-   "soru_sayisi": 7904,
+   "soru_sayisi": 7902,
    "dosyalar": [
     "sql_arastirma/hazir/turspider.jsonl"
    ],
@@ -1291,7 +1295,8 @@
     "bos_sonuc": 1619,
     "kalan": 7980,
     "birlesik_tekrar": 76,
-    "son": 7904
+    "bozuk_altin_silindi_2026_11_02": 7902,
+    "son": 7902
    },
    "zorluk_olcumu": null,
    "maliyet_usd": 0,
@@ -1299,7 +1304,7 @@
   },
   {
    "ad": "sql_cognipeer",
-   "soru_sayisi": 69034,
+   "soru_sayisi": 0,
    "dosyalar": [
     "sql_arastirma/hazir/cognipeer.jsonl"
    ],
@@ -1319,18 +1324,672 @@
     "hata": 27,
     "bos_sonuc": 10539,
     "durum_degismiyor": 2454,
-    "son": 69034
+    "bozuk_altin_silindi_2026_11_02": 69016,
+    "ceviri_duzeltmesi_2026_11_02": 68300,
+    "son": 0,
+    "cikarildi_2026_11_03": 0
    },
    "zorluk_olcumu": null,
    "maliyet_usd": 0,
-   "kodlar": "yontem/kodlar/sql_hazir/ (hazir_setler.py, fix_cognipeer.py)"
+   "kodlar": "yontem/kodlar/sql_hazir/ (hazir_setler.py, fix_cognipeer.py)",
+   "durum": "CIKARILDI_2026_11_03",
+   "cikarma_nedeni": "Kaynak gretelai/synthetic_text_to_sql egitim verisi (LLM uretimi), altin SQL'in soruya gore dogrulugu bagimsiz denetlenemiyor; benchmark 100 sorunun 30'unu uc model de cozemedi, ~28'i soru/altin/ceviri kaynakli; 6.159 degistirme sorusunun 1.244'unde altin degeri soruda ve veride yok. YONTEM.md §16",
+   "soru_sayisi_cikarilmadan_once": 68300
+  },
+  {
+   "ad": "satranc",
+   "soru_sayisi": 3000,
+   "koken": "hizli_uyarlama",
+   "dosyalar": [
+    "ek_setler/satranc/veri/satranc.jsonl"
+   ],
+   "alanlar": {
+    "soru": "soru",
+    "cevap": "cevap (SAN)",
+    "kabul_kumesi": "orijinal.kabul_uci",
+    "fen": "orijinal.fen"
+   },
+   "uretim": {
+    "yontem": "dış kaynak uyarlama",
+    "llm": null,
+    "kaynak": "Lichess/chess-puzzles (CC0-1.0)",
+    "cevap_kaynagi": "Lichess çözümü; mat sorularında kabul kümesi kendi zorlayıcı-mat çözücümüzle (python-chess)",
+    "dogrulama": "çözüm kabul kümesinde, daha kısa mat yok (4.760/4.760); ters sınama 14.785 yanlış hamle reddedildi"
+   },
+   "tipler": [
+    "en_iyi_hamle",
+    "mat_1",
+    "mat_2",
+    "mat_3"
+   ],
+   "suzgec_hunisi": {
+    "kaynak": 2052447,
+    "kalite": 479030,
+    "dogrulanan_aday": 4760,
+    "son": 3000
+   },
+   "zorluk_olcumu": {
+    "orneklem": "alt tip × zorluk hücresi başına 3–15 soru (pilot, ±10 puan)",
+    "ayar": "temperature 0, tek deneme; düşünen: reasoning_effort=high, 32k",
+    "soru": 80,
+    "Mistral-Small-3.2-24B": 0.062,
+    "V4-Flash": 0.162,
+    "V4-Flash_dusunen": 0.475
+   },
+   "maliyet_usd": {
+    "uretim": 0,
+    "olcum": 0.39
+   },
+   "kodlar": "yontem/kodlar/satranc/"
+  },
+  {
+   "ad": "izgara_bulmaca",
+   "soru_sayisi": 2000,
+   "koken": "hizli_uretim",
+   "dosyalar": [
+    "ek_setler/izgara_bulmaca/veri/izgara_bulmaca.jsonl"
+   ],
+   "alanlar": {
+    "soru": "soru",
+    "cevap": "cevap (ızgara ya da sayı)"
+   },
+   "uretim": {
+    "yontem": "program",
+    "llm": null,
+    "kaynak": "yok (sentetik)",
+    "cevap_kaynagi": "tek çözüm denetimli çözücü, BFS, Dijkstra/Kruskal, Hayat Oyunu",
+    "dogrulama": "networkx + ikinci Hayat Oyunu uygulamasıyla çapraz hesap 2.000/2.000; sudoku/futoshiki kural denetimi"
+   },
+   "tipler": [
+    "sudoku",
+    "futoshiki",
+    "labirent",
+    "hayat_oyunu",
+    "graf"
+   ],
+   "suzgec_hunisi": {
+    "son": 2000
+   },
+   "zorluk_olcumu": {
+    "orneklem": "alt tip × zorluk hücresi başına 3–15 soru (pilot, ±10 puan)",
+    "ayar": "temperature 0, tek deneme; düşünen: reasoning_effort=high, 32k",
+    "soru": 80,
+    "Mistral-Small-3.2-24B": 0.1,
+    "V4-Flash": 0.362,
+    "V4-Flash_dusunen": 0.9
+   },
+   "maliyet_usd": {
+    "uretim": 0,
+    "olcum": 0.28
+   },
+   "kodlar": "yontem/kodlar/izgara_bulmaca/"
+  },
+  {
+   "ad": "talimat_takibi",
+   "soru_sayisi": 2000,
+   "koken": {
+    "hizli_uyarlama": 350,
+    "hizli_uretim": 1650
+   },
+   "dosyalar": [
+    "ek_setler/talimat_takibi/veri/talimat_takibi.jsonl"
+   ],
+   "alanlar": {
+    "soru": "soru",
+    "cevap": "yok (talimat kimlikleri)",
+    "talimatlar": "orijinal.talimatlar",
+    "kwargs": "orijinal.kwargs"
+   },
+   "uretim": {
+    "yontem": "dış kaynak + program",
+    "llm": null,
+    "kaynak": "bezir/IFEval_tr (Apache-2.0) + elle yazılmış 100 temel görev",
+    "cevap_kaynagi": "yok; Türkçe IFEval denetleyicisi (denetle.py)",
+    "dogrulama": "27 birim test; ters sınama"
+   },
+   "suzgec_hunisi": {
+    "ifeval_tr": 350,
+    "ozgun_orta": 800,
+    "ozgun_zor": 850,
+    "son": 2000
+   },
+   "zorluk_olcumu": {
+    "orneklem": "alt tip × zorluk hücresi başına 3–15 soru (pilot, ±10 puan)",
+    "ayar": "temperature 0, tek deneme; düşünen: reasoning_effort=high, 32k",
+    "Mistral-Small-3.2-24B": {
+     "soru": 90,
+     "dogruluk": 0.511
+    },
+    "V4-Flash": {
+     "soru": 30,
+     "yalniz": "ifeval_tr",
+     "dogruluk": 0.767
+    },
+    "V4-Flash_dusunen": {
+     "soru": 30,
+     "yalniz": "ifeval_tr",
+     "dogruluk": 0.767
+    }
+   },
+   "maliyet_usd": {
+    "uretim": 0,
+    "olcum": 0.09
+   },
+   "kodlar": "yontem/kodlar/talimat_takibi/"
+  },
+  {
+   "ad": "ajan_terminal",
+   "soru_sayisi": 1590,
+   "dosyalar": [
+    "paket/veri/ajan_terminal.jsonl.gz",
+    "ek_setler/ajan_terminal/veri/ajan_terminal.jsonl"
+   ],
+   "alanlar": "soru=prompt, cevap=reference_solution, orijinal: set, bolum, gorev, max_turns, image, workdir, setup, checks, alt_solutions, duzeltme",
+   "uretim": {
+    "kaynak": "turkish-agentic-eval.zip (ekip)",
+    "model": "DeepSeek V4.1 Flash (kullanici beyani; tam kimlik bilinmiyor)",
+    "adimlar": "tohum > LLM gorev+referans > derive.py checks > uslup istemi > equiv (8 gorev)",
+    "duzeltme": "ek_setler/ajan_terminal/duzeltmeler.py"
+   },
+   "tipler": {
+    "ajan_terminal_kabuk": 884,
+    "ajan_terminal_kod": 706
+   },
+   "bolum": {
+    "kabuk": {
+     "train": 784,
+     "test": 100
+    },
+    "kod": {
+     "train": 606,
+     "test": 100
+    }
+   },
+   "suzgec_hunisi": {
+    "kaynak": 1590,
+    "son": 1590,
+    "duzeltilen_test": 65,
+    "altin_yanlis": 29,
+    "gizli_sart": 30,
+    "yol_belirsiz": 5,
+    "kararsiz": 1
+   },
+   "zorluk_olcumu": {
+    "model": "deepseek-ai/DeepSeek-V4-Flash-0731",
+    "ayar": "dusunmesiz, sicaklik 0, 8000 token",
+    "ilk_deneme": "136/200",
+    "duzeltme_sonrasi": "183/200",
+    "not": "Benchmark degil",
+    "son_test": "kabuk 97/100, kod 76/90; 10 kod gorevi denenmedi"
+   },
+   "maliyet_usd": 0.113,
+   "kodlar": "yontem/kodlar/ajan_terminal/",
+   "sinirlar": "Kullanici denetimi bekliyor; train denetlenmedi; lisans onayi bekliyor"
+  },
+  {
+   "ad": "regex",
+   "soru_sayisi": 1728,
+   "dosyalar": [
+    "paket/veri/regex.jsonl.gz",
+    "ek_setler/regex/veri/regex.jsonl"
+   ],
+   "alanlar": "soru=tarif, cevap=altin regex, orijinal: kaynak oge + bolum, olcum, gizli_ilk",
+   "uretim": {
+    "kaynak": "new-set-2.zip regex-tr (ekip); StructuredRegex MIT, Turkish customer service conversations CC BY 4.0",
+    "adimlar": "uret.py kaynagi ortak zarfa cevirir; T2 satir olarak girmez; guclendir.py T1 gizli metinlerini altin etiketli metinlerle cogaltir (kaynak metinler basta, gizli_ilk kaynak sayisi)"
+   },
+   "tipler": {
+    "regex_yazma": 1695,
+    "regex_cikarma": 33
+   },
+   "bolum": {
+    "train": 1427,
+    "test": 301,
+    "olcum": 100
+   },
+   "suzgec_hunisi": {
+    "kaynak": 1728,
+    "son": 1728,
+    "gizli_metin": {
+     "kaynak": 69085,
+     "son": 392522
+    }
+   },
+   "zorluk_olcumu": {
+    "not": "Bu projede olculmedi. Kaynak beyani, T1 ilk deneme: qwen3.8:27b 60.8, DeepSeek-V4.1-Flash 87.4; ogeyle dogrulanamadi"
+   },
+   "maliyet_usd": 0,
+   "kodlar": "yontem/kodlar/regex/",
+   "sinirlar": "YONTEM 19.1: T1 yanlis regex sizintisi kapatildi (DFA + 392.522 gizli metin; 7.549 kanitli mutantta gecen 2.149 -> 9, hepsi bilerek testte kalan 18 ozel karakter ogesinde). Acik: T3 gevsek regex 12/33 geciyor, cevap ayiklama kati, train/test ortak 7 altin, 26 kenar bosluklu altin istemde anlatilmiyor. Skor etkisi model olcumu olmadan bilinmiyor."
+  },
+  {
+   "ad": "karakter_islemleri",
+   "soru_sayisi": 1200,
+   "dosyalar": [
+    "paket/veri/karakter_islemleri.jsonl.gz",
+    "ek_setler/karakter_islemleri/veri/karakter_islemleri.jsonl"
+   ],
+   "alanlar": "soru, cevap (metin), orijinal: uretim adimlari + cumle + eski_id, bolum, olcum",
+   "uretim": {
+    "kaynak": "ek_setler/metin_islemleri/reddedildi/metin_islemleri_tam.jsonl; cumleler GGLab/GECTurk (Apache-2.0)",
+    "adimlar": "sezar, islem_zinciri, ters_yazma suzulur; soru ve altin degismez, program, model yok"
+   },
+   "tipler": {
+    "sezar": 400,
+    "islem_zinciri": 400,
+    "ters_yazma": 400
+   },
+   "bolum": {
+    "train": 900,
+    "test": 300,
+    "olcum": 300
+   },
+   "suzgec_hunisi": {
+    "kaynak": 2800,
+    "alt_tip": 1200,
+    "son": 1200
+   },
+   "zorluk_olcumu": {
+    "not": "YONTEM 22 ornekleminden; test bolumu olculmedi",
+    "24b": {
+     "sezar": [
+      0,
+      40
+     ],
+     "islem_zinciri": [
+      3,
+      40
+     ],
+     "ters_yazma": [
+      3,
+      40
+     ]
+    },
+    "8b": {
+     "sezar": [
+      0,
+      40
+     ],
+     "islem_zinciri": [
+      0,
+      40
+     ],
+     "ters_yazma": [
+      0,
+      40
+     ]
+    }
+   },
+   "maliyet_usd": 0,
+   "kodlar": "yontem/kodlar/karakter_islemleri/",
+   "sinirlar": "Karakter duzeyinde islem olcer; tokenizasyon payi olabilir"
   }
  ],
  "toplam": {
-  "soru": 137997,
-  "ozgun": 61059,
-  "dis": 76938,
-  "kesin_ozgun": 54152,
-  "llm_dogrulanmis": 6907
+  "soru": 80159,
+  "ozgun": 62329,
+  "dis": 7902,
+  "kesin_ozgun": 53939,
+  "llm_dogrulanmis": 6800,
+  "ek_setler": 7000,
+  "not": "2026-11-03: Cognipeer (68.300) cikarildi; 2026-11-04: ajan_terminal (1.590) eklendi; 2026-11-04: regex (1.728) ve prbench_finans (319) eklendi; 2026-11-04: dil_duzeltme 3 kural (540 soru) cikarildi; 2026-11-04: dil_duzeltme tamamen cikarildi; 2026-11-04: metin_islemleri cikarildi; 2026-11-04: karakter_islemleri (1.200, metin_islemleri 3 alt tip) eklendi; 2026-11-05: prbench_finans (319) cikarildi",
+  "ajan_terminal": 1590,
+  "regex": 1728,
+  "karakter_islemleri": 1200
+ },
+ "benchmark_2026_11_02": {
+  "alt_kume": "paket/benchmark/alt_kume.jsonl (26 tur x 100 = 2.600 soru; 2026-11-03 Cognipeer'in 100 sorusu cikarildi -> benchmark_2026-11-02/alt_kume_cognipeer_cikarilan.jsonl; KANONIK olan dosyadir, `sec` yeniden calistirilmaz)",
+  "ayar": "paketteki istem(), temperature 0, tek deneme, DeepInfra Batch; 24B ve Flash 8.000 token, flash_dusunen reasoning_effort=high 32.000 token; MEB'de kural tutmazsa deepseek-ai/DeepSeek-V4-Flash-0731 hakem",
+  "modeller": {
+   "24b": "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
+   "flash": "deepseek-ai/DeepSeek-V4-Flash-0731",
+   "flash_dusunen": "deepseek-ai/DeepSeek-V4-Flash-0731 (reasoning_effort=high)"
+  },
+  "set_dogruluk_yuzde": {
+   "24b": {
+    "bulmaca": 61.9,
+    "excel_veritabani": 26.0,
+    "hesaplama": 87.8,
+    "meb_capraz": 69.0,
+    "meb_tek_ders": 71.0,
+    "solver": 0.5,
+    "sql_belediye": 61.0,
+    "sql_cikti_tahmini": 4.0,
+    "sql_istatistik": 76.0,
+    "sql_turspider": 80.0
+   },
+   "flash": {
+    "bulmaca": 91.0,
+    "excel_veritabani": 70.0,
+    "hesaplama": 97.8,
+    "meb_capraz": 86.0,
+    "meb_tek_ders": 86.0,
+    "solver": 4.5,
+    "sql_belediye": 73.0,
+    "sql_cikti_tahmini": 18.0,
+    "sql_istatistik": 89.0,
+    "sql_turspider": 82.0
+   },
+   "flash_dusunen": {
+    "bulmaca": 96.9,
+    "excel_veritabani": 93.0,
+    "hesaplama": 97.1,
+    "meb_capraz": 93.0,
+    "meb_tek_ders": 84.0,
+    "solver": 55.5,
+    "sql_belediye": 88.0,
+    "sql_cikti_tahmini": 97.0,
+    "sql_istatistik": 92.0,
+    "sql_turspider": 82.0
+   }
+  },
+  "makro_tur": {
+   "24b": 63.3,
+   "flash": 81.3,
+   "flash_dusunen": 91.9
+  },
+  "makro_set": {
+   "24b": 53.7,
+   "flash": 69.7,
+   "flash_dusunen": 87.8
+  },
+  "maliyet_usd": 3.01,
+  "kod": "paket/araclar/benchmark.py; ayrinti YONTEM.md §14",
+  "cognipeer_dahil_ilk_ozet": {
+   "set_dogruluk_yuzde_sql_cognipeer": {
+    "24b": 67.0,
+    "flash": 65.0,
+    "flash_dusunen": 64.0
+   },
+   "makro_tur": {
+    "24b": 63.5,
+    "flash": 80.7,
+    "flash_dusunen": 90.9
+   },
+   "makro_set": {
+    "24b": 54.9,
+    "flash": 69.3,
+    "flash_dusunen": 85.7
+   }
+  },
+  "maliyet_usd_not": "3.01 Cognipeer dahil odenen; yeniden hesaplama ucretsiz"
+ },
+ "reddedilen_ek_setler_2026_11_03": {
+  "csv_analizi": 2000,
+  "es_zit_anlam": 847,
+  "fonksiyon_cagirma": 1968,
+  "neden": "YONTEM.md §15.6",
+  "maliyet_usd": {
+   "hakem_qwen3.5_397b": 5.79,
+   "bfcl_ceviri": 0.08,
+   "pilot": 0.12
+  },
+  "dil_duzeltme": 2650,
+  "dil_duzeltme_not": "Kullanici karari, 2026-11-04; ek_setler/dil_duzeltme/reddedildi/",
+  "metin_islemleri": 2800,
+  "metin_islemleri_not": "Kullanici karari, 2026-11-04; ek_setler/metin_islemleri/reddedildi/; 3 alt tip (1.200) karakter_islemleri olarak geri alindi, YONTEM §23"
+ },
+ "bolme_2026_11_04": {
+  "train": 71874,
+  "test": 8285,
+  "dosya": "paket/benchmark/test_kumesi.jsonl",
+  "kod": "test_kumesi_kur.py",
+  "tohum": 20261104,
+  "katman": {
+   "benchmark": 2329,
+   "ek_set": 300,
+   "denge": 58,
+   "sql_db": 213,
+   "baslik": 800,
+   "ajan_split": 200,
+   "regex_split": 100,
+   "karakter_split": 300
+  },
+  "set_bolum": {
+   "ajan_terminal": {
+    "train": 1390,
+    "test": 200
+   },
+   "bulmaca": {
+    "train": 2100,
+    "test": 900
+   },
+   "excel_veritabani": {
+    "train": 900,
+    "test": 100
+   },
+   "hesaplama": {
+    "train": 13813,
+    "test": 800
+   },
+   "izgara_bulmaca": {
+    "train": 1500,
+    "test": 500
+   },
+   "meb_capraz": {
+    "train": 3793,
+    "test": 198
+   },
+   "meb_tek_ders": {
+    "train": 1985,
+    "test": 824
+   },
+   "regex": {
+    "train": 1427,
+    "test": 301
+   },
+   "satranc": {
+    "train": 2600,
+    "test": 400
+   },
+   "solver": {
+    "train": 4686,
+    "test": 300
+   },
+   "sql_belediye": {
+    "train": 17449,
+    "test": 336
+   },
+   "sql_cikti_tahmini": {
+    "train": 2582,
+    "test": 739
+   },
+   "sql_istatistik": {
+    "train": 7944,
+    "test": 1290
+   },
+   "sql_turspider": {
+    "train": 6905,
+    "test": 997
+   },
+   "talimat_takibi": {
+    "train": 1900,
+    "test": 100
+   },
+   "karakter_islemleri": {
+    "train": 900,
+    "test": 300
+   }
+  },
+  "not": "Baslik duzeyi uretim basligi; MEB soru tipleri alt kume degil; sablon ayrimi yok. ajan_terminal testi kabuk 100, kod 100 (split.json dengelendi). regex bolmesi kaynagin split.json'u (olcum 100). prbench_finans 2026-11-05te cikarildi; kalan test satirlari ayni.",
+  "sql_cikti_tahmini_test": {
+   "ROUND'lu": 33,
+   "hesapsiz": 33,
+   "agregasyon": 34
+  },
+  "test_veritabani": {
+   "sql_belediye": [
+    "sakarya",
+    "ankara"
+   ],
+   "sql_istatistik": [
+    "deprem",
+    "wikidata"
+   ],
+   "sql_turspider": "ozgun dev, 20 veritabani"
+  },
+  "denetim": {
+   "train_test_ortak_grup": 0,
+   "test_metni_trainde": 1,
+   "altin_sinama": "1600/1600 orneklem"
+  },
+  "gecerli_2_kasim_tur": 22,
+  "olculmemis_sql_soru": 271,
+  "olcum": 4300,
+  "olcum_disi_test": {
+   "ayrilan_veritabani": 2214,
+   "attach": 109,
+   "cikti_kaynagi": 639,
+   "meb_ayni_grup": 822,
+   "regex_split": 201
+  },
+  "baslik_basina_olcum": 100,
+  "baslik_sayisi": 43,
+  "olculmemis_ek_ve_solver_soru": 2200
+ },
+ "grpo_kucuk_2026_11_04": {
+  "dosya": "paket/benchmark/grpo_kucuk.jsonl",
+  "kod": "grpo_liste_kur.py",
+  "tohum": 20261104,
+  "egitim": 6578,
+  "dogrulama": 740,
+  "test": 7985,
+  "test_skorlanan": 7876,
+  "kural": "baslik basina %10, en az 100, en cok 500; dogrulama baslik basina en cok 20",
+  "kapsam_disi": [
+   "talimat_takibi",
+   "ajan_terminal"
+  ],
+  "maliyet_usd": 0
+ },
+ "reddedilen_olcum_2026_11_04": {
+  "neden": "YONTEM.md §22; pilot, toplama girmez",
+  "modeller": [
+   "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
+   "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo"
+  ],
+  "maliyet_usd": 0.0757,
+  "metin_islemleri": {
+   "soru": 280,
+   "24b": 63,
+   "8b": 7
+  },
+  "dil_duzeltme": {
+   "soru": 331,
+   "24b": 162,
+   "8b": 109,
+   "son_surum_275": {
+    "24b": {
+     "puanlayici": 124,
+     "birebir": 86
+    },
+    "8b": {
+     "puanlayici": 93,
+     "birebir": 59
+    }
+   }
+  },
+  "dosyalar": [
+   "ek_setler/reddedilen_olcum/"
+  ],
+  "kodlar": [
+   "ek_setler/reddedilen_olcum.py"
+  ]
+ },
+ "tam_test_hazirligi_2026_11_04": {
+  "durum": "hazir, gonderilmedi",
+  "kod": "paket/araclar/tam_test.py",
+  "istekler": "benchmark_tam_test/",
+  "metin_istegi": 7985,
+  "skorlanan": 7876,
+  "ajan_gorevi": 200,
+  "cosmos_sigmayan": 457,
+  "modeller": [
+   "Qwen/Qwen3.5-9B",
+   "ytu-ce-cosmos/Turkish-Gemma-9b-v0.1",
+   "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
+   "deepseek-ai/DeepSeek-V4-Flash-0731 (dusunmesiz + high)"
+  ],
+  "maliyet_tahmini_usd": "~18-20, ust sinir ~25 (5 Kasim, PRBench cikarildi; set basina olculen token; benchmark_tam_test/maliyet_tahmini.json)",
+  "cosmos_istek": 7528
+ },
+ "cikarilan_setler_2026_11_05": {
+  "prbench_finans": {
+   "ad": "prbench_finans",
+   "soru_sayisi": 319,
+   "dosyalar": [
+    "ek_setler/prbench_finans/reddedildi/prbench_finans.jsonl"
+   ],
+   "alanlar": "soru=gorev/konusma, cevap=scratchpad (altin degil), orijinal: kaynak gorev + rubric, tr_meta, bolum, olcum",
+   "uretim": {
+    "kaynak": "new-set-2.zip prbench-tr; ScaleAI/PRBench finans CC BY 4.0",
+    "model": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+    "adimlar": "siniflandirma (600) > A+B1 ceviri (319) > uret.py"
+   },
+   "tipler": {
+    "prbench_finans": 319
+   },
+   "bolum": {
+    "train": 219,
+    "test": 100,
+    "olcum": 100
+   },
+   "suzgec_hunisi": {
+    "kaynak": 600,
+    "a_b1": 319,
+    "son": 319
+   },
+   "zorluk_olcumu": {
+    "not": "Olculmedi; juri kodu yok"
+   },
+   "maliyet_usd": 1.4,
+   "maliyet_not": "kaynak beyani",
+   "kodlar": "yontem/kodlar/prbench_finans/",
+   "sinirlar": "Kodla dogrulanamaz (rubrik + LLM jurisi). Denetim acik (YONTEM 19.2): sinif hatasi supheli 9 gorev",
+   "durum": "cikarildi 2026-11-05, kullanici karari (YONTEM 24); toplama girmez"
+  }
+ },
+ "turspider_denetim_2026_11_05": {
+  "neden": "YONTEM.md §25",
+  "sizinti": "bulunmadi",
+  "duzeltme": {
+   "dosya": "duzeltmeler/sql_turspider_2026-11-05.jsonl",
+   "guncelle": 4
+  },
+  "limit_esitlik": {
+   "sql_turspider": {
+    "limit": 1250,
+    "uygulanan": 1206,
+    "esitlik": 289
+   },
+   "sql_belediye": {
+    "limit": 14322,
+    "uygulanan": 13198,
+    "esitlik": 108
+   },
+   "sql_istatistik": {
+    "limit": 5981,
+    "uygulanan": 5549,
+    "esitlik": 0
+   }
+  },
+  "yeniden_puan_2_kasim": {
+   "sql_turspider": {
+    "24b": [
+     80,
+     82
+    ],
+    "flash": [
+     82,
+     83
+    ],
+    "flash_dusunen": [
+     82,
+     87
+    ]
+   },
+   "dosya": "benchmark_2026-11-02/tie_yeniden_puan.json"
+  },
+  "maliyet_usd": 0
  }
 }

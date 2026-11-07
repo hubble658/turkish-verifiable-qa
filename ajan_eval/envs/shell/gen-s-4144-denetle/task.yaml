@@ -1,0 +1,70 @@
+id: gen-s-4144-denetle
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  logs dizin ağacındaki .log uzantılı dosyalarda "HATA" geçen toplam satır sayısını bul ve bu sayıyı sonuc.txt dosyasına yaz. sonuc.txt içinde yalnızca sayı olsun, başka hiçbir şey bulunmasın.
+
+setup: |
+  mkdir -p logs/uygulama logs/sistem logs/yedek
+  cat > logs/uygulama/app.log <<'LOG'
+  BILGI istek alindi
+  HATA veritabani baglantisi koptu
+  BILGI yanit gonderildi
+  HATA zaman asimi
+  LOG
+  cat > logs/sistem/sys.log <<'LOG'
+  BILGI servis basladi
+  HATA disk dolu
+  UYARI bellek az
+  HATA cekirdek hatasi
+  HATA ag arayuzu dustu
+  LOG
+  cat > logs/yedek/eski.log <<'LOG'
+  BILGI yedek alindi
+  UYARI alan az
+  BILGI temizlik yapildi
+  LOG
+  echo "bu bir log degil" > logs/uygulama/notlar.txt
+
+goal_tr: >
+  logs dizin agacindaki .log uzantili dosyalarda HATA gecen toplam satir
+  sayisini sonuc.txt dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  find logs -type f -name '*.log' -print0 | xargs -0 grep -h 'HATA' | wc -l > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '5'}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4144
+    bundle: bul-tasi
+    tools:
+    - find
+    - xargs
+    konu: sunucu-loglari
+    hedef: denetle
+    girdi: log-satiri
+    kaynak: dizin-agaci
+    cikti: tek-sayi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

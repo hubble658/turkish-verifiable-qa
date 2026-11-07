@@ -1,0 +1,79 @@
+id: gen-s-7329-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) muhasebe/kalemler.txt dosyasındaki her satırı, satırdaki tür alanı GELIR veya GIDER olmasına göre ayır.
+
+  2) Yalnızca GELIR türüne ait satırları ozet/gelir.txt dosyasına yaz.
+
+  3) Yalnızca GIDER türüne ait satırları ozet/gider.txt dosyasına yaz.
+
+  4) ozet dizinini oluştur; içinde yalnızca gelir.txt, gider.txt ve toplam.txt bulunsun, muhasebe/notlar.txt bu dizine girmesin.
+
+  5) ozet/toplam.txt dosyasını oluştur; içinde her tür için o türe ait tutarların toplamı yer alsın, her satırda bir tür ve yalnızca sayı olarak toplam tutar bulunsun.
+
+setup: |
+  mkdir -p muhasebe
+  cat > muhasebe/kalemler.txt <<'TXT'
+  2024-01-05 GELIR satis 1500.00
+  2024-01-06 GIDER kira 800.50
+  2024-01-07 GELIR satis 2200.25
+  2024-01-08 GIDER maas 3000.00
+  2024-01-09 GELIR faiz 45.75
+  2024-01-10 GIDER kira 800.50
+  2024-01-11 GELIR satis 990.00
+  2024-01-12 GIDER elektrik 320.40
+  TXT
+  printf 'bu dosya ozet dizinine girmemeli\n' > muhasebe/notlar.txt
+
+goal_tr: >
+  muhasebe/kalemler.txt icindeki her satiri tur alanina (GELIR veya GIDER)
+  gore ayirip, her tur icin o ture ait satirlari kendi dosyasina yazan ve
+  her turun tutar toplamini iceren ozet dizini olustur.
+
+reference_solution: |
+  mkdir -p ozet
+  awk '$2=="GELIR"' muhasebe/kalemler.txt > ozet/gelir.txt
+  awk '$2=="GIDER"' muhasebe/kalemler.txt > ozet/gider.txt
+  awk '{s[$2]+=$4} END {printf "GELIR %.2f\nGIDER %.2f\n", s["GELIR"], s["GIDER"]}' muhasebe/kalemler.txt > ozet/toplam.txt
+
+outputs:
+  - {path: ozet, kind: dir}
+  - {path: ozet/gelir.txt, kind: file}
+  - {path: ozet/gider.txt, kind: file}
+  - {path: ozet/toplam.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: ozet, value: [gelir.txt, gider.txt, toplam.txt]}
+  - {op: file_lines_eq, path: ozet/gelir.txt, value: [2024-01-05 GELIR satis 1500.00, 2024-01-07 GELIR satis 2200.25, 2024-01-09 GELIR faiz 45.75, 2024-01-11 GELIR satis 990.00]}
+  - {op: file_lines_eq, path: ozet/gider.txt, value: [2024-01-06 GIDER kira 800.50, 2024-01-08 GIDER maas 3000.00, 2024-01-10 GIDER kira 800.50, 2024-01-12 GIDER elektrik 320.40]}
+  - {op: file_lines_eq, path: ozet/toplam.txt, value: [GELIR 4736.00, GIDER 4921.40]}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7329
+    bundle: awk
+    tools:
+    - awk
+    konu: muhasebe-kalemleri
+    hedef: ozetle
+    girdi: duz-metin
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,83 @@
+id: gen-s-3153-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) kayitlar dizin ağacındaki yalnızca adı olcum.txt olan dosyaları bul ve bu dosyalarda sicaklik ile başlayan satırlardaki sayıları tespit et.
+
+  2) Tespit ettiğin bu sayıların toplamını hesapla.
+
+  3) Hesapladığın toplamı sonuc.txt dosyasına sadece sayı olacak şekilde yaz.
+
+setup: |
+  mkdir -p kayitlar/istasyon1 kayitlar/istasyon2 kayitlar/istasyon3
+  cat > kayitlar/istasyon1/olcum.txt <<'EOF'
+  sicaklik 21
+  nem 45
+  ruzgar 12
+  sicaklik 23
+  EOF
+  cat > kayitlar/istasyon2/olcum.txt <<'EOF'
+  sicaklik 19
+  nem 50
+  ruzgar 8
+  sicaklik 18
+  sicaklik 20
+  EOF
+  cat > kayitlar/istasyon3/olcum.txt <<'EOF'
+  nem 60
+  ruzgar 15
+  sicaklik 25
+  EOF
+  cat > kayitlar/istasyon1/notlar.txt <<'EOF'
+  sicaklik 99
+  bu dosya olcum degil
+  EOF
+  cat > kayitlar/istasyon2/arsiv.txt <<'EOF'
+  sicaklik 77
+  EOF
+
+goal_tr: >
+  kayitlar dizin agacindaki yalnizca adi olcum.txt olan dosyalarda sicaklik
+  ile baslayan satirlardaki sayilarin toplamini sonuc.txt dosyasina sadece
+  sayi olarak yaz
+
+reference_solution: |
+  find kayitlar -type f -name 'olcum.txt' | sort > dosyalar.txt
+  xargs grep -h '^sicaklik ' < dosyalar.txt > satirlar.txt
+  python3 -c "import sys; print(sum(int(l.split()[1]) for l in open('satirlar.txt')))" > sonuc.txt
+  rm dosyalar.txt satirlar.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '126'}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3153
+    bundle: python-veri
+    tools:
+    - python3
+    konu: hava-durumu-kayitlari
+    hedef: donustur
+    girdi: duz-metin
+    kaynak: dizin-agaci
+    cikti: tek-sayi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

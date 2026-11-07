@@ -1,0 +1,187 @@
+id: gen-k-8132-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) game/scoreboard.py dosyasındaki ScoreBoard sınıfını, add, best, rank, total ve merge metotları NotImplementedError yerine gerçekten çalışacak biçimde tam olarak gerçekleştir; dosyanın yolu ve adı game/scoreboard.py olarak kalsın.
+
+  2) add metodu bir oyuncu adı ve puan alsın; aynı oyuncu için sonraki çağrılarda puanlar o oyuncunun toplamına eklensin.
+
+  3) best metodu bir n sayısı alsın ve en yüksek puana sahip n oyuncunun adını, puanı azalan sırada döndürsün.
+
+  4) rank metodu bir oyuncu adı alsın ve o oyuncunun sırasını 1 tabanlı olarak döndürsün.
+
+  5) total metodu bir oyuncu adı alsın ve o oyuncunun toplam puanını döndürsün.
+
+  6) merge metodu başka bir ScoreBoard nesnesi alsın ve o tablodaki her oyuncunun puanlarını bu tabloya eklesin.
+
+  7) ScoreBoard sınıfı, game/run_board.py içindeki ADD, BEST, RANK, TOTAL ve MERGE komutlarını işleyen main fonksiyonuyla uyumlu olsun; böylece game/board_data.txt içeriği bu komutlarla çalıştırıldığında doğru sonuçlar üretilsin.
+
+setup: |
+  mkdir -p game
+  cat > game/scoreboard.py <<'PY'
+  class ScoreBoard:
+      def __init__(self):
+          raise NotImplementedError
+
+      def add(self, player, points):
+          raise NotImplementedError
+
+      def best(self, n):
+          raise NotImplementedError
+
+      def rank(self, player):
+          raise NotImplementedError
+
+      def total(self, player):
+          raise NotImplementedError
+
+      def merge(self, other):
+          raise NotImplementedError
+  PY
+  cat > game/run_board.py <<'PY'
+  import sys
+  from game.scoreboard import ScoreBoard
+
+
+  def main(text):
+      board = ScoreBoard()
+      for line in text.splitlines():
+          line = line.strip()
+          if not line:
+              continue
+          cmd, rest = line.split(" ", 1)
+          if cmd == "ADD":
+              name, pts = rest.split()
+              board.add(name, int(pts))
+          elif cmd == "BEST":
+              print(",".join(board.best(int(rest))))
+          elif cmd == "RANK":
+              print(board.rank(rest))
+          elif cmd == "TOTAL":
+              print(board.total(rest))
+          elif cmd == "MERGE":
+              other = ScoreBoard()
+              for entry in rest.split(";"):
+                  name, pts = entry.split(":")
+                  other.add(name, int(pts))
+              board.merge(other)
+      return board
+
+
+  if __name__ == "__main__":
+      main(sys.stdin.read())
+  PY
+  cat > game/board_data.txt <<'DATA'
+  ADD ana 30
+  ADD bob 10
+  ADD ana 5
+  ADD cey 20
+  BEST 2
+  RANK bob
+  TOTAL ana
+  MERGE den:7;ana:1
+  BEST 3
+  DATA
+
+goal_tr: >
+  game/scoreboard.py icindeki ScoreBoard sinifini, ADD/BEST/RANK/TOTAL/MERGE
+  komutlarini isleyen game/run_board.py ile uyumlu olacak bicimde (add ile
+  puan ekleme, best ile en yuksek n oyuncu adi azalan sirada, rank ile
+  oyuncunun sirasi 1 tabanli, total ile toplam puan, merge ile baska
+  tablonun puanlarini ekleme) tam olarak gerceklestir.
+
+reference_solution: |
+  cat > game/scoreboard.py <<'PY'
+  class ScoreBoard:
+      def __init__(self):
+          self._scores = []
+
+      def _find(self, player):
+          for i, (name, _) in enumerate(self._scores):
+              if name == player:
+                  return i
+          return -1
+
+      def add(self, player, points):
+          idx = self._find(player)
+          if idx == -1:
+              self._scores.append((player, points))
+          else:
+              name, cur = self._scores[idx]
+              self._scores[idx] = (name, cur + points)
+
+      def _sorted(self):
+          return sorted(self._scores, key=lambda e: (-e[1], e[0]))
+
+      def best(self, n):
+          return [name for name, _ in self._sorted()[:n]]
+
+      def rank(self, player):
+          order = self._sorted()
+          for i, (name, _) in enumerate(order):
+              if name == player:
+                  return i + 1
+          return -1
+
+      def total(self, player):
+          idx = self._find(player)
+          if idx == -1:
+              return 0
+          return self._scores[idx][1]
+
+      def merge(self, other):
+          for name, pts in other._scores:
+              self.add(name, pts)
+  PY
+
+outputs:
+  - {path: game/scoreboard.py, kind: program, run: 'python3 -c ''from game.run_board import main; b=main(open("game/board_data.txt").read()); assert b.best(3)==["ana","cey","bob"], b.best(3); assert b.total("ana")==36, b.total("ana"); assert b.total("den")==7; assert b.rank("ana")==1; assert b.rank("cey")==2; assert b.rank("bob")==3; assert b.rank("den")==4; assert b.best(10)==["ana","cey","bob","den"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from game.run_board import main; b=main(open("game/board_data.txt").read()); assert b.best(3)==["ana","cey","bob"], b.best(3); assert b.total("ana")==36, b.total("ana"); assert b.total("den")==7; assert b.rank("ana")==1; assert b.rank("cey")==2; assert b.rank("bob")==3; assert b.rank("den")==4; assert b.best(10)==["ana","cey","bob","den"]; print("TAMAM")''', value: 'ana,cey
+
+    3
+
+    35
+
+    ana,cey,bob
+
+    TAMAM'}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8132
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: oyun-skor-tablosu
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: bagli-liste
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: stdin-boru
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

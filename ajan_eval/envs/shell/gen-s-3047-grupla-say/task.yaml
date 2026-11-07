@@ -1,0 +1,67 @@
+id: gen-s-3047-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kutuphane.tsv dosyasındaki her kitap adının kaç kez ödünçlendiğini hesapla ve en çok ödünçlenen kitabın ödünç sayısını sonuc.txt dosyasına sadece sayı olarak yaz.
+
+setup: |
+  cat > kutuphane.tsv <<'TSV'
+  kitap	odunc_tarihi	uye
+  Sefiller	2024-01-05	ali
+  Suclu ve Ceza	2024-01-05	ayse
+  Kurk Mantolu Madonna	2024-01-06	ali
+  Sefiller	2024-01-07	mehmet
+  Yaban	2024-01-07	ayse
+  Kurk Mantolu Madonna	2024-01-08	mehmet
+  Sefiller	2024-01-08	zeynep
+  TSV
+
+  cat > kutuphane_eski.tsv <<'TSV'
+  kitap	odunc_tarihi	uye
+  Sefiller	2023-12-01	ali
+  Yaban	2023-12-02	ayse
+  TSV
+
+goal_tr: >
+  kutuphane.tsv dosyasindaki her kitap adinin kac kez odunclendigini hesapla
+  ve en cok odunclenen kitabin odunc sayisini sonuc.txt'ye sadece sayi
+  olarak yaz
+
+reference_solution: |
+  cut -f1 kutuphane.tsv | grep -v '^kitap$' | sort | uniq -c | sort -rn | head -n1 | wc -w > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '2'}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3047
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: kutuphane-kayitlari
+    hedef: grupla-say
+    girdi: tsv
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: veriye-bak
+    uslup: kisit-sakli
+    direnc: baslik-yok
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,154 @@
+id: gen-k-5019-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) depo/katman/kural.py dosyasındaki etiketli dekoratörünü, sardığı fonksiyonun döndürdüğü bool değeri int'e çevirmeden aynen bool olarak iletecek şekilde düzelt.
+
+  2) Bu düzeltmeden sonra depo/katman/kural.py içindeki agir_mi ve buyuk_mu fonksiyonlarının True/False döndürmesini sağla.
+
+  3) depo/katman/raf.py içindeki yerlestir ve raf_yuku fonksiyonlarının doğru etiketleri ve toplamları üretmesini sağla.
+
+setup: |
+  mkdir -p depo/katman
+  cat > depo/katman/hucre.py <<'HUCRE'
+  class Hucre:
+      def __init__(self, kod, agirlik, hacim):
+          self.kod = kod
+          self.agirlik = agirlik
+          self.hacim = hacim
+
+      def yogunluk(self):
+          return self.agirlik / self.hacim
+  HUCRE
+  cat > depo/katman/kural.py <<'KURAL'
+  from depo.katman.hucre import Hucre
+
+
+  def etiketli(fn):
+      def sarmal(hucre):
+          sonuc = fn(hucre)
+          return int(sonuc)
+      return sarmal
+
+
+  @etiketli
+  def agir_mi(hucre):
+      return 10 <= hucre.agirlik <= 100
+
+
+  @etiketli
+  def buyuk_mu(hucre):
+      return 5 <= hucre.hacim <= 50
+  KURAL
+  cat > depo/katman/raf.py <<'RAF'
+  from depo.katman.hucre import Hucre
+  from depo.katman.kural import agir_mi, buyuk_mu
+
+
+  def _etiket(hucre):
+      if agir_mi(hucre) and buyuk_mu(hucre):
+          return "A"
+      if agir_mi(hucre):
+          return "B"
+      if buyuk_mu(hucre):
+          return "C"
+      return "D"
+
+
+  def yerlestir(hucreler):
+      sonuc = {}
+      for h in hucreler:
+          sonuc.setdefault(_etiket(h), []).append(h.kod)
+      return sonuc
+
+
+  def raf_yuku(hucreler):
+      toplam = 0
+      for h in hucreler:
+          toplam = toplam + h.agirlik
+      return toplam
+  RAF
+  cat > depo/veri.py <<'VERI'
+  from depo.katman.hucre import Hucre
+
+
+  def ornek_hucreler():
+      return [
+          Hucre("h1", 40, 20),
+          Hucre("h2", 40, 2),
+          Hucre("h3", 3, 30),
+          Hucre("h4", 3, 2),
+      ]
+  VERI
+
+goal_tr: >
+  depo/katman/kural.py icindeki etiketli dekoratorunu, sardigi fonksiyonun
+  dondurdugu bool degeri int'e cevirmeden aynen bool olarak iletecek bicimde
+  duzelt; boylece agir_mi ve buyuk_mu True/False dondursun ve
+  depo/katman/raf.py icindeki yerlestir ile raf_yuku dogru etiketleri ve
+  toplamlari uretsin.
+
+reference_solution: |
+  cat > depo/katman/kural.py <<'KURAL'
+  from depo.katman.hucre import Hucre
+
+
+  def etiketli(fn):
+      def sarmal(hucre):
+          return bool(fn(hucre))
+      return sarmal
+
+
+  @etiketli
+  def agir_mi(hucre):
+      return 10 <= hucre.agirlik <= 100
+
+
+  @etiketli
+  def buyuk_mu(hucre):
+      return 5 <= hucre.hacim <= 50
+  KURAL
+
+outputs:
+  - {path: depo/katman/kural.py, kind: program, run: 'python3 -c ''from depo.veri import ornek_hucreler as v; from depo.katman.raf import yerlestir as y, raf_yuku as r; from depo.katman.kural import agir_mi as a, buyuk_mu as b; hs=v(); assert a(hs[0]) is True, a(hs[0]); assert b(hs[0]) is True, b(hs[0]); assert a(hs[1]) is True and b(hs[1]) is False; assert a(hs[2]) is False and b(hs[2]) is True; assert a(hs[3]) is False and b(hs[3]) is False; assert type(a(hs[0])) is bool, type(a(hs[0])); assert type(b(hs[0])) is bool, type(b(hs[0])); assert y(hs)=={"A":["h1"],"B":["h2"],"C":["h3"],"D":["h4"]}, y(hs); assert r(hs)==86, r(hs); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.veri import ornek_hucreler as v; from depo.katman.raf import yerlestir as y, raf_yuku as r; from depo.katman.kural import agir_mi as a, buyuk_mu as b; hs=v(); assert a(hs[0]) is True, a(hs[0]); assert b(hs[0]) is True, b(hs[0]); assert a(hs[1]) is True and b(hs[1]) is False; assert a(hs[2]) is False and b(hs[2]) is True; assert a(hs[3]) is False and b(hs[3]) is False; assert type(a(hs[0])) is bool, type(a(hs[0])); assert type(b(hs[0])) is bool, type(b(hs[0])); assert y(hs)=={"A":["h1"],"B":["h2"],"C":["h3"],"D":["h4"]}, y(hs); assert r(hs)==86, r(hs); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5019
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: depo-raf-yerlesimi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: tip-karismasi
+      karmasiklik: duz
+      kalip: dekorator
+      akis: bellek-ici
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

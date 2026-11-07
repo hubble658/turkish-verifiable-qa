@@ -1,0 +1,72 @@
+id: gen-s-3093-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kargolar.csv dosyasındaki her kargo kaydını takip_no, gonderen, alici ve durum alanlarıyla birer JSON nesnesi olarak içeren kargolar.json dosyasını oluştur. Bu dosyada tüm kayıtlar "kargolar" anahtarı altında bir dizi halinde yer alsın. kargolar.csv.bak dosyasını işleme katma.
+
+setup: |
+  cat > kargolar.csv <<'CSV'
+  takip_no,gonderen,alici,durum
+  TR1001,Ali,Veli,yolda
+  TR1002,Ayse,Can,teslim
+  TR1003,Deniz,Ece,yolda
+  TR1004,Efe,Fatma,iptal
+  CSV
+  printf 'bu dosyaya dokunma\n' > kargolar.csv.bak
+
+goal_tr: >
+  kargolar.csv dosyasindaki her kargo kaydini takip_no, gonderen, alici ve
+  durum alanlariyla bir JSON nesnesi olarak iceren ve tum kayitlari
+  "kargolar" anahtari altinda dizi halinde tutan kargolar.json dosyasini
+  uret; kargolar.csv.bak dosyasini isleme katma.
+
+reference_solution: |
+  printf '{\n  "kargolar": [\n' > kargolar.json
+  n=$(($(wc -l < kargolar.csv) - 1))
+  seq 1 "$n" | while read -r i; do
+    satir=$(sed -n "$((i + 1))p" kargolar.csv)
+    takip_no=$(printf '%s' "$satir" | cut -d, -f1)
+    gonderen=$(printf '%s' "$satir" | cut -d, -f2)
+    alici=$(printf '%s' "$satir" | cut -d, -f3)
+    durum=$(printf '%s' "$satir" | cut -d, -f4)
+    if [ "$i" -lt "$n" ]; then virgul=,; else virgul=; fi
+    printf '    {"takip_no": "%s", "gonderen": "%s", "alici": "%s", "durum": "%s"}%s\n' \
+      "$takip_no" "$gonderen" "$alici" "$durum" "$virgul" >> kargolar.json
+  done
+  printf '  ]\n}\n' >> kargolar.json
+
+outputs:
+  - {path: kargolar.json, kind: json}
+
+checks:
+  - {op: json_eq, path: kargolar.json, value: {kargolar: [{takip_no: TR1001, gonderen: Ali, alici: Veli, durum: yolda}, {takip_no: TR1002, gonderen: Ayse, alici: Can, durum: teslim}, {takip_no: TR1003, gonderen: Deniz, alici: Ece, durum: yolda}, {takip_no: TR1004, gonderen: Efe, alici: Fatma, durum: iptal}]}}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3093
+    bundle: uret
+    tools:
+    - printf
+    - seq
+    konu: kargo-takibi
+    hedef: yeniden-duzenle
+    girdi: csv
+    kaynak: tek-dosya
+    cikti: json
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

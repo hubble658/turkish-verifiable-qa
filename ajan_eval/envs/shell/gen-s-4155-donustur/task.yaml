@@ -1,0 +1,66 @@
+id: gen-s-4155-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri dizinindeki .dat uzantılı sabit genişlikli vardiya dosyasını bul; her satırdaki ilk 8 karakteri ad, sonraki 4 karakteri başlangıç saati, son 4 karakteri bitiş saati olarak ayır. Kayıtları ad, başlangıç ve bitiş alanlarından oluşan bir JSON dizisi olarak vardiya.json dosyasına yaz; veri dizinindeki notlar.txt dosyasına dokunma.
+
+setup: |
+  mkdir -p veri
+  cat > veri/vardiya.dat <<'DAT'
+  Ali      070012001800
+  Ayse     150018002300
+  Mehmet   230007001500
+  Zeynep   080016002200
+  DAT
+  cat > veri/notlar.txt <<'TXT'
+  bu dosya vardiya verisi degildir
+  sadece tuzak
+  TXT
+
+goal_tr: >
+  veri dizinindeki .dat uzantili sabit genislikli vardiya dosyasini bulup,
+  her satirdaki ilk 8 karakteri ad, sonraki 4 karakteri baslangic saati, son
+  4 karakteri bitis saati olarak ayirip kayitlari ad, baslangic ve bitis
+  alanlarindan olusan bir JSON dizisi olarak vardiya.json dosyasina yaz.
+
+reference_solution: |
+  f=$(find veri -type f -name '*.dat')
+  cut -c1-8,9-12,13-16 "$f" | rev | cut -c1-4 | rev > /tmp/b.tmp
+  cut -c1-8,9-12,13-16 "$f" > /tmp/a.tmp
+  paste -d' ' /tmp/a.tmp /tmp/b.tmp | awk '{gsub(/[[:space:]]+$/,"",$1); printf "{\"ad\":\"%s\",\"baslangic\":\"%s\",\"bitis\":\"%s\"}\n", $1, $2, $3}' | sed '1s/^/[/' | sed '$s/$/]/' | sed '2,$s/^/,/' > vardiya.json
+
+outputs:
+  - {path: vardiya.json, kind: json, run: cat vardiya.json}
+
+checks:
+  - {op: json_eq, path: vardiya.json, value: [{ad: Ali, baslangic: '0700120', bitis: '0120'}, {ad: Ayse, baslangic: '1500180', bitis: 0180}, {ad: Mehmet, baslangic: '2300070', bitis: '0070'}, {ad: Zeynep, baslangic: 0800160, bitis: '0160'}]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4155
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: personel-vardiyalari
+    hedef: donustur
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: json
+    kesif: dosyayi-bul
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

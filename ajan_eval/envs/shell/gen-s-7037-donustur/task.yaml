@@ -1,0 +1,58 @@
+id: gen-s-7037-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  vardiyalar.tsv dosyasındaki personel sütununu tekrarsız olarak sırala ve kaç farklı personel olduğunu sonuc.txt dosyasına sadece sayı olarak yaz; dosyada başka hiçbir şey bulunmasın.
+
+setup: |
+  cat > vardiyalar.tsv <<'TSV'
+  personel	gun	saat
+  ali	Pazartesi	8
+  ayse	Pazartesi	6
+  ali	Sali	7
+  mehmet	Carsamba	5
+  ayse	Persembe	9
+  ali	Cuma	4
+  TSV
+
+goal_tr: >
+  vardiyalar.tsv dosyasindaki personel sutununu tekrarsiz olarak sirala ve
+  kac farkli personel oldugunu sonuc.txt dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  tail -n +2 vardiyalar.tsv | cut -f1 | sort | uniq | wc -l | awk '{print $1}' > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '3'}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7037
+    bundle: awk
+    tools:
+    - awk
+    konu: personel-vardiyalari
+    hedef: donustur
+    girdi: tsv
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

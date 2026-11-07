@@ -1,0 +1,115 @@
+id: gen-k-8367-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  `cargo/report.py` içindeki `latest_city` fonksiyonu, aynı koda ait kayıtlar arasında en büyük zaman damgasına sahip şehrin seçilmesini ve eşit zaman damgasında akışta sonra gelen kaydın kazanmasını garanti edecek biçimde düzeltilmeli. Fonksiyonun akıştaki kayıtları kod bazında gruplayıp her kod için tek bir şehri döndürmesi gerekiyor.
+
+setup: |
+  mkdir -p cargo
+  cat > cargo/events.py <<'EVENTS'
+  def split_events(stream):
+      out = []
+      for chunk in stream:
+          for line in chunk.splitlines():
+              line = line.strip()
+              if line:
+                  out.append(line)
+      return out
+  EVENTS
+  cat > cargo/scan.py <<'SCAN'
+  from cargo.events import split_events
+
+
+  def scan(stream):
+      seen = {}
+      for line in split_events(stream):
+          code, city, ts = line.split('|')
+          seen.setdefault(code, []).append((int(ts), city))
+      return seen
+  SCAN
+  cat > cargo/report.py <<'REPORT'
+  from cargo.scan import scan
+
+
+  def latest_city(stream):
+      result = {}
+      for code, items in scan(stream).items():
+          items.sort(key=lambda item: -item[0])
+          result[code] = items[0][1]
+      return result
+  REPORT
+  cat > stream.txt <<'STREAM'
+  TR1|ankara|100
+  TR2|izmir|200
+  TR1|bursa|150
+  TR3|adana|300
+  TR2|konya|250
+  STREAM
+
+goal_tr: >
+  cargo/report.py icindeki latest_city fonksiyonunu, ayni koda ait kayitlar
+  arasinda en buyuk zaman damgasina sahip sehrin secilmesini ve esit zaman
+  damgasinda akista sonra gelen kaydin kazanmasini garanti edecek bicimde
+  duzelt.
+
+reference_solution: |
+  cat > cargo/report.py <<'REPORT'
+  from cargo.scan import scan
+
+
+  def latest_city(stream):
+      result = {}
+      for code, items in scan(stream).items():
+          best_ts = None
+          best_city = None
+          for ts, city in items:
+              if best_ts is None or ts >= best_ts:
+                  best_ts = ts
+                  best_city = city
+          result[code] = best_city
+      return result
+  REPORT
+
+outputs:
+  - {path: cargo/report.py, kind: program, run: 'python3 -c ''from cargo.report import latest_city as f; s=["TR1|ankara|100\nTR2|izmir|200\n","TR1|bursa|150\nTR3|adana|300\nTR2|konya|250\n"]; r=f(s); assert r=={"TR1":"bursa","TR2":"konya","TR3":"adana"}, r; t=["A|x|5\nA|y|5\nA|z|5\n"]; assert f(t)=={"A":"z"}, f(t); u=["B|p|9\n","B|q|1\nB|r|4\n"]; assert f(u)=={"B":"p"}, f(u); w=["C|m|7\nC|n|7\n","C|o|2\n"]; assert f(w)=={"C":"n"}, f(w); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from cargo.report import latest_city as f; s=["TR1|ankara|100\nTR2|izmir|200\n","TR1|bursa|150\nTR3|adana|300\nTR2|konya|250\n"]; r=f(s); assert r=={"TR1":"bursa","TR2":"konya","TR3":"adana"}, r; t=["A|x|5\nA|y|5\nA|z|5\n"]; assert f(t)=={"A":"z"}, f(t); u=["B|p|9\n","B|q|1\nB|r|4\n"]; assert f(u)=={"B":"p"}, f(u); w=["C|m|7\nC|n|7\n","C|o|2\n"]; assert f(w)=={"C":"n"}, f(w); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8367
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kargo-takibi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-kararsizligi
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: parcali-akis
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

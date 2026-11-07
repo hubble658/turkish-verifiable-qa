@@ -1,0 +1,64 @@
+id: gen-s-7109-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) kayitlar dizin ağacındaki tüm olcum.txt dosyalarındaki sıcaklık değerlerini topla.
+  2) Topladığın bu değerleri tek satır halinde toplam.txt dosyasına yaz.
+
+setup: |
+  mkdir -p kayitlar/istasyon_a kayitlar/istasyon_b
+  cat > kayitlar/istasyon_a/olcum.txt <<'EOF'
+  sicaklik: 21
+  nem: 60
+  sicaklik: 23
+  nem: 55
+  EOF
+  cat > kayitlar/istasyon_b/olcum.txt <<'EOF'
+  sicaklik: 19
+  nem: 70
+  sicaklik: 19
+  nem: 65
+  EOF
+
+goal_tr: >
+  kayitlar dizin agacindaki tum olcum.txt dosyalarindaki sicaklik
+  degerlerini toplayip tek satir halinde toplam.txt dosyasina yaz
+
+reference_solution: |
+  find kayitlar -name olcum.txt -exec cat {} + | grep '^sicaklik:' | cut -d' ' -f2 | sort -n | uniq -c > toplam.txt
+
+outputs:
+  - {path: toplam.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: toplam.txt, value: [2 19, 1 21, 1 23]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7109
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: hava-durumu-kayitlari
+    hedef: donustur
+    girdi: json
+    kaynak: dizin-agaci
+    cikti: tek-sayi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

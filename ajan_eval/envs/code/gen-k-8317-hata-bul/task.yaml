@@ -1,0 +1,108 @@
+id: gen-k-8317-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  grid/rates.py dosyasındaki RATES sözlüğüne "off-peak" anahtarını ekle ve değerini 0.12 yap. Böylece grid/audit.py üzerinden "off-peak" planı için doğru fatura hesaplanabilsin.
+
+setup: |
+  mkdir -p grid
+  cat > grid/meters.py <<'METERS'
+  class MeterReader:
+      def __init__(self, path):
+          self.path = path
+
+      def __iter__(self):
+          with open(self.path) as fh:
+              for line in fh:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  meter_id, kwh = line.split(",")
+                  yield meter_id, int(kwh)
+  METERS
+  cat > grid/rates.py <<'RATES'
+  RATES = {"peak": 0.30, "offpeak": 0.12, "shoulder": 0.20}
+
+  def rate_for(plan):
+      return RATES[plan]
+  RATES
+  cat > grid/billing.py <<'BILLING'
+  from grid.meters import MeterReader
+  from grid.rates import rate_for
+
+
+  def bill(path, plan):
+      total = 0.0
+      for meter_id, kwh in MeterReader(path):
+          total += kwh * rate_for(plan)
+      return round(total, 2)
+  BILLING
+  cat > grid/audit.py <<'AUDIT'
+  from grid.billing import bill
+
+
+  def audit(path, plans):
+      return {plan: bill(path, plan) for plan in plans}
+  AUDIT
+  cat > usage.csv <<'CSV'
+  m1,100
+  m2,250
+  m3,50
+  CSV
+
+goal_tr: >
+  grid/rates.py icindeki RATES sozlugune "off-peak" anahtarini ekle (degeri
+  0.12 olsun), boylece grid/audit.py uzerinden "off-peak" plani icin dogru
+  fatura hesaplanabilsin.
+
+reference_solution: |
+  cat > grid/rates.py <<'RATES'
+  RATES = {"peak": 0.30, "offpeak": 0.12, "shoulder": 0.20, "off-peak": 0.12}
+
+  def rate_for(plan):
+      return RATES[plan]
+  RATES
+
+outputs:
+  - {path: grid/rates.py, kind: program, run: 'python3 -c ''from grid.audit import audit; from grid.billing import bill; r=audit("usage.csv",["off-peak","peak","shoulder"]); assert r=={"off-peak":48.0,"peak":120.0,"shoulder":80.0}, r; assert bill("usage.csv","off-peak")==48.0; assert bill("usage.csv","peak")==120.0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from grid.audit import audit; from grid.billing import bill; r=audit("usage.csv",["off-peak","peak","shoulder"]); assert r=={"off-peak":48.0,"peak":120.0,"shoulder":80.0}, r; assert bill("usage.csv","off-peak")==48.0; assert bill("usage.csv","peak")==120.0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8317
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: elektrik-sayaclari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sozluk-anahtar-hatasi
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: dosya-okuma
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

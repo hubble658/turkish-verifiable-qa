@@ -1,0 +1,200 @@
+id: gen-k-9066-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) restoran/siparis/toplayici.py dosyasındaki Toplayici sınıfının sifirla metodunu, kalemler listesini de temizleyecek şekilde düzelt.
+
+  2) restoran/siparis/hesap.py dosyasındaki Hesap sınıfının yeni_masa metodunu, toplayici üzerindeki sifirla metodunu kullanacak biçimde düzelt.
+
+  3) restoran/siparis/menu.py dosyasını olduğu gibi koru; fiyat fonksiyonu ve FIYATLAR sözlüğü çalışmaya devam etsin.
+
+setup: |
+  mkdir -p restoran/siparis
+  cat > restoran/__init__.py <<'PY'
+  PY
+  cat > restoran/siparis/__init__.py <<'PY'
+  PY
+  cat > restoran/siparis/kalem.py <<'PY'
+  from abc import ABC, abstractmethod
+
+
+  class KalemProtokol(ABC):
+      @abstractmethod
+      def tutar(self):
+          ...
+
+      @abstractmethod
+      def aciklama(self):
+          ...
+
+
+  class Kalem(KalemProtokol):
+      def __init__(self, ad, adet, fiyat):
+          self.ad = ad
+          self.adet = adet
+          self.fiyat = fiyat
+
+      def tutar(self):
+          return self.adet * self.fiyat
+
+      def aciklama(self):
+          return "%s x%d" % (self.ad, self.adet)
+  PY
+  cat > restoran/siparis/toplayici.py <<'PY'
+  from restoran.siparis.kalem import Kalem
+
+
+  class Toplayici:
+      def __init__(self):
+          self.kalemler = []
+          self.toplam = 0.0
+
+      def ekle(self, kalem):
+          self.kalemler.append(kalem)
+          self.toplam += kalem.tutar()
+          return self.toplam
+
+      def sifirla(self):
+          self.toplam = 0.0
+          return self.toplam
+  PY
+  cat > restoran/siparis/hesap.py <<'PY'
+  from restoran.siparis.toplayici import Toplayici
+
+
+  class Hesap:
+      def __init__(self):
+          self.toplayici = Toplayici()
+
+      def kalem_ekle(self, ad, adet, fiyat):
+          from restoran.siparis.kalem import Kalem
+          return self.toplayici.ekle(Kalem(ad, adet, fiyat))
+
+      def yeni_masa(self):
+          self.toplayici.toplam = 0.0
+          return self.toplayici.toplam
+
+      def toplam(self):
+          return self.toplayici.toplam
+  PY
+  cat > restoran/siparis/menu.py <<'PY'
+  FIYATLAR = {"corba": 45.0, "salata": 60.0, "pilav": 80.0}
+
+
+  def fiyat(ad):
+      return FIYATLAR[ad]
+  PY
+
+goal_tr: >
+  restoran/siparis/toplayici.py icindeki Toplayici.sifirla metodunu kalemler
+  listesini de temizleyecek sekilde duzelt ve restoran/siparis/hesap.py
+  icindeki Hesap.yeni_masa metodunu bu sifirla metodunu kullanacak bicimde
+  duzelt.
+
+reference_solution: |
+  cat > restoran/siparis/toplayici.py <<'PY'
+  from restoran.siparis.kalem import Kalem
+
+
+  class Toplayici:
+      def __init__(self):
+          self.kalemler = []
+          self.toplam = 0.0
+
+      def ekle(self, kalem):
+          self.kalemler.append(kalem)
+          self.toplam += kalem.tutar()
+          return self.toplam
+
+      def sifirla(self):
+          self.kalemler = []
+          self.toplam = 0.0
+          return self.toplam
+  PY
+  cat > restoran/siparis/hesap.py <<'PY'
+  from restoran.siparis.toplayici import Toplayici
+
+
+  class Hesap:
+      def __init__(self):
+          self.toplayici = Toplayici()
+
+      def kalem_ekle(self, ad, adet, fiyat):
+          from restoran.siparis.kalem import Kalem
+          return self.toplayici.ekle(Kalem(ad, adet, fiyat))
+
+      def yeni_masa(self):
+          return self.toplayici.sifirla()
+
+      def toplam(self):
+          return self.toplayici.toplam
+  PY
+
+ara_adim: |
+  cat > restoran/siparis/toplayici.py <<'PY'
+  from restoran.siparis.kalem import Kalem
+
+
+  class Toplayici:
+      def __init__(self):
+          self.kalemler = []
+          self.toplam = 0.0
+
+      def ekle(self, kalem):
+          self.kalemler.append(kalem)
+          self.toplam += kalem.tutar()
+          return self.toplam
+
+      def sifirla(self):
+          self.kalemler = []
+          self.toplam = 0.0
+          return self.toplam
+  PY
+
+outputs:
+  - {path: restoran/siparis/hesap.py, kind: program, run: 'python3 -c ''from restoran.siparis.hesap import Hesap; h=Hesap(); h.kalem_ekle("corba",2,45.0); h.kalem_ekle("salata",1,60.0); assert h.toplam()==150.0, h.toplam(); h.yeni_masa(); assert h.toplam()==0.0, h.toplam(); assert len(h.toplayici.kalemler)==0, ("kalemler-temizlenmedi", len(h.toplayici.kalemler)); h.kalem_ekle("pilav",1,80.0); assert h.toplam()==80.0, h.toplam(); h.yeni_masa(); assert h.toplam()==0.0; assert len(h.toplayici.kalemler)==0, ("ikinci-tur", len(h.toplayici.kalemler)); print("TAMAM")'''}
+  - {path: restoran/siparis/toplayici.py, kind: program, run: 'python3 -c ''from restoran.siparis.toplayici import Toplayici; from restoran.siparis.kalem import Kalem; t=Toplayici(); t.ekle(Kalem("pilav",3,80.0)); assert t.toplam==240.0, t.toplam; assert len(t.kalemler)==1; t.sifirla(); assert t.toplam==0.0, t.toplam; assert len(t.kalemler)==0, ("sifirla-kalem-birakti", len(t.kalemler)); print("ILERLEME-TAMAM")'''}
+  - {path: restoran/siparis/menu.py, kind: program, run: python3 -c 'from restoran.siparis.menu import fiyat; assert fiyat("corba")==45.0; assert fiyat("salata")==60.0; assert fiyat("pilav")==80.0; print("REGRESYON-TAMAM")'}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from restoran.siparis.hesap import Hesap; h=Hesap(); h.kalem_ekle("corba",2,45.0); h.kalem_ekle("salata",1,60.0); assert h.toplam()==150.0, h.toplam(); h.yeni_masa(); assert h.toplam()==0.0, h.toplam(); assert len(h.toplayici.kalemler)==0, ("kalemler-temizlenmedi", len(h.toplayici.kalemler)); h.kalem_ekle("pilav",1,80.0); assert h.toplam()==80.0, h.toplam(); h.yeni_masa(); assert h.toplam()==0.0; assert len(h.toplayici.kalemler)==0, ("ikinci-tur", len(h.toplayici.kalemler)); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from restoran.siparis.toplayici import Toplayici; from restoran.siparis.kalem import Kalem; t=Toplayici(); t.ekle(Kalem("pilav",3,80.0)); assert t.toplam==240.0, t.toplam; assert len(t.kalemler)==1; t.sifirla(); assert t.toplam==0.0, t.toplam; assert len(t.kalemler)==0, ("sifirla-kalem-birakti", len(t.kalemler)); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: python3 -c 'from restoran.siparis.menu import fiyat; assert fiyat("corba")==45.0; assert fiyat("salata")==60.0; assert fiyat("pilav")==80.0; print("REGRESYON-TAMAM")', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9066
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: restoran-siparisleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-durum-sifirlama
+      karmasiklik: orta
+      kalip: abc-protokol
+      akis: bellek-ici
+      topoloji: paket-alt-paket
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

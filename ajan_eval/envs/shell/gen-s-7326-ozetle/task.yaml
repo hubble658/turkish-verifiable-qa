@@ -1,0 +1,82 @@
+id: gen-s-7326-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kargo.ini dosyasındaki her kaydın sehir ve durum değerlerini kullanarak sehir-durum ikililerine göre kayıt sayılarını hesapla. Bu sayıları sehir_durum_sayilari.txt dosyasına her satırda "sehir durum sayi" biçiminde, artan sehre ve aynı sehir içinde artan duruma göre sıralı olarak yaz. Toplam kayıt sayısını da toplam_sayi.txt dosyasına yalnızca sayı olarak yaz.
+
+setup: |
+  cat > kargo.ini <<'INI'
+  [K101]
+  sehir=Ankara
+  durum=teslim
+  adet=3
+  [K102]
+  sehir=Istanbul
+  durum=yolda
+  adet=5
+  [K103]
+  sehir=Ankara
+  durum=teslim
+  adet=2
+  [K104]
+  sehir=Istanbul
+  durum=teslim
+  adet=4
+  [K105]
+  sehir=Izmir
+  durum=yolda
+  adet=1
+  [K106]
+  sehir=Ankara
+  durum=yolda
+  adet=7
+  INI
+
+goal_tr: >
+  kargo.ini dosyasindaki her kaydin sehir ve durum degerlerini kullanarak
+  sehir-durum ikililerine gore kayit sayilarini sehir_durum_sayilari.txt
+  dosyasina "sehir durum sayi" bicimiyle artan sehre ve artan duruma gore
+  sirali olarak, toplam kayit sayisini da toplam_sayi.txt dosyasina sadece
+  sayi olarak yaz.
+
+reference_solution: |
+  awk -F= '/^sehir=/{s=$2} /^durum=/{print s" "$2}' kargo.ini | sort | uniq -c | awk '{print $2" "$3" "$1}' > sehir_durum_sayilari.txt
+  awk -F= '/^sehir=/{c++} END{print c}' kargo.ini > toplam_sayi.txt
+
+outputs:
+  - {path: sehir_durum_sayilari.txt, kind: file}
+  - {path: toplam_sayi.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: sehir_durum_sayilari.txt, value: [Ankara teslim 2, Ankara yolda 1, Istanbul teslim 1, Istanbul yolda 1, Izmir yolda 1]}
+  - {op: file_content_eq, path: toplam_sayi.txt, value: '6'}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7326
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: kargo-takibi
+    hedef: ozetle
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: birden-cok-dosya
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: bom
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

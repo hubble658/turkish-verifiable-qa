@@ -1,0 +1,130 @@
+id: gen-k-5132-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) release/stack.py dosyasındaki ReleaseStack sınıfını gerçekle; push, pop, peek ve __len__ metotları ile context manager davranışı doğru çalışsın.
+
+  2) release/loader.py içindeki load_history fonksiyonunun, releases.txt dosyasındaki satırları en eski sürüm en altta olacak biçimde yığına yüklemesini sağla.
+
+setup: |
+  mkdir -p release
+  cat > release/stack.py <<'STACK'
+  class ReleaseStack:
+      def __init__(self):
+          self._items = []
+
+      def __enter__(self):
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          return False
+
+      def push(self, item):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+  STACK
+  cat > release/loader.py <<'LOADER'
+  from release.stack import ReleaseStack
+
+
+  def load_history(path):
+      with open(path, encoding="utf-8") as fh:
+          lines = [ln.strip() for ln in fh if ln.strip()]
+      with ReleaseStack() as st:
+          for ln in lines:
+              st.push(ln)
+      return st
+  LOADER
+  cat > releases.txt <<'TXT'
+  v1.0.0
+  v1.1.0
+  v2.0.0
+  v2.1.0
+  TXT
+
+goal_tr: >
+  release/stack.py icindeki ReleaseStack sinifini, push/pop/peek/__len__ ve
+  context manager davranisi dogru calisacak sekilde gercekleyip,
+  release/loader.py'nin releases.txt satirlarini en eski en altta olacak
+  bicimde yigina yuklemesini sagla.
+
+reference_solution: |
+  cat > release/stack.py <<'STACK'
+  class ReleaseStack:
+      def __init__(self):
+          self._items = []
+
+      def __enter__(self):
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          return False
+
+      def push(self, item):
+          self._items.append(item)
+
+      def pop(self):
+          if not self._items:
+              raise IndexError("pop from empty ReleaseStack")
+          return self._items.pop()
+
+      def peek(self):
+          if not self._items:
+              raise IndexError("peek from empty ReleaseStack")
+          return self._items[-1]
+
+      def __len__(self):
+          return len(self._items)
+  STACK
+
+outputs:
+  - {path: release/stack.py, kind: program, run: python3 -c 'from release.stack import ReleaseStack; from release.loader import load_history; st=load_history("releases.txt"); assert len(st)==4; assert st.peek()=="v2.1.0"; assert st.pop()=="v2.1.0"; assert st.pop()=="v2.0.0"; assert st.peek()=="v1.1.0"; assert len(st)==2; assert st.pop()=="v1.1.0"; assert st.pop()=="v1.0.0"; assert len(st)==0; e=ReleaseStack(); assert len(e)==0; assert e.__enter__() is e; e.push("x"); assert len(e)==1; assert e.pop()=="x"; print("TAMAM")'}
+
+checks:
+  - {op: run_stdout_eq, cmd: python3 -c 'from release.stack import ReleaseStack; from release.loader import load_history; st=load_history("releases.txt"); assert len(st)==4; assert st.peek()=="v2.1.0"; assert st.pop()=="v2.1.0"; assert st.pop()=="v2.0.0"; assert st.peek()=="v1.1.0"; assert len(st)==2; assert st.pop()=="v1.1.0"; assert st.pop()=="v1.0.0"; assert len(st)==0; e=ReleaseStack(); assert len(e)==0; assert e.__enter__() is e; e.push("x"); assert len(e)==1; assert e.pop()=="x"; print("TAMAM")', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5132
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: yazilim-surumleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin
+      karmasiklik: duz
+      kalip: context-manager
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

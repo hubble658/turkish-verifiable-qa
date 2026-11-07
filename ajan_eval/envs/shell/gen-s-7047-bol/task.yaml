@@ -1,0 +1,63 @@
+id: gen-s-7047-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kalemler.csv dosyasındaki her hesap için tutarların toplamını hesapla. Sonuçları başlığı "hesap,toplam" olan bir hesap_toplam.csv dosyasına yaz; her satırda bir hesap ve o hesabın toplamı yer alsın, toplamlar tam sayı olarak yazılsın ve satırlar hesap adına göre alfabetik sıralı olsun.
+
+setup: |
+  cat > kalemler.csv <<'CSV'
+  tarih,hesap,tutar
+  2024-01-03,kira,1500
+  2024-01-04,malzeme,220
+  2024-01-05,kira,1500
+  2024-01-06,maas,3000
+  2024-01-07,malzeme,180
+  2024-01-08,maas,3000
+  2024-01-09,kira,1500
+  CSV
+
+goal_tr: >
+  kalemler.csv dosyasindaki her hesap icin tutarlarin toplamini hesaplayip
+  basligi "hesap,toplam" olan ve hesap adina gore alfabetik sirali bir
+  hesap_toplam.csv dosyasi uret; toplamlar tam sayi olarak yazilsin.
+
+reference_solution: |
+  tail -n +2 kalemler.csv | awk -F, '{t[$2]+=$3} END {for (h in t) print h","t[h]}' | sort > hesap_toplam.csv
+  head -n 1 kalemler.csv | cut -d, -f2 | sed 's/^/hesap,toplam\n/' > baslik.tmp
+  cat baslik.tmp hesap_toplam.csv > gecici.csv && mv gecici.csv hesap_toplam.csv && rm -f baslik.tmp
+
+outputs:
+  - {path: hesap_toplam.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: hesap_toplam.csv, value: ['hesap,toplam', hesap, 'kira,4500', 'maas,6000', 'malzeme,400']}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7047
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: muhasebe-kalemleri
+    hedef: bol
+    girdi: csv
+    kaynak: tek-dosya
+    cikti: csv
+    kesif: yok
+    uslup: duz-hedef
+    direnc: bos-dosya
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

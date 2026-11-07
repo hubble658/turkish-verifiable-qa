@@ -1,0 +1,156 @@
+id: gen-k-8340-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) callcenter/query.py dosyasındaki CallWindow sınıfına, başlangıç zamanı t'den küçük kayıt sayısını ikili arama ile döndüren count_starting_before metodunu ekle.
+
+  2) Aynı CallWindow sınıfına, başlangıç zamanı t'ye eşit ya da t'den büyük olan ilk kaydın temsilci adını döndüren first_agent_at_or_after metodunu ekle; böyle bir kayıt yoksa None döndürsün.
+
+  3) count_starting_before ile first_agent_at_or_after metotlarının ikisi de aynı sıralı listeyi kullansın.
+
+setup: |
+  mkdir -p callcenter
+  cat > callcenter/records.py <<'RECORDS'
+  def load_records(path):
+      rows = []
+      with open(path, "r", encoding="ascii") as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              agent, start, end = line.split(",")
+              rows.append((agent, int(start), int(end)))
+      return rows
+
+
+  def sorted_by_start(rows):
+      return sorted(rows, key=lambda r: r[1])
+  RECORDS
+  cat > callcenter/query.py <<'QUERY'
+  from callcenter.records import load_records, sorted_by_start
+
+
+  class CallWindow:
+      """Context manager holding a time window for binary-search queries."""
+
+      def __init__(self, path):
+          self.path = path
+          self.rows = []
+          self.starts = []
+
+      def __enter__(self):
+          self.rows = sorted_by_start(load_records(self.path))
+          self.starts = [r[1] for r in self.rows]
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self.rows = []
+          self.starts = []
+          return False
+
+      def count_starting_before(self, t):
+          raise NotImplementedError
+
+      def first_agent_at_or_after(self, t):
+          raise NotImplementedError
+  QUERY
+  cat > calls.txt <<'CALLS'
+  ada,100,140
+  bora,250,300
+  cem,250,260
+  ada,400,410
+  deniz,520,600
+  cem,700,710
+  CALLS
+
+goal_tr: >
+  callcenter/query.py icindeki CallWindow sinifina, baslangic zamani t'den
+  kucuk kayit sayisini ikili arama ile donduren count_starting_before
+  metodunu ve baslangic zamani t'ye esit ya da t'den buyuk olan ilk kaydin
+  temsilci adini donduren first_agent_at_or_after metodunu (boyle bir kayit
+  yoksa None dondurecek sekilde) ekle; count_starting_before ile
+  first_agent_at_or_after ayni sirali listeyi kullanmali.
+
+reference_solution: |
+  cat > callcenter/query.py <<'QUERY'
+  from callcenter.records import load_records, sorted_by_start
+
+
+  class CallWindow:
+      """Context manager holding a time window for binary-search queries."""
+
+      def __init__(self, path):
+          self.path = path
+          self.rows = []
+          self.starts = []
+
+      def __enter__(self):
+          self.rows = sorted_by_start(load_records(self.path))
+          self.starts = [r[1] for r in self.rows]
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self.rows = []
+          self.starts = []
+          return False
+
+      def count_starting_before(self, t):
+          lo, hi = 0, len(self.starts)
+          while lo < hi:
+              mid = (lo + hi) // 2
+              if self.starts[mid] < t:
+                  lo = mid + 1
+              else:
+                  hi = mid
+          return lo
+
+      def first_agent_at_or_after(self, t):
+          idx = self.count_starting_before(t)
+          if idx >= len(self.rows):
+              return None
+          return self.rows[idx][0]
+  QUERY
+
+outputs:
+  - {path: callcenter/query.py, kind: program, run: 'python3 -c ''from callcenter.query import CallWindow as W; w=W("calls.txt"); w.__enter__(); assert w.count_starting_before(100)==0, w.count_starting_before(100); assert w.count_starting_before(250)==1, w.count_starting_before(250); assert w.count_starting_before(251)==3, w.count_starting_before(251); assert w.count_starting_before(9999)==6, w.count_starting_before(9999); assert w.first_agent_at_or_after(250)=="bora", w.first_agent_at_or_after(250); assert w.first_agent_at_or_after(251)=="ada", w.first_agent_at_or_after(251); assert w.first_agent_at_or_after(700)=="cem", w.first_agent_at_or_after(700); assert w.first_agent_at_or_after(701) is None, w.first_agent_at_or_after(701); w.__exit__(None,None,None); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from callcenter.query import CallWindow as W; w=W("calls.txt"); w.__enter__(); assert w.count_starting_before(100)==0, w.count_starting_before(100); assert w.count_starting_before(250)==1, w.count_starting_before(250); assert w.count_starting_before(251)==3, w.count_starting_before(251); assert w.count_starting_before(9999)==6, w.count_starting_before(9999); assert w.first_agent_at_or_after(250)=="bora", w.first_agent_at_or_after(250); assert w.first_agent_at_or_after(251)=="ada", w.first_agent_at_or_after(251); assert w.first_agent_at_or_after(700)=="cem", w.first_agent_at_or_after(700); assert w.first_agent_at_or_after(701) is None, w.first_agent_at_or_after(701); w.__exit__(None,None,None); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8340
+    bundle: yarisma
+    tools:
+    - python3
+    konu: cagri-merkezi-kayitlari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-ikili-arama
+      karmasiklik: duz
+      kalip: context-manager
+      akis: parcali-akis
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

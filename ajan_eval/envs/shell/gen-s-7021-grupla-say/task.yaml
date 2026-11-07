@@ -1,0 +1,93 @@
+id: gen-s-7021-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  loglar dizini altındaki her .log dosyası için, o dosyada geçen her seviye (HATA, BILGI, UYARI) için kaç satır olduğunu hesapla ve her dosyanın bulunduğu dizin altında aynı adlı bir .sayim dosyasına "seviye sayı" satırları olarak, seviyeye göre alfabetik sırada yaz. Yani loglar/bolge_a/uygulama.log için loglar/bolge_a/uygulama.sayim, loglar/bolge_b/uygulama.log için loglar/bolge_b/uygulama.sayim ve loglar/bolge_c/uygulama.log için loglar/bolge_c/uygulama.sayim dosyalarını oluştur.
+
+setup: |
+  mkdir -p loglar/bolge_a loglar/bolge_b loglar/bolge_c
+  cat > loglar/bolge_a/uygulama.log <<'LOG'
+  2024-01-01 10:00:00 HATA disk dolu
+  2024-01-01 10:01:00 BILGI islem tamam
+  2024-01-01 10:02:00 HATA baglanti koptu
+  2024-01-01 10:03:00 UYARI bellek az
+  2024-01-01 10:04:00 HATA zaman asimi
+  LOG
+  cat > loglar/bolge_b/uygulama.log <<'LOG'
+  2024-01-01 11:00:00 HATA disk dolu
+  2024-01-01 11:01:00 HATA disk dolu
+  2024-01-01 11:02:00 BILGI islem tamam
+  2024-01-01 11:03:00 UYARI bellek az
+  2024-01-01 11:04:00 BILGI islem tamam
+  2024-01-01 11:05:00 HATA zaman asimi
+  LOG
+  cat > loglar/bolge_c/uygulama.log <<'LOG'
+  2024-01-01 12:00:00 BILGI islem tamam
+  2024-01-01 12:01:00 UYARI bellek az
+  LOG
+
+goal_tr: >
+  loglar dizini altindaki her .log dosyasi icin, o dosyada gecen her seviye
+  (HATA, BILGI, UYARI) icin kac satir oldugunu hesapla ve her dosyanin
+  bulundugu dizin altinda ayni adli bir .sayim dosyasina "seviye sayi"
+  satirlari olarak, seviyeye gore alfabetik sirada yaz.
+
+reference_solution: |
+  find loglar -name '*.log' | sort | while read -r f; do
+    awk '{print $3}' "$f" | sort | uniq -c | awk '{print $2, $1}' | sort > "${f%.log}.sayim"
+  done
+  python3 - <<'PY'
+  import os
+  for root, _, files in os.walk('loglar'):
+      for name in sorted(files):
+          if name.endswith('.log'):
+              p = os.path.join(root, name)
+              with open(p) as fh:
+                  counts = {}
+                  for line in fh:
+                      sev = line.split()[2]
+                      counts[sev] = counts.get(sev, 0) + 1
+              out = p[:-4] + '.sayim'
+              with open(out, 'w') as fh:
+                  for sev in sorted(counts):
+                      fh.write(sev + ' ' + str(counts[sev]) + '\n')
+  PY
+
+outputs:
+  - {path: loglar/bolge_a/uygulama.sayim, kind: file}
+  - {path: loglar/bolge_b/uygulama.sayim, kind: file}
+  - {path: loglar/bolge_c/uygulama.sayim, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: loglar/bolge_a/uygulama.sayim, value: [BILGI 1, HATA 3, UYARI 1]}
+  - {op: file_lines_eq, path: loglar/bolge_b/uygulama.sayim, value: [BILGI 2, HATA 3, UYARI 1]}
+  - {op: file_lines_eq, path: loglar/bolge_c/uygulama.sayim, value: [BILGI 1, UYARI 1]}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7021
+    bundle: python-veri
+    tools:
+    - python3
+    konu: sunucu-loglari
+    hedef: grupla-say
+    girdi: log-satiri
+    kaynak: dizin-agaci
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: olcek
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,106 @@
+id: gen-k-8030-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  depot/simulate.py dosyasındaki run_days fonksiyonunu, her gün her SKU için talebi karşılayıp stok seviyesini doğru şekilde güncelleyen ve (sku, gun_sonu_stok) kayıtlarını döndüren bir benzetim olacak biçimde yaz. Bu benzetimde depo/levels.py içindeki reorder_points yalnızca ikmal miktarını hesaplamalı; stok güncellemesi ve gün sonu stok değerlerinin belirlenmesi run_days içinde yapılmalı.
+
+setup: |
+  mkdir -p depot
+  cat > depot/__init__.py <<'INIT'
+  INIT
+  cat > depot/levels.py <<'LEVELS'
+  def reorder_points(level, demand, on_hand):
+      if on_hand <= 0:
+          return (level, demand)
+      return (level, max(0, demand - on_hand))
+  LEVELS
+  cat > depot/simulate.py <<'SIM'
+  from depot.levels import reorder_points
+
+
+  def run_days(state, days):
+      log = []
+      for _ in range(days):
+          for sku, info in state.items():
+              level, demand, on_hand = info
+              level, need = reorder_points(level, demand, on_hand)
+              on_hand = on_hand + need
+              on_hand = on_hand - demand
+              state[sku] = (level, demand, on_hand)
+              log.append((sku, level, on_hand))
+      return log
+  SIM
+
+goal_tr: >
+  depot/simulate.py icindeki run_days fonksiyonunu, her gun her SKU icin
+  talebi karsilayip stok seviyesini dogru guncelleyen ve (sku,
+  gun_sonu_stok) kayitlarini donduren bir benzetim olacak bicimde yaz;
+  depo/levels.py icindeki reorder_points yalnizca ikmal miktarini
+  hesaplasin.
+
+reference_solution: |
+  cat > depot/levels.py <<'LEVELS'
+  def reorder_points(level, demand, on_hand):
+      if on_hand <= 0:
+          return (level, demand)
+      return (level, max(0, demand - on_hand))
+  LEVELS
+  cat > depot/simulate.py <<'SIM'
+  from depot.levels import reorder_points
+
+
+  def run_days(state, days):
+      log = []
+      for _ in range(days):
+          for sku, info in state.items():
+              level, demand, on_hand = info
+              level, replenish = reorder_points(level, demand, on_hand)
+              on_hand = on_hand + replenish - demand
+              state[sku] = (level, demand, on_hand)
+              log.append((sku, on_hand))
+      return log
+  SIM
+
+outputs:
+  - {path: depot/simulate.py, kind: program, run: 'python3 -c ''from depot.simulate import run_days as f; s={"a":(10,3,5),"b":(20,4,0)}; log=f(s,2); assert log==[("a",2),("b",0),("a",0),("b",0)], log; assert s=={"a":(10,3,0),"b":(20,4,0)}, s; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depot.simulate import run_days as f; s={"a":(10,3,5),"b":(20,4,0)}; log=f(s,2); assert log==[("a",2),("b",0),("a",0),("b",0)], log; assert s=={"a":(10,3,0),"b":(20,4,0)}, s; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8030
+    bundle: yarisma
+    tools:
+    - python3
+    konu: depo-envanteri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: benzetim
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: ic-ice-yapi
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

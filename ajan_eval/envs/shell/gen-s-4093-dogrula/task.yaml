@@ -1,0 +1,67 @@
+id: gen-s-4093-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  /workspace dizinindeki vardiya.txt dosyasında her satırda personel kimliği, ad, giriş ve çıkış saatleri sabit genişlikte yer alıyor. Bu satırları sabit genişliklerine göre ayrıştır ve giriş saati 08:00 olan personel sayısını hesapla; vardiya.txt.bak dosyasını hesaba katma. Sonucu sonuc.json dosyasına {"giris_0800": <sayi>} biçiminde yaz.
+
+setup: |
+  mkdir -p /workspace
+  cat > vardiya.txt <<'DATA'
+  P001 Ali     08:00 16:00
+  P002 Veli    16:00 00:00
+  P003 Ayse    08:00 16:00
+  P004 Fatma   00:00 08:00
+  P005 Mehmet  16:00 00:00
+  DATA
+  cat > vardiya.txt.bak <<'DATA'
+  P900 Hatali  99:99 99:99
+  DATA
+
+goal_tr: >
+  vardiya.txt dosyasindaki her satirda personel kimligi, ad, giris ve cikis
+  saatlerini sabit genislikten ayiklayip giris saati 08:00 olan personel
+  sayisini vardiya.txt.bak dosyasini yok sayarak sonuc.json dosyasina
+  {"giris_0800": <sayi>} biciminde yaz.
+
+reference_solution: |
+  grep -v '^P900' vardiya.txt > gecerli.txt
+  awk '{print $3}' gecerli.txt > girisler.txt
+  grep -c '^08:00$' girisler.txt > sayi.txt
+  printf '{"giris_0800": %s}\n' "$(cat sayi.txt)" > sonuc.json
+  wc -l < sonuc.json
+
+outputs:
+  - {path: sonuc.json, kind: json}
+
+checks:
+  - {op: json_eq, path: sonuc.json, value: {giris_0800: 2}}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4093
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: personel-vardiyalari
+    hedef: dogrula
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: json
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

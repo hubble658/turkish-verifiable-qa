@@ -1,0 +1,74 @@
+id: gen-s-3053-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi/beklenen.tsv ile girdi/gozlenen.tsv dosyalarını satır satır karşılaştır. İki dosyada da bulunup içeriği farklı olan satırları cikti/fark.txt dosyasına yaz; yalnızca bir dosyada bulunan satırları ise cikti/tek-tarafli.txt dosyasına yaz. Çıktıları cikti dizini altında oluştur.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/beklenen.tsv <<'TSV'
+  host	kod	ms
+  s1	200	12
+  s2	404	30
+  s3	500	55
+  s4	200	8
+  TSV
+  cat > girdi/gozlenen.tsv <<'TSV'
+  host	kod	ms
+  s1	200	12
+  s2	404	31
+  s3	500	55
+  s5	200	9
+  TSV
+
+goal_tr: >
+  girdi/beklenen.tsv ile girdi/gozlenen.tsv dosyalarini karsilastirip iki
+  dosyada farkli olan satirlari cikti/fark.txt dosyasina, yalnizca bir
+  dosyada bulunan satirlari ise cikti/tek-tarafli.txt dosyasina yaz
+
+reference_solution: |
+  mkdir -p cikti
+  sort girdi/beklenen.tsv > /tmp/b.txt
+  sort girdi/gozlenen.tsv > /tmp/g.txt
+  comm -3 /tmp/b.txt /tmp/g.txt > cikti/tek-tarafli.txt
+  diff /tmp/b.txt /tmp/g.txt > cikti/fark.txt || true
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/tek-tarafli.txt, kind: file}
+  - {path: cikti/fark.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [fark.txt, tek-tarafli.txt]}
+  - {op: file_lines_eq, path: cikti/fark.txt, value: [3c3, "< s2\t404\t30", '---', "> s2\t404\t31", 5c5, "< s4\t200\t8", '---', "> s5\t200\t9"]}
+  - {op: file_lines_eq, path: cikti/tek-tarafli.txt, value: ["s2\t404\t30", "s2\t404\t31", "s4\t200\t8", "s5\t200\t9"]}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3053
+    bundle: karsilastir
+    tools:
+    - diff
+    - comm
+    konu: sunucu-loglari
+    hedef: dogrula
+    girdi: tsv
+    kaynak: iki-dosya-capraz
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

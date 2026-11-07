@@ -1,0 +1,113 @@
+id: gen-k-8209-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  flights/reserve.py dosyasındaki available fonksiyonu şu anda boş koltuk durumuna bakmaksızın her uçuşun kodunu ve koltuk sayısını döndürüyor. Bu fonksiyonu, yalnızca boş koltuk sayısı sıfırdan büyük olan uçuşlar için (kod, koltuk) çiftlerini döndürecek biçimde düzelt; sonuç, uçuşların dosyadaki sırasını korusun.
+
+setup: |
+  mkdir -p flights
+  cat > flights/store.py <<'STORE'
+  def read_records(path):
+      rows = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              code, from_city, to_city, seats = line.split(';')
+              rows.append((code, from_city, to_city, int(seats)))
+      return rows
+
+
+  def load(path):
+      return read_records(path)
+  STORE
+  cat > flights/reserve.py <<'RESERVE'
+  from flights.store import load
+
+
+  def _walk(records, index, acc):
+      if index == len(records):
+          return acc
+      code, from_city, to_city, seats = records[index]
+      acc.append((code, seats))
+      return _walk(records, index, acc)
+
+
+  def available(path):
+      records = load(path)
+      return _walk(records, 0, [])
+  RESERVE
+  cat > routes.txt <<'ROUTES'
+  TK100;Istanbul;Ankara;4
+  TK200;Izmir;Ankara;0
+  TK300;Ankara;Izmir;7
+  ROUTES
+
+goal_tr: >
+  flights/reserve.py icindeki available fonksiyonunu, yalnizca bos koltugu
+  olan ucuslarin (kod, koltuk) ciftlerini dosyadaki sirayla dondurecek
+  bicimde duzelt.
+
+reference_solution: |
+  cat > flights/reserve.py <<'RESERVE'
+  from flights.store import load
+
+
+  def _walk(records, index, acc):
+      if index == len(records):
+          return acc
+      code, from_city, to_city, seats = records[index]
+      if seats > 0:
+          acc.append((code, seats))
+      return _walk(records, index + 1, acc)
+
+
+  def available(path):
+      records = load(path)
+      return _walk(records, 0, [])
+  RESERVE
+
+outputs:
+  - {path: flights/reserve.py, kind: program, run: 'python3 -c ''from flights.reserve import available as f; r=f("routes.txt"); assert r==[("TK100",4),("TK300",7)], r; open("empty.txt","w").write(""); assert f("empty.txt")==[]; open("one.txt","w").write("TK900;A;B;2\n"); assert f("one.txt")==[("TK900",2)]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from flights.reserve import available as f; r=f("routes.txt"); assert r==[("TK100",4),("TK300",7)], r; open("empty.txt","w").write(""); assert f("empty.txt")==[]; open("one.txt","w").write("TK900;A;B;2\n"); assert f("one.txt")==[("TK900",2)]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8209
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: ucus-rezervasyonlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kapsam-hatasi
+      karmasiklik: duz
+      kalip: ozyineleme
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

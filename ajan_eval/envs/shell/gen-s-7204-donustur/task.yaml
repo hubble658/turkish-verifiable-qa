@@ -1,0 +1,73 @@
+id: gen-s-7204-donustur
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  muhasebe dizin ağacındaki tüm .kay dosyalarını birleştirip ozet.csv adlı tek bir CSV dosyası oluştur. Her .kay dosyasındaki her satır şu biçimde olmalı: hesap;kod;tutar. ozet.csv dosyasının ilk satırı başlık satırı olsun. Dosyanın başına UTF-8 BOM ekle.
+
+  Şu şartlar sağlanmalı:
+  - Çalışma dizini /workspace altındaki muhasebe dizin ağacındaki tüm .kay dosyaları (muhasebe/2024/ocak/k1.kay, muhasebe/2024/ocak/k2.kay, muhasebe/2024/subat/k3.kay, muhasebe/2024/subat/k4.kay) işlenmiş olmalı.
+  - Çıktı yalnızca ozet.csv adlı tek bir dosya olmalı.
+  - ozet.csv içindeki her satır "hesap;kod;tutar" biçiminde olmalı.
+  - ozet.csv dosyasının ilk satırı başlık satırı olmalı.
+  - ozet.csv dosyasının başında UTF-8 BOM bulunmalı.
+
+setup: |
+  mkdir -p muhasebe/2024/ocak muhasebe/2024/subat
+  printf '1001ALISVERIS      000000012500\n' > muhasebe/2024/ocak/k1.kay
+  printf '2002SATIS          000000034000\n' > muhasebe/2024/ocak/k2.kay
+  printf '3003KIRA           000000007500\n' > muhasebe/2024/subat/k3.kay
+  printf '4004MAAS           000000090000\n' > muhasebe/2024/subat/k4.kay
+
+goal_tr: >
+  muhasebe dizin agacindaki tum .kay dosyalarini, her satiri
+  "hesap;kod;tutar" biciminde olacak sekilde birlestirip tek bir CSV
+  dosyasina (ozet.csv) donustur; ilk satir baslik olsun ve dosyanin basina
+  UTF-8 BOM ekle.
+
+reference_solution: |
+  { printf '\xef\xbb\xbfhesap;kod;tutar\n'; find muhasebe -name '*.kay' | sort | while read -r f; do
+      n=$(wc -l < "$f")
+      for i in $(seq 1 "$n"); do
+        line=$(sed -n "${i}p" "$f")
+        hesap=$(printf '%s' "$line" | cut -c1-4)
+        kod=$(printf '%s' "$line" | cut -c5-18 | tr -d ' ')
+        tutar=$(printf '%s' "$line" | cut -c19- | sed 's/^0*//')
+        printf '%s;%s;%s\n' "$hesap" "$kod" "$tutar"
+      done
+    done; } > ozet.csv
+
+outputs:
+  - {path: ozet.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: ozet.csv, value: ["\uFEFFhesap;kod;tutar", 1001;ALISVERIS; 000000012500, 2002;SATIS; 000000034000, 3003;KIRA; 000000007500, 4004;MAAS; 000000090000]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7204
+    bundle: uret
+    tools:
+    - printf
+    - seq
+    konu: muhasebe-kalemleri
+    hedef: donustur
+    girdi: sabit-genislik
+    kaynak: dizin-agaci
+    cikti: csv
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: bom
+    bukulme: yok
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

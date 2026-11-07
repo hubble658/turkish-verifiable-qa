@@ -1,0 +1,92 @@
+id: gen-s-3177-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  muhasebe/kalemler.txt dosyasındaki her satırı boru ile ayrılmış alanlarına göre, yıl-ay adlı dizinler altında ayrı dosyalara böl. Her dosya adı satır numarası ile .txt uzantılı olsun. Bölme işlemi sonucunda oluşan dizin yapısı bolum adlı dizin altında toplansın, ardından bu dizin önce tar ile arşivlenip sonra gzip ile sıkıştırılarak kalemler.tar.gz üretilsin.
+
+  Şu şartlar sağlanmalı:
+  - muhasebe/kalemler.txt içindeki altı satırın her biri ayrı bir dosyaya yazılmış olmalı.
+  - Dosyalar yıl-ay adlı dizinler altında yer almalı; ilgili dizinler 2024-01, 2024-02 ve 2024-03 olarak oluşmalı.
+  - Her dosyanın adı satır numarası ile .txt uzantısından oluşmalı (örn. 1.txt, 2.txt).
+  - Oluşan dizin yapısı bolum adlı dizin altında bulunmalı.
+  - bolum dizini önce tar ile arşivlenip sonra gzip ile sıkıştırılarak kalemler.tar.gz dosyası üretilmeli.
+  - kalemler.tar.gz geçerli bir gzip sıkıştırılmış tar arşivi olmalı ve arşiv açıldığında bolum dizin yapısı korunmalı.
+
+setup: |
+  mkdir -p muhasebe
+  cat > muhasebe/kalemler.txt <<'DATA'
+  2024-01-05|GELIR|satis|1200.50|TRY
+  2024-01-07|GIDER|kira|800.00|TRY
+  2024-02-03|GELIR|satis|950.75|TRY
+  2024-02-11|GIDER|malzeme|430.20|TRY
+  2024-03-02|GELIR|danismanlik|2000.00|TRY
+  2024-03-15|GIDER|kira|800.00|TRY
+  DATA
+
+goal_tr: >
+  muhasebe/kalemler.txt dosyasindaki her satiri boru ile ayrilmis alanlarina
+  gore yil-ay adli dizinler altinda ayri dosyalara bol; her dosya adi satir
+  numarasi ile .txt uzantili olsun, olusan dizin yapisi once tar ile
+  arsivlenip sonra gzip ile sikistirilarak kalemler.tar.gz uretilsin.
+
+reference_solution: |
+  mkdir -p bolum
+  awk -F'|' '{split($1,d,"-"); dir="bolum/" d[1] "-" d[2]; system("mkdir -p " dir); print $0 > (dir "/" NR ".txt")}' muhasebe/kalemler.txt
+  tar -cf kalemler.tar bolum
+  gzip -f kalemler.tar
+
+outputs:
+  - {path: kalemler.tar.gz, kind: file}
+  - {path: bolum, kind: dir}
+
+checks:
+  - {op: dir_entries_eq, path: bolum, value: [2024-01, 2024-02, 2024-03]}
+  - {op: run_stdout_eq, cmd: tar -tzf kalemler.tar.gz | sort, value: 'bolum/
+
+    bolum/2024-01/
+
+    bolum/2024-01/1.txt
+
+    bolum/2024-01/2.txt
+
+    bolum/2024-02/
+
+    bolum/2024-02/3.txt
+
+    bolum/2024-02/4.txt
+
+    bolum/2024-03/
+
+    bolum/2024-03/5.txt
+
+    bolum/2024-03/6.txt'}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3177
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: muhasebe-kalemleri
+    hedef: bol
+    girdi: json
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

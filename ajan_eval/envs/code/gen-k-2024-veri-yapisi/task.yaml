@@ -1,0 +1,212 @@
+id: gen-k-2024-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sessions/queue.py içindeki SessionQueue sınıfını tam olarak gerçekleştir. push, aynı öncelikte itme sırasını koruyarak eleman eklemeli; pop, en yüksek öncelikli adı (eşitlik durumunda en erken itileni) döndürmeli ve kuyruk boşken IndexError yükseltmeli; peek, pop ile aynı adı döndürmeli ama kuyruğu değiştirmemeli; __len__ ise eleman sayısını vermeli. Ayrıca sınıf, sessions/trace.py içindeki traced dekoratörü ile süslenmiş bir trace listesi tutmalı ve her başarılı pop işleminde dönen adı bu listeye kaydetmeli. Başlangıçta var olan sessions/clock.py dosyasındaki Clock sınıfını kullan; sessions/queue.py dosyasının geri kalanı korunmalı.
+
+setup: |
+  mkdir -p sessions
+  cat > sessions/clock.py <<'CLOCK'
+  class Clock:
+      """Monotonic logical clock. tick() returns the next integer instant."""
+      def __init__(self):
+          self._now = 0
+
+      def tick(self):
+          self._now += 1
+          return self._now
+  CLOCK
+  cat > sessions/queue.py <<'QUEUE'
+  from sessions.clock import Clock
+
+
+  class SessionQueue:
+      """Priority queue of sessions keyed by an integer priority."""
+
+      def __init__(self):
+          self._clock = Clock()
+          self._items = []
+
+      def push(self, name, priority):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+  QUEUE
+  cat > sessions/audit.py <<'AUDIT'
+  from sessions.queue import SessionQueue
+
+
+  def replay(events):
+      """events: list of (op, name, priority). Returns list of popped names."""
+      q = SessionQueue()
+      out = []
+      for op, name, priority in events:
+          if op == "push":
+              q.push(name, priority)
+          elif op == "pop":
+              out.append(q.pop())
+      return out
+
+
+  def oldest(names):
+      """Return the name pushed first among names, or None."""
+      q = SessionQueue()
+      for i, name in enumerate(names):
+          q.push(name, i)
+      return q.peek()
+  AUDIT
+  cat > sessions/trace.py <<'TRACE'
+  def traced(method):
+      """Decorator: record the popped name into self.trace after a pop."""
+      def wrapper(self, *args, **kwargs):
+          result = method(self, *args, **kwargs)
+          self.trace.append(result)
+          return result
+      return wrapper
+  TRACE
+
+goal_tr: >
+  sessions/queue.py icindeki SessionQueue sinifini tam olarak gerceklestir:
+  push ayni oncelikte itme sirasini koruyarak ekler, pop en yuksek oncelikli
+  (esitlikte en erken itilen) adi dondurur ve bos kuyrukta IndexError
+  yukseltir, peek pop ile ayni adi dondurur ama kuyrugu degistirmez, __len__
+  eleman sayisini verir; ayrica sessions/trace.py'deki traced dekoratoru ile
+  suslenmis bir trace listesi tut ve her basarili pop'un adini oraya kaydet.
+
+reference_solution: |
+  cat > sessions/queue.py <<'QUEUE'
+  from sessions.clock import Clock
+  from sessions.trace import traced
+
+
+  class SessionQueue:
+      """Priority queue of sessions keyed by an integer priority."""
+
+      def __init__(self):
+          self._clock = Clock()
+          self._items = []
+          self.trace = []
+
+      def push(self, name, priority):
+          seq = self._clock.tick()
+          self._items.append((priority, seq, name))
+
+      def _best_index(self):
+          if not self._items:
+              raise IndexError("pop from empty SessionQueue")
+          best = 0
+          for i in range(1, len(self._items)):
+              p, s, _ = self._items[i]
+              bp, bs, _ = self._items[best]
+              if p > bp or (p == bp and s < bs):
+                  best = i
+          return best
+
+      @traced
+      def pop(self):
+          i = self._best_index()
+          priority, seq, name = self._items.pop(i)
+          return name
+
+      def peek(self):
+          i = self._best_index()
+          return self._items[i][2]
+
+      def __len__(self):
+          return len(self._items)
+  QUEUE
+
+ara_adim: |
+  cat > sessions/queue.py <<'QUEUE'
+  from sessions.clock import Clock
+  from sessions.trace import traced
+
+
+  class SessionQueue:
+      """Priority queue of sessions keyed by an integer priority."""
+
+      def __init__(self):
+          self._clock = Clock()
+          self._items = []
+          self.trace = []
+
+      def push(self, name, priority):
+          seq = self._clock.tick()
+          self._items.append((priority, seq, name))
+
+      def _best_index(self):
+          if not self._items:
+              raise IndexError("pop from empty SessionQueue")
+          best = 0
+          for i in range(1, len(self._items)):
+              p, s, _ = self._items[i]
+              bp, bs, _ = self._items[best]
+              if p > bp or (p == bp and s < bs):
+                  best = i
+          return best
+
+      @traced
+      def pop(self):
+          i = self._best_index()
+          priority, seq, name = self._items.pop(i)
+          return name
+
+      def peek(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          return len(self._items)
+  QUEUE
+
+outputs:
+  - {path: sessions/queue.py, kind: program, run: 'python3 -c ''from sessions.audit import replay as r; e=[("push","a",1),("push","b",3),("push","c",2),("pop",None,0),("push","d",3),("pop",None,0),("pop",None,0),("pop",None,0)]; assert r(e)==["b","d","c","a"], r(e); print("TAMAM")'''}
+  - {path: sessions/queue.py, kind: program, run: 'python3 -c ''from sessions.queue import SessionQueue as Q; q=Q(); q.push("x",5); q.push("y",5); q.push("z",9); assert q.peek()=="z"; assert len(q)==3; assert q.trace==[]; assert q.pop()=="z"; assert q.peek()=="x"; assert q.pop()=="x"; assert q.pop()=="y"; assert q.trace==["z","x","y"]; assert len(q)==0; ok=False; exec("try:\n q.pop()\nexcept IndexError:\n ok=True"); assert ok; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sessions.audit import replay as r; e=[("push","a",1),("push","b",3),("push","c",2),("pop",None,0),("push","d",3),("pop",None,0),("pop",None,0),("pop",None,0)]; assert r(e)==["b","d","c","a"], r(e); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sessions.queue import SessionQueue as Q; q=Q(); q.push("x",5); q.push("y",5); q.push("z",9); assert q.peek()=="z"; assert len(q)==3; assert q.trace==[]; assert q.pop()=="z"; assert q.peek()=="x"; assert q.pop()=="x"; assert q.pop()=="y"; assert q.trace==["z","x","y"]; assert len(q)==0; ok=False; exec("try:\n q.pop()\nexcept IndexError:\n ok=True"); assert ok; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-2024
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: kullanici-oturumlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: oncelik-kuyrugu
+      karmasiklik: orta
+      kalip: dekorator
+      akis: bellek-ici
+      topoloji: yildiz
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

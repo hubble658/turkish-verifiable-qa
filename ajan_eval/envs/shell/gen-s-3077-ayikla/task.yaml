@@ -1,0 +1,71 @@
+id: gen-s-3077-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  gelen klasöründeki her .krg dosyasının ilk ve son satırını, dosya adını koruyarak aynı adla .ozet uzantılı dosyalara yaz; yani gelen/a.krg için gelen/a.ozet, gelen/b.krg için gelen/b.ozet ve gelen/c.krg için gelen/c.ozet oluşsun. Her .ozet dosyasında, ilgili .krg dosyasının ilk satırı ve son satırı yer alsın; her satırda takip numarası (K ile başlayan ilk alan) ve ağırlık alanı (ikinci alan) bir boşlukla ayrılmış biçimde bulunsun.
+
+setup: |
+  mkdir -p gelen
+  cat > gelen/a.krg <<'K'
+  K001000120250101IST
+  K002000720250102ANK
+  K003001520250103IZM
+  K
+  cat > gelen/b.krg <<'K'
+  K004000320250104BRS
+  K005001120250105ADA
+  K
+  cat > gelen/c.krg <<'K'
+  K006000920250106KON
+  K007000420250107ANT
+  K008001820250108MER
+  K
+
+goal_tr: >
+  gelen klasorundeki her .krg dosyasinin ilk satirini ve son satirini alip,
+  dosya adini koruyarak ayni adla .ozet uzantili dosyalara yaz; her satirin
+  basindaki takip numarasini (K ile baslayan ilk alan) ve agirlik alanini
+  (ikinci alan) boslukla ayirip yaz.
+
+reference_solution: |
+  for f in gelen/*.krg; do b=$(basename "$f" .krg); { head -n 1 "$f"; tail -n 1 "$f"; } | awk '{print $1, $2}' > "gelen/$b.ozet"; done
+
+outputs:
+  - {path: gelen/a.ozet, kind: file}
+  - {path: gelen/b.ozet, kind: file}
+  - {path: gelen/c.ozet, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: gelen/a.ozet, value: [K001000120250101IST, K003001520250103IZM]}
+  - {op: file_lines_eq, path: gelen/b.ozet, value: [K004000320250104BRS, K005001120250105ADA]}
+  - {op: file_lines_eq, path: gelen/c.ozet, value: [K006000920250106KON, K008001820250108MER]}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3077
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: kargo-takibi
+    hedef: ayikla
+    girdi: sabit-genislik
+    kaynak: cok-dosya
+    cikti: yeniden-adlandirilmis
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,19 +1,93 @@
 {
- "toplam": 136941,
+ "toplam": 78159,
  "setler": {
+  "ajan_terminal": 1590,
   "bulmaca": 3000,
   "excel_veritabani": 1000,
   "hesaplama": 14613,
+  "izgara_bulmaca": 2000,
+  "karakter_islemleri": 1200,
   "meb_capraz": 3991,
   "meb_tek_ders": 2809,
+  "regex": 1728,
+  "satranc": 3000,
   "solver": 4986,
   "sql_belediye": 17785,
   "sql_cikti_tahmini": 3321,
-  "sql_cognipeer": 68300,
   "sql_istatistik": 9234,
   "sql_turspider": 7902
  },
+ "bolum": {
+  "train": 69974,
+  "test": 8185
+ },
+ "set_bolum": {
+  "ajan_terminal": {
+   "train": 1390,
+   "test": 200
+  },
+  "bulmaca": {
+   "train": 2100,
+   "test": 900
+  },
+  "excel_veritabani": {
+   "train": 900,
+   "test": 100
+  },
+  "hesaplama": {
+   "train": 13813,
+   "test": 800
+  },
+  "izgara_bulmaca": {
+   "train": 1500,
+   "test": 500
+  },
+  "karakter_islemleri": {
+   "train": 900,
+   "test": 300
+  },
+  "meb_capraz": {
+   "train": 3793,
+   "test": 198
+  },
+  "meb_tek_ders": {
+   "train": 1985,
+   "test": 824
+  },
+  "regex": {
+   "train": 1427,
+   "test": 301
+  },
+  "satranc": {
+   "train": 2600,
+   "test": 400
+  },
+  "solver": {
+   "train": 4686,
+   "test": 300
+  },
+  "sql_belediye": {
+   "train": 17449,
+   "test": 336
+  },
+  "sql_cikti_tahmini": {
+   "train": 2582,
+   "test": 739
+  },
+  "sql_istatistik": {
+   "train": 7944,
+   "test": 1290
+  },
+  "sql_turspider": {
+   "train": 6905,
+   "test": 997
+  }
+ },
  "kategori_koken": {
+  "ajan_terminal": {
+   "ajan_terminal_kabuk|ozgun": 884,
+   "ajan_terminal_kod|ozgun": 706
+  },
   "bulmaca": {
    "akrabalik|ozgun": 450,
    "dogrucu_yalanci|ozgun": 400,
@@ -38,11 +112,25 @@
    "tarih_hesaplama|ozgun": 2100,
    "xml_uretimi|ozgun": 1200
   },
+  "izgara_bulmaca": {
+   "izgara_bulmaca|hizli_uretim": 2000
+  },
+  "karakter_islemleri": {
+   "karakter_islemleri|hizli_uretim": 1200
+  },
   "meb_capraz": {
    "korpus_capraz_eslestirmeli|ozgun": 3991
   },
   "meb_tek_ders": {
    "korpus_tek_ders|ozgun": 2809
+  },
+  "regex": {
+   "regex_cikarma|hizli_uyarlama": 33,
+   "regex_yazma|hizli_uretim": 1483,
+   "regex_yazma|hizli_uyarlama": 212
+  },
+  "satranc": {
+   "satranc|hizli_uyarlama": 3000
   },
   "solver": {
    "solver|ozgun": 4986
@@ -52,9 +140,6 @@
   },
   "sql_cikti_tahmini": {
    "sql_cikti_tahmini|ozgun": 3321
-  },
-  "sql_cognipeer": {
-   "sql_cognipeer|cognipeer_filtreli": 68300
   },
   "sql_istatistik": {
    "sql_istatistik|ozgun": 9234

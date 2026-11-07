@@ -1,0 +1,74 @@
+id: gen-s-0008-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  books dizinindeki tüm .ini dosyalarının ikinci satırlarında yer alan yazar isimlerini (author= kısmından sonrasını) ayıklayın ve bu isimleri aralarına virgül koyarak tek bir satır halinde results.txt dosyasına yazın; dosyanın sonundaki yeni satırı silin.
+
+setup: |
+  mkdir -p books/fiction books/nonfiction
+  cat > books/fiction/book1.ini <<'EOF'
+  title=The Great Gatsby
+  author=F. Scott Fitzgerald
+  year=1925
+  EOF
+  cat > books/fiction/book2.ini <<'EOF'
+  title=1984
+  author=George Orwell
+  year=1949
+  EOF
+  cat > books/nonfiction/book3.ini <<'EOF'
+  title=Sapiens
+  author=Yuval Noah Harari
+  year=2011
+  EOF
+  cat > books/nonfiction/book4.ini <<'EOF'
+  title=Cosmos
+  author=Carl Sagan
+  year=1980
+  EOF
+  touch books/fiction/readme.txt
+  touch books/nonfiction/notes.log
+
+goal_tr: >
+  books dizinindeki tum .ini dosyalarinin ikinci satirlarindaki yazar
+  isimlerini (author= sonrasini) ayiklayarak, aralarinda virgül olacak
+  sekilde tek bir satirda results.txt dosyasina yaz; dosya sonundaki yeni
+  satiri silin.
+
+reference_solution: |
+  find books -name "*.ini" -exec cat {} + | sed -n '2~3p' | cut -d'=' -f2 | paste -sd, - | tr -d '\n' | tee results.txt
+
+outputs:
+  - {path: results.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: results.txt, value: 'Carl Sagan,Yuval Noah Harari,George Orwell,F. Scott Fitzgerald'}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-0008
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: kutuphane-kayitlari
+    hedef: donustur
+    girdi: ini
+    kaynak: dizin-agaci
+    cikti: dizin-yapisi
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: son-newline-yok
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    metadata: {}

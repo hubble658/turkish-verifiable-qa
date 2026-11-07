@@ -1,0 +1,66 @@
+id: gen-s-7115-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  randevular.json dosyasındaki kayıtlar arasından durumu tamamlandi olanların sayısını bulup sonuc.txt dosyasına yalnızca sayı olacak şekilde yaz.
+
+setup: |
+  cat > randevular.json <<'JSON'
+  [
+    {"hasta": "Ayse", "bolum": "Kardiyoloji", "durum": "tamamlandi"},
+    {"hasta": "Mehmet", "bolum": "Noroloji", "durum": "iptal"},
+    {"hasta": "Zeynep", "bolum": "Kardiyoloji", "durum": "tamamlandi"},
+    {"hasta": "Ali", "bolum": "Ortopedi", "durum": "bekliyor"},
+    {"hasta": "Fatma", "bolum": "Noroloji", "durum": "tamamlandi"},
+    {"hasta": "Can", "bolum": "Kardiyoloji", "durum": "iptal"}
+  ]
+  JSON
+  cat > randevular.json.yedek <<'JSON'
+  [
+    {"hasta": "Selin", "bolum": "Kardiyoloji", "durum": "tamamlandi"},
+    {"hasta": "Emre", "bolum": "Noroloji", "durum": "tamamlandi"}
+  ]
+  JSON
+  printf 'BOZUK { bu bir yedek degil\n' > notlar.txt
+
+goal_tr: >
+  randevular.json dosyasindaki kayitlardan durumu tamamlandi olanlarin
+  sayisini sonuc.txt dosyasina sadece sayi olarak yaz.
+
+reference_solution: |
+  python3 -c "import json; d=json.load(open('randevular.json')); print(sum(1 for r in d if r['durum']=='tamamlandi'))" > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '3'}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7115
+    bundle: python-veri
+    tools:
+    - python3
+    konu: hastane-randevulari
+    hedef: ozetle
+    girdi: json
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

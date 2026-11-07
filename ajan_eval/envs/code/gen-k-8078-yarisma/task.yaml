@@ -1,0 +1,118 @@
+id: gen-k-8078-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  plansvc/engine/select.py dosyasındaki select_plans fonksiyonunu, plans.txt dosyasından okunan planlar arasından bütçeye sığdırılabilecek en fazla sayıda planı seçen bir generator (yield kullanan) fonksiyon haline getir. Böylece plansvc.engine.select.select_stream(plans, budget) çağrısı, bütçeyi aşmadan seçilebilecek en kalabalık plan kümesini üretsin.
+
+setup: |
+  mkdir -p plansvc/catalog plansvc/engine
+  cat > plansvc/__init__.py <<'EOF'
+  EOF
+  cat > plansvc/catalog/__init__.py <<'EOF'
+  EOF
+  cat > plansvc/catalog/plans.py <<'EOF'
+  def load_plans(path):
+      rows = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              name, monthly, features = line.split("|")
+              rows.append((name, float(monthly), features.split(",")))
+      return rows
+  EOF
+  cat > plansvc/engine/__init__.py <<'EOF'
+  EOF
+  cat > plansvc/engine/select.py <<'EOF'
+  def select_plans(plans, budget):
+      chosen = []
+      remaining = budget
+      for name, monthly, features in plans:
+          if monthly <= remaining:
+              chosen.append(name)
+              remaining -= monthly
+      return chosen
+  EOF
+  cat > plans.txt <<'EOF'
+  basic|5.0|email
+  pro|20.0|email,vpn
+  team|15.0|email,vpn,storage
+  max|30.0|email,vpn,storage,audit
+  EOF
+
+goal_tr: >
+  plansvc/engine/select.py icindeki select_plans'i, plans.txt'ten okunan
+  planlar arasindan butceye sigdirilabilecek en fazla sayida plani secen bir
+  generator (yield kullanan) fonksiyon haline getir, boylece
+  plansvc.engine.select.select_stream(plans, budget) butceyi asmadan
+  secilebilecek en kalabalik plan kumesini uretsin.
+
+reference_solution: |
+  cat > plansvc/engine/select.py <<'EOF'
+  def _count(plans, budget):
+      n = 0
+      remaining = budget
+      for _, monthly, _ in sorted(plans, key=lambda p: p[1]):
+          if monthly <= remaining:
+              remaining -= monthly
+              n += 1
+      return n
+
+
+  def select_stream(plans, budget):
+      target = _count(plans, budget)
+      remaining = budget
+      picked = 0
+      for name, monthly, _ in sorted(plans, key=lambda p: p[1]):
+          if picked >= target:
+              break
+          if monthly <= remaining:
+              remaining -= monthly
+              picked += 1
+              yield name
+  EOF
+
+outputs:
+  - {path: plansvc/engine/select.py, kind: program, run: 'python3 -c ''import types; from plansvc.catalog.plans import load_plans; from plansvc.engine.select import select_stream; p=load_plans("plans.txt"); g=select_stream(p,25.0); assert isinstance(g, types.GeneratorType), type(g); assert list(g)==["basic","team"], list(select_stream(p,25.0)); assert list(select_stream(p,0.0))==[]; assert list(select_stream(p,100.0))==["basic","team","pro","max"]; assert list(select_stream(p,19.0))==["basic"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import types; from plansvc.catalog.plans import load_plans; from plansvc.engine.select import select_stream; p=load_plans("plans.txt"); g=select_stream(p,25.0); assert isinstance(g, types.GeneratorType), type(g); assert list(g)==["basic","team"], list(select_stream(p,25.0)); assert list(select_stream(p,0.0))==[]; assert list(select_stream(p,100.0))==["basic","team","pro","max"]; assert list(select_stream(p,19.0))==["basic"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8078
+    bundle: yarisma
+    tools:
+    - python3
+    konu: abonelik-planlari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: acgozlu
+      karmasiklik: duz
+      kalip: generator
+      akis: dosya-okuma
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,77 @@
+id: gen-s-3110-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Envanter takibini elle yapmak iyice yorucu hale geldi; geçen hafta üç ayrı ekip aynı sunucuları farklı tablolara yazınca ortalık karıştı. Artık her şeyin tek bir yerden, düzenli bir özet halinde çıkmasını istiyorum ki kim neyi kaç kez kaydetmiş görebilelim. Çalışma dizinindeki envanter.log dosyasını okuyup her satırın ilk alanını anahtar, ikinci alanını kategori kabul et; aynı anahtar-kategori çiftinin kaç satırda geçtiğini say ve sonucu, anahtar-kategori çiftlerinin anahtar olduğu ve değerlerinin bu sayıları taşıdığı bir JSON nesnesi olarak envanter.json dosyasına yaz.
+
+setup: |
+  cat > envanter.log <<'LOG'
+  sunucu01 disk 500
+  sunucu02 ram 128
+  sunucu01 ram 64
+  sunucu03 cpu 16
+  sunucu02 disk 250
+  sunucu01 cpu 8
+  sunucu03 ram 32
+  sunucu04 disk 1000
+  sunucu02 cpu 4
+  sunucu01 disk 500
+  LOG
+
+goal_tr: >
+  envanter.log dosyasindaki her satirin ilk alanini anahtar, ikinci alanini
+  kategori kabul ederek anahtar-cifti bazinda kac satir oldugunu say ve
+  sonucu anahtar-cifti anahtarli, sayi degerli bir JSON nesnesi olarak
+  envanter.json dosyasina yaz
+
+reference_solution: |
+  python3 - <<'PY'
+  import json
+  from collections import Counter
+
+  c = Counter()
+  with open('envanter.log') as f:
+      for line in f:
+          parts = line.split()
+          if len(parts) >= 2:
+              c[parts[0] + '|' + parts[1]] += 1
+
+  with open('envanter.json', 'w') as f:
+      json.dump(dict(c), f, sort_keys=True)
+      f.write('\n')
+  PY
+
+outputs:
+  - {path: envanter.json, kind: json}
+
+checks:
+  - {op: json_eq, path: envanter.json, value: {sunucu01|cpu: 1, sunucu01|disk: 2, sunucu01|ram: 1, sunucu02|cpu: 1, sunucu02|disk: 1, sunucu02|ram: 1, sunucu03|cpu: 1, sunucu03|ram: 1, sunucu04|disk: 1}}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3110
+    bundle: python-veri
+    tools:
+    - python3
+    konu: envanter
+    hedef: grupla-say
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: json
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,76 @@
+id: gen-s-4159-toplu-yeniden-adlandir
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) yorumlar dizini ağacındaki .txt uzantılı her dosyayı, kendi dizininde bulunduğu ürün klasörünün adı ile dosya adı birleştirilerek <urun>_<dosyaadi> biçiminde yeniden adlandır; böylece yorumlar/urunler/elektronik/elektronik_yorum1.txt, yorumlar/urunler/elektronik/elektronik_yorum2.txt, yorumlar/urunler/giyim/giyim_yorum3.txt ve yorumlar/arsiv/arsiv_yorum4.txt dosyaları oluşsun.
+
+  2) Yeniden adlandırma sonucunda oluşan yeni yolların tam listesini sıralı olarak yeni_yollar.txt dosyasına yaz.
+
+setup: |
+  mkdir -p yorumlar/urunler/elektronik yorumlar/urunler/giyim yorumlar/arsiv
+  printf 'harika urun\n' > yorumlar/urunler/elektronik/yorum1.txt
+  printf 'kargo hizli\n' > yorumlar/urunler/elektronik/yorum2.txt
+  printf 'beden uygun\n' > yorumlar/urunler/giyim/yorum3.txt
+  printf 'eski kayit\n' > yorumlar/arsiv/yorum4.txt
+  printf 'ignore me\n' > yorumlar/urunler/elektronik/notlar.md
+
+goal_tr: >
+  yorumlar dizini agacindaki .txt uzantili her dosyayi, kendi dizininde
+  bulundugu urun klasorunun adi ile dosya adi birlestirilerek
+  <urun>_<dosyaadi> biciminde yeniden adlandir ve olusan yeni yollarin tam
+  listesini yeni_yollar.txt dosyasina sirali olarak yaz
+
+reference_solution: |
+  find yorumlar -type f -name '*.txt' | while read -r p; do
+    d=$(dirname "$p"); b=$(basename "$p"); u=$(basename "$d")
+    mv "$p" "$d/${u}_${b}"
+  done
+  find yorumlar -type f -name '*.txt' | sort > yeni_yollar.txt
+
+outputs:
+  - {path: yeni_yollar.txt, kind: lines}
+  - {path: yorumlar/urunler/elektronik/elektronik_yorum1.txt, kind: file}
+  - {path: yorumlar/urunler/elektronik/elektronik_yorum2.txt, kind: file}
+  - {path: yorumlar/urunler/giyim/giyim_yorum3.txt, kind: file}
+  - {path: yorumlar/arsiv/arsiv_yorum4.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: yeni_yollar.txt, value: [yorumlar/arsiv/arsiv_yorum4.txt, yorumlar/urunler/elektronik/elektronik_yorum1.txt, yorumlar/urunler/elektronik/elektronik_yorum2.txt, yorumlar/urunler/giyim/giyim_yorum3.txt]}
+  - {op: file_content_eq, path: yorumlar/arsiv/arsiv_yorum4.txt, value: eski kayit}
+  - {op: file_content_eq, path: yorumlar/urunler/elektronik/elektronik_yorum1.txt, value: harika urun}
+  - {op: file_content_eq, path: yorumlar/urunler/elektronik/elektronik_yorum2.txt, value: kargo hizli}
+  - {op: file_content_eq, path: yorumlar/urunler/giyim/giyim_yorum3.txt, value: beden uygun}
+  - {op: not_exists, path: yorumlar/arsiv/yorum4.txt}
+  - {op: not_exists, path: yorumlar/urunler/elektronik/yorum1.txt}
+  - {op: not_exists, path: yorumlar/urunler/elektronik/yorum2.txt}
+  - {op: not_exists, path: yorumlar/urunler/giyim/yorum3.txt}
+
+metadata:
+  domain: toplu-yeniden-adlandir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4159
+    bundle: yol-parcala
+    tools:
+    - basename
+    - dirname
+    konu: urun-yorumlari
+    hedef: toplu-yeniden-adlandir
+    girdi: duz-metin
+    kaynak: dizin-agaci
+    cikti: satir-listesi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: bom
+    bukulme: tuzak-dosya
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

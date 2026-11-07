@@ -1,0 +1,213 @@
+id: gen-k-9501-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sensör alarm kurallarında eşikleri aşan ölçümler yanlış sırada bildiriliyor. sensors/stack.py içindeki alarm yığınının, limits.txt dosyasındaki eşiklere göre alarmları son giren ilk çıkar sırasında döndürmesini sağla; böylece iter_alarms ile üretilen alarmlar en son eklenen ölçümden başlayarak geriye doğru gelsin.
+
+setup: |
+  mkdir -p sensors
+  cat > sensors/rules.py <<'RULES'
+  def load_rules(path):
+      rules = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line or line.startswith("#"):
+                  continue
+              name, limit = line.split("=")
+              rules.append((name.strip(), float(limit)))
+      return rules
+  RULES
+  cat > sensors/stack.py <<'STACK'
+  from sensors.rules import load_rules
+
+
+  class AlarmStack:
+      def __init__(self, rules_path):
+          self._rules = load_rules(rules_path)
+          self._items = []
+
+      def push(self, name, value):
+          self._items.append((name, value))
+
+      def pop(self):
+          return self._items.pop(0)
+
+      def peek(self):
+          return self._items[0]
+
+      def __len__(self):
+          return len(self._items)
+
+      def __bool__(self):
+          return bool(self._items)
+
+      def __iter__(self):
+          while self._items:
+              yield self._items.pop(0)
+
+
+  def iter_alarms(rules_path, readings):
+      stack = AlarmStack(rules_path)
+      limits = dict(stack._rules)
+      for name, value in readings:
+          if name in limits and value > limits[name]:
+              stack.push(name, value)
+      for item in stack:
+          yield item
+  STACK
+  cat > limits.txt <<'LIMITS'
+  temp=80
+  pressure=100
+  # comment
+  vibration=5
+  LIMITS
+
+goal_tr: >
+  sensor alarm kurallarinda esikleri asan olcumler yanlis sirada
+  bildiriliyor; limits.txt esiklerine gore alarmlari son-giren-ilk-cikar
+  sirasinda donduren davranisi sagla.
+
+reference_solution: |
+  cat > sensors/rules.py <<'RULES'
+  def load_rules(path):
+      rules = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line or line.startswith("#"):
+                  continue
+              name, limit = line.split("=")
+              rules.append((name.strip(), float(limit)))
+      return rules
+  RULES
+  cat > sensors/stack.py <<'STACK'
+  from sensors.rules import load_rules
+
+
+  class AlarmStack:
+      def __init__(self, rules_path):
+          self._rules = load_rules(rules_path)
+          self._items = []
+
+      def push(self, name, value):
+          self._items.append((name, value))
+
+      def pop(self):
+          if not self._items:
+              raise IndexError("pop from empty stack")
+          return self._items.pop()
+
+      def peek(self):
+          if not self._items:
+              raise IndexError("peek on empty stack")
+          return self._items[-1]
+
+      def __len__(self):
+          return len(self._items)
+
+      def __bool__(self):
+          return bool(self._items)
+
+      def __iter__(self):
+          while self._items:
+              yield self._items.pop()
+
+
+  def iter_alarms(rules_path, readings):
+      stack = AlarmStack(rules_path)
+      limits = dict(stack._rules)
+      for name, value in readings:
+          if name in limits and value > limits[name]:
+              stack.push(name, value)
+      for item in stack:
+          yield item
+  STACK
+
+ara_adim: |
+  cat > sensors/stack.py <<'STACK'
+  from sensors.rules import load_rules
+
+
+  class AlarmStack:
+      def __init__(self, rules_path):
+          self._rules = load_rules(rules_path)
+          self._items = []
+
+      def push(self, name, value):
+          self._items.append((name, value))
+
+      def pop(self):
+          return self._items.pop()
+
+      def peek(self):
+          return self._items[-1]
+
+      def __len__(self):
+          return len(self._items)
+
+      def __bool__(self):
+          return bool(self._items)
+
+      def __iter__(self):
+          while self._items:
+              yield self._items.pop(0)
+
+
+  def iter_alarms(rules_path, readings):
+      stack = AlarmStack(rules_path)
+      limits = dict(stack._rules)
+      for name, value in readings:
+          if name in limits and value > limits[name]:
+              stack.push(name, value)
+      for item in stack:
+          yield item
+  STACK
+
+outputs:
+  - {path: sensors/stack.py, kind: program, run: 'python3 -c ''from sensors.stack import AlarmStack as S, iter_alarms as f; s=S("limits.txt"); s.push("a",1); s.push("b",2); assert len(s)==2; assert s.pop()==("b",2), s.pop(); assert s.peek()==("a",1); assert len(s)==1; out=list(f("limits.txt",[("temp",90),("pressure",50),("vibration",9)])); assert out==[("vibration",9.0),("temp",90.0)], out; print("TAMAM")'''}
+  - {path: sensors/stack.py, kind: program, run: 'python3 -c ''from sensors.stack import AlarmStack as S; s=S("limits.txt"); s.push("a",1); s.push("b",2); assert s.pop()==("b",2), s.pop(); assert s.peek()==("a",1); print("ILERLEME-TAMAM")'''}
+  - {path: sensors/stack.py, kind: program, run: 'python3 -c ''from sensors.stack import AlarmStack as S; s=S("limits.txt"); assert len(s)==0; assert bool(s) is False; s.push("x",1); assert bool(s) is True; assert s.pop()==("x",1); assert bool(s) is False; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensors.stack import AlarmStack as S, iter_alarms as f; s=S("limits.txt"); s.push("a",1); s.push("b",2); assert len(s)==2; assert s.pop()==("b",2), s.pop(); assert s.peek()==("a",1); assert len(s)==1; out=list(f("limits.txt",[("temp",90),("pressure",50),("vibration",9)])); assert out==[("vibration",9.0),("temp",90.0)], out; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensors.stack import AlarmStack as S; s=S("limits.txt"); s.push("a",1); s.push("b",2); assert s.pop()==("b",2), s.pop(); assert s.peek()==("a",1); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensors.stack import AlarmStack as S; s=S("limits.txt"); assert len(s)==0; assert bool(s) is False; s.push("x",1); assert bool(s) is True; assert s.pop()==("x",1); assert bool(s) is False; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9501
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: sensor-alarm-kurallari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin
+      karmasiklik: derin
+      kalip: iterator-protokolu
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 3
+      regresyon: true
+      bagimli: true
+      kesif_zor: true

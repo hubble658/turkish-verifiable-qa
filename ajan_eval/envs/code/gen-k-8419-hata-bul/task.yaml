@@ -1,0 +1,162 @@
+id: gen-k-8419-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) sensors/core/series.py dosyasındaki SensorSeries sınıfının max_reading metodunu, _readings listesindeki en büyük value değerine sahip Reading nesnesini döndürecek şekilde düzelt.
+
+  2) Aynı sınıfın min_reading metodunu, _readings listesindeki en küçük value değerine sahip Reading nesnesini döndürecek şekilde düzelt.
+
+  3) Bu düzeltmelerden sonra sensors/report.py içindeki extremes fonksiyonu, verilen dosyadaki en yüksek değerli sensörün kimliğini ve en düşük değerli sensörün kimliğini doğru döndürsün.
+
+  4) sensors/core/reading.py ve sensors/report.py dosyalarının mevcut içeriklerini ve arayüzlerini değiştirme.
+
+setup: |
+  mkdir -p sensors/core
+  cat > sensors/__init__.py <<'EOF'
+  EOF
+  cat > sensors/core/__init__.py <<'EOF'
+  EOF
+  cat > sensors/core/reading.py <<'EOF'
+  class Reading:
+      def __init__(self, sensor_id, value):
+          self.sensor_id = sensor_id
+          self.value = value
+
+      def __eq__(self, other):
+          return self.value == other.value
+
+      def __hash__(self):
+          return hash(self.value)
+  EOF
+  cat > sensors/core/series.py <<'EOF'
+  from sensors.core.reading import Reading
+
+
+  class SensorSeries:
+      def __init__(self):
+          self._readings = []
+
+      def add(self, reading):
+          self._readings.append(reading)
+
+      def max_reading(self):
+          best = None
+          for r in self._readings:
+              if best is None or r == best:
+                  best = r
+          return best
+
+      def min_reading(self):
+          best = None
+          for r in self._readings:
+              if best is None or r == best:
+                  best = r
+          return best
+  EOF
+  cat > sensors/report.py <<'EOF'
+  from sensors.core.series import SensorSeries
+  from sensors.core.reading import Reading
+
+
+  def load_series(path):
+      series = SensorSeries()
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              sid, val = line.split(',')
+              series.add(Reading(sid, float(val)))
+      return series
+
+
+  def extremes(path):
+      series = load_series(path)
+      hi = series.max_reading()
+      lo = series.min_reading()
+      return (hi.sensor_id, lo.sensor_id)
+  EOF
+  cat > data.txt <<'DATA'
+  a,3.5
+  b,7.25
+  c,1.0
+  d,9.75
+  DATA
+
+goal_tr: >
+  sensors/core/series.py icindeki SensorSeries sinifinin max_reading ve
+  min_reading metotlarini, sirasiyla en buyuk ve en kucuk degere sahip
+  Reading nesnesini dondurecek bicimde duzelt; boylece sensors/report.py
+  icindeki extremes fonksiyonu en yuksek ve en dusuk degerli sensor
+  kimliklerini dogru versin.
+
+reference_solution: |
+  cat > sensors/core/series.py <<'EOF'
+  from sensors.core.reading import Reading
+
+
+  class SensorSeries:
+      def __init__(self):
+          self._readings = []
+
+      def add(self, reading):
+          self._readings.append(reading)
+
+      def max_reading(self):
+          best = None
+          for r in self._readings:
+              if best is None or r.value > best.value:
+                  best = r
+          return best
+
+      def min_reading(self):
+          best = None
+          for r in self._readings:
+              if best is None or r.value < best.value:
+                  best = r
+          return best
+  EOF
+
+outputs:
+  - {path: sensors/core/series.py, kind: program, run: 'python3 -c ''from sensors.report import extremes; assert extremes("data.txt")==("d","c"), extremes("data.txt"); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensors.report import extremes; assert extremes("data.txt")==("d","c"), extremes("data.txt"); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8419
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: sensor-serisi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-karsilastirma
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: cok-dosya-birlestirme
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

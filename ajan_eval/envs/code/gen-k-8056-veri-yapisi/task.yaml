@@ -1,0 +1,133 @@
+id: gen-k-8056-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Kütüphane otomasyonu üzerinde çalışıyoruz ve ödünç verme sıralaması bir türlü oturmadı; günün sonunda her seferinde aynı yerde takılıyoruz. Sıralamayı elle yapmak yerine kuyruğu koda bırakmak istiyoruz artık. Bu yüzden loans/queue.py içindeki LoanQueue sınıfını baştan sona, gerçekten çalışan bir gerçekleştirmeyle doldur: kuyruk en küçük öncelik değeri önce çıkacak biçimde, aynı öncelikte ise daha az gün kalan ödünçlü önce çıkacak biçimde davransın. push, pop, peek ve __len__ metotlarının dördü de çalışsın; şu an hepsi NotImplementedError ile duruyor ve loans/registry.py ile loans/service.py bu metotlara bağlı. Sadece loans/queue.py dosyasını doldur, diğer dosyalara dokunma.
+
+setup: |
+  mkdir -p loans
+  cat > loans/queue.py <<'QUEUE'
+  import heapq
+
+
+  class LoanQueue:
+      def __init__(self):
+          self._heap = []
+
+      def push(self, priority, item):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+  QUEUE
+  cat > loans/registry.py <<'REG'
+  from loans.queue import LoanQueue
+
+
+  def build_queue(records):
+      q = LoanQueue()
+      for rec in records:
+          q.push(rec["priority"], (rec["title"], rec["days"]))
+      return q
+  REG
+  cat > loans/service.py <<'SVC'
+  from loans.registry import build_queue
+
+
+  def next_loans(records, k):
+      q = build_queue(records)
+      out = []
+      for _ in range(k):
+          if len(q) == 0:
+              break
+          out.append(q.pop())
+      return out
+  SVC
+  cat > records.txt <<'REC'
+  priority,title,days
+  1,novel,14
+  5,atlas,7
+  3,poems,21
+  5,almanac,3
+  2,essays,10
+  REC
+
+goal_tr: >
+  loans/queue.py icindeki LoanQueue sinifini, oncelik kuyrugunu (en kucuk
+  oncelik once cikacak bicimde) ve esit oncelikte daha az gun kalan oduncu
+  once cikacak bicimde calistiran gercek bir gerceklestirmeyle doldur; push,
+  pop, peek ve __len__ metotlarinin hepsi calissin.
+
+reference_solution: |
+  cat > loans/queue.py <<'QUEUE'
+  import heapq
+
+
+  class LoanQueue:
+      def __init__(self):
+          self._heap = []
+
+      def push(self, priority, item):
+          heapq.heappush(self._heap, (priority, item[1], item[0]))
+
+      def pop(self):
+          priority, days, title = heapq.heappop(self._heap)
+          return (title, days)
+
+      def peek(self):
+          priority, days, title = self._heap[0]
+          return (title, days)
+
+      def __len__(self):
+          return len(self._heap)
+  QUEUE
+
+outputs:
+  - {path: loans/queue.py, kind: program, run: 'python3 -c ''from loans.service import next_loans as f; rows=[{"priority":1,"title":"novel","days":14},{"priority":5,"title":"atlas","days":7},{"priority":3,"title":"poems","days":21},{"priority":5,"title":"almanac","days":3},{"priority":2,"title":"essays","days":10}]; assert f(rows,3)==[("novel",14),("essays",10),("poems",21)], f(rows,3); assert f(rows,5)==[("novel",14),("essays",10),("poems",21),("almanac",3),("atlas",7)]; assert f(rows,9)==[("novel",14),("essays",10),("poems",21),("almanac",3),("atlas",7)]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from loans.service import next_loans as f; rows=[{"priority":1,"title":"novel","days":14},{"priority":5,"title":"atlas","days":7},{"priority":3,"title":"poems","days":21},{"priority":5,"title":"almanac","days":3},{"priority":2,"title":"essays","days":10}]; assert f(rows,3)==[("novel",14),("essays",10),("poems",21)], f(rows,3); assert f(rows,5)==[("novel",14),("essays",10),("poems",21),("almanac",3),("atlas",7)]; assert f(rows,9)==[("novel",14),("essays",10),("poems",21),("almanac",3),("atlas",7)]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8056
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: kutuphane-oduncleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: oncelik-kuyrugu
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: cok-dosya-birlestirme
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

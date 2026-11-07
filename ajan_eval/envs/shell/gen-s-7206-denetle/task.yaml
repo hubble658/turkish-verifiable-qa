@@ -1,0 +1,103 @@
+id: gen-s-7206-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kütüphane kayıtları/ayarlar.ini dosyasındaki bölüm başlıklarını ve anahtar-değer çiftlerini okuyup, bunları denetim.txt dosyasına satır satır yaz. denetim.txt içinde her bölüm başlığı "[bölüm]" biçiminde, her anahtar-değer çifti ise "anahtar = değer" biçiminde görünsün; boş satırlar yazılmasın.
+
+  Şu şartlar sağlanmalı:
+  - denetim.txt dosyası oluşturulmuş olmalı.
+  - denetim.txt içeriği kütüphane kayıtları/ayarlar.ini dosyasındaki bölüm başlıklarını ve anahtar-değer çiftlerini içermeli.
+  - Bölüm başlıkları denetim.txt içinde "[bölüm]" biçiminde yazılmış olmalı.
+  - Anahtar-değer çiftleri denetim.txt içinde "anahtar = değer" biçiminde yazılmış olmalı.
+  - denetim.txt içinde boş satır bulunmamalı.
+  - kütüphane kayıtları/notlar.txt dosyasındaki içerik denetim.txt dosyasına yazılmamış olmalı.
+
+setup: |
+  mkdir -p "kutuphane kayitlari"
+  cat > "kutuphane kayitlari/ayarlar.ini" <<'INI'
+  [genel]
+  ad = Merkez Kutuphane
+  sehir = Ankara
+
+  [odunc]
+  sure_gun = 14
+  limit = 3
+
+  [ceza]
+  gunluk = 2
+  para_birimi = TL
+
+  [uyeler]
+  aktif = 120
+  pasif = 15
+  INI
+
+  cat > "kutuphane kayitlari/notlar.txt" <<'TXT'
+  bu dosya ini degil
+  [genel]
+  ad = yanlis
+  TXT
+
+goal_tr: >
+  "kutuphane kayitlari/ayarlar.ini" dosyasindaki bolum basliklarini ve
+  anahtar-deger ciftlerini okunabilir bicimde "denetim.txt" dosyasina satir
+  satir yaz; bolum basliklari "[bolum]" biciminde, anahtar-deger ciftleri
+  ise "anahtar = deger" biciminde ve bos satirlar atlanmis olsun.
+
+reference_solution: |
+  python3 - <<'PY'
+  import configparser, os
+
+  dizin = "kutuphane kayitlari"
+  kaynak = os.path.join(dizin, "ayarlar.ini")
+  hedef = "denetim.txt"
+
+  cfg = configparser.ConfigParser()
+  cfg.optionxform = str
+  cfg.read(kaynak, encoding="utf-8")
+
+  satirlar = []
+  for bolum in cfg.sections():
+      satirlar.append("[" + bolum + "]")
+      for anahtar, deger in cfg.items(bolum):
+          satirlar.append(anahtar + " = " + deger)
+
+  with open(hedef, "w", encoding="utf-8") as f:
+      f.write("\n".join(satirlar) + "\n")
+  PY
+  cat denetim.txt
+
+outputs:
+  - {path: denetim.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: denetim.txt, value: ['[genel]', ad = Merkez Kutuphane, sehir = Ankara, '[odunc]', sure_gun = 14, limit = 3, '[ceza]', gunluk = 2, para_birimi = TL, '[uyeler]', aktif = 120, pasif = 15]}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7206
+    bundle: python-veri
+    tools:
+    - python3
+    konu: kutuphane-kayitlari
+    hedef: denetle
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: bosluklu-ad
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

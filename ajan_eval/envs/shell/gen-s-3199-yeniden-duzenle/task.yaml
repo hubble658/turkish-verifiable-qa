@@ -1,0 +1,72 @@
+id: gen-s-3199-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Ay sonu kapanışı yaklaşıyor ve elimdeki kayıtlar birkaç ayrı dosyaya dağılmış durumda; hepsini tek tek açıp bakmak yerine tek bir özet üzerinden ilerlemek istiyorum. Muhasebe tarafı da artık düzenli bir çıktı bekliyor. Bu yüzden defter/2024 dizin ağacındaki tüm .json dosyalarını, içeriklerindeki tarih alanına göre artan sırada birleştirip defter/2024/ozet.csv dosyasını oluşturmanı istiyorum. Bu csv geçerli bir csv olsun ve her satırı tarih,hesap,tutar biçiminde olsun. Önemli bir nokta: defter/arsiv altındaki dosyalar bu birleştirmeye dahil edilmesin, yalnızca defter/2024 altındakiler kullanılsın.
+
+setup: |
+  mkdir -p defter/2024/ocak defter/2024/subat defter/arsiv
+  cat > defter/2024/ocak/kayit.json <<'J'
+  {"tarih":"2024-01-05","hesap":"KASA","tutar":150}
+  J
+  cat > defter/2024/ocak/fatura.json <<'J'
+  {"tarih":"2024-01-12","hesap":"BANKA","tutar":420}
+  J
+  cat > defter/2024/subat/kayit.json <<'J'
+  {"tarih":"2024-02-03","hesap":"KASA","tutar":75}
+  J
+  cat > defter/arsiv/eski.json <<'J'
+  {"tarih":"2023-12-31","hesap":"KASA","tutar":999}
+  J
+
+goal_tr: >
+  defter/2024 dizin agacindaki tum .json dosyalarini iceriklerindeki tarih
+  alanina gore artan sirada birlestirip, her satiri tarih,hesap,tutar
+  biciminde olan gecerli bir csv dosyasina defter/2024/ozet.csv olarak yaz;
+  arsiv altindaki dosyalar dahil edilmesin.
+
+reference_solution: |
+  mkdir -p defter/2024/gecici
+  find defter/2024 -name '*.json' -not -path '*/gecici/*' -exec mv -t defter/2024/gecici {} +
+  for f in defter/2024/gecici/*.json; do
+    sed -e 's/.*"tarih":"\([^"]*\)".*"hesap":"\([^"]*\)".*"tutar":\([0-9]*\).*/\1,\2,\3/' "$f"
+  done | sort > defter/2024/ozet.csv
+  rm -rf defter/2024/gecici
+
+outputs:
+  - {path: defter/2024/ozet.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: defter/2024/ozet.csv, value: ['2024-01-05,KASA,150', '2024-01-12,BANKA,420']}
+  - {op: not_exists, path: defter/2024/ocak/fatura.json}
+  - {op: not_exists, path: defter/2024/ocak/kayit.json}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3199
+    bundle: dosya-duzen
+    tools:
+    - mkdir
+    - mv
+    konu: muhasebe-kalemleri
+    hedef: yeniden-duzenle
+    girdi: json
+    kaynak: dizin-agaci
+    cikti: csv
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

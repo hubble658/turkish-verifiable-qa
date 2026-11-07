@@ -1,0 +1,136 @@
+id: gen-k-8177-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  fleet/chain.py içindeki FleetChain sınıfını tamamla: verilen arac kayıtlarını iterator protokolüyle (__iter__/__next__) sırayla üretsin, __len__ kayıt sayısını, __contains__ plaka üyeliğini, total_km ise toplam kilometreyi doğru versin; iterator tükendikten sonra yeniden başlatılabilsin.
+
+setup: |
+  mkdir -p fleet
+  cat > fleet/loader.py <<'LOADER'
+  def read_lines(stream):
+      return [ln.strip() for ln in stream if ln.strip() and not ln.startswith("#")]
+  LOADER
+  cat > fleet/parser.py <<'PARSER'
+  from fleet.loader import read_lines
+
+
+  def parse_vehicles(stream):
+      out = []
+      for ln in read_lines(stream):
+          vid, plate, km = ln.split(";")
+          out.append((vid, plate, int(km)))
+      return out
+  PARSER
+  cat > fleet/chain.py <<'CHAIN'
+  from fleet.parser import parse_vehicles
+
+
+  class FleetChain:
+      def __init__(self, stream):
+          self._rows = parse_vehicles(stream)
+
+      def __iter__(self):
+          raise NotImplementedError
+
+      def __next__(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+
+      def __contains__(self, plate):
+          raise NotImplementedError
+
+      def total_km(self):
+          raise NotImplementedError
+  CHAIN
+  cat > fleet/__init__.py <<'INIT'
+  INIT
+  cat > input.txt <<'DATA'
+  # fleet dump
+  v1;34-ABC-1;12000
+  v2;06-XYZ-9;8000
+  v3;35-LMN-2;45000
+  DATA
+
+goal_tr: >
+  fleet/chain.py icindeki FleetChain sinifini, verilen arac kayitlarini
+  iterator protokoluyle (__iter__/__next__) sirayla uretecek, __len__ ile
+  kayit sayisini, __contains__ ile plaka uyeligini ve total_km ile toplam
+  kilometreyi dogru hesaplayacak bicimde tamamla; iterator tukendikten sonra
+  yeniden baslatilabilmeli.
+
+reference_solution: |
+  cat > fleet/chain.py <<'CHAIN'
+  from fleet.parser import parse_vehicles
+
+
+  class FleetChain:
+      def __init__(self, stream):
+          self._rows = parse_vehicles(stream)
+          self._pos = 0
+
+      def __iter__(self):
+          self._pos = 0
+          return self
+
+      def __next__(self):
+          if self._pos >= len(self._rows):
+              raise StopIteration
+          row = self._rows[self._pos]
+          self._pos += 1
+          return row
+
+      def __len__(self):
+          return len(self._rows)
+
+      def __contains__(self, plate):
+          return any(r[1] == plate for r in self._rows)
+
+      def total_km(self):
+          return sum(r[2] for r in self._rows)
+  CHAIN
+
+outputs:
+  - {path: fleet/chain.py, kind: program, run: 'python3 -c ''import io; from fleet.chain import FleetChain as F; s=io.StringIO("v1;34-ABC-1;12000\nv2;06-XYZ-9;8000\nv3;35-LMN-2;45000\n"); c=F(s); assert len(c)==3, len(c); assert list(c)==[("v1","34-ABC-1",12000),("v2","06-XYZ-9",8000),("v3","35-LMN-2",45000)], list(c); assert list(c)==[("v1","34-ABC-1",12000),("v2","06-XYZ-9",8000),("v3","35-LMN-2",45000)], "restart failed"; assert "06-XYZ-9" in c; assert "99-ZZZ-0" not in c; assert c.total_km()==65000, c.total_km(); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import io; from fleet.chain import FleetChain as F; s=io.StringIO("v1;34-ABC-1;12000\nv2;06-XYZ-9;8000\nv3;35-LMN-2;45000\n"); c=F(s); assert len(c)==3, len(c); assert list(c)==[("v1","34-ABC-1",12000),("v2","06-XYZ-9",8000),("v3","35-LMN-2",45000)], list(c); assert list(c)==[("v1","34-ABC-1",12000),("v2","06-XYZ-9",8000),("v3","35-LMN-2",45000)], "restart failed"; assert "06-XYZ-9" in c; assert "99-ZZZ-0" not in c; assert c.total_km()==65000, c.total_km(); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8177
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: arac-filosu
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: bagli-liste
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: stdin-boru
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

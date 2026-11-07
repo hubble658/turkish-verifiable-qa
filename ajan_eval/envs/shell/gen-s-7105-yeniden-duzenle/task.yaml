@@ -1,0 +1,78 @@
+id: gen-s-7105-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+prompt: 'envanter.tar.gz arşivini açıp içindeki depo_a.json ve depo_b.json dosyalarını ürün koduna göre birleştirmen gerekiyor.
+  Her ürün için kod, ad ve iki depodaki adetlerin toplamı olan stok değerini içeren dosyaları stok dizini altında oluştur;
+  her ürünün dosyası stok/<kod>.txt biçiminde olsun, yani stok/A100.txt, stok/A200.txt, stok/A300.txt ve stok/A400.txt dosyaları
+  üretilsin. Boş json dosyası varsa yok sayılsın.
+
+
+  Dosya içeriği "<kod> <ad> <stok>" biçiminde tek satır olsun (ör. "A100 Kalem 40").
+
+  '
+setup: "mkdir -p girdi\ncat > girdi/depo_a.json <<'JSON'\n{\"urunler\":[\n  {\"kod\":\"A100\",\"ad\":\"Kalem\",\"adet\":40},\n\
+  \  {\"kod\":\"A200\",\"ad\":\"Defter\",\"adet\":15},\n  {\"kod\":\"A300\",\"ad\":\"Silgi\",\"adet\":7}\n]}\nJSON\ncat >\
+  \ girdi/depo_b.json <<'JSON'\n{\"urunler\":[\n  {\"kod\":\"A200\",\"ad\":\"Defter\",\"adet\":25},\n  {\"kod\":\"A300\",\"\
+  ad\":\"Silgi\",\"adet\":3},\n  {\"kod\":\"A400\",\"ad\":\"Cetvel\",\"adet\":12}\n]}\nJSON\n: > girdi/bos.json\nmkdir -p\
+  \ arsiv\ncp girdi/depo_a.json arsiv/depo_a.json\ncp girdi/depo_b.json arsiv/depo_b.json\ntar -czf envanter.tar.gz arsiv\n\
+  rm -rf arsiv\n"
+goal_tr: 'envanter.tar.gz arsivini acip icindeki depo_a.json ve depo_b.json dosyalarini urun koduna gore birlestirerek her
+  urun icin kod, ad ve iki depodaki adetlerin toplami olan stok degerini iceren stok/<kod>.txt dosyalarini uret; kod iki dosyada
+  da yoksa urun disarida kalsin, bos json dosyasi yok sayilsin.
+
+  '
+reference_solution: "python3 - <<'PY'\nimport glob, json, os, tarfile\ntarfile.open(\"envanter.tar.gz\").extractall(\"gecici\"\
+  )\nad, t = {}, {}\nfor f in glob.glob(\"gecici/**/*.json\", recursive=True):\n    for u in json.load(open(f))[\"urunler\"\
+  ]:\n        ad[u[\"kod\"]] = u[\"ad\"]\n        t[u[\"kod\"]] = t.get(u[\"kod\"], 0) + u[\"adet\"]\nos.makedirs(\"stok\"\
+  , exist_ok=True)\nfor k in t:\n    open(f\"stok/{k}.txt\", \"w\").write(f\"{k} {ad[k]} {t[k]}\\n\")\nPY\n"
+outputs: []
+checks:
+- op: dir_entries_eq
+  path: stok
+  value:
+  - A100.txt
+  - A200.txt
+  - A300.txt
+  - A400.txt
+- op: file_content_eq
+  path: stok/A100.txt
+  value: A100 Kalem 40
+- op: file_content_eq
+  path: stok/A200.txt
+  value: A200 Defter 40
+- op: file_content_eq
+  path: stok/A300.txt
+  value: A300 Silgi 10
+- op: file_content_eq
+  path: stok/A400.txt
+  value: A400 Cetvel 12
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7105
+    bundle: secerek-arsivle
+    tools:
+    - tar
+    - find
+    konu: envanter
+    hedef: yeniden-duzenle
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: dizin-yapisi
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: bos-dosya
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}
+  duzeltme:
+    neden: altin_yanlis
+    not: İstem 'kod, ad, stok' istiyor, altında ad yoktu; 'iki dosyada da yoksa dışarıda kalsın' cümlesi istenen A100 ve A400
+      ile çelişiyordu.

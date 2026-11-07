@@ -1,0 +1,146 @@
+id: gen-k-8025-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) clinic/schedule.py dosyasındaki Schedule.totals fonksiyonunu düzelt: her doktorun toplam dakikasını tamsayı olarak hesaplasın.
+
+  2) Bu hesaplamayı yaparken clinic/stream.py içindeki RecordStream bağlam yöneticisini kullan; akış yalnızca açıkken okunmalı.
+
+  3) Sonuç sözlüğünde her doktorun değeri tamsayı olsun; dakikalar metin olarak değil sayı olarak toplansın.
+
+setup: |
+  mkdir -p clinic
+  cat > clinic/stream.py <<'STREAM'
+  class RecordStream:
+      """Context manager over a chunked record source.
+
+      On __enter__ it opens the underlying chunk list; __exit__ closes it.
+      Iterating yields (patient, doctor, minutes) tuples with minutes as str.
+      """
+
+      def __init__(self, chunks):
+          self._chunks = chunks
+          self._open = False
+
+      def __enter__(self):
+          self._open = True
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self._open = False
+          return False
+
+      def __iter__(self):
+          if not self._open:
+              raise RuntimeError("stream is not open")
+          for chunk in self._chunks:
+              for line in chunk.splitlines():
+                  line = line.strip()
+                  if not line:
+                      continue
+                  patient, doctor, minutes = line.split(';')
+                  yield patient, doctor, minutes
+  STREAM
+  cat > clinic/schedule.py <<'SCHEDULE'
+  from clinic.stream import RecordStream
+
+
+  class Schedule:
+      """Aggregates total booked minutes per doctor using a RecordStream."""
+
+      def __init__(self, chunks):
+          self._chunks = chunks
+
+      def totals(self):
+          result = {}
+          with RecordStream(self._chunks) as stream:
+              for patient, doctor, minutes in stream:
+                  result[doctor] = result.get(doctor, 0) + minutes
+          return result
+
+      def busiest(self):
+          totals = self.totals()
+          best = None
+          for doctor, total in totals.items():
+              if best is None or total > totals[best]:
+                  best = doctor
+          return best
+  SCHEDULE
+  cat > clinic/__init__.py <<'INIT'
+  INIT
+
+goal_tr: >
+  clinic/schedule.py icindeki Schedule.totals fonksiyonunu, RecordStream
+  baglam yoneticisini kullanarak her doktorun toplam dakikasini tamsayi
+  olarak dogru hesaplayacak bicimde duzelt.
+
+reference_solution: |
+  cat > clinic/schedule.py <<'SCHEDULE'
+  from clinic.stream import RecordStream
+
+
+  class Schedule:
+      """Aggregates total booked minutes per doctor using a RecordStream."""
+
+      def __init__(self, chunks):
+          self._chunks = chunks
+
+      def totals(self):
+          result = {}
+          with RecordStream(self._chunks) as stream:
+              for patient, doctor, minutes in stream:
+                  result[doctor] = result.get(doctor, 0) + int(minutes)
+          return result
+
+      def busiest(self):
+          totals = self.totals()
+          best = None
+          for doctor, total in totals.items():
+              if best is None or total > totals[best]:
+                  best = doctor
+          return best
+  SCHEDULE
+
+outputs:
+  - {path: clinic/schedule.py, kind: program, run: 'python3 -c ''from clinic.schedule import Schedule; s=Schedule(["ayse;dr-kaya;30\nmehmet;dr-demir;45", "zeynep;dr-kaya;15"]); t=s.totals(); assert t=={"dr-kaya":45,"dr-demir":45}, t; assert all(isinstance(v,int) for v in t.values()), t; assert s.busiest() in ("dr-kaya","dr-demir"); s2=Schedule(["a;d1;7\na;d1;8\nb;d2;100"]); t2=s2.totals(); assert t2=={"d1":15,"d2":100}, t2; assert s2.busiest()=="d2"; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from clinic.schedule import Schedule; s=Schedule(["ayse;dr-kaya;30\nmehmet;dr-demir;45", "zeynep;dr-kaya;15"]); t=s.totals(); assert t=={"dr-kaya":45,"dr-demir":45}, t; assert all(isinstance(v,int) for v in t.values()), t; assert s.busiest() in ("dr-kaya","dr-demir"); s2=Schedule(["a;d1;7\na;d1;8\nb;d2;100"]); t2=s2.totals(); assert t2=={"d1":15,"d2":100}, t2; assert s2.busiest()=="d2"; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8025
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: hastane-randevulari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: tip-karismasi
+      karmasiklik: duz
+      kalip: context-manager
+      akis: parcali-akis
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

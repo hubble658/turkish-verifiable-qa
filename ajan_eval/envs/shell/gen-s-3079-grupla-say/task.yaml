@@ -1,0 +1,77 @@
+id: gen-s-3079-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  vardiya dizini ağacındaki tüm .ini dosyalarında geçen gorev anahtarının değerlerini say ve her bir gorev için bulduğun sayıyı gorev adıyla birlikte gorev-ozet.txt dosyasına yaz. Özet dosyasında satırlar gorev adına göre alfabetik olarak sıralı olsun; her satırda bir gorev ve o gorevin kaç kez geçtiği yer alsın.
+
+setup: |
+  mkdir -p vardiya/ocak vardiya/subat vardiya/mart
+  cat > vardiya/ocak/ekip.ini <<'INI'
+  [ekip]
+  ad=Ayse
+  gorev=Gece
+  saat=08:00
+  INI
+  cat > vardiya/ocak/ikinci.ini <<'INI'
+  [ekip]
+  ad=Mehmet
+  gorev=Gunduz
+  saat=16:00
+  INI
+  cat > vardiya/subat/ekip.ini <<'INI'
+  [ekip]
+  ad=Zeynep
+  gorev=Gece
+  saat=00:00
+  INI
+  cat > vardiya/mart/ekip.ini <<'INI'
+  [ekip]
+  ad=Ali
+  gorev=Gunduz
+  saat=08:00
+  INI
+
+goal_tr: >
+  vardiya dizini agacindaki .ini dosyalarinda gorev anahtarinin degerlerini
+  sayip her gorev icin sayiyi gorev adiyla birlikte gorev-ozet.txt dosyasina
+  gorev adina gore alfabetik sirali olarak yaz
+
+reference_solution: |
+  find vardiya -type f -name '*.ini' | xargs grep -h '^gorev=' | cut -d= -f2 | sort | uniq -c | awk '{print $2, $1}' | sort > gorev-ozet.txt
+
+outputs:
+  - {path: gorev-ozet.txt, kind: file}
+  - {path: vardiya, kind: dir}
+
+checks:
+  - {op: file_lines_eq, path: gorev-ozet.txt, value: [Gece 2, Gunduz 2]}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3079
+    bundle: cok-dosya-ara
+    tools:
+    - xargs
+    - grep
+    konu: personel-vardiyalari
+    hedef: grupla-say
+    girdi: ini
+    kaynak: dizin-agaci
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

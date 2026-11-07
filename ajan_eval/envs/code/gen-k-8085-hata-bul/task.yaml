@@ -1,0 +1,147 @@
+id: gen-k-8085-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  weblog/report/summary.py dosyasındaki slowest_paths fonksiyonunu düzelt. Fonksiyon, aynı ms değerine sahip yollar için dosyada önce görülen yolu önce döndürecek şekilde kararlı olsun. Ayrıca geçersiz satırları sayıp bu sayıyı ikinci eleman olarak döndürsün; yani fonksiyonun dönüş değeri (paths, error_count) şeklinde bir demet olsun.
+
+setup: |
+  mkdir -p weblog/store weblog/report
+  cat > weblog/store/__init__.py <<'INIT'
+  INIT
+  cat > weblog/store/records.py <<'REC'
+  class LogError(Exception):
+      pass
+
+
+  class ParseError(LogError):
+      pass
+
+
+  class FieldError(ParseError):
+      def __init__(self, line_no, field):
+          super().__init__("line %d: bad field %s" % (line_no, field))
+          self.line_no = line_no
+          self.field = field
+
+
+  def read_lines(path):
+      with open(path, "r", encoding="utf-8") as fh:
+          return [ln for ln in fh.read().splitlines() if ln.strip()]
+
+
+  def parse_record(line, line_no):
+      parts = line.split(" ")
+      if len(parts) != 3:
+          raise ParseError("line %d: expected 3 fields" % line_no)
+      ip, path, ms = parts
+      if not ms.isdigit():
+          raise FieldError(line_no, "ms")
+      return {"ip": ip, "path": path, "ms": int(ms)}
+  REC
+  cat > weblog/store/loader.py <<'LOAD'
+  from weblog.store.records import read_lines, parse_record, LogError
+
+
+  def load_log(path):
+      rows = []
+      errors = []
+      for i, line in enumerate(read_lines(path), start=1):
+          try:
+              rows.append(parse_record(line, i))
+          except LogError as exc:
+              errors.append(str(exc))
+      return rows, errors
+  LOAD
+  cat > weblog/report/__init__.py <<'INIT'
+  INIT
+  cat > weblog/report/summary.py <<'SUM'
+  from weblog.store.loader import load_log
+
+
+  def slowest_paths(path, k):
+      rows, _errors = load_log(path)
+      rows.sort(key=lambda r: r["ms"], reverse=True)
+      seen = []
+      for r in rows:
+          if r["path"] not in seen:
+              seen.append(r["path"])
+          if len(seen) == k:
+              break
+      return seen
+  SUM
+  cat > access.log <<'LOG'
+  10.0.0.1 /index 120
+  10.0.0.2 /about 90
+  10.0.0.3 /index 300
+  10.0.0.4 /docs 90
+  10.0.0.5 /about 250
+  10.0.0.6 /index 300
+  LOG
+
+goal_tr: >
+  weblog/report/summary.py icindeki slowest_paths fonksiyonunu, esit ms
+  degerlerinde dosyada once gorulen yolu once dondurecek bicimde (kararli)
+  duzelt; fonksiyon ayrica gecersiz satirlari sayip ikinci eleman olarak
+  dondurmeli ve donus degeri (paths, error_count) demeti olmali.
+
+reference_solution: |
+  cat > weblog/report/summary.py <<'SUM'
+  from weblog.store.loader import load_log
+
+
+  def slowest_paths(path, k):
+      rows, errors = load_log(path)
+      indexed = list(enumerate(rows))
+      indexed.sort(key=lambda pair: (-pair[1]["ms"], pair[0]))
+      seen = []
+      for _idx, r in indexed:
+          if r["path"] not in seen:
+              seen.append(r["path"])
+          if len(seen) == k:
+              break
+      return seen, len(errors)
+  SUM
+
+outputs:
+  - {path: weblog/report/summary.py, kind: program, run: 'python3 -c ''from weblog.report.summary import slowest_paths as f; assert f("access.log",2)==(["/index","/about"],0), f("access.log",2); assert f("access.log",3)==(["/index","/about","/docs"],0), f("access.log",3); assert f("access.log",1)==(["/index"],0); assert f("access.log",99)==(["/index","/about","/docs"],0); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from weblog.report.summary import slowest_paths as f; assert f("access.log",2)==(["/index","/about"],0), f("access.log",2); assert f("access.log",3)==(["/index","/about","/docs"],0), f("access.log",3); assert f("access.log",1)==(["/index"],0); assert f("access.log",99)==(["/index","/about","/docs"],0); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8085
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: web-erisim-loglari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-kararsizligi
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

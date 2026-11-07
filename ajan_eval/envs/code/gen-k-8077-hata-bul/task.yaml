@@ -1,0 +1,145 @@
+id: gen-k-8077-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Muhasebe ekibi bu ay abonelik faturalarını kontrol ederken tutarların tutmadığını fark etti; birkaç müşterinin satırı eksik ya da yanlış çıkıyor, toplam da bir türlü beklenen rakama oturmuyor. Ben de günün geri kalanını bu işe ayırdım, çünkü raporun doğru olması ay sonu kapanışı için şart.
+
+  billing/summary.py dosyasındaki render fonksiyonu stdin'den okunan abonelik olaylarını işleyip her müşterinin tutarını ve en sonda toplam tutarı verecek şekilde çalışmalı, ama şu anki hali bunu doğru yapmıyor. render fonksiyonunu, her müşteri için hesaplanan tutar ve TOTAL satırı doğru çıkacak biçimde düzeltir misin? Çıktıda her müşteri kendi satırında "müşteri=tutar" biçiminde görünsün, en son satır da "TOTAL=..." olsun; tutarlar sadece sayı olsun, başka bir şey karışmasın.
+
+setup: |
+  mkdir -p billing
+  cat > billing/plans.py <<'PLANS'
+  class PlanCatalog:
+      def __init__(self, rows):
+          self._rows = rows
+
+      def lookup(self, code):
+          for row in self._rows:
+              if row["code"] == code:
+                  return row
+          return None
+  PLANS
+  cat > billing/usage.py <<'USAGE'
+  from billing.plans import PlanCatalog
+
+
+  def parse_events(text):
+      events = []
+      for line in text.strip().splitlines():
+          if not line.strip():
+              continue
+          parts = line.split(":")
+          events.append((parts[0], parts[1], int(parts[2])))
+      return events
+
+
+  class ChargeStream:
+      def __init__(self, events, catalog):
+          self._events = events
+          self._catalog = catalog
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          if not self._events:
+              raise StopIteration
+          code, plan_code, units = self._events.pop(0)
+          plan = self._catalog.lookup(plan_code)
+          if plan is None:
+              return next(self)
+          return (code, plan["price"], units)
+  USAGE
+  cat > billing/summary.py <<'SUMMARY'
+  from billing.plans import PlanCatalog
+  from billing.usage import parse_events, ChargeStream
+
+
+  def render(stream):
+      text = stream.read()
+      events = parse_events(text)
+      catalog = PlanCatalog([
+          {"code": "basic", "price": "10"},
+          {"code": "pro", "price": "25"},
+          {"code": "max", "price": "40"},
+      ])
+      total = 0
+      lines = []
+      for code, price, units in ChargeStream(events, catalog):
+          total = total + price * units
+          lines.append(code + "=" + str(price * units))
+      lines.append("TOTAL=" + str(total))
+      return "\n".join(lines)
+  SUMMARY
+
+goal_tr: >
+  billing/summary.py icindeki render fonksiyonunu, stdin'den okunan abonelik
+  olaylarindan her musterinin tutarini ve toplam tutari dogru hesaplayacak
+  bicimde duzelt.
+
+reference_solution: |
+  cat > billing/summary.py <<'SUMMARY'
+  from billing.plans import PlanCatalog
+  from billing.usage import parse_events, ChargeStream
+
+
+  def render(stream):
+      text = stream.read()
+      events = parse_events(text)
+      catalog = PlanCatalog([
+          {"code": "basic", "price": 10},
+          {"code": "pro", "price": 25},
+          {"code": "max", "price": 40},
+      ])
+      total = 0
+      lines = []
+      for code, price, units in ChargeStream(events, catalog):
+          total = total + price * units
+          lines.append(code + "=" + str(price * units))
+      lines.append("TOTAL=" + str(total))
+      return "\n".join(lines)
+  SUMMARY
+
+outputs:
+  - {path: billing/summary.py, kind: program, run: 'python3 -c ''import io; from billing.summary import render as f; t="c1:basic:3\nc2:pro:2\nc3:max:1\n"; assert f(io.StringIO(t))=="c1=30\nc2=50\nc3=40\nTOTAL=120", repr(f(io.StringIO(t))); assert f(io.StringIO(""))=="TOTAL=0"; assert f(io.StringIO("x:pro:4"))=="x=100\nTOTAL=100"; assert f(io.StringIO("a:ghost:5\nb:basic:2"))=="b=20\nTOTAL=20"; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import io; from billing.summary import render as f; t="c1:basic:3\nc2:pro:2\nc3:max:1\n"; assert f(io.StringIO(t))=="c1=30\nc2=50\nc3=40\nTOTAL=120", repr(f(io.StringIO(t))); assert f(io.StringIO(""))=="TOTAL=0"; assert f(io.StringIO("x:pro:4"))=="x=100\nTOTAL=100"; assert f(io.StringIO("a:ghost:5\nb:basic:2"))=="b=20\nTOTAL=20"; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8077
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: abonelik-planlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: tip-karismasi
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: stdin-boru
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

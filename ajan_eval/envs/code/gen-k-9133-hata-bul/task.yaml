@@ -1,0 +1,123 @@
+id: gen-k-9133-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  grid/meters/reading.py dosyasındaki "shop" tarifesini 0.25 olarak değiştir. Ardından grid/billing/invoice.py içindeki invoice fonksiyonunu, kendisine verilen tüm satırların toplamını hesaplayacak biçimde düzelt; şu an yalnızca son satırın tutarını döndürüyor. grid/billing/tariff.py ise olduğu gibi doğru kalmalı, bu dosyaya dokunma.
+
+setup: |
+  mkdir -p grid/meters grid/billing
+  cat > grid/meters/__init__.py <<'EOF'
+  EOF
+  cat > grid/billing/__init__.py <<'EOF'
+  EOF
+  cat > grid/meters/reading.py <<'READING'
+  RATES = {"home": 0.15, "shop": 0.20}
+
+
+  def unit_cost(kind):
+      return RATES[kind]
+  READING
+  cat > grid/billing/tariff.py <<'TARIFF'
+  from grid.meters.reading import unit_cost
+
+
+  def line_total(kind, units):
+      cost = unit_cost(kind)
+      return units * cost
+  TARIFF
+  cat > grid/billing/invoice.py <<'INVOICE'
+  from grid.billing.tariff import line_total
+
+
+  def invoice(rows):
+      total = 0.0
+      for kind, units in rows:
+          total = line_total(kind, units)
+      return round(total, 2)
+  INVOICE
+  cat > usage.txt <<'USAGE'
+  home,100
+  shop,40
+  home,20
+  USAGE
+
+goal_tr: >
+  grid/meters/reading.py icindeki "shop" tarifesini 0.25 yap ve
+  grid/billing/invoice.py icindeki invoice fonksiyonunu tum satirlari
+  toplayacak bicimde duzelt; grid/billing/tariff.py dogru kalmalidir.
+
+reference_solution: |
+  cat > grid/meters/reading.py <<'READING'
+  RATES = {"home": 0.15, "shop": 0.25}
+
+
+  def unit_cost(kind):
+      return RATES[kind]
+  READING
+  cat > grid/billing/invoice.py <<'INVOICE'
+  from grid.billing.tariff import line_total
+
+
+  def invoice(rows):
+      total = 0.0
+      for kind, units in rows:
+          total += line_total(kind, units)
+      return round(total, 2)
+  INVOICE
+
+ara_adim: |
+  cat > grid/meters/reading.py <<'READING'
+  RATES = {"home": 0.15, "shop": 0.25}
+
+
+  def unit_cost(kind):
+      return RATES[kind]
+  READING
+
+outputs:
+  - {path: grid/billing/invoice.py, kind: program, run: 'python3 -c ''from grid.billing.invoice import invoice as f; rows=[("home",100),("shop",40),("home",20)]; assert f(rows)==28.0, f(rows); assert f([])==0.0, f([]); assert f([("shop",4)])==1.0, f([("shop",4)]); print("ZINCIR-TAMAM")'''}
+  - {path: grid/meters/reading.py, kind: program, run: 'python3 -c ''from grid.meters.reading import unit_cost as f; assert f("home")==0.15, f("home"); assert f("shop")==0.25, f("shop"); print("ILERLEME-TAMAM")'''}
+  - {path: grid/billing/tariff.py, kind: program, run: 'python3 -c ''from grid.billing.tariff import line_total as f; assert f("home",10)==1.5, f("home",10); assert f("shop",4)==1.0, f("shop",4); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from grid.billing.invoice import invoice as f; rows=[("home",100),("shop",40),("home",20)]; assert f(rows)==28.0, f(rows); assert f([])==0.0, f([]); assert f([("shop",4)])==1.0, f([("shop",4)]); print("ZINCIR-TAMAM")''', value: ZINCIR-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from grid.meters.reading import unit_cost as f; assert f("home")==0.15, f("home"); assert f("shop")==0.25, f("shop"); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from grid.billing.tariff import line_total as f; assert f("home",10)==1.5, f("home",10); assert f("shop",4)==1.0, f("shop",4); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9133
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: elektrik-sayaclari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: kolay
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kapsam-hatasi
+      karmasiklik: orta
+      kalip: duz-fonksiyon
+      akis: cok-dosya-birlestirme
+      topoloji: paket-alt-paket
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

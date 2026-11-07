@@ -1,0 +1,81 @@
+id: gen-s-4104-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kayitlar klasöründeki kitap.log, dergi.log ve gazete.log dosyalarının her birinden yalnızca IADE ile başlayan satırları seçip aynı dosya adıyla arsiv klasörüne yaz; yani arsiv/kitap.log, arsiv/dergi.log ve arsiv/gazete.log dosyaları oluşsun. Ardından arsiv klasöründeki bu üç dosyadaki toplam satır sayısını arsiv/toplam.txt dosyasına yaz; bu dosyada yalnızca sayı olsun, başka hiçbir şey bulunmasın.
+
+setup: |
+  mkdir -p kayitlar arsiv
+  cat > kayitlar/kitap.log <<'LOG'
+  ODUNC 1024 KURT YOLU
+  IADE 1024 KURT YOLU
+  ODUNC 2048 KAR
+  IADE 2048 KAR
+  ODUNC 3072 ATES
+  LOG
+  cat > kayitlar/dergi.log <<'LOG'
+  ODUNC 512 BILIM
+  IADE 512 BILIM
+  ODUNC 640 TARIH
+  ODUNC 768 COGRAFYA
+  IADE 768 COGRAFYA
+  LOG
+  cat > kayitlar/gazete.log <<'LOG'
+  ODUNC 100 SPOR
+  ODUNC 200 EKONOMI
+  IADE 200 EKONOMI
+  ODUNC 300 SANAT
+  IADE 300 SANAT
+  LOG
+
+goal_tr: >
+  kayitlar klasorundeki her .log dosyasindan yalnizca IADE ile baslayan
+  satirlari secip ayni dosya adiyla arsiv klasorune yaz; ardindan arsivdeki
+  tum bu dosyalardaki toplam satir sayisini arsiv/toplam.txt dosyasina
+  sadece sayi olarak yaz.
+
+reference_solution: |
+  find kayitlar -name '*.log' -exec basename {} \; | xargs -I{} sh -c 'grep "^IADE" kayitlar/{} > arsiv/{}'
+  grep -c "^IADE" arsiv/*.log | awk -F: '{s+=$2} END {print s}' > arsiv/toplam.txt
+
+outputs:
+  - {path: arsiv/kitap.log, kind: file}
+  - {path: arsiv/dergi.log, kind: file}
+  - {path: arsiv/gazete.log, kind: file}
+  - {path: arsiv/toplam.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: arsiv/dergi.log, value: [IADE 512 BILIM, IADE 768 COGRAFYA]}
+  - {op: file_lines_eq, path: arsiv/gazete.log, value: [IADE 200 EKONOMI, IADE 300 SANAT]}
+  - {op: file_lines_eq, path: arsiv/kitap.log, value: [IADE 1024 KURT YOLU, IADE 2048 KAR]}
+  - {op: file_content_eq, path: arsiv/toplam.txt, value: '6'}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4104
+    bundle: cok-dosya-ara
+    tools:
+    - xargs
+    - grep
+    konu: kutuphane-kayitlari
+    hedef: ayikla
+    girdi: log-satiri
+    kaynak: cok-dosya
+    cikti: birden-cok-dosya
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

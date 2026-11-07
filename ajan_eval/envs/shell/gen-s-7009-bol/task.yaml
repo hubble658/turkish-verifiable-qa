@@ -1,0 +1,86 @@
+id: gen-s-7009-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) arsiv/randevular.tsv ve arsiv/klinikler.tsv dosyalarını klinik alanına göre birleştir.
+  2) Birleşik veriden yalnızca tamamlandi durumundaki randevuları seç.
+  3) cikti dizinini oluştur.
+  4) Seçilen randevuları her klinik için ayrı bir dosyaya yaz: cikti/Kardiyoloji.tsv, cikti/Noroloji.tsv ve cikti/Ortopedi.tsv.
+  5) Her çıktı dosyasında yalnızca hasta_id, tarih ve kat sütunları olsun; her satırda bir randevu yer alsın.
+
+setup: |
+  mkdir -p arsiv
+  cat > arsiv/randevular.tsv <<'TSV'
+  hasta_id	klinik	tarih	durum
+  1001	Kardiyoloji	2024-03-01	tamamlandi
+  1002	Noroloji	2024-03-01	iptal
+  1003	Kardiyoloji	2024-03-02	tamamlandi
+  1004	Ortopedi	2024-03-02	tamamlandi
+  1005	Noroloji	2024-03-03	tamamlandi
+  1006	Kardiyoloji	2024-03-03	iptal
+  1007	Ortopedi	2024-03-04	tamamlandi
+  1008	Noroloji	2024-03-04	tamamlandi
+  1009	Kardiyoloji	2024-03-05	tamamlandi
+  1010	Ortopedi	2024-03-05	iptal
+  TSV
+  cat > arsiv/klinikler.tsv <<'TSV'
+  klinik	kat
+  Kardiyoloji	2
+  Noroloji	3
+  Ortopedi	1
+  TSV
+
+goal_tr: >
+  arsiv/randevular.tsv ile arsiv/klinikler.tsv dosyalarini klinik alaninda
+  birlestirip her klinik icin tamamlandi durumundaki randevulari
+  cikti/<klinik>.tsv dosyasina hasta_id, tarih ve kat sutunlariyla yaz;
+  cikti dizinini olustur ve dosyalari oraya tasi.
+
+reference_solution: |
+  mkdir -p cikti
+  awk -F'\t' 'NR==FNR{if(FNR>1) kat[$1]=$2; next} FNR>1 && $4=="tamamlandi" && ($2 in kat){print $1"\t"$3"\t"kat[$2] > ("cikti/"$2".tsv")}' arsiv/klinikler.tsv arsiv/randevular.tsv
+  awk -F'\t' 'FNR==1{print "hasta_id\ttarih\tkat"}' arsiv/randevular.tsv > /tmp/baslik.tsv
+  for f in cikti/*.tsv; do cat /tmp/baslik.tsv "$f" > "$f.yeni" && mv "$f.yeni" "$f"; done
+  rm -f /tmp/baslik.tsv
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/Kardiyoloji.tsv, kind: file}
+  - {path: cikti/Noroloji.tsv, kind: file}
+  - {path: cikti/Ortopedi.tsv, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [Kardiyoloji.tsv, Noroloji.tsv, Ortopedi.tsv]}
+  - {op: file_lines_eq, path: cikti/Kardiyoloji.tsv, value: ["hasta_id\ttarih\tkat", "1001\t2024-03-01\t2", "1003\t2024-03-02\t2", "1009\t2024-03-05\t2"]}
+  - {op: file_lines_eq, path: cikti/Noroloji.tsv, value: ["hasta_id\ttarih\tkat", "1005\t2024-03-03\t3", "1008\t2024-03-04\t3"]}
+  - {op: file_lines_eq, path: cikti/Ortopedi.tsv, value: ["hasta_id\ttarih\tkat", "1004\t2024-03-02\t1", "1007\t2024-03-04\t1"]}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7009
+    bundle: dosya-duzen
+    tools:
+    - mkdir
+    - mv
+    konu: hastane-randevulari
+    hedef: bol
+    girdi: tsv
+    kaynak: iki-dosya-capraz
+    cikti: birden-cok-dosya
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: olcek
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

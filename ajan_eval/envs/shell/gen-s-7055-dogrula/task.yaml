@@ -1,0 +1,101 @@
+id: gen-s-7055-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  randevular.ini'deki her randevu bölümünün hasta, bölüm, tarih ve saat alanlarını oku; cikti altında tarih_<tarih> dizinleri oluşturup her randevu için <bölüm>_<saat>.txt dosyasına "<hasta>|<bölüm>|<tarih>|<saat>" biçiminde yaz; örnek olarak cikti/tarih_2024-03-12/Kardiyoloji_09:30.txt, cikti/tarih_2024-03-12/Dahiliye_10:15.txt, cikti/tarih_2024-03-13/Kardiyoloji_14:00.txt, cikti/tarih_2024-03-13/Noroloji_11:45.txt ve cikti/tarih_2024-03-14/Dahiliye_08:00.txt oluşmalı. Hasta alanının başındaki ve sonundaki boşlukları temizle.
+
+setup: |
+  cat > randevular.ini <<'INI'
+  [randevu-1]
+  hasta=Ali Yilmaz
+  bolum=Kardiyoloji
+  tarih=2024-03-12
+  saat=09:30
+
+  [randevu-2]
+  hasta=  Ayse Demir
+  bolum=Dahiliye
+  tarih=2024-03-12
+  saat=10:15
+
+  [randevu-3]
+  hasta=Mehmet Kaya
+  bolum=Kardiyoloji
+  tarih=2024-03-13
+  saat=14:00
+
+  [randevu-4]
+  hasta=Fatma Sahin
+  bolum=Noroloji
+  tarih=2024-03-13
+  saat=11:45
+
+  [randevu-5]
+  hasta=Emre Celik
+  bolum=Dahiliye
+  tarih=2024-03-14
+  saat=08:00
+  INI
+
+goal_tr: >
+  randevular.ini dosyasindaki her randevu bolumunun hasta, bolum, tarih ve
+  saat alanlarini okuyup tarih degerine gore tarih_<tarih> adli bir dizin
+  olustur ve her randevu icin o dizin altinda <bolum>_<saat>.txt dosyasini
+  "<hasta>|<bolum>|<tarih>|<saat>" biciminde yazarak dizin yapisini uret;
+  hasta alanindaki bas ve sondaki bosluklar temizlenmelidir.
+
+reference_solution: |
+  mkdir -p cikti
+  sed -n 's/^\[randevu-[0-9]*\]$//; s/^\([a-z]*\)=\(.*\)$/\1=\2/p' randevular.ini | \
+    awk -F= '/^hasta=/{h=$2} /^bolum=/{b=$2} /^tarih=/{t=$2} /^saat=/{s=$2;
+      gsub(/^[ \t]+|[ \t]+$/,"",h);
+      d="cikti/tarih_" t;
+      system("mkdir -p " d);
+      print h "|" b "|" t "|" s > d "/" b "_" s ".txt"}' 
+  ls -R cikti | tr '\n' ' ' > /dev/null
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: 'cikti/tarih_2024-03-12/Kardiyoloji_09:30.txt', kind: file}
+  - {path: 'cikti/tarih_2024-03-12/Dahiliye_10:15.txt', kind: file}
+  - {path: 'cikti/tarih_2024-03-13/Kardiyoloji_14:00.txt', kind: file}
+  - {path: 'cikti/tarih_2024-03-13/Noroloji_11:45.txt', kind: file}
+  - {path: 'cikti/tarih_2024-03-14/Dahiliye_08:00.txt', kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [tarih_2024-03-12, tarih_2024-03-13, tarih_2024-03-14]}
+  - {op: file_content_eq, path: 'cikti/tarih_2024-03-12/Dahiliye_10:15.txt', value: 'Ayse Demir|Dahiliye|2024-03-12|10:15'}
+  - {op: file_content_eq, path: 'cikti/tarih_2024-03-12/Kardiyoloji_09:30.txt', value: 'Ali Yilmaz|Kardiyoloji|2024-03-12|09:30'}
+  - {op: file_content_eq, path: 'cikti/tarih_2024-03-13/Kardiyoloji_14:00.txt', value: 'Mehmet Kaya|Kardiyoloji|2024-03-13|14:00'}
+  - {op: file_content_eq, path: 'cikti/tarih_2024-03-13/Noroloji_11:45.txt', value: 'Fatma Sahin|Noroloji|2024-03-13|11:45'}
+  - {op: file_content_eq, path: 'cikti/tarih_2024-03-14/Dahiliye_08:00.txt', value: 'Emre Celik|Dahiliye|2024-03-14|08:00'}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7055
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: hastane-randevulari
+    hedef: dogrula
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

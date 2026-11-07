@@ -1,0 +1,286 @@
+id: gen-k-9528-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 26
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) bank/node.py dosyasındaki make_ledger fonksiyonunu, entries.txt içindeki hareketleri bağlı liste üzerinde tutan ve her çağrıldığında bağımsız yeni bir defter döndürecek şekilde tamamla.
+
+  2) bank/node.py dosyasındaki make_filter fonksiyonunu, verilen eşik değerinin altında kalan işlemleri eleyen bir süzgeç üretecek şekilde tamamla.
+
+  3) bank/report.py dosyasındaki build_report fonksiyonunu, süzülen hareketlerin id ile tutar çiftlerini sarmalayan bir closure sözlüğü ile birlikte toplam tutarı döndürecek şekilde tamamla.
+
+  4) bank/report.py dosyasındaki balance fonksiyonunu, tüm hareketlerin toplamını verecek şekilde tamamla.
+
+setup: |
+  mkdir -p bank
+  cat > bank/node.py <<'NODE'
+  class Node:
+      def __init__(self, txn_id, amount, next_node=None):
+          self.txn_id = txn_id
+          self.amount = amount
+          self.next = next_node
+
+
+  class TransactionList:
+      def __init__(self):
+          self.head = None
+          self._size = 0
+
+      def append(self, txn_id, amount):
+          node = Node(txn_id, amount)
+          if self.head is None:
+              self.head = node
+          else:
+              cur = self.head
+              while cur.next is not None:
+                  cur = cur.next
+              cur.next = node
+          self._size += 1
+          return node
+
+      def size(self):
+          return self._size
+
+      def to_list(self):
+          out = []
+          cur = self.head
+          while cur is not None:
+              out.append((cur.txn_id, cur.amount))
+              cur = cur.next
+          return out
+
+
+  def make_ledger():
+      raise NotImplementedError
+
+
+  def make_filter(threshold):
+      raise NotImplementedError
+  NODE
+  cat > bank/report.py <<'REPORT'
+  from bank.node import make_ledger, make_filter
+
+
+  def build_report(entries):
+      raise NotImplementedError
+
+
+  def balance(entries):
+      raise NotImplementedError
+  REPORT
+  cat > entries.txt <<'ENTRIES'
+  t1,100
+  t2,-30
+  t3,250
+  t4,-120
+  t5,40
+  ENTRIES
+
+goal_tr: >
+  entries.txt icindeki hareketleri bagli liste uzerinde tutan bir banka
+  defteri kur; make_ledger her cagrida bagimsiz bir defter dondursun,
+  make_filter esik degerinin altindaki islemleri eleyen bir suzgec uretsin
+  ve build_report suzulen hareketlerin id ile tutar ciftlerini sarmalayan
+  bir closure sozlugu ile birlikte toplam tutari dondursun; balance ise tum
+  hareketlerin toplamini versin.
+
+reference_solution: |
+  cat > bank/node.py <<'NODE'
+  class Node:
+      def __init__(self, txn_id, amount, next_node=None):
+          self.txn_id = txn_id
+          self.amount = amount
+          self.next = next_node
+
+
+  class TransactionList:
+      def __init__(self):
+          self.head = None
+          self._size = 0
+
+      def append(self, txn_id, amount):
+          node = Node(txn_id, amount)
+          if self.head is None:
+              self.head = node
+          else:
+              cur = self.head
+              while cur.next is not None:
+                  cur = cur.next
+              cur.next = node
+          self._size += 1
+          return node
+
+      def size(self):
+          return self._size
+
+      def to_list(self):
+          out = []
+          cur = self.head
+          while cur is not None:
+              out.append((cur.txn_id, cur.amount))
+              cur = cur.next
+          return out
+
+
+  def make_ledger():
+      ledger = TransactionList()
+
+      def append(txn_id, amount):
+          return ledger.append(txn_id, amount)
+
+      def snapshot():
+          return ledger.to_list()
+
+      def total():
+          acc = 0
+          cur = ledger.head
+          while cur is not None:
+              acc += cur.amount
+              cur = cur.next
+          return acc
+
+      return {"append": append, "snapshot": snapshot, "total": total}
+
+
+  def make_filter(threshold):
+      def keep(txn_id, amount):
+          return amount >= threshold
+      return keep
+  NODE
+  cat > bank/report.py <<'REPORT'
+  from bank.node import make_ledger, make_filter
+
+
+  def build_report(entries):
+      ledger = make_ledger()
+      keep = make_filter(0)
+      for txn_id, amount in entries:
+          ledger["append"](txn_id, amount)
+      kept = [pair for pair in ledger["snapshot"]() if keep(pair[0], pair[1])]
+      total = 0
+      for _, amount in kept:
+          total += amount
+
+      def render():
+          return ";".join("%s:%d" % (tid, amt) for tid, amt in kept)
+
+      return {"rows": kept, "total": total, "render": render}
+
+
+  def balance(entries):
+      ledger = make_ledger()
+      for txn_id, amount in entries:
+          ledger["append"](txn_id, amount)
+      return ledger["total"]()
+  REPORT
+
+ara_adim: |
+  cat > bank/node.py <<'NODE'
+  class Node:
+      def __init__(self, txn_id, amount, next_node=None):
+          self.txn_id = txn_id
+          self.amount = amount
+          self.next = next_node
+
+
+  class TransactionList:
+      def __init__(self):
+          self.head = None
+          self._size = 0
+
+      def append(self, txn_id, amount):
+          node = Node(txn_id, amount)
+          if self.head is None:
+              self.head = node
+          else:
+              cur = self.head
+              while cur.next is not None:
+                  cur = cur.next
+              cur.next = node
+          self._size += 1
+          return node
+
+      def size(self):
+          return self._size
+
+      def to_list(self):
+          out = []
+          cur = self.head
+          while cur is not None:
+              out.append((cur.txn_id, cur.amount))
+              cur = cur.next
+          return out
+
+
+  def make_ledger():
+      ledger = TransactionList()
+
+      def append(txn_id, amount):
+          return ledger.append(txn_id, amount)
+
+      def snapshot():
+          return ledger.to_list()
+
+      def total():
+          acc = 0
+          cur = ledger.head
+          while cur is not None:
+              acc += cur.amount
+              cur = cur.next
+          return acc
+
+      return {"append": append, "snapshot": snapshot, "total": total}
+
+
+  def make_filter(threshold):
+      def keep(txn_id, amount):
+          return amount >= threshold
+      return keep
+  NODE
+
+outputs:
+  - {path: bank/report.py, kind: program, run: 'python3 -c ''from bank.report import build_report as f; e=[("t1",100),("t2",-30),("t3",250)]; r=f(e); assert r["rows"]==[("t1",100),("t3",250)], r["rows"]; assert r["total"]==350, r["total"]; assert r["render"]()=="t1:100;t3:250", r["render"](); print("TAMAM")'''}
+  - {path: bank/node.py, kind: program, run: 'python3 -c ''from bank.node import make_ledger as L, make_filter as F; a=L(); b=L(); a["append"]("x",5); assert a["snapshot"]()==[("x",5)]; assert b["snapshot"]()==[], b["snapshot"](); assert a["total"]()==5; k=F(0); assert k("y",-1) is False; assert k("z",0) is True; print("ILERLEME-TAMAM")'''}
+  - {path: bank/report.py, kind: program, run: 'python3 -c ''from bank.report import balance as f; assert f([("a",10),("b",-4),("c",6)])==12, f([("a",10),("b",-4),("c",6)]); assert f([])==0; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from bank.node import make_ledger as L, make_filter as F; a=L(); b=L(); a["append"]("x",5); assert a["snapshot"]()==[("x",5)]; assert b["snapshot"]()==[], b["snapshot"](); assert a["total"]()==5; k=F(0); assert k("y",-1) is False; assert k("z",0) is True; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from bank.report import build_report as f; e=[("t1",100),("t2",-30),("t3",250)]; r=f(e); assert r["rows"]==[("t1",100),("t3",250)], r["rows"]; assert r["total"]==350, r["total"]; assert r["render"]()=="t1:100;t3:250", r["render"](); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from bank.report import balance as f; assert f([("a",10),("b",-4),("c",6)])==12, f([("a",10),("b",-4),("c",6)]); assert f([])==0; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9528
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: banka-hareketleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 10
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: bagli-liste
+      karmasiklik: derin
+      kalip: closure-fabrika
+      akis: bellek-ici
+      topoloji: iki-modul-zincir
+      zincir: 3
+      regresyon: true
+      bagimli: true
+      kesif_zor: true

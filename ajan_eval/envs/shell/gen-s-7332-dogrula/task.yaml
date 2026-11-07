@@ -1,0 +1,71 @@
+id: gen-s-7332-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  yorumlar dizin agacindaki her dosyayı incele; ikinci alanı 4 veya 5 olan kayıtların dosya adlarını gecerli.txt dosyasına yaz. Ardından gecerli.txt içeriğini beklenen.txt ile karşılaştır ve yalnızca sapan satır sayısını sapma.txt dosyasına yaz. Çalışma dizini /workspace.
+
+  Şu şartlar sağlanmalı:
+  - gecerli.txt yorumlar dizin ağacındaki tüm dosyalar taranarak oluşturulmalı.
+  - gecerli.txt yalnızca ikinci alanı 4 veya 5 olan kayıtların dosya adlarını içermeli.
+  - sapma.txt yalnızca sapan satır sayısını içermeli; başka metin ya da açıklama bulunmamalı.
+  - sapma.txt içeriği yalnızca bir sayı olmalı.
+  - beklenen.txt karşılaştırmada kullanılmalı.
+
+setup: |
+  mkdir -p yorumlar/ocak yorumlar/subat
+  printf 'U01|5|hizli kargo tesekkurler\n' > yorumlar/ocak/a.txt
+  printf 'U02|4|urun guzel paket saglam\n' > yorumlar/ocak/b.txt
+  printf 'U03|2|gec geldi uzgunum\r\n' > yorumlar/subat/c.txt
+  printf 'U04|5|mukemmel hizmet\r\n' > yorumlar/subat/d.txt
+  printf 'U05|1|bozuk cikti iade\r\n' > yorumlar/subat/e.txt
+
+goal_tr: >
+  yorumlar dizin agacindaki her dosyada ikinci alani 4 veya 5 olan
+  kayitlarin dosya adlarini listeleyip, bu listeyi beklenen.txt ile
+  karsilastir ve sadece sapan satir sayisini sapma.txt dosyasina yaz
+
+reference_solution: |
+  find yorumlar -type f -print | sort | while read -r f; do awk -F'|' '$2==4 || $2==5 {print FILENAME; exit}' "$f"; done > gecerli.txt
+  printf 'yorumlar/ocak/a.txt\nyorumlar/ocak/b.txt\nyorumlar/subat/d.txt\n' > beklenen.txt
+  comm -3 gecerli.txt beklenen.txt | sed 's/^\t//' > sapma_listesi.txt
+  diff <(cat gecerli.txt) <(cat beklenen.txt) > fark.txt; wc -l < sapma_listesi.txt > sapma.txt
+
+outputs:
+  - {path: sapma.txt, kind: file}
+  - {path: gecerli.txt, kind: file}
+  - {path: beklenen.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: beklenen.txt, value: [yorumlar/ocak/a.txt, yorumlar/ocak/b.txt, yorumlar/subat/d.txt]}
+  - {op: file_lines_eq, path: gecerli.txt, value: [yorumlar/ocak/a.txt, yorumlar/ocak/b.txt, yorumlar/subat/d.txt]}
+  - {op: file_content_eq, path: sapma.txt, value: '0'}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7332
+    bundle: karsilastir
+    tools:
+    - diff
+    - comm
+    konu: urun-yorumlari
+    hedef: dogrula
+    girdi: sabit-genislik
+    kaynak: dizin-agaci
+    cikti: tek-sayi
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: crlf
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

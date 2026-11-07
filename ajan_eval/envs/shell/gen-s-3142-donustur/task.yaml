@@ -1,0 +1,73 @@
+id: gen-s-3142-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  loglar klasöründeki tüm .tsv dosyalarını ele al. Bu dosyalardaki başlık satırlarını atla ve geri kalan her veri satırını, mesaj alanı ters çevrilmiş, ayrıca seviye ve ts alanlarını içeren bir JSON nesnesine dönüştür. Elde edilen tüm nesneleri geçerli bir JSON dizisi olarak ozet.json dosyasına yaz; dizide her satır için bir nesne bulunsun.
+
+setup: |
+  mkdir -p loglar
+  cat > loglar/sunucu_a.tsv <<'TSV'
+  ts	seviye	mesaj
+  1700000001	HATA	disk dolu
+  1700000002	BILGI	servis basladi
+  1700000003	UYARI	bellek az
+  TSV
+  cat > loglar/sunucu_b.tsv <<'TSV'
+  ts	seviye	mesaj
+  1700000004	HATA	baglanti koptu
+  1700000005	BILGI	istek tamam
+  1700000006	HATA	zaman asimi
+  TSV
+  cat > loglar/sunucu_c.tsv <<'TSV'
+  ts	seviye	mesaj
+  1700000007	UYARI	gecikme yuksek
+  1700000008	BILGI	saglik kontrolu
+  TSV
+
+goal_tr: >
+  loglar klasorundeki tum .tsv dosyalarindaki baslik satirlarini atlayip her
+  veri satirini ters cevrilmis mesaj alani, seviye ve ts alanlarindan olusan
+  bir JSON nesnesi haline getirip bu nesneleri iceren gecerli bir JSON
+  dizisi olarak ozet.json dosyasina yaz.
+
+reference_solution: |
+  tail -n +2 loglar/*.tsv | cut -f1,2,3 | while IFS=$'\t' read -r ts seviye mesaj; do
+    ters=$(printf '%s' "$mesaj" | rev)
+    printf '{"ts":"%s","seviye":"%s","mesaj":"%s"}\n' "$ts" "$seviye" "$ters"
+  done | paste -sd, - | sed 's/^/[/; s/$/]/' > ozet.json
+
+outputs:
+  - {path: ozet.json, kind: json}
+
+checks:
+  - {op: json_eq, path: ozet.json, value: [{ts: ==> loglar/sunucu_a.tsv <==, seviye: '', mesaj: ''}, {ts: '1700000001', seviye: HATA, mesaj: ulod ksid}, {ts: '1700000002', seviye: BILGI, mesaj: idalsab sivres}, {ts: '1700000003', seviye: UYARI, mesaj: za kelleb}, {ts: '', seviye: '', mesaj: ''}, {ts: ==> loglar/sunucu_b.tsv <==, seviye: '', mesaj: ''}, {ts: '1700000004', seviye: HATA, mesaj: utpok itnalgab}, {ts: '1700000005', seviye: BILGI, mesaj: mamat ketsi}, {ts: '1700000006', seviye: HATA, mesaj: imisa namaz}, {ts: '', seviye: '', mesaj: ''}, {ts: ==> loglar/sunucu_c.tsv <==, seviye: '', mesaj: ''}, {ts: '1700000007', seviye: UYARI, mesaj: keskuy emkiceg}, {ts: '1700000008', seviye: BILGI, mesaj: ulortnok kilgas}]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3142
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: sunucu-loglari
+    hedef: donustur
+    girdi: tsv
+    kaynak: cok-dosya
+    cikti: json
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

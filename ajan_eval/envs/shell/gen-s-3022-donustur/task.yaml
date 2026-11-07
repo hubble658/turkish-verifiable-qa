@@ -1,0 +1,66 @@
+id: gen-s-3022-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  envanter dizinindeki her raf için, envanter/raflar.txt dosyasında o rafa yazılı ürünlerin envanter/kodlar.txt dosyasındaki kodlarını sırasıyla birleştirip envanter/raf1.kod ve envanter/raf2.kod dosyalarını oluştur. Her dosyada ürün kodları virgülsüz olarak yan yana dursun ve dosya sonunda newline bulunmasın.
+
+setup: |
+  mkdir -p envanter/raf1 envanter/raf2
+  printf 'urun,adet,fiyat\nkalem,12,5\nsilgi,7,3\n' > envanter/raf1/stok.csv
+  printf 'urun,adet,fiyat\ndefter,4,20\ncetvel,9,2\n' > envanter/raf2/stok.csv
+  printf 'raf1:kalem,silgi\nraf2:defter,cetvel\n' > envanter/raflar.txt
+  printf 'kalem=K\nsilgi=S\ndefter=D\ncetvel=C' > envanter/kodlar.txt
+
+goal_tr: >
+  envanter dizinindeki her raf icin, raflar.txt'de o rafa yazili urunlerin
+  kodlar.txt'deki kodlarini sirasiyla birlestirip envanter/<raf>.kod
+  dosyasina yaz; her dosyada urun kodlari virgulsuz yan yana ve dosya
+  sonunda newline olmadan dursun.
+
+reference_solution: |
+  cut -d: -f1 envanter/raflar.txt > /tmp/raflar
+  cut -d: -f2 envanter/raflar.txt > /tmp/urunler
+  paste -d'\n' /tmp/raflar /tmp/urunler | while IFS= read -r raf; do
+    IFS= read -r liste
+    printf '%s' "$liste" | tr ',' '\n' | while IFS= read -r urun; do
+      grep "^$urun=" envanter/kodlar.txt | cut -d= -f2 | tr -d '\n'
+    done > "envanter/$raf.kod"
+  done
+
+outputs:
+  - {path: envanter/raf1.kod, kind: file}
+  - {path: envanter/raf2.kod, kind: file}
+
+checks:
+  - {op: file_content_eq, path: envanter/raf1.kod, value: K}
+  - {op: file_content_eq, path: envanter/raf2.kod, value: D}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3022
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: envanter
+    hedef: donustur
+    girdi: json
+    kaynak: dizin-agaci
+    cikti: birden-cok-dosya
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: son-newline-yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

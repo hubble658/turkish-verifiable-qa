@@ -1,0 +1,108 @@
+id: gen-k-8096-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  shift/roster.py dosyasındaki build_roster fonksiyonunu düzelt. Fonksiyon, her çalışanın yalnızca Pazar (SUN) dışındaki vardiyalarının saat toplamını doğru şekilde döndürmeli. shift/parse.py ve shifts.txt dosyaları olduğu gibi kalmalı; yalnızca shift/roster.py içindeki build_roster fonksiyonu bu davranışı verecek biçimde güncellenmeli.
+
+setup: |
+  mkdir -p shift
+  cat > shift/parse.py <<'PARSE'
+  def parse_shifts(text):
+      rows = []
+      for line in text.strip().splitlines():
+          parts = line.split(':')
+          rows.append((parts[0], parts[1], parts[2]))
+      return rows
+  PARSE
+  cat > shift/roster.py <<'ROSTER'
+  from shift.parse import parse_shifts
+
+
+  def build_roster(text):
+      people = []
+      for name, day, hours in parse_shifts(text):
+          if name not in people:
+              people.append(name)
+      roster = {}
+      for name in people:
+          roster[name] = 0
+      for name, day, hours in parse_shifts(text):
+          roster[name] = roster[name] + int(hours)
+      return roster
+  ROSTER
+  cat > shifts.txt <<'DATA'
+  ada:MON:8
+  bora:TUE:6
+  ada:WED:4
+  cem:MON:5
+  bora:SUN:7
+  cem:FRI:3
+  DATA
+
+goal_tr: >
+  shift/roster.py icindeki build_roster fonksiyonunu, her calisanin yalnizca
+  Pazar (SUN) disindaki vardiyalarinin saat toplamini dogru dondurecek
+  bicimde duzelt.
+
+reference_solution: |
+  cat > shift/roster.py <<'ROSTER'
+  from shift.parse import parse_shifts
+
+
+  def build_roster(text):
+      people = []
+      for name, day, hours in parse_shifts(text):
+          if name not in people:
+              people.append(name)
+      roster = {}
+      for name in people:
+          roster[name] = 0
+      for name, day, hours in parse_shifts(text):
+          if day != "SUN":
+              roster[name] += int(hours)
+      return roster
+  ROSTER
+
+outputs:
+  - {path: shift/roster.py, kind: program, run: 'python3 -c ''from shift.roster import build_roster as f; t=open("shifts.txt").read(); r=f(t); assert r=={"ada":12,"bora":6,"cem":8}, r; assert f("ada:SUN:9\nada:MON:2\n")=={"ada":2}, f("ada:SUN:9\nada:MON:2\n"); assert f("x:MON:1\ny:SUN:5\n")=={"x":1,"y":0}, f("x:MON:1\ny:SUN:5\n"); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from shift.roster import build_roster as f; t=open("shifts.txt").read(); r=f(t); assert r=={"ada":12,"bora":6,"cem":8}, r; assert f("ada:SUN:9\nada:MON:2\n")=={"ada":2}, f("ada:SUN:9\nada:MON:2\n"); assert f("x:MON:1\ny:SUN:5\n")=={"x":1,"y":0}, f("x:MON:1\ny:SUN:5\n"); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8096
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: vardiya-cizelgesi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kapsam-hatasi
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: cok-dosya-birlestirme
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

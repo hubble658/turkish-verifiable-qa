@@ -1,0 +1,77 @@
+id: gen-s-3105-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) envanter dizin ağacındaki tüm stok.tsv dosyalarını tek bir arada birleştir.
+  2) Birleşen verilerdeki her ürün için toplam stok miktarını hesapla.
+  3) Her ürün için toplam değeri, stok ile fiyatı çarparak hesapla.
+  4) Ürünleri ürün adına göre artan sırada sırala.
+  5) Sonucu ozet.json dosyasına JSON dizisi olarak yaz; her ürün için ad, toplam stok ve toplam değer alanları yer alsın.
+
+setup: |
+  mkdir -p envanter/bolge_a envanter/bolge_b envanter/bolge_c
+  cat > envanter/bolge_a/stok.tsv <<'TSV'
+  urun	stok	fiyat
+  kalem	12	5
+  defter	3	25
+  silgi	40	2
+  TSV
+  cat > envanter/bolge_b/stok.tsv <<'TSV'
+  urun	stok	fiyat
+  kalem	8	5
+  defter	10	25
+  cetvel	7	15
+  TSV
+  cat > envanter/bolge_c/stok.tsv <<'TSV'
+  urun	stok	fiyat
+  kalem	5	5
+  silgi	20	2
+  cetvel	4	15
+  TSV
+
+goal_tr: >
+  envanter dizin agacindaki tum stok.tsv dosyalarini birlestirip her urun
+  icin toplam stok ve toplam degeri (stok carpi fiyat) hesaplayarak urun
+  adina gore artan sirada ozet.json dosyasina JSON dizisi olarak yaz
+
+reference_solution: |
+  find envanter -name 'stok.tsv' -print | sort | xargs tail -n +2 > /tmp/birlesik.tsv
+  sort -k1,1 /tmp/birlesik.tsv | awk -F'\t' '{stok[$1]+=$2; deger[$1]+=$2*$3} END {for (u in stok) printf "%s\t%d\n", u, deger[u]}' | sort -k1,1 > /tmp/deger.tsv
+  sort -k1,1 /tmp/birlesik.tsv | awk -F'\t' '{stok[$1]+=$2} END {for (u in stok) printf "%s\t%d\n", u, stok[u]}' | sort -k1,1 > /tmp/stok.tsv
+  join -t "$(printf '\t')" /tmp/stok.tsv /tmp/deger.tsv | awk -F'\t' 'BEGIN {printf "["} {printf "%s{\"urun\": \"%s\", \"stok\": %d, \"deger\": %d}", (NR>1?",":""), $1, $2, $3} END {printf "]\n"}' > ozet.json
+
+outputs:
+  - {path: ozet.json, kind: json, run: cat ozet.json}
+
+checks:
+  - {op: json_eq, path: ozet.json, value: [{urun: '', stok: 0, deger: 0}, {urun: ==> envanter/bolge_a/stok.tsv <==, stok: 0, deger: 0}, {urun: ==> envanter/bolge_b/stok.tsv <==, stok: 0, deger: 0}, {urun: ==> envanter/bolge_c/stok.tsv <==, stok: 0, deger: 0}, {urun: cetvel, stok: 11, deger: 165}, {urun: defter, stok: 13, deger: 325}, {urun: kalem, stok: 25, deger: 125}, {urun: silgi, stok: 60, deger: 120}]}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3105
+    bundle: birlestir
+    tools:
+    - join
+    - sort
+    konu: envanter
+    hedef: ozetle
+    girdi: tsv
+    kaynak: dizin-agaci
+    cikti: json
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

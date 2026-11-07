@@ -1,0 +1,74 @@
+id: gen-s-7061-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Girdi klasöründeki .tsv dosyalarındaki her veri satırını sehir, tarih, olcum alanlarıyla tek bir JSON dizisine dönüştürüp ozet.json dosyasına yaz; başlık satırlarını ve .tsv dışındaki dosyaları atla.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/istanbul.tsv <<'TSV'
+  sehir	tarih	olcum
+  istanbul	20240101	12
+  istanbul	20240102	15
+  istanbul	20240103	9
+  TSV
+  cat > girdi/ankara.tsv <<'TSV'
+  sehir	tarih	olcum
+  ankara	20240101	3
+  ankara	20240102	-4
+  ankara	20240103	7
+  TSV
+  cat > girdi/izmir.tsv <<'TSV'
+  sehir	tarih	olcum
+  izmir	20240101	18
+  izmir	20240102	21
+  izmir	20240103	16
+  TSV
+  cat > girdi/notlar.txt <<'TXT'
+  bu dosya tsv degildir
+  sadece tuzak
+  TXT
+
+goal_tr: >
+  girdi klasorundeki .tsv dosyalarindaki her veri satirini sehir,tarih,olcum
+  alanlariyla tek bir JSON dizisine donusturup ozet.json dosyasina yaz;
+  baslik satirlarini ve .tsv disindaki dosyalari atla.
+
+reference_solution: |
+  for f in girdi/*.tsv; do tail -n +2 "$f"; done | cut -f1-3 | rev | cut -f1-3 | rev | awk -F'\t' 'BEGIN{print "["} {printf "%s{\"sehir\":\"%s\",\"tarih\":\"%s\",\"olcum\":%s}", (NR>1?",":""), $1, $2, $3} END{print "\n]"}' > ozet.json
+
+outputs:
+  - {path: ozet.json, kind: json}
+
+checks:
+  - {op: json_eq, path: ozet.json, value: [{sehir: ankara, tarih: '20240101', olcum: 3}, {sehir: ankara, tarih: '20240102', olcum: -4}, {sehir: ankara, tarih: '20240103', olcum: 7}, {sehir: istanbul, tarih: '20240101', olcum: 12}, {sehir: istanbul, tarih: '20240102', olcum: 15}, {sehir: istanbul, tarih: '20240103', olcum: 9}, {sehir: izmir, tarih: '20240101', olcum: 18}, {sehir: izmir, tarih: '20240102', olcum: 21}, {sehir: izmir, tarih: '20240103', olcum: 16}]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7061
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: hava-durumu-kayitlari
+    hedef: donustur
+    girdi: tsv
+    kaynak: cok-dosya
+    cikti: json
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

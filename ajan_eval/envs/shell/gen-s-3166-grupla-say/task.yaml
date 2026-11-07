@@ -1,0 +1,79 @@
+id: gen-s-3166-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) notlar dizinindeki tüm csv dosyalarındaki öğrenci, ders, not satırlarını birleştir; boş satırları atla.
+
+  2) Her öğrenci için toplam not sayısını ve notların toplamını hesapla.
+
+  3) Sonuçları "ogrenci sayi toplam" biçiminde, öğrenciye göre alfabetik sıralı olarak ozet.txt dosyasına yaz.
+
+  4) ozet.txt dosyasındaki satır sayısını satir_sayisi.txt dosyasına yaz.
+
+setup: |
+  mkdir -p notlar
+  cat > notlar/notlar_a.csv <<'CSV'
+  Ali,Matematik,85
+  Ayse,Fizik,90
+  Ali,Fizik,70
+  CSV
+  cat > notlar/notlar_b.csv <<'CSV'
+  Ayse,Matematik,95
+  Mehmet,Matematik,60
+
+  Ali,Kimya,80
+  CSV
+  cat > notlar/notlar_c.csv <<'CSV'
+  Mehmet,Fizik,75
+  Ayse,Kimya,88
+  CSV
+
+goal_tr: >
+  notlar dizinindeki tum csv dosyalarindaki ogrenci,ders,not satirlarini
+  birlestirip bos satirlari atlayarak her ogrenci icin toplam not sayisini
+  ve notlarin toplamini "ogrenci sayi toplam" biciminde ogrenciye gore
+  alfabetik sirali olarak ozet.txt dosyasina yaz
+
+reference_solution: |
+  find notlar -type f -name '*.csv' | sort | xargs cat | sed '/^[[:space:]]*$/d' > birlesik.csv
+  awk -F, '{sayi[$1]++; toplam[$1]+=$3} END {for (o in sayi) print o, sayi[o], toplam[o]}' birlesik.csv | sort > ozet.txt
+  wc -l < ozet.txt > satir_sayisi.txt
+  rm birlesik.csv
+
+outputs:
+  - {path: ozet.txt, kind: lines}
+  - {path: satir_sayisi.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: ozet.txt, value: [Ali 3 235, Ayse 3 273, Mehmet 2 135]}
+  - {op: file_content_eq, path: satir_sayisi.txt, value: '3'}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3166
+    bundle: dizin-istatistik
+    tools:
+    - wc
+    - find
+    konu: ogrenci-notlari
+    hedef: grupla-say
+    girdi: csv
+    kaynak: cok-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,64 @@
+id: gen-s-7245-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi klasöründeki her not_*.txt dosyasındaki satırlarda öğrenci bilgileri sabit genişlikte yer alıyor. Her satırın ilk 5 karakteri öğrenci numarasını, son 3 karakteri ise notu içeriyor. Bu dosyaların her biri için, numarayı ters çevirip notla "NUMARA-NOT" biçiminde birleştirerek cikti klasörüne aynı ada sahip bir dosya yaz; örneğin girdi/not_1.txt için cikti/not_1.txt oluşsun. Her çıktı dosyasında satırlar girdi dosyasındaki sırayla ve her satırda yalnızca bir "NUMARA-NOT" kaydı olacak şekilde olsun.
+
+setup: |
+  mkdir -p girdi cikti
+  i=1
+  while [ $i -le 12 ]; do
+    printf 'ID%03d%-10s%03d\n' "$i" "OGRENCI" "$((i*7))" > "girdi/not_$i.txt"
+    i=$((i+1))
+  done
+
+goal_tr: >
+  girdi altindaki her not_*.txt dosyasindaki sabit genislikli satirlardan
+  ilk 5 karakterlik ogrenci numarasini ve son 3 karakterlik notu ayiklayip
+  "NUMARA-NOT" biciminde birlestirerek cikti altinda ayni ada sahip
+  dosyalara yaz; numara ters cevrilmis olarak yazilsin
+
+reference_solution: |
+  for f in girdi/not_*.txt; do
+    b=$(basename "$f")
+    cut -c1-5 "$f" | rev > /tmp/numara.txt
+    cut -c16-18 "$f" > /tmp/not.txt
+    paste -d'-' /tmp/numara.txt /tmp/not.txt > "cikti/$b"
+  done
+  rm -f /tmp/numara.txt /tmp/not.txt
+
+outputs:
+  - {path: cikti, kind: dir}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [not_1.txt, not_10.txt, not_11.txt, not_12.txt, not_2.txt, not_3.txt, not_4.txt, not_5.txt, not_6.txt, not_7.txt, not_8.txt, not_9.txt]}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7245
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: ogrenci-notlari
+    hedef: ayikla
+    girdi: sabit-genislik
+    kaynak: cok-dosya
+    cikti: yeniden-adlandirilmis
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: olcek
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

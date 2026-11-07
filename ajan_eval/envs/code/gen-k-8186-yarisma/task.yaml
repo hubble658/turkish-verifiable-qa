@@ -1,0 +1,149 @@
+id: gen-k-8186-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  weblog/query.py'ye ortak_yollar(text) ve ozel_yollar(text) fonksiyonlarını ekle; ortak_yollar en az iki oturumda görülen yolları oturum sayısına göre azalan, eşitlikte ada göre artan sırada, ozel_yollar ise yalnızca tek oturumda kalan yolları döndürsün.
+
+setup: |
+  mkdir -p weblog
+  cat > weblog/events.py <<'EVENTS'
+  from dataclasses import dataclass, field
+
+
+  @dataclass(frozen=True)
+  class Event:
+      ip: str
+      path: str
+      status: int
+      session: str
+      tags: tuple = field(default=())
+
+      def is_error(self):
+          return self.status >= 400
+  EVENTS
+  cat > weblog/normalize.py <<'NORM'
+  from weblog.events import Event
+
+
+  def parse_line(line):
+      line = line.strip()
+      if not line or line.startswith("#"):
+          return None
+      parts = line.split("|")
+      if len(parts) != 5:
+          raise ValueError("bad record: " + line)
+      ip, path, status, session, tags = parts
+      tagset = tuple(sorted(t for t in tags.split(",") if t))
+      return Event(ip=ip, path=path, status=int(status), session=session, tags=tagset)
+
+
+  def load(text):
+      out = []
+      for line in text.splitlines():
+          ev = parse_line(line)
+          if ev is not None:
+              out.append(ev)
+      return out
+  NORM
+  cat > weblog/query.py <<'QUERY'
+  from weblog.normalize import load
+
+
+  def paths_for_session(text, session):
+      return {ev.path for ev in load(text) if ev.session == session}
+  QUERY
+  cat > log.txt <<'LOG'
+  10.0.0.1|/a|200|s1|web
+  10.0.0.2|/b|500|s1|web,api
+  10.0.0.1|/a|200|s2|web
+  10.0.0.3|/c|404|s2|api
+  10.0.0.4|/d|200|s3|
+  # ignore me
+  10.0.0.5|/a|301|s3|web
+  LOG
+
+goal_tr: >
+  weblog/query.py icinde, verilen log metnindeki tum oturumlarin yol
+  kumelerini karsilastiran ve yalnizca en az iki oturumda gorulen yollari,
+  her yol icin o yolu goren oturum sayisina gore azalan sirada (esitlikte
+  yol adina gore artan) donduren ortak_yollar(text) fonksiyonunu yaz; ayrica
+  yalnizca tek oturumda kalan yollari donduren ozel_yollar(text)
+  fonksiyonunu yaz.
+
+reference_solution: |
+  cat > weblog/query.py <<'QUERY'
+  from weblog.normalize import load
+
+
+  def _session_paths(text):
+      table = {}
+      for ev in load(text):
+          table.setdefault(ev.session, set()).add(ev.path)
+      return table
+
+
+  def ortak_yollar(text):
+      table = _session_paths(text)
+      counts = {}
+      for paths in table.values():
+          for p in paths:
+              counts[p] = counts.get(p, 0) + 1
+      shared = [(p, c) for p, c in counts.items() if c >= 2]
+      shared.sort(key=lambda pc: (-pc[1], pc[0]))
+      return shared
+
+
+  def ozel_yollar(text):
+      table = _session_paths(text)
+      counts = {}
+      for paths in table.values():
+          for p in paths:
+              counts[p] = counts.get(p, 0) + 1
+      only = [p for p, c in counts.items() if c == 1]
+      only.sort()
+      return only
+  QUERY
+
+outputs:
+  - {path: weblog/query.py, kind: program, run: 'python3 -c ''from weblog.query import ortak_yollar as o, ozel_yollar as z; t=open("log.txt").read(); assert o(t)==[("/a",3),("/b",1)][:1]+[("/b",1)] or o(t)==[("/a",3)], o(t); assert o(t)==[("/a",3)], o(t); assert z(t)==["/b","/c","/d"], z(t); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from weblog.query import ortak_yollar as o, ozel_yollar as z; t=open("log.txt").read(); assert o(t)==[("/a",3),("/b",1)][:1]+[("/b",1)] or o(t)==[("/a",3)], o(t); assert o(t)==[("/a",3)], o(t); assert z(t)==["/b","/c","/d"], z(t); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8186
+    bundle: yarisma
+    tools:
+    - python3
+    konu: web-erisim-loglari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kume-islemleri
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: bellek-ici
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

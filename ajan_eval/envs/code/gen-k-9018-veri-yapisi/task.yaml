@@ -1,0 +1,187 @@
+id: gen-k-9018-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 20
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  session_store/cache.py dosyasındaki make_lru_cache fabrikasını düzelt: kapasite aşıldığında en eski kullanılan girdiyi atmalı, en yeni kullanılanı değil. Ardından session_store/sessions.py dosyasındaki build_session_index fonksiyonunu düzelt; aynı kullanıcı kimliği tekrar geldiğinde önbellek sırası bozulmamalı. get ve put ile snapshot davranışı korunmalı.
+
+setup: |
+  mkdir -p session_store
+  cat > session_store/cache.py <<'CACHE'
+  def make_lru_cache(capacity):
+      store = {}
+      order = []
+
+      def get(key):
+          if key not in store:
+              return None
+          order.remove(key)
+          order.append(key)
+          return store[key]
+
+      def put(key, value):
+          if key in store:
+              order.remove(key)
+          store[key] = value
+          order.append(key)
+          if len(store) > capacity:
+              newest = order.pop()
+              del store[newest]
+
+      def snapshot():
+          return list(order)
+
+      return get, put, snapshot
+  CACHE
+  cat > session_store/sessions.py <<'SESSIONS'
+  from session_store.cache import make_lru_cache
+
+
+  def load_user_ids(path):
+      with open(path) as fh:
+          return [line.strip() for line in fh if line.strip()]
+
+
+  def build_session_index(path, capacity):
+      get, put, snapshot = make_lru_cache(capacity)
+      for user in load_user_ids(path):
+          put(user, len(user))
+      return get, snapshot
+  SESSIONS
+  cat > users.txt <<'USERS'
+  ada
+  bob
+  cy
+  ada
+  dee
+  bob
+  USERS
+
+goal_tr: >
+  session_store/cache.py icindeki make_lru_cache fabrikasini kapasite
+  asilinca en eski kullanilan girdiyi atacak bicimde duzelt; ardindan
+  session_store/sessions.py icindeki build_session_index fonksiyonunu ayni
+  kullanici kimligi tekrar geldiginde onbellek sirasini bozmayacak sekilde
+  duzelt.
+
+reference_solution: |
+  cat > session_store/cache.py <<'CACHE'
+  def make_lru_cache(capacity):
+      store = {}
+      order = []
+
+      def get(key):
+          if key not in store:
+              return None
+          order.remove(key)
+          order.append(key)
+          return store[key]
+
+      def put(key, value):
+          if key in store:
+              order.remove(key)
+          store[key] = value
+          order.append(key)
+          if len(store) > capacity:
+              oldest = order.pop(0)
+              del store[oldest]
+
+      def snapshot():
+          return list(order)
+
+      return get, put, snapshot
+  CACHE
+  cat > session_store/sessions.py <<'SESSIONS'
+  from session_store.cache import make_lru_cache
+
+
+  def load_user_ids(path):
+      with open(path) as fh:
+          return [line.strip() for line in fh if line.strip()]
+
+
+  def build_session_index(path, capacity):
+      get, put, snapshot = make_lru_cache(capacity)
+      seen = set()
+      for user in load_user_ids(path):
+          if user in seen:
+              continue
+          seen.add(user)
+          put(user, len(user))
+      return get, snapshot
+  SESSIONS
+
+ara_adim: |
+  cat > session_store/cache.py <<'CACHE'
+  def make_lru_cache(capacity):
+      store = {}
+      order = []
+
+      def get(key):
+          if key not in store:
+              return None
+          order.remove(key)
+          order.append(key)
+          return store[key]
+
+      def put(key, value):
+          if key in store:
+              order.remove(key)
+          store[key] = value
+          order.append(key)
+          if len(store) > capacity:
+              oldest = order.pop(0)
+              del store[oldest]
+
+      def snapshot():
+          return list(order)
+
+      return get, put, snapshot
+  CACHE
+
+outputs:
+  - {path: session_store/sessions.py, kind: program, run: 'python3 -c ''from session_store.sessions import build_session_index as f; g,s=f("users.txt", 10); assert s()==["ada","bob","cy","dee"], s(); assert g("bob")==3; print("SESSIONS-TAMAM")'''}
+  - {path: session_store/cache.py, kind: program, run: 'python3 -c ''from session_store.cache import make_lru_cache as f; g,p,s=f(2); p("a",1); p("b",2); g("a"); p("c",3); assert s()==["a","c"], s(); assert g("b") is None; assert g("a")==1; print("CACHE-TAMAM")'''}
+  - {path: session_store/sessions.py, kind: program, run: 'python3 -c ''from session_store.sessions import load_user_ids as f; assert f("users.txt")==["ada","bob","cy","ada","dee","bob"], f("users.txt"); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from session_store.cache import make_lru_cache as f; g,p,s=f(2); p("a",1); p("b",2); g("a"); p("c",3); assert s()==["a","c"], s(); assert g("b") is None; assert g("a")==1; print("CACHE-TAMAM")''', value: CACHE-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from session_store.sessions import build_session_index as f; g,s=f("users.txt", 10); assert s()==["ada","bob","cy","dee"], s(); assert g("bob")==3; print("SESSIONS-TAMAM")''', value: SESSIONS-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from session_store.sessions import load_user_ids as f; assert f("users.txt")==["ada","bob","cy","ada","dee","bob"], f("users.txt"); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9018
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: kullanici-oturumlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: zor
+    adim: 7
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: lru-onbellek
+      karmasiklik: orta
+      kalip: closure-fabrika
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

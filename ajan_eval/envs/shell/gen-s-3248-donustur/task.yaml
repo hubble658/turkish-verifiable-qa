@@ -1,0 +1,60 @@
+id: gen-s-3248-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri altındaki sicaklik.csv ve nem.csv dosyalarını sensor_id değerine göre birleştir; yalnızca her iki ölçümde de bulunan sensörler kalsın ve bu sensörlerin değer toplamları yer alsın. Sonucu önce birlesik.csv olarak oluştur, ardından cikti dizini altında sonuc.csv adıyla bulundur.
+
+setup: |
+  mkdir -p veri
+  printf 'sensor_id,deger\nS1,10\nS2,20\nS3,30\n' > veri/sicaklik.csv
+  printf 'sensor_id,deger\nS1,11\nS2,19\nS4,25\n' > veri/nem.csv
+
+goal_tr: >
+  veri altindaki iki CSV dosyasini sensor_id'ye gore birlestirip her iki
+  olcumde de bulunan sensorlerin deger toplamlarini iceren birlesik.csv
+  dosyasini olustur ve bu dosyayi cikti/ altinda sonuc.csv adiyla yeniden
+  adlandirilmis olarak bulundur.
+
+reference_solution: |
+  mkdir -p cikti
+  printf 'sensor_id,toplam\n' > birlesik.csv
+  for i in $(seq 1 1); do
+    join -t, -1 1 -2 1 <(tail -n +2 veri/sicaklik.csv | sort -t, -k1,1) <(tail -n +2 veri/nem.csv | sort -t, -k1,1) | awk -F, '{print $1","$2+$3}' | sort -t, -k1,1 >> birlesik.csv
+  done
+  mv birlesik.csv cikti/sonuc.csv
+
+outputs:
+  - {path: cikti/sonuc.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: cikti/sonuc.csv, value: ['sensor_id,toplam', 'S1,21', 'S2,39']}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3248
+    bundle: uret
+    tools:
+    - printf
+    - seq
+    konu: sensor-olcumleri
+    hedef: donustur
+    girdi: duz-metin
+    kaynak: iki-dosya-capraz
+    cikti: yeniden-adlandirilmis
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: bom
+    bukulme: olcek
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

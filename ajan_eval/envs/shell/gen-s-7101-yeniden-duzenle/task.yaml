@@ -1,0 +1,79 @@
+id: gen-s-7101-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi/personel.ini dosyasındaki her personel için girdi/vardiya.ini içinden ilgili vardiyanın saat aralığını bularak vardiya dizini altında her personelin adıyla bir .ini dosyası oluştur; yani vardiya/ayse.ini, vardiya/mehmet.ini ve vardiya/zeynep.ini dosyaları üretilsin. Her bir dosyada o kişinin adı, rolü ve saat aralığı satır olarak yer alsın. girdi/ içindeki gizli dosyalar atlanmalı ve girdi/personel.ini bu işlem sırasında taşınmış gibi sonradan değişmemeli.
+
+setup: |
+  mkdir -p vardiya girdi
+  cat > girdi/personel.ini <<'INI'
+  [ayse]
+  rol=hemsire
+  vardiya=gunduz
+  [mehmet]
+  rol=hemsire
+  vardiya=gece
+  [zeynep]
+  rol=doktor
+  vardiya=gunduz
+  INI
+  cat > girdi/vardiya.ini <<'INI'
+  gunduz=08:00-16:00
+  gece=16:00-24:00
+  INI
+  touch girdi/.personel.ini.swp
+
+goal_tr: >
+  girdi/personel.ini icindeki her personel icin vardiya.ini'den saat
+  araligini bularak vardiya/ altinda personel adiyla bir .ini dosyasi
+  olustur; her dosyada ad, rol ve saat satirlari olsun, gizli dosyalar
+  atlanip girdi/ icindeki personel.ini tasinmis gibi sonradan degismesin.
+
+reference_solution: |
+  mkdir -p vardiya
+  awk -F= '/^\[/{gsub(/[\[\]]/,"",$0); ad=$0} /^rol=/{rol=$2} /^vardiya=/{print ad" "rol" "$2}' girdi/personel.ini > /tmp/kayit.txt
+  while read ad rol vard; do saat=$(grep "^$vard=" girdi/vardiya.ini | cut -d= -f2); printf 'ad=%s\nrol=%s\nsaat=%s\n' "$ad" "$rol" "$saat" > "vardiya/$ad.ini"; done < /tmp/kayit.txt
+  mv girdi/personel.ini girdi/personel.ini.islenmis
+
+outputs:
+  - {path: vardiya, kind: dir}
+  - {path: vardiya/ayse.ini, kind: file}
+  - {path: vardiya/mehmet.ini, kind: file}
+  - {path: vardiya/zeynep.ini, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: vardiya, value: [ayse.ini, mehmet.ini, zeynep.ini]}
+  - {op: file_lines_eq, path: vardiya/ayse.ini, value: [ad=ayse, rol=hemsire, 'saat=08:00-16:00']}
+  - {op: file_lines_eq, path: vardiya/mehmet.ini, value: [ad=mehmet, rol=hemsire, 'saat=16:00-24:00']}
+  - {op: file_lines_eq, path: vardiya/zeynep.ini, value: [ad=zeynep, rol=doktor, 'saat=08:00-16:00']}
+  - {op: not_exists, path: girdi/personel.ini}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7101
+    bundle: dosya-duzen
+    tools:
+    - mkdir
+    - mv
+    konu: personel-vardiyalari
+    hedef: yeniden-duzenle
+    girdi: ini
+    kaynak: iki-dosya-capraz
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

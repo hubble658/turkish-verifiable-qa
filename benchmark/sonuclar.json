@@ -1,7 +1,7 @@
 {
  "24b": {
   "model": "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
-  "soru": 2700,
+  "soru": 2600,
   "tur": {
    "akrabalik": 59.0,
    "birim_donusumu": 82.0,
@@ -22,7 +22,6 @@
    "solver_orta": 1.0,
    "sql_belediye": 61.0,
    "sql_cikti_tahmini": 4.0,
-   "sql_cognipeer": 67.0,
    "sql_istatistik": 76.0,
    "sql_turspider": 80.0,
    "tarih_hesaplama": 60.0,
@@ -40,22 +39,21 @@
    "solver": 0.5,
    "sql_belediye": 61.0,
    "sql_cikti_tahmini": 4.0,
-   "sql_cognipeer": 67.0,
    "sql_istatistik": 76.0,
    "sql_turspider": 80.0
   },
-  "makro_tur": 63.5,
-  "makro_set": 54.9,
-  "mikro": 63.5,
+  "makro_tur": 63.3,
+  "makro_set": 53.7,
+  "mikro": 63.3,
   "bos": 0,
   "kesilen": 107,
   "puanlayici_hatasi": 0,
   "zaman_asimi": 0,
-  "maliyet_usd": 0.5746
+  "maliyet_usd": 0.5725
  },
  "flash": {
   "model": "deepseek-ai/DeepSeek-V4-Flash-0731",
-  "soru": 2700,
+  "soru": 2600,
   "tur": {
    "akrabalik": 88.0,
    "birim_donusumu": 100.0,
@@ -76,7 +74,6 @@
    "solver_orta": 2.0,
    "sql_belediye": 73.0,
    "sql_cikti_tahmini": 18.0,
-   "sql_cognipeer": 65.0,
    "sql_istatistik": 89.0,
    "sql_turspider": 82.0,
    "tarih_hesaplama": 91.0,
@@ -94,22 +91,21 @@
    "solver": 4.5,
    "sql_belediye": 73.0,
    "sql_cikti_tahmini": 18.0,
-   "sql_cognipeer": 65.0,
    "sql_istatistik": 89.0,
    "sql_turspider": 82.0
   },
-  "makro_tur": 80.7,
-  "makro_set": 69.3,
-  "mikro": 80.7,
+  "makro_tur": 81.3,
+  "makro_set": 69.7,
+  "mikro": 81.3,
   "bos": 0,
   "kesilen": 56,
   "puanlayici_hatasi": 0,
   "zaman_asimi": 0,
-  "maliyet_usd": 0.3866
+  "maliyet_usd": 0.3849
  },
  "flash_dusunen": {
   "model": "deepseek-ai/DeepSeek-V4-Flash-0731",
-  "soru": 2700,
+  "soru": 2600,
   "tur": {
    "akrabalik": 95.0,
    "birim_donusumu": 99.0,
@@ -130,7 +126,6 @@
    "solver_orta": 70.0,
    "sql_belediye": 88.0,
    "sql_cikti_tahmini": 97.0,
-   "sql_cognipeer": 64.0,
    "sql_istatistik": 92.0,
    "sql_turspider": 82.0,
    "tarih_hesaplama": 98.0,
@@ -148,17 +143,16 @@
    "solver": 55.5,
    "sql_belediye": 88.0,
    "sql_cikti_tahmini": 97.0,
-   "sql_cognipeer": 64.0,
    "sql_istatistik": 92.0,
    "sql_turspider": 82.0
   },
-  "makro_tur": 90.9,
-  "makro_set": 85.7,
-  "mikro": 90.9,
+  "makro_tur": 91.9,
+  "makro_set": 87.8,
+  "mikro": 91.9,
   "bos": 3,
   "kesilen": 40,
   "puanlayici_hatasi": 0,
   "zaman_asimi": 0,
-  "maliyet_usd": 2.0427
+  "maliyet_usd": 2.027
  }
 }

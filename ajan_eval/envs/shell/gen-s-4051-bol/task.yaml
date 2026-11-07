@@ -1,0 +1,84 @@
+id: gen-s-4051-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Kafede yoğun bir cuma günüydü; garsonların getirdiği sipariş notları masalara göre karışık bir halde tek bir dosyada birikmiş, akşam raporu için hangi masanın ne yediğini ayrı ayrı görmek imkânsızlaşmıştı. Müdür, 2024 yılına ait kayıtları masa bazında ayırıp her masayı kendi küçük dosyasında tutmamızı istedi ki hesap keserken tek tek uğraşmayalım. Siparisler/2024 dizinindeki, içinde masa sütunu bulunan tüm tsv dosyalarındaki satırları masa numarasına göre ayır ve her grubu siparisler/bolunmus dizinine yaz; her masa için ayrı bir dosya olsun, adları masa_1.tsv, masa_2.tsv, masa_3.tsv ve masa_4.tsv şeklinde olsun, dosyaların ilk sütunu da masa numarası olsun.
+
+setup: |
+  mkdir -p siparisler/2024
+  cat > siparisler/2024/masalar.tsv <<'TSV'
+  masa	urun	adet	fiyat
+  1	corba	2	45
+  2	salata	1	60
+  1	ana_yemek	3	120
+  3	corba	1	45
+  2	ana_yemek	2	120
+  4	tatli	4	35
+  3	salata	2	60
+  1	icecek	3	25
+  TSV
+  cat > siparisler/2024/gunler.tsv <<'TSV'
+  gun	masa	urun	adet
+  pzt	1	corba	2
+  pzt	2	salata	1
+  sal	1	ana_yemek	3
+  sal	3	corba	1
+  TSV
+
+goal_tr: >
+  siparisler/2024 dizinindeki masa sutununu iceren her tsv dosyasini, ilk
+  sutunu masa numarasi olacak sekilde masa_<numara>.tsv adiyla
+  siparisler/bolunmus dizinine ayri ayri yaz
+
+reference_solution: |
+  mkdir -p siparisler/bolunmus
+  cut -f1 siparisler/2024/masalar.tsv | tail -n +2 | sort -u | while read -r m; do
+    { head -n1 siparisler/2024/masalar.tsv; awk -F'\t' -v m="$m" 'NR>1 && $1==m' siparisler/2024/masalar.tsv; } | cut -f2- | tee "siparisler/bolunmus/masa_${m}.tsv" >/dev/null
+  done
+  cut -f1 siparisler/2024/gunler.tsv | tail -n +2 | sort -u | while read -r m; do
+    { head -n1 siparisler/2024/gunler.tsv; awk -F'\t' -v m="$m" 'NR>1 && $2==m' siparisler/2024/gunler.tsv; } | cut -f2- | tee "siparisler/bolunmus/masa_${m}.tsv" >/dev/null
+  done
+
+outputs:
+  - {path: siparisler/bolunmus, kind: dir}
+  - {path: siparisler/bolunmus/masa_1.tsv, kind: file}
+  - {path: siparisler/bolunmus/masa_2.tsv, kind: file}
+  - {path: siparisler/bolunmus/masa_3.tsv, kind: file}
+  - {path: siparisler/bolunmus/masa_4.tsv, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: siparisler/bolunmus, value: [masa_1.tsv, masa_2.tsv, masa_3.tsv, masa_4.tsv, masa_pzt.tsv, masa_sal.tsv]}
+  - {op: file_lines_eq, path: siparisler/bolunmus/masa_1.tsv, value: ["urun\tadet\tfiyat", "corba\t2\t45", "ana_yemek\t3\t120", "icecek\t3\t25"]}
+  - {op: file_lines_eq, path: siparisler/bolunmus/masa_2.tsv, value: ["urun\tadet\tfiyat", "salata\t1\t60", "ana_yemek\t2\t120"]}
+  - {op: file_lines_eq, path: siparisler/bolunmus/masa_3.tsv, value: ["urun\tadet\tfiyat", "corba\t1\t45", "salata\t2\t60"]}
+  - {op: file_lines_eq, path: siparisler/bolunmus/masa_4.tsv, value: ["urun\tadet\tfiyat", "tatli\t4\t35"]}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4051
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: restoran-siparisleri
+    hedef: bol
+    girdi: tsv
+    kaynak: dizin-agaci
+    cikti: yeniden-adlandirilmis
+    kesif: veriye-bak
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,69 @@
+id: gen-s-3222-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Dün akşam bölge müdürüyle konuşurken şubelerin günlük satış rakamlarını tek tek elden geçirmekten şikayet ettik; her şubenin kendi defteri var ve kimse bir araya getirmek istemiyor. Bugün de tam o sırada araya başka işler girdi, öğleden sonra ancak oturabildim. Neyse ki elimde düzenli bir klasör yapısı var: subeler altında merkez ve kuzey adlı iki alt dizin duruyor, her birinin içinde de siparisler.txt dosyaları var; bu dosyalarda ürün adı ve adet bilgileri yer alıyor.
+
+  Bana öyle bir çıktı hazırla ki subeler altındaki her alt dizindeki siparisler.txt dosyasından ürün adı ve adet alanları okunsun, her şube için toplam adet hesaplansın ve sonuç sube-toplam.json adlı dosyaya yazılsın. Bu dosyada her şube için şube adı ile toplam adet birlikte yer alsın ve içerik geçerli bir JSON nesnesi olsun.
+
+setup: |
+  mkdir -p subeler/merkez subeler/kuzey
+  cat > subeler/merkez/siparisler.txt <<'EOF'
+  Adana      |Kebap      |2|120
+  Adana      |Ayran      |3|15
+  Adana      |Kunefe     |1|60
+  EOF
+  cat > subeler/kuzey/siparisler.txt <<'EOF'
+  Urfa       |Lahmacun   |4|40
+  Urfa       |Salata     |2|25
+  Urfa       |Baklava    |1|80
+  EOF
+
+goal_tr: >
+  subeler altindaki her alt dizindeki siparisler.txt dosyasindan urun adi ve
+  adet alanlarini alip, her sube icin toplam adedi hesaplayarak sube adi ve
+  toplam adet iceren gecerli bir JSON nesnesini sube-toplam.json dosyasina
+  yaz.
+
+reference_solution: |
+  awk -F'|' '{gsub(/ /,"",$2); gsub(/ /,"",$3); print $2" "$3}' subeler/merkez/siparisler.txt > merkez.tmp
+  awk -F'|' '{gsub(/ /,"",$2); gsub(/ /,"",$3); print $2" "$3}' subeler/kuzey/siparisler.txt > kuzey.tmp
+  awk '{s+=$2} END{print s}' merkez.tmp > merkez.sum
+  awk '{s+=$2} END{print s}' kuzey.tmp > kuzey.sum
+  printf '{\n  "merkez": %s,\n  "kuzey": %s\n}\n' "$(head -1 merkez.sum)" "$(tail -1 kuzey.sum)" > sube-toplam.json
+
+outputs:
+  - {path: sube-toplam.json, kind: json}
+
+checks:
+  - {op: json_eq, path: sube-toplam.json, value: {merkez: 6, kuzey: 7}}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3222
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: restoran-siparisleri
+    hedef: bol
+    girdi: sabit-genislik
+    kaynak: dizin-agaci
+    cikti: json
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

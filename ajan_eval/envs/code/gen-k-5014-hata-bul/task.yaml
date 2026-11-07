@@ -1,0 +1,110 @@
+id: gen-k-5014-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) sensors/series.py dosyasını aç ve içindeki series_stats fonksiyonunu incele.
+
+  2) series_stats fonksiyonunu, ReadingStream üzerinden gelen her sensör adının ortalama değerini doğru hesaplayacak biçimde düzelt; fonksiyon her sensör adı için o adın değerlerinin ortalamasını döndürsün.
+
+  3) Değişiklikleri sensors/series.py dosyasına kaydet.
+
+setup: |
+  mkdir -p sensors
+  cat > sensors/readings.py <<'READINGS'
+  class ReadingStream:
+      def __init__(self, lines):
+          self._lines = [ln.strip() for ln in lines if ln.strip()]
+          self._i = 0
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          if self._i >= len(self._lines):
+              raise StopIteration
+          name, value = self._lines[self._i].split(',')
+          self._i += 1
+          return name, int(value)
+  READINGS
+  cat > sensors/series.py <<'SERIES'
+  from sensors.readings import ReadingStream
+
+
+  def series_stats(lines):
+      totals = {}
+      counts = {}
+      for name, value in ReadingStream(lines):
+          totals[name] += value
+          counts[name] += 1
+      return {name: totals[name] / counts[name] for name in totals}
+  SERIES
+  cat > data.txt <<'DATA'
+  temp,20
+  humidity,50
+  temp,30
+  pressure,100
+  humidity,60
+  DATA
+
+goal_tr: >
+  sensors/series.py icindeki series_stats fonksiyonunu, ReadingStream
+  uzerinden gelen her sensor adinin ortalama degerini dogru hesaplayacak
+  bicimde duzelt.
+
+reference_solution: |
+  cat > sensors/series.py <<'SERIES'
+  from sensors.readings import ReadingStream
+
+
+  def series_stats(lines):
+      totals = {}
+      counts = {}
+      for name, value in ReadingStream(lines):
+          totals[name] = totals.get(name, 0) + value
+          counts[name] = counts.get(name, 0) + 1
+      return {name: totals[name] / counts[name] for name in totals}
+  SERIES
+
+outputs:
+  - {path: sensors/series.py, kind: program, run: 'python3 -c ''from sensors.series import series_stats as f; d=f(open("data.txt")); assert d=={"temp":25.0,"humidity":55.0,"pressure":100.0}, d; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensors.series import series_stats as f; d=f(open("data.txt")); assert d=={"temp":25.0,"humidity":55.0,"pressure":100.0}, d; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5014
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: sensor-serisi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sozluk-anahtar-hatasi
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: cok-dosya-birlestirme
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

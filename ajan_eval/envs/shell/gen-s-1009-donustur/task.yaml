@@ -1,0 +1,64 @@
+id: gen-s-1009-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) girdi/hesap.json içindeki her kalemin tutarını al.
+  2) Bu tutarı girdi/kur.json dosyasında kalemle aynı adı taşıyan kurla çarp.
+  3) Çıkan değerlerin toplamını sonuc.txt dosyasına sadece sayı olarak yaz.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/hesap.json <<'JSON'
+  {"kalemler":[{"ad":"kasa","tutar":120},{"ad":"banka","tutar":80},{"ad":"kasa","tutar":45}]}
+  JSON
+  cat > girdi/kur.json <<'JSON'
+  {"kasa":1.0,"banka":2.5}
+  JSON
+
+goal_tr: >
+  girdi/hesap.json icindeki her kalemin tutarini girdi/kur.json dosyasindaki
+  ayni adli kurla carpip toplamini sonuc.txt dosyasina sadece sayi olarak
+  yaz.
+
+reference_solution: |
+  tar -czf girdi/arsiv.tar.gz -C girdi hesap.json kur.json
+  gzip -dkc girdi/arsiv.tar.gz | tar -xO -f - hesap.json kur.json > girdi/birlesik.txt
+  awk 'BEGIN{FS="[,:{}]"} /kalemler/{for(i=1;i<=NF;i++){if($i ~ /"ad"/){ad=$(i+1)} if($i ~ /"tutar"/){print ad" "$(i+1)}}}' girdi/hesap.json > girdi/kalemler.txt
+  awk 'BEGIN{FS="[,:{}]"} {for(i=1;i<=NF;i++){if($i ~ /^"/ && $(i+1) ~ /^[0-9.]+$/){print $i" "$(i+1)}}}' girdi/kur.json > girdi/kurlar.txt
+  awk 'NR==FNR{kur[$1]=$2;next}{toplam+= $2*kur[$1]}END{printf "%.2f\n",toplam}' girdi/kurlar.txt girdi/kalemler.txt > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '365.00'}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-1009
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: muhasebe-kalemleri
+    hedef: donustur
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

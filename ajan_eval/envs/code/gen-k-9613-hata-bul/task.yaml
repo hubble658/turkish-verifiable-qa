@@ -1,0 +1,194 @@
+id: gen-k-9613-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) depo/records.py dosyasındaki StockRecord sınıfını incele; available metodu kullanılabilir miktarı eldeki miktardan rezerve miktarını çıkararak doğru hesaplasın, is_short metodu ise eşik değerine eşit olduğunda kaydı kısa stoklu sayacak şekilde doğru karşılaştırsın.
+
+  2) depo/stream.py dosyasındaki parse_line fonksiyonunu incele; her satırdaki alanlar (sku, quantity, reserved) doğru sırayla ve doğru alanlara eşlensin, reserved alanı quantity ile karıştırılmasın.
+
+  3) depo/report.py dosyasındaki total_available ve short_skus fonksiyonlarını incele; total_available her kaydın doğru hesaplanmış kullanılabilir miktarını toplayarak doğru toplamı versin, short_skus ise eşik dahil olacak şekilde kısa stoklu ürünlerin sku değerlerini doğru seçsin.
+
+setup: |
+  mkdir -p depo
+  cat > depo/records.py <<'RECORDS'
+  from dataclasses import dataclass
+
+
+  @dataclass
+  class StockRecord:
+      sku: str
+      quantity: int
+      reserved: int
+
+      def available(self):
+          # BUG 1: reserved cikarilmasi gerekirken toplaniyor
+          return self.quantity + self.reserved
+
+      def is_short(self, threshold):
+          return self.available() < threshold
+  RECORDS
+  cat > depo/stream.py <<'STREAM'
+  from depo.records import StockRecord
+
+
+  def parse_line(line):
+      parts = line.strip().split(";")
+      # BUG 2: reserved alani quantity ile karistirilmis
+      return StockRecord(sku=parts[0], quantity=int(parts[1]), reserved=int(parts[1]))
+
+
+  def iter_records(text):
+      for line in text.splitlines():
+          if not line.strip():
+              continue
+          yield parse_line(line)
+  STREAM
+  cat > depo/report.py <<'REPORT'
+  from depo.stream import iter_records
+
+
+  def total_available(text):
+      total = 0
+      for rec in iter_records(text):
+          total += rec.available()
+      return total
+
+
+  def short_skus(text, threshold):
+      out = []
+      for rec in iter_records(text):
+          # BUG 3: esik karsilastirmasi ters yonde (<= yerine <, ve esitlikte disla)
+          if rec.available() < threshold:
+              out.append(rec.sku)
+      return out
+  REPORT
+  cat > inventory.txt <<'INV'
+  widget;10;3
+  gadget;4;4
+  bolt;100;0
+  nut;2;5
+  INV
+
+goal_tr: >
+  Envanter raporu yanlis toplam veriyor ve kisa stoklu urunleri yanlis
+  seciyor: depo paketindeki modulleri inceleyip, her kaydin kullanilabilir
+  miktarinin (eldeki eksi rezerve) dogru hesaplanmasini, kayitlarin
+  alanlarinin dogru eslenmesini ve esik karsilastirmasinin (esik dahil kisa
+  sayilacak sekilde) dogru calismasini sagla.
+
+reference_solution: |
+  cat > depo/records.py <<'RECORDS'
+  from dataclasses import dataclass
+
+
+  @dataclass
+  class StockRecord:
+      sku: str
+      quantity: int
+      reserved: int
+
+      def available(self):
+          return self.quantity - self.reserved
+
+      def is_short(self, threshold):
+          return self.available() < threshold
+  RECORDS
+  cat > depo/stream.py <<'STREAM'
+  from depo.records import StockRecord
+
+
+  def parse_line(line):
+      parts = line.strip().split(";")
+      return StockRecord(sku=parts[0], quantity=int(parts[1]), reserved=int(parts[2]))
+
+
+  def iter_records(text):
+      for line in text.splitlines():
+          if not line.strip():
+              continue
+          yield parse_line(line)
+  STREAM
+  cat > depo/report.py <<'REPORT'
+  from depo.stream import iter_records
+
+
+  def total_available(text):
+      total = 0
+      for rec in iter_records(text):
+          total += rec.available()
+      return total
+
+
+  def short_skus(text, threshold):
+      out = []
+      for rec in iter_records(text):
+          if rec.available() <= threshold:
+              out.append(rec.sku)
+      return out
+  REPORT
+
+ara_adim: |
+  cat > depo/records.py <<'RECORDS'
+  from dataclasses import dataclass
+
+
+  @dataclass
+  class StockRecord:
+      sku: str
+      quantity: int
+      reserved: int
+
+      def available(self):
+          return self.quantity - self.reserved
+
+      def is_short(self, threshold):
+          return self.available() < threshold
+  RECORDS
+
+outputs:
+  - {path: depo/report.py, kind: program, run: 'python3 -c ''from depo.report import total_available as t, short_skus as s; data=open("inventory.txt").read(); assert t(data)==104, t(data); assert s(data,5)==["gadget","nut"], s(data,5); print("TAMAM")'''}
+  - {path: depo/records.py, kind: program, run: 'python3 -c ''from depo.records import StockRecord as R; r=R("x",10,3); assert r.available()==7, r.available(); assert R("y",4,4).available()==0; print("ILERLEME-TAMAM")'''}
+  - {path: depo/stream.py, kind: program, run: 'python3 -c ''from depo.stream import iter_records as f; rows=list(f("a;1;0\n\nb;2;1\n")); assert [r.sku for r in rows]==["a","b"], [r.sku for r in rows]; assert rows[1].quantity==2 and rows[1].reserved==1, (rows[1].quantity, rows[1].reserved); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.records import StockRecord as R; r=R("x",10,3); assert r.available()==7, r.available(); assert R("y",4,4).available()==0; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.report import total_available as t, short_skus as s; data=open("inventory.txt").read(); assert t(data)==104, t(data); assert s(data,5)==["gadget","nut"], s(data,5); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.stream import iter_records as f; rows=list(f("a;1;0\n\nb;2;1\n")); assert [r.sku for r in rows]==["a","b"], [r.sku for r in rows]; assert rows[1].quantity==2 and rows[1].reserved==1, (rows[1].quantity, rows[1].reserved); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9613
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: depo-envanteri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-karsilastirma
+      karmasiklik: derin
+      kalip: dataclass-dogrulama
+      akis: parcali-akis
+      topoloji: iki-modul-zincir
+      zincir: 3
+      regresyon: true
+      bagimli: true
+      kesif_zor: true

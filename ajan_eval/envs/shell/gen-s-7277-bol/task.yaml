@@ -1,0 +1,62 @@
+id: gen-s-7277-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri/hava.txt dosyasındaki her satırda şehir kodu, sıcaklık ve basınç alanları sabit genişliklerine göre ayrıştırılsın; ilk iki satır atlanarak kalan satırlar başlık satırı sehir,sicaklik,basinc olan bir CSV dosyasına yazılsın ve bu dosya cikti/hava.csv olarak kaydedilsin.
+
+setup: |
+  mkdir -p veri
+  cat > veri/hava.txt <<'DATA'
+  IST 021 12.5 1013
+  ANK 006 04.0 1009
+  IZM 035 18.2 1015
+  BUR 016 09.7 1011
+  ANT 007 22.4 1007
+  DATA
+
+goal_tr: >
+  veri/hava.txt dosyasindaki her satirdan sehir kodu, sicaklik ve basinc
+  alanlarini sabit genisliklerine gore ayirip ilk iki satiri atlayarak kalan
+  satirlari baslik satiri sehir,sicaklik,basinc olan bir CSV dosyasina yaz
+  ve bu dosyayi cikti/hava.csv olarak kaydet
+
+reference_solution: |
+  mkdir -p cikti
+  tail -n +3 veri/hava.txt | head -n 3 > /dev/null
+  { printf 'sehir,sicaklik,basinc\n'; tail -n +3 veri/hava.txt | cut -c1-3,5-7,9-12 | sed 's/  */,/g'; } > cikti/hava.csv
+
+outputs:
+  - {path: cikti/hava.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: cikti/hava.csv, value: ['sehir,sicaklik,basinc', IZM03518.2, BUR01609.7, ANT00722.4]}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7277
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: hava-durumu-kayitlari
+    hedef: bol
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: csv
+    kesif: dosyayi-bul
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,135 @@
+id: gen-k-8397-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Kurs kayıtlarıyla ilgili eski bir dönem sonu raporunu güncellemeye çalışıyordum ve yarıda bıraktığım bir modülü tamamlamam gerekti. Gün boyu başka işlerle uğraştığım için ancak şimdi oturup bitirebiliyorum. /workspace altındaki school paketinde yarım kalmış üç dosya var; bunları çalışır hale getirmemi istiyorum.
+
+  school/intervals.py içindeki logged dekoratörü, sardığı fonksiyonun sonucunu değiştirmeden, o fonksiyonun kaç kez çağrıldığını fonksiyonun cagri_sayisi niteliğinde tutsun. Aynı dosyadaki merge_ranges ise verilen aralıkları birleştirsin.
+
+  school/terms.py içindeki merge_term_ranges, school/intervals.py'deki bu yapıları kullanacak şekilde çalışsın. school/transcript.py içindeki summarize ise school/terms.py üzerinden gelen bu zinciri kullanarak, ders adına göre kapsanan toplam yıl sayısını döndürsün.
+
+setup: |
+  mkdir -p school
+  cat > school/__init__.py <<'PY'
+  PY
+  cat > school/intervals.py <<'PY'
+  def merge_ranges(ranges):
+      raise NotImplementedError
+
+
+  def logged(fn):
+      raise NotImplementedError
+  PY
+  cat > school/terms.py <<'PY'
+  from school.intervals import merge_ranges, logged
+
+
+  @logged
+  def merge_term_ranges(terms):
+      raise NotImplementedError
+  PY
+  cat > school/transcript.py <<'PY'
+  from school.terms import merge_term_ranges
+
+
+  def summarize(terms):
+      raise NotImplementedError
+  PY
+  cat > courses.txt <<'TXT'
+  MATH101 2019 2021
+  PHYS201 2020 2022
+  CHEM110 2023 2023
+  BIO150 2021 2023
+  TXT
+
+goal_tr: >
+  school/intervals.py icindeki logged dekoratorunu, sardigi fonksiyonun
+  sonucunu degistirmeden cagri sayisini fonksiyonun cagri_sayisi niteliginde
+  tutacak bicimde; merge_ranges'i araliklari birlestirecek bicimde;
+  school/terms.py'deki merge_term_ranges'i ve school/transcript.py'deki
+  summarize'i bu zinciri kullanarak ders adina gore kapsanan toplam yil
+  sayisini dondurecek bicimde gerceklestir.
+
+reference_solution: |
+  cat > school/intervals.py <<'PY'
+  def merge_ranges(ranges):
+      result = []
+      for start, end in sorted(ranges):
+          if result and start <= result[-1][1]:
+              last_start, last_end = result[-1]
+              result[-1] = (last_start, max(last_end, end))
+          else:
+              result.append((start, end))
+      return result
+
+
+  def logged(fn):
+      def wrapper(*args, **kwargs):
+          wrapper.cagri_sayisi += 1
+          return fn(*args, **kwargs)
+      wrapper.cagri_sayisi = 0
+      return wrapper
+  PY
+  cat > school/terms.py <<'PY'
+  from school.intervals import merge_ranges, logged
+
+
+  @logged
+  def merge_term_ranges(terms):
+      return {name: merge_ranges(ranges) for name, ranges in terms.items()}
+  PY
+  cat > school/transcript.py <<'PY'
+  from school.terms import merge_term_ranges
+
+
+  def summarize(terms):
+      merged = merge_term_ranges(terms)
+      return {name: sum(end - start + 1 for start, end in ranges)
+              for name, ranges in merged.items()}
+  PY
+
+outputs:
+  - {path: school/intervals.py, kind: program, run: 'python3 -c ''from school.transcript import summarize as s; from school.terms import merge_term_ranges as m; d={"A":[(2019,2021),(2020,2022)],"B":[(2023,2023)]}; assert s(d)=={"A":4,"B":1}, s(d); d2={"C":[(2000,2001),(2005,2006),(2001,2005)]}; assert s(d2)=={"C":7}, s(d2); d3={"D":[(2010,2012),(2016,2018)]}; assert s(d3)=={"D":6}, s(d3); assert m.cagri_sayisi==3, m.cagri_sayisi; print("TAMAM")'''}
+  - {path: school/terms.py, kind: program, run: 'python3 -c ''from school.transcript import summarize as s; from school.terms import merge_term_ranges as m; d={"A":[(2019,2021),(2020,2022)],"B":[(2023,2023)]}; assert s(d)=={"A":4,"B":1}, s(d); d2={"C":[(2000,2001),(2005,2006),(2001,2005)]}; assert s(d2)=={"C":7}, s(d2); d3={"D":[(2010,2012),(2016,2018)]}; assert s(d3)=={"D":6}, s(d3); assert m.cagri_sayisi==3, m.cagri_sayisi; print("TAMAM")'''}
+  - {path: school/transcript.py, kind: program, run: 'python3 -c ''from school.transcript import summarize as s; from school.terms import merge_term_ranges as m; d={"A":[(2019,2021),(2020,2022)],"B":[(2023,2023)]}; assert s(d)=={"A":4,"B":1}, s(d); d2={"C":[(2000,2001),(2005,2006),(2001,2005)]}; assert s(d2)=={"C":7}, s(d2); d3={"D":[(2010,2012),(2016,2018)]}; assert s(d3)=={"D":6}, s(d3); assert m.cagri_sayisi==3, m.cagri_sayisi; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from school.transcript import summarize as s; from school.terms import merge_term_ranges as m; d={"A":[(2019,2021),(2020,2022)],"B":[(2023,2023)]}; assert s(d)=={"A":4,"B":1}, s(d); d2={"C":[(2000,2001),(2005,2006),(2001,2005)]}; assert s(d2)=={"C":7}, s(d2); d3={"D":[(2010,2012),(2016,2018)]}; assert s(d3)=={"D":6}, s(d3); assert m.cagri_sayisi==3, m.cagri_sayisi; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8397
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: ogrenci-transkripti
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: aralik-birlestirme
+      karmasiklik: duz
+      kalip: dekorator
+      akis: cok-dosya-birlestirme
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

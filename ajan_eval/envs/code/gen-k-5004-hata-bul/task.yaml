@@ -1,0 +1,114 @@
+id: gen-k-5004-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  fleet/summary.py dosyasındaki total_km fonksiyonu, fleet/records.py içindeki MileageLog iterator'ünden gelen kilometre değerlerini sayısal olarak toplayıp doğru tamsayı sonucu döndürmeli. Şu anki halinde değerler metin olarak geldiği için toplama hatalı oluyor; fonksiyonu bu değerleri sayıya çevirip toplayacak şekilde düzelt. fleet/report.py dosyasına hiç dokunma; o değişmeden kalmalı ve doğru raporu üretmeye devam etmeli. Sadece fleet/summary.py üzerinde çalış.
+
+setup: |
+  mkdir -p fleet
+  cat > fleet/records.py <<'RECORDS'
+  class MileageLog:
+      def __init__(self, path):
+          self.path = path
+          self._handle = None
+
+      def __iter__(self):
+          self._handle = open(self.path, "r", encoding="ascii")
+          return self
+
+      def __next__(self):
+          for raw in self._handle:
+              raw = raw.strip()
+              if not raw:
+                  continue
+              plate, km = raw.split(",")
+              return plate, km
+          self._handle.close()
+          raise StopIteration
+  RECORDS
+  cat > fleet/summary.py <<'SUMMARY'
+  from fleet.records import MileageLog
+
+
+  def total_km(path):
+      log = MileageLog(path)
+      total = 0
+      for _plate, km in log:
+          total += km
+      return total
+  SUMMARY
+  cat > fleet/report.py <<'REPORT'
+  from fleet.summary import total_km
+
+
+  def fleet_report(path):
+      return "total=" + str(total_km(path))
+  REPORT
+  cat > fleet_data.txt <<'DATA'
+  AB-123,120
+  CD-456,80
+  EF-789,45
+  DATA
+
+goal_tr: >
+  fleet/summary.py icindeki total_km fonksiyonunu, fleet/records.py'deki
+  MileageLog iterator'unden gelen kilometre degerlerini sayisal olarak
+  toplayip dogru tamsayi sonucu dondurecek bicimde duzelt; fleet/report.py
+  degismeden dogru raporu uretsin.
+
+reference_solution: |
+  cat > fleet/summary.py <<'SUMMARY'
+  from fleet.records import MileageLog
+
+
+  def total_km(path):
+      log = MileageLog(path)
+      total = 0
+      for _plate, km in log:
+          total += int(km)
+      return total
+  SUMMARY
+
+outputs:
+  - {path: fleet/summary.py, kind: program, run: 'python3 -c ''from fleet.report import fleet_report as r; assert r("fleet_data.txt")=="total=245", r("fleet_data.txt"); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.report import fleet_report as r; assert r("fleet_data.txt")=="total=245", r("fleet_data.txt"); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5004
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: arac-filosu
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: tip-karismasi
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

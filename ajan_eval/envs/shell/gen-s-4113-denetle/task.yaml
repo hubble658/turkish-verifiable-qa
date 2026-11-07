@@ -1,0 +1,95 @@
+id: gen-s-4113-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) siparisler/menu.ini ve siparisler/siparisler.ini dosyalarını çaprazla; siparisler/menu.ini.bak dosyasını yok say.
+  2) Her sipariş için adet ile fiyatı çarp ve tüm siparişlerin toplamını hesapla.
+  3) Sonucu siparisler/ciro.txt dosyasına sadece sayı olarak yaz.
+
+setup: |
+  mkdir -p siparisler
+  cat > siparisler/menu.ini <<'INI'
+  [corba]
+  fiyat=45
+  [izgara]
+  fiyat=180
+  [salata]
+  fiyat=70
+  [tatli]
+  fiyat=60
+  INI
+  cat > siparisler/siparisler.ini <<'INI'
+  [masa1]
+  urun=corba
+  adet=2
+  [masa2]
+  urun=izgara
+  adet=1
+  [masa3]
+  urun=salata
+  adet=3
+  [masa4]
+  urun=izgara
+  adet=2
+  [masa5]
+  urun=tatli
+  adet=4
+  INI
+  cat > siparisler/menu.ini.bak <<'INI'
+  [corba]
+  fiyat=99
+  [izgara]
+  fiyat=99
+  INI
+
+goal_tr: >
+  siparisler/menu.ini ve siparisler/siparisler.ini dosyalarini caprazlayarak
+  her siparisin adet ile fiyat carpimini topla ve sonucu siparisler/ciro.txt
+  dosyasina sadece sayi olarak yaz (menu.ini.bak dosyasini yok say).
+
+reference_solution: |
+  awk -F= '
+  FNR==NR { if ($0 ~ /^\[/) { urun=$0; gsub(/[\[\]]/,"",urun) } else if ($1=="fiyat") { fiyat[urun]=$2 } ; next }
+  /^\[/ { next }
+  $1=="urun" { u=$2 }
+  $1=="adet" { toplam += fiyat[u]*$2 }
+  END { print toplam }
+  ' siparisler/menu.ini siparisler/siparisler.ini > siparisler/ciro.txt
+  grep -c '.' siparisler/ciro.txt > /dev/null
+  wc -l < siparisler/ciro.txt > /dev/null
+
+outputs:
+  - {path: siparisler/ciro.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: siparisler/ciro.txt, value: '1080'}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4113
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: restoran-siparisleri
+    hedef: denetle
+    girdi: ini
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

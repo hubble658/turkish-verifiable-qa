@@ -1,0 +1,127 @@
+id: gen-k-5085-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  `depo/raf/yigin.py` içindeki `make_shelf_stack` fonksiyonunu, `depo/raf/yerlesim.py` içindeki `place_boxes` fonksiyonunun beklediği yığın sözleşmesine uygun şekilde closure tabanlı bir fabrika olarak gerçekleştir. Fabrika, LIFO davranışı gösteren ve `push`, `pop`, `peek`, `size`, `is_empty` metotlarına sahip bir yığın nesnesi döndürmeli.
+
+  Şu şartlar sağlanmalı:
+  - `depo/raf/yigin.py` dosyası `make_shelf_stack` fonksiyonunu içermeli.
+  - `make_shelf_stack` çağrıldığında `push`, `pop`, `peek`, `size` ve `is_empty` metotlarına sahip bir nesne döndürmeli.
+  - Döndürülen yığın LIFO davranışı göstermeli: en son eklenen öğe ilk çıkarılmalı.
+  - Yığın durumu closure içinde tutulmalı; sınıf tanımı kullanılmamalı.
+  - `depo/raf/yerlesim.py` içindeki `place_boxes` fonksiyonu bu sözleşmeyi beklediği gibi kullanabilmeli.
+
+setup: |
+  mkdir -p depo/raf
+  cat > depo/raf/__init__.py <<'INIT'
+  from depo.raf.yigin import make_shelf_stack
+  INIT
+  cat > depo/raf/yigin.py <<'YIGIN'
+  def make_shelf_stack():
+      raise NotImplementedError
+  YIGIN
+  cat > depo/raf/yerlesim.py <<'YER'
+  from depo.raf.yigin import make_shelf_stack
+
+
+  def place_boxes(boxes):
+      raise NotImplementedError
+  YER
+
+goal_tr: >
+  depo/raf/yigin.py icindeki make_shelf_stack fonksiyonunu,
+  depo/raf/yerlesim.py icindeki place_boxes fonksiyonunun bekledigi yigin
+  sozlesmesini (push, pop, peek, size, is_empty metotlariyla LIFO davranisi)
+  closure tabanli bir fabrika olarak gerceklestir.
+
+reference_solution: |
+  cat > depo/raf/yigin.py <<'YIGIN'
+  def make_shelf_stack():
+      items = []
+
+      def push(box):
+          items.append(box)
+          return len(items)
+
+      def pop():
+          if not items:
+              return None
+          return items.pop()
+
+      def peek():
+          if not items:
+              return None
+          return items[-1]
+
+      def size():
+          return len(items)
+
+      def is_empty():
+          return len(items) == 0
+
+      return {
+          "push": push,
+          "pop": pop,
+          "peek": peek,
+          "size": size,
+          "is_empty": is_empty,
+      }
+  YIGIN
+  cat > depo/raf/yerlesim.py <<'YER'
+  from depo.raf.yigin import make_shelf_stack
+
+
+  def place_boxes(boxes):
+      stack = make_shelf_stack()
+      for box in boxes:
+          stack["push"](box)
+      order = []
+      while not stack["is_empty"]():
+          order.append(stack["peek"]())
+          stack["pop"]()
+      return order
+  YER
+
+outputs:
+  - {path: depo/raf/yigin.py, kind: program, run: 'python3 -c ''from depo.raf.yigin import make_shelf_stack as m; s=m(); assert s["is_empty"]() is True; assert s["size"]()==0; assert s["push"]("a")==1; assert s["push"]("b")==2; assert s["size"]()==2; assert s["peek"]()=="b"; assert s["pop"]()=="b"; assert s["peek"]()=="a"; assert s["pop"]()=="a"; assert s["pop"]() is None; assert s["is_empty"]() is True; from depo.raf.yerlesim import place_boxes as p; assert p(["x","y","z"])==["z","y","x"]; assert p([])==[]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.raf.yigin import make_shelf_stack as m; s=m(); assert s["is_empty"]() is True; assert s["size"]()==0; assert s["push"]("a")==1; assert s["push"]("b")==2; assert s["size"]()==2; assert s["peek"]()=="b"; assert s["pop"]()=="b"; assert s["peek"]()=="a"; assert s["pop"]()=="a"; assert s["pop"]() is None; assert s["is_empty"]() is True; from depo.raf.yerlesim import place_boxes as p; assert p(["x","y","z"])==["z","y","x"]; assert p([])==[]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5085
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: depo-raf-yerlesimi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: bellek-ici
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,199 @@
+id: gen-k-9041-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 20
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Sabah beri sürüm kayıtlarını tek tek gözden geçiriyorum; elimizdeki günlük dosyası büyüdükçe her isim için en son sürümün hangisi olduğunu takip etmek zorlaştı. Öğleden sonra fark ettim ki raporlardaki toplam boyut rakamı bir türlü tutmuyor, çünkü eski sürümlerin boyutları da hesaba karışıyor.
+
+  Bu yüzden release/index.py içindeki latest_by_name fonksiyonunu düzeltmeni istiyorum: ReleaseIndex iteratorunu baştan sona tüketsin ve her isim için gördüğü SON satırı saklasın. Şu anki hali ilk gördüğü satırda takılıp kalıyor, o yüzden yanlış sonuç veriyor.
+
+  Ardından release/report.py içindeki total_size fonksiyonu bu son sürüm değerlerini kullansın ve toplam boyutu doğru hesaplasın. release/stream.py olduğu gibi kalsın, ona dokunma. Sonuçta releases.txt için total_size 395 döndürmeli.
+
+setup: |
+  mkdir -p release
+  cat > release/stream.py <<'STREAM'
+  def iter_rows(text):
+      """Yield (name, version, size) tuples from a chunked release log.
+
+      Lines look like: name|version|size
+      Blank lines and lines starting with '#' are skipped.
+      """
+      for line in text.splitlines():
+          line = line.strip()
+          if not line or line.startswith("#"):
+              continue
+          parts = line.split("|")
+          if len(parts) != 3:
+              continue
+          name, version, size = parts
+          yield (name, version, int(size))
+  STREAM
+  cat > release/index.py <<'INDEX'
+  from release.stream import iter_rows
+
+
+  class ReleaseIndex:
+      """Iterator protocol wrapper over the release stream."""
+
+      def __init__(self, text):
+          self._rows = iter_rows(text)
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          name, version, size = next(self._rows)
+          return (name, version, size)
+
+
+  def latest_by_name(text):
+      """Return {name: (version, size)} keeping the LAST row seen per name."""
+      result = {}
+      for name, version, size in ReleaseIndex(text):
+          if name in result:
+              return result
+          result[name] = (version, size)
+      return result
+  INDEX
+  cat > release/report.py <<'REPORT'
+  from release.index import ReleaseIndex
+
+
+  def total_size(text):
+      """Sum the sizes of the latest version of every release name."""
+      total = 0
+      for name, version, size in ReleaseIndex(text):
+          total += size
+          if total > 200:
+              return total
+      return total
+  REPORT
+  cat > releases.txt <<'TXT'
+  alpha|1.0.0|100
+  # comment line
+  beta|2.1.0|50
+
+  alpha|1.2.0|300
+  gamma|0.9.0|20
+  beta|2.2.0|75
+  TXT
+
+goal_tr: >
+  release/index.py icindeki latest_by_name fonksiyonunun, ReleaseIndex
+  iteratorunu bastan sona tuketerek her isim icin gorulen SON satiri
+  tutmasini sagla; ardindan release/report.py icindeki total_size
+  fonksiyonunun bu son-surum degerlerini kullanarak toplam boyutu dogru
+  hesaplamasini sagla, boylece releases.txt icin total_size 395 dondursun.
+
+reference_solution: |
+  cat > release/index.py <<'INDEX'
+  from release.stream import iter_rows
+
+
+  class ReleaseIndex:
+      """Iterator protocol wrapper over the release stream."""
+
+      def __init__(self, text):
+          self._rows = iter_rows(text)
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          name, version, size = next(self._rows)
+          return (name, version, size)
+
+
+  def latest_by_name(text):
+      """Return {name: (version, size)} keeping the LAST row seen per name."""
+      result = {}
+      for name, version, size in ReleaseIndex(text):
+          result[name] = (version, size)
+      return result
+  INDEX
+  cat > release/report.py <<'REPORT'
+  from release.index import latest_by_name
+
+
+  def total_size(text):
+      """Sum the sizes of the latest version of every release name."""
+      index = latest_by_name(text)
+      total = 0
+      for version, size in index.values():
+          total += size
+      return total
+  REPORT
+
+ara_adim: |
+  cat > release/index.py <<'INDEX'
+  from release.stream import iter_rows
+
+
+  class ReleaseIndex:
+      """Iterator protocol wrapper over the release stream."""
+
+      def __init__(self, text):
+          self._rows = iter_rows(text)
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          name, version, size = next(self._rows)
+          return (name, version, size)
+
+
+  def latest_by_name(text):
+      """Return {name: (version, size)} keeping the LAST row seen per name."""
+      result = {}
+      for name, version, size in ReleaseIndex(text):
+          result[name] = (version, size)
+      return result
+  INDEX
+
+outputs:
+  - {path: release/report.py, kind: program, run: 'python3 -c ''from release.report import total_size as f; t=open("releases.txt").read(); assert f(t)==395, f(t); print("TAMAM")'''}
+  - {path: release/index.py, kind: program, run: 'python3 -c ''from release.index import latest_by_name as f; t=open("releases.txt").read(); d=f(t); assert d["alpha"]==("1.2.0",300), d["alpha"]; assert d["beta"]==("2.2.0",75), d["beta"]; assert len(d)==3, d; print("ILERLEME-TAMAM")'''}
+  - {path: release/stream.py, kind: program, run: 'python3 -c ''from release.stream import iter_rows as f; t=open("releases.txt").read(); rows=list(f(t)); assert rows==[("alpha","1.0.0",100),("beta","2.1.0",50),("alpha","1.2.0",300),("gamma","0.9.0",20),("beta","2.2.0",75)], rows; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from release.index import latest_by_name as f; t=open("releases.txt").read(); d=f(t); assert d["alpha"]==("1.2.0",300), d["alpha"]; assert d["beta"]==("2.2.0",75), d["beta"]; assert len(d)==3, d; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from release.report import total_size as f; t=open("releases.txt").read(); assert f(t)==395, f(t); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from release.stream import iter_rows as f; t=open("releases.txt").read(); rows=list(f(t)); assert rows==[("alpha","1.0.0",100),("beta","2.1.0",50),("alpha","1.2.0",300),("gamma","0.9.0",20),("beta","2.2.0",75)], rows; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9041
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: yazilim-surumleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: orta
+    adim: 7
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: erken-donus
+      karmasiklik: orta
+      kalip: iterator-protokolu
+      akis: parcali-akis
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

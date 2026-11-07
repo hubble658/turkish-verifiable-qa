@@ -1,0 +1,94 @@
+id: gen-s-3089-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) girdi/kargolar.tsv ile girdi/agirliklar.tsv dosyalarını kargo_id sütunu üzerinden eşleştir.
+  2) Her şehir için cikti/<şehir> dizini oluştur.
+  3) O şehirdeki her kargo için kargo_id, musteri, durum ve kg alanlarını sekmeyle ayrılmış tek satır olarak cikti/<şehir>/<kargo_id>.tsv dosyasına yaz: cikti/Ankara/K001.tsv, cikti/Ankara/K003.tsv, cikti/Ankara/K006.tsv, cikti/Izmir/K002.tsv, cikti/Izmir/K004.tsv, cikti/Bursa/K005.tsv.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/kargolar.tsv <<'TSV'
+  kargo_id	musteri	sehir	durum
+  K001	Ayse	Ankara	dagitimda
+  K002	Mehmet	Izmir	teslim
+  K003	Zeynep	Ankara	beklemede
+  K004	Ali	Izmir	dagitimda
+  K005	Fatma	Bursa	teslim
+  K006	Can	Ankara	teslim
+  TSV
+  cat > girdi/agirliklar.tsv <<'TSV'
+  kargo_id	kg
+  K001	3
+  K002	5
+  K003	2
+  K004	7
+  K005	4
+  K006	1
+  TSV
+
+goal_tr: >
+  girdi/kargolar.tsv ile girdi/agirliklar.tsv dosyasindaki kargo_id sutununu
+  eslestirip her sehir icin cikti/<sehir> dizini olustur ve o sehirdeki her
+  kargo icin kargo_id, musteri, durum, kg alanlarini sekmeyle ayrilmis tek
+  satir olarak cikti/<sehir>/<kargo_id>.tsv dosyasina yaz
+
+reference_solution: |
+  mkdir -p cikti
+  awk -F'\t' 'NR>1{print $1"\t"$2"\t"$3"\t"$4}' girdi/kargolar.tsv > /tmp/k.tsv
+  awk -F'\t' 'NR>1{print $1"\t"$2}' girdi/agirliklar.tsv > /tmp/a.tsv
+  join -t$'\t' -1 1 -2 1 /tmp/k.tsv /tmp/a.tsv > /tmp/birlesik.tsv
+  while IFS=$'\t' read -r id musteri sehir durum kg; do
+    mkdir -p "cikti/$sehir"
+    printf '%s\t%s\t%s\t%s\n' "$id" "$musteri" "$durum" "$kg" > "cikti/$sehir/$id.tsv.tmp"
+    mv "cikti/$sehir/$id.tsv.tmp" "cikti/$sehir/$id.tsv"
+  done < /tmp/birlesik.tsv
+  rm -f /tmp/k.tsv /tmp/a.tsv /tmp/birlesik.tsv
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/Ankara/K001.tsv, kind: file}
+  - {path: cikti/Ankara/K003.tsv, kind: file}
+  - {path: cikti/Ankara/K006.tsv, kind: file}
+  - {path: cikti/Izmir/K002.tsv, kind: file}
+  - {path: cikti/Izmir/K004.tsv, kind: file}
+  - {path: cikti/Bursa/K005.tsv, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [Ankara, Bursa, Izmir]}
+  - {op: file_content_eq, path: cikti/Ankara/K001.tsv, value: "K001\tAyse\tdagitimda\t3"}
+  - {op: file_content_eq, path: cikti/Ankara/K003.tsv, value: "K003\tZeynep\tbeklemede\t2"}
+  - {op: file_content_eq, path: cikti/Ankara/K006.tsv, value: "K006\tCan\tteslim\t1"}
+  - {op: file_content_eq, path: cikti/Bursa/K005.tsv, value: "K005\tFatma\tteslim\t4"}
+  - {op: file_content_eq, path: cikti/Izmir/K002.tsv, value: "K002\tMehmet\tteslim\t5"}
+  - {op: file_content_eq, path: cikti/Izmir/K004.tsv, value: "K004\tAli\tdagitimda\t7"}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3089
+    bundle: dosya-duzen
+    tools:
+    - mkdir
+    - mv
+    konu: kargo-takibi
+    hedef: yeniden-duzenle
+    girdi: tsv
+    kaynak: iki-dosya-capraz
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

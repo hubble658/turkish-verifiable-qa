@@ -1,0 +1,173 @@
+id: gen-k-5072-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Kütüphane otomasyonu üzerinde çalışıyoruz ve ödünç masasındaki kayıtlarla ilgili bazı raporlar alıyoruz. Gün içinde personel, en uzun kitap adını çekmek istediğinde bazen beklenmedik sonuçlarla karşılaşıyor; aynı uzunlukta birden fazla kitap ödünç alındığında hangisinin öne çıkacağı tutarlı değil.
+
+  library/desk.py içindeki LoanDesk.longest metodunu, ödünç kayıtları arasında en uzun kitap adını kararlı bir şekilde döndürecek biçimde düzelt. Eşitlik durumunda en erken ödünç alınan kayıt esas alınsın. Sadece library/desk.py üzerinde çalış.
+
+setup: |
+  mkdir -p library
+  cat > library/errors.py <<'ERRORS'
+  class LoanError(Exception):
+      pass
+
+
+  class BookUnavailable(LoanError):
+      pass
+
+
+  class MemberBlocked(LoanError):
+      pass
+
+
+  class LoanLimitReached(LoanError):
+      pass
+  ERRORS
+  cat > library/catalog.py <<'CATALOG'
+  class Catalog:
+      def __init__(self):
+          self._copies = {}
+
+      def add(self, title, copies):
+          self._copies[title] = self._copies.get(title, 0) + copies
+
+      def available(self, title):
+          return self._copies.get(title, 0)
+
+      def take(self, title):
+          if self._copies.get(title, 0) <= 0:
+              raise KeyError(title)
+          self._copies[title] -= 1
+
+      def give_back(self, title):
+          self._copies[title] = self._copies.get(title, 0) + 1
+  CATALOG
+  cat > library/members.py <<'MEMBERS'
+  class Member:
+      def __init__(self, name, blocked=False, limit=3):
+          self.name = name
+          self.blocked = blocked
+          self.limit = limit
+          self.loans = []
+
+
+  class Roster:
+      def __init__(self):
+          self._members = {}
+
+      def add(self, member):
+          self._members[member.name] = member
+
+      def get(self, name):
+          return self._members[name]
+  MEMBERS
+  cat > library/desk.py <<'DESK'
+  from library.catalog import Catalog
+  from library.members import Roster
+  from library.errors import BookUnavailable, MemberBlocked, LoanLimitReached
+
+
+  class LoanDesk:
+      def __init__(self, catalog, roster):
+          self.catalog = catalog
+          self.roster = roster
+          self.log = []
+
+      def borrow(self, member_name, title):
+          member = self.roster.get(member_name)
+          if member.blocked:
+              raise MemberBlocked(member_name)
+          if len(member.loans) >= member.limit:
+              raise LoanLimitReached(member_name)
+          self.catalog.take(title)
+          member.loans.append(title)
+          self.log.append((member_name, title))
+          return True
+
+      def longest(self):
+          return sorted(self.log, key=lambda row: len(row[1]))[-1]
+  DESK
+  cat > library/__init__.py <<'INIT'
+  INIT
+
+goal_tr: >
+  library/desk.py icindeki LoanDesk.longest metodunu, odunc kayitlari
+  arasinda en uzun kitap adini kararli bir sekilde (esitlikte en erken odunc
+  alinan kayit) dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > library/desk.py <<'DESK'
+  from library.catalog import Catalog
+  from library.members import Roster
+  from library.errors import BookUnavailable, MemberBlocked, LoanLimitReached
+
+
+  class LoanDesk:
+      def __init__(self, catalog, roster):
+          self.catalog = catalog
+          self.roster = roster
+          self.log = []
+
+      def borrow(self, member_name, title):
+          member = self.roster.get(member_name)
+          if member.blocked:
+              raise MemberBlocked(member_name)
+          if len(member.loans) >= member.limit:
+              raise LoanLimitReached(member_name)
+          self.catalog.take(title)
+          member.loans.append(title)
+          self.log.append((member_name, title))
+          return True
+
+      def longest(self):
+          best = None
+          for row in self.log:
+              if best is None or len(row[1]) > len(best[1]):
+                  best = row
+          return best
+  DESK
+
+outputs:
+  - {path: library/desk.py, kind: program, run: 'python3 -c ''from library.desk import LoanDesk; from library.catalog import Catalog; from library.members import Member, Roster; c=Catalog(); r=Roster(); d=LoanDesk(c,r); r.add(Member("ada")); r.add(Member("cy",limit=9)); c.add("Dune",1); c.add("Ulysses",1); c.add("Emma",1); c.add("Moby Dick",1); d.borrow("cy","Moby Dick"); d.borrow("ada","Dune"); d.borrow("ada","Ulysses"); d.borrow("ada","Emma"); assert d.longest()==("cy","Moby Dick"), d.longest(); d2=LoanDesk(Catalog(),Roster()); r2=d2.roster; r2.add(Member("x")); c2=d2.catalog; c2.add("aaa",1); c2.add("bbb",1); c2.add("ccc",1); d2.borrow("x","aaa"); d2.borrow("x","bbb"); d2.borrow("x","ccc"); assert d2.longest()==("x","aaa"), d2.longest(); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from library.desk import LoanDesk; from library.catalog import Catalog; from library.members import Member, Roster; c=Catalog(); r=Roster(); d=LoanDesk(c,r); r.add(Member("ada")); r.add(Member("cy",limit=9)); c.add("Dune",1); c.add("Ulysses",1); c.add("Emma",1); c.add("Moby Dick",1); d.borrow("cy","Moby Dick"); d.borrow("ada","Dune"); d.borrow("ada","Ulysses"); d.borrow("ada","Emma"); assert d.longest()==("cy","Moby Dick"), d.longest(); d2=LoanDesk(Catalog(),Roster()); r2=d2.roster; r2.add(Member("x")); c2=d2.catalog; c2.add("aaa",1); c2.add("bbb",1); c2.add("ccc",1); d2.borrow("x","aaa"); d2.borrow("x","bbb"); d2.borrow("x","ccc"); assert d2.longest()==("x","aaa"), d2.longest(); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5072
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kutuphane-oduncleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-kararsizligi
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: bellek-ici
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

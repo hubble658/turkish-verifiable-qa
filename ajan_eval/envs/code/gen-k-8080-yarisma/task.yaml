@@ -1,0 +1,110 @@
+id: gen-k-8080-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  cargo/summary.py dosyasını oluştur. Bu dosyanın içinde iki fonksiyon olsun: count_by_code(text) fonksiyonu her kargo kodunun kaç kez geçtiğini bir sözlük olarak döndürsün; total_weight_by_city(text) fonksiyonu her şehrin toplam ağırlığını bir sözlük olarak döndürsün. Her iki fonksiyon da cargo.parser.parse_events üzerinden çalışsın.
+
+setup: |
+  mkdir -p cargo
+  cat > cargo/events.py <<'EVENTS'
+  from dataclasses import dataclass
+
+
+  @dataclass(frozen=True)
+  class Event:
+      code: str
+      city: str
+      weight: int
+  EVENTS
+  cat > cargo/parser.py <<'PARSER'
+  from cargo.events import Event
+
+
+  def parse_events(text):
+      events = []
+      for line in text.splitlines():
+          line = line.strip()
+          if not line:
+              continue
+          code, city, weight = line.split('|')
+          events.append(Event(code, city, int(weight)))
+      return events
+  PARSER
+  cat > routes.txt <<'ROUTES'
+  TR01|istanbul|120
+  TR02|ankara|80
+  TR01|istanbul|30
+  TR03|izmir|45
+  TR02|ankara|20
+  TR01|bursa|10
+  TR03|izmir|5
+  ROUTES
+
+goal_tr: >
+  cargo/summary.py dosyasini yaz; icinde count_by_code(text) fonksiyonu her
+  kargo kodunun kac kez gectigini, total_weight_by_city(text) fonksiyonu her
+  sehirin toplam agirligini sozluk olarak dondursun ve ikisi de
+  cargo.parser.parse_events uzerinden calissin.
+
+reference_solution: |
+  cat > cargo/summary.py <<'SUMMARY'
+  from cargo.parser import parse_events
+
+
+  def count_by_code(text):
+      counts = {}
+      for event in parse_events(text):
+          counts[event.code] = counts.get(event.code, 0) + 1
+      return counts
+
+
+  def total_weight_by_city(text):
+      totals = {}
+      for event in parse_events(text):
+          totals[event.city] = totals.get(event.city, 0) + event.weight
+      return totals
+  SUMMARY
+
+outputs:
+  - {path: cargo/summary.py, kind: program, run: 'python3 -c ''from cargo.summary import count_by_code as c, total_weight_by_city as w; t=open("routes.txt").read(); assert c(t)=={"TR01":3,"TR02":2,"TR03":2}, c(t); assert w(t)=={"istanbul":150,"ankara":100,"izmir":50,"bursa":10}, w(t); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from cargo.summary import count_by_code as c, total_weight_by_city as w; t=open("routes.txt").read(); assert c(t)=={"TR01":3,"TR02":2,"TR03":2}, c(t); assert w(t)=={"istanbul":150,"ankara":100,"izmir":50,"bursa":10}, w(t); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8080
+    bundle: yarisma
+    tools:
+    - python3
+    konu: kargo-takibi
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sayma
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,83 @@
+id: gen-s-3070-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) kayitlar dizin ağacındaki tüm .csv dosyalarını tara; yalnızca dört alanlı geçerli satırları topla, bozuk satırları ve .csv dışı dosyaları yok say.
+  2) Topladığın geçerli satırlardan her şehir için ortalama sıcaklığı ve ortalama nemi hesapla.
+  3) Sonucu şehir adına göre artan sırada, her şehir için sıcaklık ve nem alanları sayı olacak şekilde ozet.json dosyasına JSON nesnesi olarak yaz.
+
+setup: |
+  mkdir -p kayitlar/istasyonlar
+  cat > kayitlar/istasyonlar/ankara.csv <<'CSV'
+  tarih,sehir,sicaklik,nem
+  2024-01-01,Ankara,3,80
+  2024-01-02,Ankara,5,75
+  2024-01-03,Ankara,0,90
+  CSV
+  cat > kayitlar/istasyonlar/izmir.csv <<'CSV'
+  tarih,sehir,sicaklik,nem
+  2024-01-01,Izmir,15,60
+  2024-01-02,Izmir,17,55
+  2024-01-03,Izmir,16,58
+  CSV
+  cat > kayitlar/istasyonlar/bozuk.csv <<'CSV'
+  tarih,sehir,sicaklik,nem
+  2024-01-01,Bursa,10,70
+  BOZUK SATIR
+  2024-01-03,Bursa,12,72
+  CSV
+  cat > kayitlar/notlar.txt <<'TXT'
+  ankara ve izmir gecerli, bozuk dosyasi atlanmali
+  TXT
+
+goal_tr: >
+  kayitlar dizin agacindaki tum .csv dosyalarindan yalnizca dort alanli
+  gecerli satirlari toplayip her sehir icin ortalama sicakligi ve ortalama
+  nemi hesapla, sonucu sehir adina gore artan sirada ozet.json dosyasina
+  JSON nesnesi olarak yaz; her sehir icin sicaklik ve nem alanlari sayi
+  olmali, bozuk satirlar ve csv disi dosyalar yok sayilmali
+
+reference_solution: |
+  find kayitlar -type f -name '*.csv' | sort | xargs cat | grep -E '^-?[0-9]+,-?[0-9]+$' | awk -F, '{s[$2]+=$3; n[$2]+=$4; c[$2]++} END {for (k in s) printf "%s %d %d\n", k, s[k]/c[k], n[k]/c[k]}' | sort > /tmp/ozet.txt
+  {
+    printf '{\n'
+    awk '{printf "  \"%s\": {\"sicaklik\": %s, \"nem\": %s}%s\n", $1, $2, $3, (NR==n?"":",")}' n=$(wc -l < /tmp/ozet.txt) /tmp/ozet.txt
+    printf '}\n'
+  } > ozet.json
+  rm -f /tmp/ozet.txt
+
+outputs:
+  - {path: ozet.json, kind: json, run: cat ozet.json}
+
+checks:
+  - {op: json_eq, path: ozet.json, value: {}}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3070
+    bundle: cok-dosya-ara
+    tools:
+    - xargs
+    - grep
+    konu: hava-durumu-kayitlari
+    hedef: ozetle
+    girdi: csv
+    kaynak: dizin-agaci
+    cikti: json
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

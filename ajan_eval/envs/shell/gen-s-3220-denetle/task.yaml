@@ -1,0 +1,73 @@
+id: gen-s-3220-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  envanter/sunucular.txt dosyasındaki her sunucunun bağlı olduğu dizinin adını ve üst dizinini ayrı ayrı ele al; envanter/diskler.txt dosyasındaki kayıtlarla eşleşen dizinlerin toplam disk değerini tek bir sayı olarak sonuc.txt dosyasına yaz.
+
+  Şu şartlar sağlanmalı:
+  - envanter/sunucular.txt ve envanter/diskler.txt dosyaları okunmalı.
+  - Her sunucu satırındaki dizin yolu için dizin adı ve üst dizin ayrı ayrı belirlenmeli.
+  - envanter/diskler.txt içindeki dizinlerle eşleşen kayıtların disk değerleri toplanmalı.
+  - Toplam, sonuc.txt dosyasına yalnızca tek bir sayı olarak yazılmalı; başka hiçbir metin, etiket veya açıklama bulunmamalı.
+
+setup: |
+  mkdir -p envanter
+  cat > envanter/sunucular.txt <<'TXT'
+  web01 /srv/web
+  db01 /srv/db
+  web02 /srv/web
+  cache01 /srv/cache
+  TXT
+  cat > envanter/diskler.txt <<'TXT'
+  /srv/web 500
+  /srv/db 800
+  /srv/cache 200
+  /srv/web 500
+  TXT
+
+goal_tr: >
+  envanter/sunucular.txt icindeki her sunucunun bagli oldugu dizinin adini
+  basename ile, ust dizinini dirname ile ayirip, envanter/diskler.txt ile
+  eslesen dizinlerin toplam disk degerini tek sayi olarak sonuc.txt'ye yaz.
+
+reference_solution: |
+  awk '{print $2}' envanter/sunucular.txt | while read -r d; do basename "$d"; dirname "$d"; done | sort -u > /tmp/d1.txt
+  awk '{print $1}' envanter/diskler.txt | sort -u > /tmp/d2.txt
+  comm -12 /tmp/d1.txt /tmp/d2.txt > /tmp/ortak.txt
+  awk 'NR==FNR{a[$1]=1;next}($1 in a){s+=$2}END{print s+0}' /tmp/ortak.txt envanter/diskler.txt > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '0'}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3220
+    bundle: yol-parcala
+    tools:
+    - basename
+    - dirname
+    konu: envanter
+    hedef: denetle
+    girdi: duz-metin
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

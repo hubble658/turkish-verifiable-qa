@@ -1,0 +1,107 @@
+id: gen-k-8014-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  logs/ingest/records.py içindeki AccessLog sınıfını düzelt; her örnek kendi hits ve tags durumunu tutsun ve aynı path için paylaşılan etiket listesi oluşmasın.
+
+setup: |
+  mkdir -p logs/ingest logs/report
+  cat > logs/ingest/records.py <<'REC'
+  from dataclasses import dataclass, field
+
+
+  @dataclass
+  class AccessLog:
+      path: str
+      hits: int = 0
+      tags: list = []
+
+      def add_hit(self, tag):
+          self.hits += 1
+          self.tags.append(tag)
+          return self
+  REC
+  cat > logs/report/summary.py <<'SUM'
+  from logs.ingest.records import AccessLog
+
+
+  def build_summary(entries):
+      logs = {}
+      for path, tag in entries:
+          if path not in logs:
+              logs[path] = AccessLog(path=path)
+          logs[path].add_hit(tag)
+      return logs
+  SUM
+  cat > logs/__init__.py <<'INIT'
+  INIT
+  cat > logs/ingest/__init__.py <<'INIT'
+  INIT
+  cat > logs/report/__init__.py <<'INIT'
+  INIT
+
+goal_tr: >
+  logs/ingest/records.py icindeki AccessLog sinifini, her ornegin kendi hits
+  ve tags durumunu tutacak ve ayni path icin paylasilan etiket listesi
+  uretmeyecek bicimde duzelt.
+
+reference_solution: |
+  cat > logs/ingest/records.py <<'REC'
+  from dataclasses import dataclass, field
+
+
+  @dataclass
+  class AccessLog:
+      path: str
+      hits: int = 0
+      tags: list = field(default_factory=list)
+
+      def add_hit(self, tag):
+          self.hits += 1
+          self.tags.append(tag)
+          return self
+  REC
+
+outputs:
+  - {path: logs/ingest/records.py, kind: program, run: 'python3 -c ''from logs.report.summary import build_summary; s=build_summary([("/a","x"),("/b","y"),("/a","z")]); assert s["/a"].hits==2, s["/a"].hits; assert s["/b"].hits==1, s["/b"].hits; assert s["/a"].tags==["x","z"], s["/a"].tags; assert s["/b"].tags==["y"], s["/b"].tags; assert s["/a"].tags is not s["/b"].tags; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from logs.report.summary import build_summary; s=build_summary([("/a","x"),("/b","y"),("/a","z")]); assert s["/a"].hits==2, s["/a"].hits; assert s["/b"].hits==1, s["/b"].hits; assert s["/a"].tags==["x","z"], s["/a"].tags; assert s["/b"].tags==["y"], s["/b"].tags; assert s["/a"].tags is not s["/b"].tags; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8014
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: web-erisim-loglari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: mutable-varsayilan
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: ic-ice-yapi
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

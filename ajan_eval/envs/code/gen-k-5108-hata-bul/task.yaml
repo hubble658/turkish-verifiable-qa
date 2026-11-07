@@ -1,0 +1,164 @@
+id: gen-k-5108-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  fleet/cli.py dosyasındaki main fonksiyonunu düzelt. Geçerli girdi verildiğinde fonksiyon "OK <araç> <rota>" biçiminde bir metin döndürmeli; burada <araç> ve <rota> girdiden çıkarılan sayılardır. Bozuk girdi verildiğinde ise FleetError tabanlı bir hata yakalanmalı ve fonksiyon "ERROR <mesaj>" biçiminde bir metin döndürmelidir. Diğer fleet modüllerini (errors.py, vehicles.py, routes.py, dispatch.py) değiştirme.
+
+setup: |
+  mkdir -p fleet
+  cat > fleet/errors.py <<'PY'
+  class FleetError(Exception):
+      pass
+
+
+  class VehicleError(FleetError):
+      pass
+
+
+  class RouteError(FleetError):
+      pass
+
+
+  class DepotError(FleetError):
+      pass
+  PY
+  cat > fleet/vehicles.py <<'PY'
+  from fleet.errors import VehicleError
+
+
+  def parse_vehicle(line):
+      parts = line.split()
+      if len(parts) != 3:
+          raise VehicleError("bad vehicle line: " + line)
+      name, capacity, depot = parts
+      return {"name": name, "capacity": int(capacity), "depot": depot}
+  PY
+  cat > fleet/routes.py <<'PY'
+  from fleet.errors import RouteError
+
+
+  def parse_route(line):
+      parts = line.split(":")
+      if len(parts) != 2:
+          raise RouteError("bad route line: " + line)
+      origin, dest = parts
+      return {"origin": origin, "dest": dest}
+  PY
+  cat > fleet/dispatch.py <<'PY'
+  from fleet.errors import DepotError
+  from fleet.vehicles import parse_vehicle
+  from fleet.routes import parse_route
+
+
+  def load_fleet(text):
+      vehicles = []
+      routes = []
+      for line in text.splitlines():
+          line = line.strip()
+          if not line:
+              continue
+          if line.startswith("V "):
+              vehicles.append(parse_vehicle(line[2:]))
+          elif line.startswith("R "):
+              routes.append(parse_route(line[2:]))
+          else:
+              raise DepotError("unknown record: " + line)
+      return vehicles, routes
+
+
+  def summarize(text):
+      vehicles, routes = load_fleet(text)
+      counts = {}
+      for v in vehicles:
+          counts[v["depot"]] = counts.get(v["depot"], 0) + 1
+      return {
+          "vehicles": len(vehicles),
+          "routes": len(routes),
+          "depots": counts,
+      }
+  PY
+  cat > fleet/cli.py <<'PY'
+  import sys
+  from fleet.dispatch import summarize
+
+
+  def main(text):
+      try:
+          result = summarize(text)
+      except Exception as exc:
+          return "OK " + str(exc)
+      return "OK " + str(result["vehicles"]) + " " + str(result["routes"])
+
+
+  if __name__ == "__main__":
+      sys.stdout.write(main(sys.stdin.read()) + "\n")
+  PY
+
+goal_tr: >
+  fleet/cli.py icindeki main fonksiyonunu, gecerli girdide "OK <arac>
+  <rota>" dondurecek ve bozuk girdide FleetError tabanli hatayi "ERROR
+  <mesaj>" olarak dondurecek bicimde duzelt; diger fleet modullerini
+  degistirme.
+
+reference_solution: |
+  cat > fleet/cli.py <<'PY'
+  import sys
+  from fleet.errors import FleetError
+  from fleet.dispatch import summarize
+
+
+  def main(text):
+      try:
+          result = summarize(text)
+      except FleetError as exc:
+          return "ERROR " + str(exc)
+      return "OK " + str(result["vehicles"]) + " " + str(result["routes"])
+
+
+  if __name__ == "__main__":
+      sys.stdout.write(main(sys.stdin.read()) + "\n")
+  PY
+
+outputs:
+  - {path: fleet/cli.py, kind: program, run: 'python3 -c ''from fleet.cli import main; good="V van 3 north\nR north:south\nV truck 9 south\n"; assert main(good)=="OK 2 1", main(good); bad1="V van 3\n"; r1=main(bad1); assert r1.startswith("ERROR "), r1; bad2="R north\n"; r2=main(bad2); assert r2.startswith("ERROR "), r2; bad3="X junk\n"; r3=main(bad3); assert r3.startswith("ERROR "), r3; assert main(good)=="OK 2 1"; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.cli import main; good="V van 3 north\nR north:south\nV truck 9 south\n"; assert main(good)=="OK 2 1", main(good); bad1="V van 3\n"; r1=main(bad1); assert r1.startswith("ERROR "), r1; bad2="R north\n"; r2=main(bad2); assert r2.startswith("ERROR "), r2; bad3="X junk\n"; r3=main(bad3); assert r3.startswith("ERROR "), r3; assert main(good)=="OK 2 1"; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5108
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: arac-filosu
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kapsam-hatasi
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: stdin-boru
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

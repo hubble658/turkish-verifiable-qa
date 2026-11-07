@@ -1,0 +1,141 @@
+id: gen-k-8182-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Log toplama modülü üzerinde çalışıyorum, öğleden beri özet çıktısındaki hata oranı bir türlü tutarlı görünmüyor; küçük bir örnekle denediğimde de beklediğim değeri alamadım. Sanırım hata oranını hesaplayan yerde bir terslik var, çünkü hiç hata olmayan durumlarda da sıfır dönmesi gereken yerde başka bir şey çıkıyor gibi. Bunu bir an önce netleştirmem lazım.
+
+  weblog/aggregate.py dosyasındaki LogAggregator.error_rate metodunu, hata oranını toplam istek sayısına göre doğru biçimde döndürecek şekilde düzeltir misin? Metot, hata sayısının toplam istek sayısına bölümünü vermeli; hata yokken de doğru sonucu üretmeli.
+
+setup: |
+  mkdir -p weblog
+  cat > weblog/record.py <<'REC'
+  class AccessRecord:
+      def __init__(self, line):
+          parts = line.split()
+          self.method = parts[0]
+          self.path = parts[1]
+          self.status = int(parts[2])
+          self.bytes_sent = int(parts[3])
+
+      def is_error(self):
+          return self.status >= 400
+  REC
+  cat > weblog/aggregate.py <<'AGG'
+  from weblog.record import AccessRecord
+
+
+  class LogAggregator:
+      def __init__(self):
+          self.total = 0
+          self.errors = 0
+          self.bytes_total = 0
+
+      def add(self, line):
+          rec = AccessRecord(line)
+          self.total += 1
+          if rec.is_error():
+              self.errors += 1
+          self.bytes_total += rec.bytes_sent
+
+      def error_rate(self):
+          if self.errors != 0:
+              return 0.0
+          return self.errors / self.total
+  AGG
+  cat > weblog/summary.py <<'SUM'
+  from weblog.aggregate import LogAggregator
+
+
+  def summarize(stream):
+      agg = LogAggregator()
+      for line in stream:
+          line = line.strip()
+          if not line:
+              continue
+          agg.add(line)
+      return {
+          "total": agg.total,
+          "errors": agg.errors,
+          "bytes": agg.bytes_total,
+          "error_rate": agg.error_rate(),
+      }
+  SUM
+  cat > sample.log <<'LOG'
+  GET /index 200 512
+  POST /login 302 128
+  GET /missing 404 64
+  GET /admin 403 32
+  GET /data 500 256
+  LOG
+
+goal_tr: >
+  weblog/aggregate.py icindeki LogAggregator.error_rate metodunu, toplam
+  istek sayisina gore hata oranini dogru dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > weblog/aggregate.py <<'AGG'
+  from weblog.record import AccessRecord
+
+
+  class LogAggregator:
+      def __init__(self):
+          self.total = 0
+          self.errors = 0
+          self.bytes_total = 0
+
+      def add(self, line):
+          rec = AccessRecord(line)
+          self.total += 1
+          if rec.is_error():
+              self.errors += 1
+          self.bytes_total += rec.bytes_sent
+
+      def error_rate(self):
+          if self.total == 0:
+              return 0.0
+          return self.errors / self.total
+  AGG
+
+outputs:
+  - {path: weblog/aggregate.py, kind: program, run: 'python3 -c ''from weblog.summary import summarize; s=summarize(open("sample.log")); assert s["total"]==5, s; assert s["errors"]==3, s; assert s["bytes"]==992, s; assert abs(s["error_rate"]-0.6)<1e-9, s; assert abs(summarize([])["error_rate"])<1e-9; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from weblog.summary import summarize; s=summarize(open("sample.log")); assert s["total"]==5, s; assert s["errors"]==3, s; assert s["bytes"]==992, s; assert abs(s["error_rate"]-0.6)<1e-9, s; assert abs(summarize([])["error_rate"])<1e-9; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8182
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: web-erisim-loglari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-karsilastirma
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: stdin-boru
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

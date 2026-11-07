@@ -1,0 +1,134 @@
+id: gen-k-5156-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  callcenter/summary.py içindeki agent_totals fonksiyonu şu an bir hangup kaydına rastladığında toplamayı tamamen kesip elindeki sonucu döndürüyor; bu yüzden callcenter/report.py yanlış rapor üretiyor. Bu davranışı, hangup kaydı geldiğinde yalnızca o kaydın atlanıp kalan tüm kayıtların toplanmaya devam edeceği şekilde düzelt; hangup dışındaki kayıtların hiçbiri kaybolmasın ve sıralama ya da toplam mantığı bozulmasın. callcenter/summary.py dışındaki dosyalara dokunma. Düzeltme sonrasında callcenter/report.py içindeki report_lines ve headline fonksiyonları, calls.txt içindeki kayıtlar için doğru toplamları ve doğru en yoğun temsilciyi verecek şekilde çalışsın.
+
+setup: |
+  mkdir -p callcenter
+  cat > callcenter/records.py <<'RECORDS'
+  def parse_records(rows):
+      out = []
+      for row in rows:
+          agent, kind, secs = row.split('|')
+          out.append((agent, kind, int(secs)))
+      return out
+  RECORDS
+  cat > callcenter/summary.py <<'SUMMARY'
+  from callcenter.records import parse_records
+
+
+  def agent_totals(rows):
+      totals = {}
+      for agent, kind, secs in parse_records(rows):
+          if kind == 'hangup':
+              return totals
+          totals[agent] = totals.get(agent, 0) + secs
+      return totals
+
+
+  def busiest_agent(rows):
+      totals = agent_totals(rows)
+      best = None
+      for agent in sorted(totals):
+          if best is None or totals[agent] > totals[best]:
+              best = agent
+      return best
+  SUMMARY
+  cat > callcenter/report.py <<'REPORT'
+  from callcenter.summary import agent_totals, busiest_agent
+
+
+  def report_lines(rows):
+      totals = agent_totals(rows)
+      lines = []
+      for agent in sorted(totals):
+          lines.append(agent + ':' + str(totals[agent]))
+      return lines
+
+
+  def headline(rows):
+      return 'busiest=' + str(busiest_agent(rows))
+  REPORT
+  cat > calls.txt <<'CALLS'
+  ayse|talk|120
+  mehmet|talk|300
+  ayse|hold|45
+  zeynep|talk|90
+  mehmet|hangup|600
+  zeynep|talk|210
+  ayse|talk|30
+  CALLS
+
+goal_tr: >
+  callcenter/summary.py icindeki agent_totals fonksiyonunu, hangup kaydinda
+  toplamayi kesmek yerine yalnizca o kaydi atlayip kalan tum kayitlari
+  toplayacak sekilde duzelt; boylece callcenter/report.py dogru rapor
+  uretsin.
+
+reference_solution: |
+  cat > callcenter/summary.py <<'SUMMARY'
+  from callcenter.records import parse_records
+
+
+  def agent_totals(rows):
+      totals = {}
+      for agent, kind, secs in parse_records(rows):
+          if kind == 'hangup':
+              continue
+          totals[agent] = totals.get(agent, 0) + secs
+      return totals
+
+
+  def busiest_agent(rows):
+      totals = agent_totals(rows)
+      best = None
+      for agent in sorted(totals):
+          if best is None or totals[agent] > totals[best]:
+              best = agent
+      return best
+  SUMMARY
+
+outputs:
+  - {path: callcenter/summary.py, kind: program, run: 'python3 -c ''import callcenter.summary as s; assert s.agent_totals(["a|talk|10","a|hold|5"])=={"a":15}; assert s.agent_totals(["a|talk|10","a|hangup|99","a|talk|1"])=={"a":11}; assert s.agent_totals(["a|talk|10","b|hangup|7"])=={"a":10}; assert s.agent_totals([])=={}; assert s.agent_totals(["a|talk|10","b|talk|4"])=={"a":10,"b":4}; assert s.busiest_agent(["a|talk|10","a|hangup|99","a|talk|1"])=="a"; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import callcenter.summary as s; assert s.agent_totals(["a|talk|10","a|hold|5"])=={"a":15}; assert s.agent_totals(["a|talk|10","a|hangup|99","a|talk|1"])=={"a":11}; assert s.agent_totals(["a|talk|10","b|hangup|7"])=={"a":10}; assert s.agent_totals([])=={}; assert s.agent_totals(["a|talk|10","b|talk|4"])=={"a":10,"b":4}; assert s.busiest_agent(["a|talk|10","a|hangup|99","a|talk|1"])=="a"; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5156
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: cagri-merkezi-kayitlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: erken-donus
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: bellek-ici
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

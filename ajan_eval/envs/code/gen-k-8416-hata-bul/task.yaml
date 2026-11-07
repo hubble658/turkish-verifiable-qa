@@ -1,0 +1,101 @@
+id: gen-k-8416-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  weblog/summary.py dosyasındaki summarize fonksiyonunu düzelt. Fonksiyon her çağrıldığında, önce bir @count_calls dekoratörü çağrı sayacını artırmalı ve ardından stdin'den okunan erişim loglarında her IP adresinin kaç kez göründüğünü doğru biçimde saymalı. Sayım sonucu, IP adreslerini anahtar olarak kullanan bir sözlük olarak dönmeli.
+
+setup: |
+  mkdir -p weblog
+  cat > weblog/parsers.py <<'PARSERS'
+  def parse_line(line):
+      ip, path, status = line.split()
+      return {"ip": ip, "path": path, "status": int(status)}
+
+
+  def parse_stream(stream):
+      return [parse_line(line) for line in stream if line.strip()]
+  PARSERS
+  cat > weblog/summary.py <<'SUMMARY'
+  from weblog.parsers import parse_stream
+
+
+  def summarize(stream):
+      counts = {}
+      for record in parse_stream(stream):
+          key = record["ip"]
+          counts[key] = counts.get(key, 0) + 1
+      return counts
+  SUMMARY
+
+goal_tr: >
+  weblog/summary.py icindeki summarize fonksiyonunu, her cagrisinda once bir
+  `@count_calls` dekoratoru ile cagri sayacini artirip stdin'den okunan
+  erisim loglarinda her IP adresinin kac kez gorundugunu dogru sayacak
+  bicimde duzelt.
+
+reference_solution: |
+  cat > weblog/summary.py <<'SUMMARY'
+  from weblog.parsers import parse_stream
+
+  CALL_COUNT = {"n": 0}
+
+
+  def count_calls(func):
+      def wrapper(stream):
+          CALL_COUNT["n"] += 1
+          return func(stream)
+      return wrapper
+
+
+  @count_calls
+  def summarize(stream):
+      counts = {}
+      for record in parse_stream(stream):
+          key = record["ip"]
+          counts[key] = counts.get(key, 0) + 1
+      return counts
+  SUMMARY
+
+outputs:
+  - {path: weblog/summary.py, kind: program, run: 'python3 -c ''import weblog.summary as m; data="10.0.0.1 /a 200\n10.0.0.2 /b 404\n10.0.0.1 /c 200\n"; r=m.summarize(data.splitlines()); assert r=={"10.0.0.1":2,"10.0.0.2":1}, r; assert m.CALL_COUNT["n"]==1, m.CALL_COUNT; m.summarize(data.splitlines()); assert m.CALL_COUNT["n"]==2, m.CALL_COUNT; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import weblog.summary as m; data="10.0.0.1 /a 200\n10.0.0.2 /b 404\n10.0.0.1 /c 200\n"; r=m.summarize(data.splitlines()); assert r=={"10.0.0.1":2,"10.0.0.2":1}, r; assert m.CALL_COUNT["n"]==1, m.CALL_COUNT; m.summarize(data.splitlines()); assert m.CALL_COUNT["n"]==2, m.CALL_COUNT; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8416
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: web-erisim-loglari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sozluk-anahtar-hatasi
+      karmasiklik: duz
+      kalip: dekorator
+      akis: stdin-boru
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

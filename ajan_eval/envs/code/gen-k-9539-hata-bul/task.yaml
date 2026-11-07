@@ -1,0 +1,176 @@
+id: gen-k-9539-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 24
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  arena/summary.py, arena/ranking.py ve arena/players.py üzerinde çalış: run_session her oyuncunun en yüksek skorunu döndürsün, skoru olmayan 0 alsın, aynı isim tekrar gelirse skorlar biriksin.
+
+setup: |
+  mkdir -p arena
+  cat > arena/players.py <<'PY'
+  def make_player(name):
+      return {"name": name, "scores": []}
+
+
+  def add_score(player, points):
+      player["scores"].append(points)
+      return player
+  PY
+  cat > arena/ranking.py <<'PY'
+  from arena.players import make_player
+
+
+  def make_tracker():
+      board = {}
+
+      def register(name):
+          board[name] = make_player(name)
+          return board[name]
+
+      def best(name):
+          p = board[name]
+          return max(p["scores"]) if p["scores"] else 0
+
+      return register, best
+  PY
+  cat > arena/summary.py <<'PY'
+  from arena.ranking import make_tracker
+  from arena.players import add_score
+
+
+  def run_session(rounds):
+      register, best = make_tracker()
+      for name, pts in rounds:
+          if name not in _seen(register):
+              register(name)
+          add_score(_board(register)[name], pts)
+      return {name: best(name) for name in _board(register)}
+
+
+  def _seen(register):
+      register("__probe__")
+      return []
+
+
+  def _board(register):
+      register("__probe__")
+      return {}
+  PY
+
+goal_tr: >
+  Bir oturumun oyuncu basina en yuksek skorunu donduren run_session cagrisi,
+  kayitli her oyuncu icin dogru sonucu versin; bos skorlu oyuncu 0 almali ve
+  ayni isim birden fazla kez geldiginde skorlari birikmeli.
+
+reference_solution: |
+  cat > arena/players.py <<'PY'
+  def make_player(name):
+      return {"name": name, "scores": []}
+
+
+  def add_score(player, points):
+      player["scores"].append(points)
+      return player
+  PY
+  cat > arena/ranking.py <<'PY'
+  from arena.players import make_player
+
+
+  def make_tracker():
+      board = {}
+
+      def register(name):
+          if name not in board:
+              board[name] = make_player(name)
+          return board[name]
+
+      def best(name):
+          p = board[name]
+          return max(p["scores"]) if p["scores"] else 0
+
+      def names():
+          return list(board)
+
+      return register, best, names
+  PY
+  cat > arena/summary.py <<'PY'
+  from arena.ranking import make_tracker
+  from arena.players import add_score
+
+
+  def run_session(rounds):
+      register, best, names = make_tracker()
+      for name, pts in rounds:
+          add_score(register(name), pts)
+      return {name: best(name) for name in names()}
+  PY
+
+ara_adim: |
+  cat > arena/ranking.py <<'PY'
+  from arena.players import make_player
+
+
+  def make_tracker():
+      board = {}
+
+      def register(name):
+          if name not in board:
+              board[name] = make_player(name)
+          return board[name]
+
+      def best(name):
+          p = board[name]
+          return max(p["scores"]) if p["scores"] else 0
+
+      def names():
+          return list(board)
+
+      return register, best, names
+  PY
+
+outputs:
+  - {path: arena/summary.py, kind: program, run: 'python3 -c ''from arena.summary import run_session as f; r=f([("ana",3),("bo",5),("ana",9)]); assert r=={"ana":9,"bo":5}, r; print("TAMAM")'''}
+  - {path: arena/ranking.py, kind: program, run: 'python3 -c ''from arena.ranking import make_tracker as f; reg,best,names=f(); reg("a"); reg("a"); assert names()==["a"], names(); print("ILERLEME-TAMAM")'''}
+  - {path: arena/players.py, kind: program, run: 'python3 -c ''from arena.players import make_player as m, add_score as a; p=m("x"); a(p,4); a(p,7); assert p["scores"]==[4,7], p; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from arena.ranking import make_tracker as f; reg,best,names=f(); reg("a"); reg("a"); assert names()==["a"], names(); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from arena.summary import run_session as f; r=f([("ana",3),("bo",5),("ana",9)]); assert r=={"ana":9,"bo":5}, r; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from arena.players import make_player as m, add_score as a; p=m("x"); a(p,4); a(p,7); assert p["scores"]==[4,7], p; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9539
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: oyun-skor-tablosu
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 9
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kenar-durum
+      karmasiklik: derin
+      kalip: closure-fabrika
+      akis: bellek-ici
+      topoloji: yildiz
+      zincir: 3
+      regresyon: true
+      bagimli: true
+      kesif_zor: true

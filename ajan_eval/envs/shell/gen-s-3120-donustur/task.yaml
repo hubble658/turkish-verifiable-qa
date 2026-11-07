@@ -1,0 +1,78 @@
+id: gen-s-3120-donustur
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) loglar/onek.txt ve loglar/govde.txt dosyalarını paste ile birleştir; loglar/tuzak.txt dosyasını kullanma.
+
+  2) Birleşen her satırda saat ile mesajı boşlukla ayır ve yalnızca mesaj kısmını cut ile kes.
+
+  3) Elde edilen yalnızca mesaj kısımlarını her satırda bir tane olacak şekilde loglar/birlesik.txt dosyasına yaz.
+
+setup: |
+  mkdir -p loglar
+  cat > loglar/onek.txt <<'EOF'
+  10:00:01
+  10:00:05
+  10:00:09
+  10:00:12
+  10:00:15
+  EOF
+  cat > loglar/govde.txt <<'EOF'
+  BILGI basladi
+  HATA disk
+  BILGI giris
+  HATA koptu
+  BILGI bitti
+  EOF
+  cat > loglar/tuzak.txt <<'EOF'
+  10:00:01 BILGI basladi
+  10:00:05 HATA disk
+  10:00:09 BILGI giris
+  10:00:12 HATA koptu
+  10:00:15 BILGI bitti
+  EOF
+
+goal_tr: >
+  loglar/onek.txt ve loglar/govde.txt dosyalarini paste ile birlestirip her
+  satirda saat ile mesaji boslukla ayir ve yalnizca mesaj kismini cut ile
+  keserek loglar/birlesik.txt dosyasina yaz; loglar/tuzak.txt dosyasini
+  kullanma
+
+reference_solution: |
+  paste -d ' ' loglar/onek.txt loglar/govde.txt | cut -d ' ' -f 2- > loglar/birlesik.txt
+
+outputs:
+  - {path: loglar/birlesik.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: loglar/birlesik.txt, value: [BILGI basladi, HATA disk, BILGI giris, HATA koptu, BILGI bitti]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3120
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: sunucu-loglari
+    hedef: donustur
+    girdi: sabit-genislik
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

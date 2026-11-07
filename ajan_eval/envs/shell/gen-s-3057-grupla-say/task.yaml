@@ -1,0 +1,80 @@
+id: gen-s-3057-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Atölyedeki bakım kayıtlarını tutan ekip bu aralar yoğun; sensör verileri her gün birikiyor ama hangi sensörün hangi ölçüm tipinde ne kadar kayıt ürettiğini kimse takip edemiyor. Ben de gün sonunda oturup şu ham veriyi bir düzene sokayım dedim. /workspace/sensorler/olcumler.dat dosyasında her satırda sensör kimliği ve ölçüm tipi ayrı alanlar, yanında da ölçüm değeri var. Bu dosyayı okuyup her (sensör, ölçüm tipi) çifti için kaç satır olduğunu ve kaç farklı değer geçtiğini hesapla; sonucu her çift için /workspace/sensorler/ altında <sensör>_<tip>.say adlı dosyaya "satir=<satır_sayısı> farkli=<farklı_değer_sayısı>" biçiminde yaz. Yani ortaya S01_sicaklik.say, S02_sicaklik.say, S03_nem.say, S02_nem.say, S03_sicaklik.say ve S04_nem.say dosyaları çıkmalı.
+
+setup: |
+  mkdir -p /workspace/sensorler
+  cat > /workspace/sensorler/olcumler.dat <<'DAT'
+  S01 sicaklik 0021
+  S02 sicaklik 0023
+  S03 nem 0045
+  S01 sicaklik 0021
+  S02 nem 0050
+  S03 sicaklik 0019
+  S04 nem 0045
+  S01 sicaklik 0022
+  DAT
+
+goal_tr: >
+  /workspace/sensorler/olcumler.dat dosyasindaki her satirda sensor kimligi
+  ve olcum tipi ile degeri ayri alanlardir; her (sensor, olcum tipi) cifti
+  icin kac satir oldugunu ve farkli deger sayisini hesaplayip her cift icin
+  /workspace/sensorler/ altinda <sensor>_<tip>.say dosyasina
+  "satir=<satir_sayisi> farkli=<farkli_deger_sayisi>" biciminde yaz.
+
+reference_solution: |
+  cd /workspace/sensorler
+  cut -d' ' -f1,2 olcumler.dat | sort | uniq -c | awk '{print $2, $3, $1}' > /tmp/gruplar.txt
+  while read -r sensor tip adet; do
+    farkli=$(awk -v s="$sensor" -v t="$tip" '$1==s && $2==t {print $3}' olcumler.dat | sort -u | wc -l)
+    printf 'satir=%s farkli=%s\n' "$adet" "$farkli" > "${sensor}_${tip}.say"
+  done < /tmp/gruplar.txt
+
+outputs:
+  - {path: sensorler/S01_sicaklik.say, kind: file}
+  - {path: sensorler/S02_sicaklik.say, kind: file}
+  - {path: sensorler/S03_nem.say, kind: file}
+  - {path: sensorler/S01_sicaklik.say, kind: file}
+  - {path: sensorler/S02_nem.say, kind: file}
+  - {path: sensorler/S03_sicaklik.say, kind: file}
+  - {path: sensorler/S04_nem.say, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sensorler/S01_sicaklik.say, value: satir=3 farkli=2}
+  - {op: file_content_eq, path: sensorler/S02_nem.say, value: satir=1 farkli=1}
+  - {op: file_content_eq, path: sensorler/S02_sicaklik.say, value: satir=1 farkli=1}
+  - {op: file_content_eq, path: sensorler/S03_nem.say, value: satir=1 farkli=1}
+  - {op: file_content_eq, path: sensorler/S03_sicaklik.say, value: satir=1 farkli=1}
+  - {op: file_content_eq, path: sensorler/S04_nem.say, value: satir=1 farkli=1}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3057
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: sensor-olcumleri
+    hedef: grupla-say
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: birden-cok-dosya
+    kesif: dosyayi-bul
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

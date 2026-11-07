@@ -1,0 +1,70 @@
+id: gen-s-3229-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kargo.log dosyasındaki her satırı ters çevirip ters halini ters_cevrilmis.txt dosyasına yaz. Ardından her ters satırdan ilk iki karakteri kesip kesilmis.txt dosyasına yaz.
+
+  Şu şartlar sağlanmalı:
+  - ters_cevrilmis.txt dosyası oluşturulmalı ve kargo.log içindeki her satırın ters çevrilmiş hali bu dosyada yer almalı.
+  - kesilmis.txt dosyası oluşturulmalı ve ters_cevrilmis.txt içindeki her satırdan ilk iki karakter çıkarıldıktan sonra kalan kısım bu dosyada yer almalı.
+  - Her iki dosyada da satır sayısı kargo.log dosyasındaki satır sayısıyla aynı olmalı.
+
+setup: |
+  cat > kargo.log <<'LOG'
+  TRK-8801|ANKARA|TESLIM
+  TRK-8802|IZMIR|DAGITIMDA
+  TRK-8803|ANKARA|IPTAL
+  TRK-8804|BURSA|TESLIM
+  TRK-8805|IZMIR|TESLIM
+  TRK-8806|ANKARA|DAGITIMDA
+  TRK-8807|BURSA|TESLIM
+  TRK-8808|IZMIR|IPTAL
+  TRK-8809|ANKARA|TESLIM
+  TRK-8810|BURSA|DAGITIMDA
+  LOG
+
+goal_tr: >
+  kargo.log dosyasindaki her satiri ters cevirip ters halini ters
+  cevrilmis.txt dosyasina yaz, sonra her ters satirdan ilk iki karakteri
+  kesip kesilmis.txt dosyasina yaz
+
+reference_solution: |
+  rev kargo.log > ters.txt
+  cut -c1-2 ters.txt > kesilmis.txt
+  mv kesilmis.txt ters_cevrilmis.txt
+
+outputs:
+  - {path: ters_cevrilmis.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: ters_cevrilmis.txt, value: [MI, AD, LA, MI, MI, AD, MI, LA, MI, AD]}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3229
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: kargo-takibi
+    hedef: ayikla
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: olcek
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

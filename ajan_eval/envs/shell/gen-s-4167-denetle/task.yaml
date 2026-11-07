@@ -1,0 +1,87 @@
+id: gen-s-4167-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) "kutuphane kayitlari" dizinindeki gerçek ödünçler.csv dosyasını incele ve üye_id değeri üyeler.csv dosyasında bulunmayan ödünç satırlarını belirle.
+  2) Bu satırların sayısını hesapla.
+  3) Sonucu "kutuphane kayitlari" dizinindeki sonuc.txt dosyasına sadece sayı olarak yaz.
+
+setup: |
+  mkdir -p "kutuphane kayitlari"
+  cat > "kutuphane kayitlari/uyeler.csv" <<'CSV'
+  uye_id,ad,sehir
+  1,Ali,Ankara
+  2,Ayse,Izmir
+  3,Can,Istanbul
+  4,Deniz,Ankara
+  5,Ece,Izmir
+  CSV
+  cat > "kutuphane kayitlari/oduncler.csv" <<'CSV'
+  odunc_id,uye_id,kitap
+  101,1,Kirmizi
+  102,2,Mavi
+  103,1,Yesil
+  104,3,Sari
+  105,9,Mor
+  CSV
+  cat > "kutuphane kayitlari/oduncler.csv.yedek" <<'CSV'
+  odunc_id,uye_id,kitap
+  999,1,Hayalet
+  CSV
+
+goal_tr: >
+  "kutuphane kayitlari" dizinindeki gercek oduncler.csv dosyasinda uye_id
+  degeri uyeler.csv dosyasinda bulunmayan odunc satirlarinin sayisini
+  sonuc.txt dosyasina sadece sayi olarak yaz.
+
+reference_solution: |
+  python3 - <<'PY'
+  import csv, glob, os
+  d = "kutuphane kayitlari"
+  uyeler = set()
+  with open(os.path.join(d, "uyeler.csv"), newline="") as f:
+      for r in csv.DictReader(f):
+          uyeler.add(r["uye_id"])
+  n = 0
+  with open(os.path.join(d, "oduncler.csv"), newline="") as f:
+      for r in csv.DictReader(f):
+          if r["uye_id"] not in uyeler:
+              n += 1
+  with open("sonuc.txt", "w") as f:
+      f.write(str(n) + "\n")
+  PY
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '1'}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4167
+    bundle: python-veri
+    tools:
+    - python3
+    konu: kutuphane-kayitlari
+    hedef: denetle
+    girdi: csv
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: bosluklu-ad
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

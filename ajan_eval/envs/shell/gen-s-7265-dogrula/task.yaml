@@ -1,0 +1,158 @@
+id: gen-s-7265-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) kayitlar.txt dosyasındaki her satırın ilk alanını incele; yalnızca ilk alanı geçerli bir il kodu olan satırları tut.
+
+  2) Kalan satırların ilk alanlarını tekrarsız olarak say.
+
+  3) Elde ettiğin bu sayıyı sonuc.txt dosyasına sadece sayı olarak yaz.
+
+setup: |
+  cat > kayitlar.txt <<'KAYIT'
+  IST 12.5 1013
+  ANK 08.0 1008
+  IZM 15.2 1015
+  BUR 03.1 1002
+  ANT 07.7 1009
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAY 09.4 1011
+  KAYIT
+
+goal_tr: >
+  kayitlar.txt dosyasindaki satirlardan yalnizca ilk alani gecerli bir il
+  kodu olanlari birak; kalan satirlarin ilk alanlarini tekrarsiz olarak say
+  ve sonuc.txt dosyasina sadece bu sayiyi yaz.
+
+reference_solution: |
+  grep -E '^[A-Z]{3} ' kayitlar.txt | cut -d' ' -f1 | sort -u > gecici.txt
+  wc -l < gecici.txt > sonuc.txt
+  rm -f gecici.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '6'}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7265
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: hava-durumu-kayitlari
+    hedef: dogrula
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

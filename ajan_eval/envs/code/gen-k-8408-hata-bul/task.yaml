@@ -1,0 +1,99 @@
+id: gen-k-8408-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) sensors/collector.py dosyasını aç ve içindeki collect fonksiyonunu, her sensörden toplanan değerlerin çağrılar arasında paylaşılmadığı şekilde düzelt.
+
+  2) collect fonksiyonunun döndürdüğü sonuçların yalnızca o çağrıya verilen satırlardan üretilmesini sağla; önceki çağrılardan kalan değerler sonuca karışmasın.
+
+  3) Değişiklikleri sensors/collector.py dosyasına kaydet.
+
+setup: |
+  mkdir -p sensors/core
+  cat > sensors/core/reader.py <<'READER'
+  def read_samples(lines):
+      for line in lines:
+          line = line.strip()
+          if not line:
+              continue
+          name, value = line.split(',')
+          yield (name, float(value))
+  READER
+  cat > sensors/collector.py <<'COLLECTOR'
+  from sensors.core.reader import read_samples
+
+
+  def collect(lines, buckets={}):
+      for name, value in read_samples(lines):
+          buckets.setdefault(name, []).append(value)
+      return buckets
+  COLLECTOR
+  cat > samples.txt <<'DATA'
+  temp,20.0
+  humidity,55.0
+  temp,21.5
+  pressure,101.3
+  humidity,54.0
+  DATA
+
+goal_tr: >
+  sensors/collector.py icindeki collect fonksiyonunu, her sensorden toplanan
+  degerlerin cagrilar arasinda paylasilmadigi ve yalnizca o cagrinin
+  satirlarindan uretildigi sekilde duzelt.
+
+reference_solution: |
+  cat > sensors/collector.py <<'COLLECTOR'
+  from sensors.core.reader import read_samples
+
+
+  def collect(lines, buckets=None):
+      if buckets is None:
+          buckets = {}
+      for name, value in read_samples(lines):
+          buckets.setdefault(name, []).append(value)
+      return buckets
+  COLLECTOR
+
+outputs:
+  - {path: sensors/collector.py, kind: program, run: 'python3 -c ''from sensors.collector import collect as c; d=open("samples.txt").read().splitlines(); a=c(d); assert a=={"temp":[20.0,21.5],"humidity":[55.0,54.0],"pressure":[101.3]}, a; b=c(["temp,1.0"]); assert b=={"temp":[1.0]}, b; assert a=={"temp":[20.0,21.5],"humidity":[55.0,54.0],"pressure":[101.3]}, a; e=c([]); assert e=={}, e; assert a=={"temp":[20.0,21.5],"humidity":[55.0,54.0],"pressure":[101.3]}, a; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensors.collector import collect as c; d=open("samples.txt").read().splitlines(); a=c(d); assert a=={"temp":[20.0,21.5],"humidity":[55.0,54.0],"pressure":[101.3]}, a; b=c(["temp,1.0"]); assert b=={"temp":[1.0]}, b; assert a=={"temp":[20.0,21.5],"humidity":[55.0,54.0],"pressure":[101.3]}, a; e=c([]); assert e=={}, e; assert a=={"temp":[20.0,21.5],"humidity":[55.0,54.0],"pressure":[101.3]}, a; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8408
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: sensor-serisi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: mutable-varsayilan
+      karmasiklik: duz
+      kalip: generator
+      akis: cok-dosya-birlestirme
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,160 @@
+id: gen-k-8010-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) pricing/checkout.py dosyasındaki cheapest fonksiyonunu, fiyat dosyasındaki en düşük fiyatlı ürünün adını doğru döndürecek biçimde düzelt.
+
+  2) Düzeltmeyi pricing/checkout.py dosyasına yaz; fonksiyonun imzası ve diğer dosyalar aynı kalsın.
+
+setup: |
+  mkdir -p pricing
+  cat > pricing/loader.py <<'LOADER'
+  from abc import ABC, abstractmethod
+
+
+  class PriceSource(ABC):
+      @abstractmethod
+      def raw_rows(self):
+          raise NotImplementedError
+
+
+  class FilePriceSource(PriceSource):
+      def __init__(self, path):
+          self.path = path
+
+      def raw_rows(self):
+          rows = []
+          with open(self.path, "r", encoding="ascii") as fh:
+              for line in fh:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  name, raw = line.split(",")
+                  rows.append((name, raw))
+          return rows
+
+
+  def load_prices(path):
+      return FilePriceSource(path).raw_rows()
+  LOADER
+  cat > pricing/rules.py <<'RULES'
+  from abc import ABC, abstractmethod
+
+
+  class PriceRule(ABC):
+      @abstractmethod
+      def to_cents(self, raw):
+          raise NotImplementedError
+
+
+  class DecimalRule(PriceRule):
+      def to_cents(self, raw):
+          return int(round(float(raw) * 100))
+
+
+  def to_cents(raw):
+      return DecimalRule().to_cents(raw)
+  RULES
+  cat > pricing/checkout.py <<'CHECKOUT'
+  from pricing.loader import load_prices
+  from pricing.rules import to_cents
+
+
+  def cheapest(path):
+      rows = load_prices(path)
+      best_name = None
+      best_cents = None
+      for name, raw in rows:
+          cents = to_cents(raw)
+          if best_cents is None or cents > best_cents:
+              best_name = name
+              best_cents = cents
+      return best_name
+  CHECKOUT
+  cat > prices.txt <<'PRICES'
+  widget,3.50
+  gadget,12.00
+  bolt,0.75
+  nut,4.20
+  PRICES
+
+goal_tr: >
+  pricing/checkout.py icindeki cheapest fonksiyonunu, fiyat dosyasindaki en
+  dusuk fiyatli urunun adini dogru dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > pricing/checkout.py <<'CHECKOUT'
+  from abc import ABC, abstractmethod
+
+  from pricing.loader import load_prices
+  from pricing.rules import to_cents
+
+
+  class Selector(ABC):
+      @abstractmethod
+      def better(self, candidate_cents, current_cents):
+          raise NotImplementedError
+
+
+  class CheapestSelector(Selector):
+      def better(self, candidate_cents, current_cents):
+          return candidate_cents < current_cents
+
+
+  def cheapest(path, selector=None):
+      if selector is None:
+          selector = CheapestSelector()
+      rows = load_prices(path)
+      best_name = None
+      best_cents = None
+      for name, raw in rows:
+          cents = to_cents(raw)
+          if best_cents is None or selector.better(cents, best_cents):
+              best_name = name
+              best_cents = cents
+      return best_name
+  CHECKOUT
+
+outputs:
+  - {path: pricing/checkout.py, kind: program, run: 'python3 -c ''from pricing.checkout import cheapest as f, CheapestSelector; assert f("prices.txt")=="bolt", f("prices.txt"); open("t2.txt","w").write("a,9.99\nb,9.98\nc,10.00\n"); assert f("t2.txt")=="b", f("t2.txt"); open("t3.txt","w").write("solo,5.00\n"); assert f("t3.txt")=="solo"; assert f("prices.txt", CheapestSelector())=="bolt"; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from pricing.checkout import cheapest as f, CheapestSelector; assert f("prices.txt")=="bolt", f("prices.txt"); open("t2.txt","w").write("a,9.99\nb,9.98\nc,10.00\n"); assert f("t2.txt")=="b", f("t2.txt"); open("t3.txt","w").write("solo,5.00\n"); assert f("t3.txt")=="solo"; assert f("prices.txt", CheapestSelector())=="bolt"; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8010
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: urun-fiyatlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-karsilastirma
+      karmasiklik: duz
+      kalip: abc-protokol
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

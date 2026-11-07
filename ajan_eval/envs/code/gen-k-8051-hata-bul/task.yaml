@@ -1,0 +1,98 @@
+id: gen-k-8051-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Sabah shift planlama tablosuna bakarken fark ettim ki çakışma sayısı olduğundan fazla çıkıyor; iki vardiyanın gerçekten aynı zamanı paylaşıp paylaşmadığı doğru hesaplanmıyor. Gün içinde birkaç kez denedim, hep aynı yerde tıkanıyor. Bu yüzden plan/core/overlap.py dosyasındaki overlaps fonksiyonunu, yalnızca iki vardiya gerçekten ortak bir zaman dilimini paylaşıyorsa True döndürecek şekilde düzeltmeni istiyorum. Bu düzeltmeden sonra plan/schedule.py içindeki count_conflicts fonksiyonu da doğru sayıyı vermeli.
+
+setup: |
+  mkdir -p plan
+  mkdir -p plan/core
+  cat > plan/core/parse.py <<'PARSE'
+  def parse_shifts(text):
+      rows = []
+      for line in text.strip().splitlines():
+          if not line.strip():
+              continue
+          name, start, end = line.split('|')
+          rows.append((name.strip(), int(start), int(end)))
+      return rows
+  PARSE
+  cat > plan/core/overlap.py <<'OVERLAP'
+  def overlaps(a, b):
+      return a[1] <= b[2] and b[1] <= a[2]
+  OVERLAP
+  cat > plan/schedule.py <<'SCHEDULE'
+  from plan.core.parse import parse_shifts
+  from plan.core.overlap import overlaps
+
+
+  def count_conflicts(text):
+      rows = parse_shifts(text)
+      total = 0
+      for i in range(len(rows)):
+          for j in range(i + 1, len(rows)):
+              if overlaps(rows[i], rows[j]):
+                  total += 1
+      return total
+  SCHEDULE
+  cat > shifts.txt <<'DATA'
+  ali|8|12
+  veli|10|14
+  ayse|13|17
+  mehmet|20|22
+  DATA
+
+goal_tr: >
+  plan/core/overlap.py icindeki overlaps fonksiyonunu, yalnizca iki vardiya
+  gercekten ortak zaman dilimini paylastiginda True dondurecek bicimde
+  duzelt; count_conflicts bu duzeltmeyle dogru sayi vermeli.
+
+reference_solution: |
+  cat > plan/core/overlap.py <<'OVERLAP'
+  def overlaps(a, b):
+      return a[1] < b[2] and b[1] < a[2]
+  OVERLAP
+
+outputs:
+  - {path: plan/core/overlap.py, kind: program, run: 'python3 -c ''from plan.schedule import count_conflicts as f; t=open("shifts.txt").read(); assert f(t)==2, f(t); assert f("ali|8|12\nveli|10|14\n")==1; assert f("ali|8|12\nayse|12|17\n")==0; assert f("ali|8|12\nveli|12|14\n")==0; assert f("ali|8|12\nveli|9|13\nayse|10|11\n")==3; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from plan.schedule import count_conflicts as f; t=open("shifts.txt").read(); assert f(t)==2, f(t); assert f("ali|8|12\nveli|10|14\n")==1; assert f("ali|8|12\nayse|12|17\n")==0; assert f("ali|8|12\nveli|12|14\n")==0; assert f("ali|8|12\nveli|9|13\nayse|10|11\n")==3; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8051
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: vardiya-cizelgesi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: zor
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-karsilastirma
+      karmasiklik: duz
+      kalip: ozyineleme
+      akis: cok-dosya-birlestirme
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

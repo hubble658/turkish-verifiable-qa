@@ -1,0 +1,81 @@
+id: gen-s-4061-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) siparisler.ini dosyasını aç ve içindeki her bölümde yer alan adet ve fiyat değerlerini bul.
+  2) Her bölüm için adet ile fiyat değerlerini çarpıp bu çarpımların toplamını hesapla.
+  3) Hesapladığın toplamı sonuc.txt dosyasına sadece toplam sayı olacak şekilde yaz.
+
+setup: |
+  cat > siparisler.ini <<'INI'
+  [masa1]
+  urun=pizza
+  adet=2
+  fiyat=90
+
+  [masa2]
+  urun=corba
+  adet=1
+  fiyat=45
+
+  [masa3]
+  urun=kebap
+  adet=3
+  fiyat=120
+
+  [masa4]
+  urun=salata
+  adet=0
+  fiyat=60
+
+  [masa5]
+  urun=makarna
+  adet=4
+  fiyat=75
+  INI
+
+goal_tr: >
+  siparisler.ini dosyasindaki her bolumun adet ile fiyat degerlerinin
+  carpimini toplayip sonuc.txt dosyasina sadece toplam sayi olarak yaz
+
+reference_solution: |
+  head -n -1 siparisler.ini > gecici.ini
+  tail -n +2 gecici.ini >> gecici.ini
+  awk -F= '/^adet=/{a=$2} /^fiyat=/{f=$2; s+=a*f} END{print s}' gecici.ini > sonuc.txt
+  rm gecici.ini
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '1170'}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4061
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: restoran-siparisleri
+    hedef: ayikla
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

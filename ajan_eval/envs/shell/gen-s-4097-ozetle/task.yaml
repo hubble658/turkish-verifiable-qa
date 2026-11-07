@@ -1,0 +1,76 @@
+id: gen-s-4097-ozetle
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Çalışma dizinindeki olcumler.ini dosyasını oku; bu dosyadaki her anahtar için, o anahtara ait tüm değerlerin toplamını hesapla. Sonuçları artan anahtar sırasına göre, her satırda bir tane olacak şekilde "anahtar=toplam" biçiminde ozet.txt dosyasına yaz; olcumler.ini dosyası olduğu gibi kalmalı.
+
+setup: |
+  cat > olcumler.ini <<'INI'
+  sicaklik=22.5
+  nem=48
+  basinc=1013
+  sicaklik=23.1
+  nem=47
+  basinc=1012
+  sicaklik=21.8
+  nem=49
+  basinc=1014
+  INI
+
+goal_tr: >
+  olcumler.ini dosyasindaki her anahtar icin degerlerin toplamini hesaplayip
+  "anahtar=toplam" biciminde artan anahtar sirasina gore satirlar halinde
+  ozet.txt dosyasina yaz.
+
+reference_solution: |
+  python3 - <<'PY'
+  toplamlar = {}
+  with open('olcumler.ini') as f:
+      for satir in f:
+          satir = satir.strip()
+          if not satir:
+              continue
+          anahtar, deger = satir.split('=', 1)
+          toplamlar[anahtar] = toplamlar.get(anahtar, 0) + float(deger)
+  with open('ozet.txt', 'w') as f:
+      for anahtar in sorted(toplamlar):
+          toplam = toplamlar[anahtar]
+          if toplam == int(toplam):
+              toplam = int(toplam)
+          f.write('%s=%s\n' % (anahtar, toplam))
+  PY
+
+outputs:
+  - {path: ozet.txt, kind: lines, run: cat ozet.txt}
+
+checks:
+  - {op: file_lines_eq, path: ozet.txt, value: [basinc=3039, nem=144, sicaklik=67.4]}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4097
+    bundle: python-veri
+    tools:
+    - python3
+    konu: sensor-olcumleri
+    hedef: ozetle
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: baslik-yok
+    bukulme: yok
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

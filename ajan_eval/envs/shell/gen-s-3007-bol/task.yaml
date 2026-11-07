@@ -1,0 +1,62 @@
+id: gen-s-3007-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sevkiyat dizin ağacındaki tüm kayıt dosyalarını tara; içlerinde TESLİM durumundaki kayıtların ağırlık alanlarını topla ve bu toplamı toplam.txt dosyasına yalnızca sayı olarak yaz. İlk satırdaki BOM işaretini yok say.
+
+setup: |
+  mkdir -p sevkiyat/istanbul sevkiyat/ankara sevkiyat/izmir
+  printf '\xef\xbb\xbfK0001|34IST|1200|TESLIM\n' > sevkiyat/istanbul/kayit1.txt
+  printf 'K0002|34IST|0800|YOLDA\n' > sevkiyat/istanbul/kayit2.txt
+  printf 'K0003|06ANK|1500|TESLIM\n' > sevkiyat/ankara/kayit1.txt
+  printf 'K0004|06ANK|0700|TESLIM\n' > sevkiyat/ankara/kayit2.txt
+  printf 'K0005|35IZM|0900|YOLDA\n' > sevkiyat/izmir/kayit1.txt
+  printf 'K0006|35IZM|1100|TESLIM\n' > sevkiyat/izmir/kayit2.txt
+
+goal_tr: >
+  sevkiyat dizin agacindaki tum kayit dosyalarinda TESLIM durumundaki
+  kayitlarin agirlik alanlarinin toplamini toplam.txt dosyasina sadece sayi
+  olarak yaz; ilk satirdaki BOM isaretini yok say.
+
+reference_solution: |
+  find sevkiyat -type f -name '*.txt' | sort > dosyalar.lst
+  while read -r f; do sed '1s/^\xef\xbb\xbf//' "$f"; done < dosyalar.lst > hepsi.txt
+  awk -F'|' '$4=="TESLIM"{s+=$3} END{print s}' hepsi.txt > toplam.txt
+  printf '%s\n' "$(cat toplam.txt)" > toplam.txt.tmp && mv toplam.txt.tmp toplam.txt
+  seq 1 1 > /dev/null
+
+outputs:
+  - {path: toplam.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: toplam.txt, value: '4500'}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3007
+    bundle: uret
+    tools:
+    - printf
+    - seq
+    konu: kargo-takibi
+    hedef: bol
+    girdi: sabit-genislik
+    kaynak: dizin-agaci
+    cikti: tek-sayi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: bom
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

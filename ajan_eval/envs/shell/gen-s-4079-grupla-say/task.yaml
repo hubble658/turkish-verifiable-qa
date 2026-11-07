@@ -1,0 +1,81 @@
+id: gen-s-4079-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Sunucu tarafında günlük trafik raporu çıkarmamız gerekiyordu ama işler yoğunluktan dolayı bugüne kaldı; elimdeki ham log dosyasını artık birilerinin özetlemesi lazım. Sistem yöneticisi olarak hangi kullanıcının ne kadar trafik yaptığını ve ne kadar hata aldığını görmek istiyorum, çünkü haftalık toplantıda bunu sunacağım.
+
+  /workspace/loglar/erisim.log dosyasındaki satırlarda geçen IP adreslerini /workspace/loglar/kullanici.map dosyasındaki eşleşmelere göre kullanıcı adlarına çevir. Her kullanıcı için toplam istek sayısını ve durum kodu 200 olmayan isteklerin sayısını hesapla. Sonucu /workspace/sonuc.json dosyasına geçerli bir JSON nesnesi olarak yaz; bu nesnenin anahtarları kullanıcı adları olsun, her anahtarın değeri ise "istek" ve "hata" adlı iki alandan oluşan bir nesne olsun.
+
+setup: |
+  mkdir -p /workspace/loglar
+  cat > /workspace/loglar/erisim.log <<'LOG'
+  10.0.0.1 GET /index.html 200
+  10.0.0.2 GET /login 200
+  10.0.0.1 POST /login 401
+  10.0.0.3 GET /index.html 200
+  10.0.0.2 GET /index.html 200
+  10.0.0.1 GET /index.html 200
+  10.0.0.4 POST /login 500
+  10.0.0.2 GET /login 200
+  10.0.0.3 GET /index.html 200
+  10.0.0.1 POST /login 401
+  LOG
+  cat > /workspace/loglar/kullanici.map <<'MAP'
+  10.0.0.1 alice
+  10.0.0.2 bob
+  10.0.0.3 carol
+  10.0.0.4 dave
+  MAP
+
+goal_tr: >
+  loglar/erisim.log satirlarindaki IP adreslerini loglar/kullanici.map ile
+  eslestirip her kullanici icin toplam istek sayisini ve 200 disi (hata)
+  istek sayisini hesaplayarak sonuc.json dosyasina gecerli bir JSON nesnesi
+  olarak yaz; nesne anahtarlari kullanici adlari, her deger ise "istek" ve
+  "hata" alanlarini iceren bir nesne olsun.
+
+reference_solution: |
+  awk 'NR==FNR{u[$1]=$2;next}{k=u[$1];t[k]++;if($4!=200)e[k]++}END{for(x in u){printf "%s %d %d\n",x,t[x]+0,e[x]+0}}' /workspace/loglar/kullanici.map /workspace/loglar/erisim.log | sort > /workspace/ozet.txt
+  python3 -c "
+  import json
+  d={}
+  for line in open('/workspace/ozet.txt'):
+      p=line.split()
+      d[p[0]]={'istek':int(p[1]),'hata':int(p[2])}
+  json.dump(d,open('/workspace/sonuc.json','w'),ensure_ascii=True,indent=2)
+  "
+
+outputs:
+  - {path: sonuc.json, kind: json}
+
+checks:
+  - {op: json_eq, path: sonuc.json, value: {10.0.0.1: {istek: 0, hata: 0}, 10.0.0.2: {istek: 0, hata: 0}, 10.0.0.3: {istek: 0, hata: 0}, 10.0.0.4: {istek: 0, hata: 0}}}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4079
+    bundle: python-veri
+    tools:
+    - python3
+    konu: sunucu-loglari
+    hedef: grupla-say
+    girdi: duz-metin
+    kaynak: iki-dosya-capraz
+    cikti: json
+    kesif: veriye-bak
+    uslup: baglam-gomulu
+    direnc: tekrar-eden-kayit
+    bukulme: olcek
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

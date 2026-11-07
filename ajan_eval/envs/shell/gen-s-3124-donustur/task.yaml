@@ -1,0 +1,66 @@
+id: gen-s-3124-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri/urunler.txt ve veri/yorumlar.txt dosyalarını ürün koduna göre birleştirip her ürün için kod, fiyat, oyuncu sayısı ve puan alanlarını virgülle ayrılmış olarak urunler.csv dosyasına yaz. Yalnızca iki dosyada da bulunan ürünler yer alsın ve kod artan sırada olsun.
+
+setup: |
+  mkdir -p veri
+  cat > veri/urunler.txt <<'EOF'
+  P001 12.50
+  P002  3.75
+  P003 99.00
+  P004  0.00
+  EOF
+  cat > veri/yorumlar.txt <<'EOF'
+  P001 5 harika urun
+  P002 2 berbat
+  P003 4 idare eder
+  P005 1 yok
+  EOF
+
+goal_tr: >
+  veri/urunler.txt ve veri/yorumlar.txt dosyalarini urun koduna gore
+  birlestirip, her urun icin kod,fiyat,oyuncu sayisi,puan alanlarini
+  virgulle ayrilmis olarak urunler.csv dosyasina yaz; yalnizca iki dosyada
+  da bulunan urunler yer alsin ve kod artan sirada olsun.
+
+reference_solution: |
+  cut -c1-4 veri/urunler.txt > /tmp/a
+  cut -d' ' -f1,2 veri/urunler.txt | paste -d',' - veri/yorumlar.txt | cut -d' ' -f1,2,4,5 > urunler.csv
+
+outputs:
+  - {path: urunler.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: urunler.csv, value: ['P001 12.50,P001 harika urun', 'P002 ,P002 berbat', 'P003 99.00,P003 idare eder', 'P004 ,P005 yok']}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3124
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: urun-yorumlari
+    hedef: donustur
+    girdi: sabit-genislik
+    kaynak: iki-dosya-capraz
+    cikti: csv
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

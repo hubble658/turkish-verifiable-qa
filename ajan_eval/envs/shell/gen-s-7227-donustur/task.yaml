@@ -1,0 +1,111 @@
+id: gen-s-7227-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi/randevular.ini içindeki her randevuyu, girdi/doktorlar.ini dosyasındaki hekim eşleşmesiyle birleştirmeni istiyorum. Her randevu için id, hasta, bolum, tarih, doktor ve poliklinik alanları virgülle ayrılmış tek bir satır olsun; satırlar id alanına göre artan sırada tutulsun ve sonuç cikti/alt_randevular.csv dosyasına yazılsın. Doktoru hekim listesinde bulunmayan randevunun poliklinik alanı BILINMIYOR, boş hasta adları ise BOS olarak yazılmalı.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/randevular.ini <<'INI'
+  [randevu]
+  id=101
+  hasta=ayse yilmaz
+  bolum=kardiyoloji
+  tarih=2024-03-12
+  doktor=dr kaya
+  [randevu]
+  id=102
+  hasta=mehmet demir
+  bolum=ortopedi
+  tarih=2024-03-13
+  doktor=dr oz
+  [randevu]
+  id=103
+  hasta=zeynep ak
+  bolum=kardiyoloji
+  tarih=2024-03-12
+  doktor=dr kaya
+  INI
+  cat > girdi/doktorlar.ini <<'INI'
+  [hekim]
+  ad=dr kaya
+  poliklinik=A-101
+  [hekim]
+  ad=dr oz
+  poliklinik=B-204
+  [hekim]
+  ad=dr celik
+  poliklinik=C-310
+  INI
+
+goal_tr: >
+  girdi/randevular.ini icindeki her randevuyu, girdi/doktorlar.ini
+  dosyasindaki hekim eslesmesiyle birlestirip her randevu icin id, hasta,
+  bolum, tarih, doktor ve poliklinik alanlarini virgulle ayrilmis tek satir
+  halinde yazan, cikti satirlarini id alanina gore artan sirada tutan ve
+  sonucu cikti/alt_randevular.csv dosyasina yaz; doktoru hekim listesinde
+  bulunmayan randevunun poliklinik alani BILINMIYOR olsun; bos hasta adlari
+  BOS olarak yazilsin.
+
+reference_solution: |
+  mkdir -p cikti
+  awk -F= '
+  FNR==NR {
+    if ($1=="ad") { ad=$2 }
+    else if ($1=="poliklinik") { pol[ad]=$2 }
+    next
+  }
+  $1=="[randevu]" { if (n>0) { print id "\t" hasta "\t" bolum "\t" tarih "\t" doktor }; n++; id=""; hasta=""; bolum=""; tarih=""; doktor=""; next }
+  $1=="id" { id=$2 }
+  $1=="hasta" { hasta=$2 }
+  $1=="bolum" { bolum=$2 }
+  $1=="tarih" { tarih=$2 }
+  $1=="doktor" { doktor=$2 }
+  END {
+    if (n>0) { print id "\t" hasta "\t" bolum "\t" tarih "\t" doktor }
+  }
+  ' girdi/doktorlar.ini girdi/randevular.ini > /tmp/ara.tsv
+  awk -F'\t' '
+  BEGIN { OFS="," ; print "id","hasta","bolum","tarih","doktor","poliklinik" }
+  {
+    h = ($2=="" ? "BOS" : $2)
+    if ($5 in pol) { p = pol[$5] } else { p = "BILINMIYOR" }
+    print $1, h, $3, $4, $5, p
+  }
+  ' /tmp/ara.tsv | sort -t, -k1,1n > cikti/alt_randevular.csv
+  rm -f /tmp/ara.tsv
+
+outputs:
+  - {path: cikti/alt_randevular.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: cikti/alt_randevular.csv, value: ['id,hasta,bolum,tarih,doktor,poliklinik', '101,ayse yilmaz,kardiyoloji,2024-03-12,dr kaya,BILINMIYOR', '102,mehmet demir,ortopedi,2024-03-13,dr oz,BILINMIYOR', '103,zeynep ak,kardiyoloji,2024-03-12,dr kaya,BILINMIYOR']}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7227
+    bundle: awk
+    tools:
+    - awk
+    konu: hastane-randevulari
+    hedef: donustur
+    girdi: ini
+    kaynak: iki-dosya-capraz
+    cikti: yeniden-adlandirilmis
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

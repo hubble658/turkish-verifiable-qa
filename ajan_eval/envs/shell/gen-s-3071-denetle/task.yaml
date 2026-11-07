@@ -1,0 +1,67 @@
+id: gen-s-3071-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Sunucularda birkaç gündür arıza var, sabah toplantısında "loglara bakalım" dedik ama iki ayrı sunucunun log dosyasını tek tek açıp gözle taramak kimsenin yapmak istediği bir iş değil. Ben de şöyle bir şey istiyorum: loglar klasöründeki .log uzantılı dosyalarda geçen ERROR satırlarını, hangi dosyadan geldiği ve kaçıncı satırda olduğu belli olacak şekilde dosya:satir:icerik biçiminde bir araya topla ve satir_listesi.txt dosyasına yaz. Böylece ekibe tek bir listeden gösterebilirim.
+
+setup: |
+  mkdir -p loglar
+  cat > loglar/sunucu_a.log <<'LOG'
+  INFO basladi
+  WARN bellek az
+  ERROR disk dolu
+  INFO istek alindi
+  ERROR zaman asimi
+  LOG
+  cat > loglar/sunucu_b.log <<'LOG'
+  INFO basladi
+  ERROR baglanti koptu
+  WARN gecikme yuksek
+  ERROR disk dolu
+  INFO kapaniyor
+  LOG
+
+goal_tr: >
+  loglar klasorundeki .log uzantili dosyalarda gecen ERROR satirlarini,
+  dosya adi ve satir numarasi ile birlikte dosya:satir:icerik biciminde
+  bulup satir_listesi.txt dosyasina yaz
+
+reference_solution: |
+  find loglar -name '*.log' -type f | sort | xargs wc -l >/dev/null
+  find loglar -name '*.log' -type f | sort | xargs grep -n 'ERROR' > satir_listesi.txt
+
+outputs:
+  - {path: satir_listesi.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: satir_listesi.txt, value: ['loglar/sunucu_a.log:3:ERROR disk dolu', 'loglar/sunucu_a.log:5:ERROR zaman asimi', 'loglar/sunucu_b.log:2:ERROR baglanti koptu', 'loglar/sunucu_b.log:4:ERROR disk dolu']}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3071
+    bundle: dizin-istatistik
+    tools:
+    - wc
+    - find
+    konu: sunucu-loglari
+    hedef: denetle
+    girdi: ini
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

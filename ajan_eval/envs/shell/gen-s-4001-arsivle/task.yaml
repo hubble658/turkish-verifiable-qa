@@ -1,0 +1,75 @@
+id: gen-s-4001-arsivle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kitaplik/odunc.tsv ile kitaplik/iade.tsv'yi kitap_id'ye göre birleştir; ortak kayıtları kitaplik/ortak.tsv, sadece odunc.tsv'de olanları kitaplik/sadece-odunc.tsv yapıp arsiv.tar.gz içine koy.
+
+setup: |
+  mkdir -p kitaplik
+  cat > kitaplik/odunc.tsv <<'TSV'
+  kitap_id	uye	gun
+  K001	ayse	14
+  K002	mehmet	7
+  K003	zeynep	21
+  K004	ali	3
+  TSV
+  cat > kitaplik/iade.tsv <<'TSV'
+  kitap_id	uye	gun
+  K001	ayse	10
+  K003	zeynep	25
+  K005	fatma	5
+  TSV
+
+goal_tr: >
+  kitaplik dizinindeki odunc.tsv ve iade.tsv dosyalarini kitap_id alanina
+  gore birlestirip, her iki dosyada da bulunan kayitlari arsiv.tar.gz
+  arsivine koy; arsivde ortak kayitlar ortak.tsv, yalnizca odunc.tsv'de
+  olanlar sadece-odunc.tsv dosyasi olarak yer alsin
+
+reference_solution: |
+  find kitaplik -name '*.tsv' | sort > /tmp/liste.txt
+  awk -F'\t' 'NR==FNR{if(FNR>1)a[$1]=$0;next} FNR>1 && ($1 in a){print $0}' kitaplik/iade.tsv kitaplik/odunc.tsv | sort > kitaplik/ortak.tsv
+  awk -F'\t' 'NR==FNR{if(FNR>1)b[$1]=1;next} FNR>1 && !($1 in b){print $0}' kitaplik/iade.tsv kitaplik/odunc.tsv | sort > kitaplik/sadece-odunc.tsv
+  tar -czf arsiv.tar.gz -C kitaplik ortak.tsv sadece-odunc.tsv
+
+outputs:
+  - {path: arsiv.tar.gz, kind: file}
+  - {path: kitaplik/ortak.tsv, kind: file}
+  - {path: kitaplik/sadece-odunc.tsv, kind: file}
+
+checks:
+  - {op: run_stdout_eq, cmd: tar -tzf arsiv.tar.gz | sort, value: 'ortak.tsv
+
+    sadece-odunc.tsv'}
+  - {op: file_lines_eq, path: kitaplik/ortak.tsv, value: ["K001\tayse\t14", "K003\tzeynep\t21"]}
+  - {op: file_lines_eq, path: kitaplik/sadece-odunc.tsv, value: ["K002\tmehmet\t7", "K004\tali\t3"]}
+
+metadata:
+  domain: arsivle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4001
+    bundle: secerek-arsivle
+    tools:
+    - tar
+    - find
+    konu: kutuphane-kayitlari
+    hedef: arsivle
+    girdi: tsv
+    kaynak: iki-dosya-capraz
+    cikti: birden-cok-dosya
+    kesif: dosyayi-bul
+    uslup: terse
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

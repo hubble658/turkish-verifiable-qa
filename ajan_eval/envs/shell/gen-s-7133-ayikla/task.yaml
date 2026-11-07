@@ -1,0 +1,82 @@
+id: gen-s-7133-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) veri/istasyonlar.ini dosyasındaki istasyon kod ve ad eşleşmelerini oku.
+  2) veri/olcumler.txt dosyasındaki her satırdaki sıcaklık ve nem ölçümlerini oku ve ilgili istasyon koduyla eşleştir.
+  3) Her ölçüm için kod, ad, sıcaklık ve nem alanlarını içeren bir JSON dizisi oluştur ve bu diziyi cikti.json dosyasına yaz.
+
+setup: |
+  mkdir -p veri
+  cat > veri/istasyonlar.ini <<'INI'
+  [IST]
+  ad=Ankara
+  kod=ANK
+  [IST]
+  ad=Istanbul
+  kod=IST
+  [IST]
+  ad=Izmir
+  kod=IZM
+  INI
+
+  cat > veri/olcumler.txt <<'TXT'
+  ANK sicaklik=21 nem=40
+  IST sicaklik=18 nem=65
+  ANK sicaklik=24 nem=38
+  IZM sicaklik=27 nem=50
+  IST sicaklik=17 nem=70
+  TXT
+
+goal_tr: >
+  veri/istasyonlar.ini dosyasindaki kod ve ad eslesmelerini
+  veri/olcumler.txt dosyasindaki sicaklik ve nem olcumleriyle birlestirip
+  her olcum icin kod, ad, sicaklik ve nem alanlarini iceren bir JSON
+  dizisini cikti.json dosyasina yaz
+
+reference_solution: |
+  awk -F= '/^kod=/{k=$2} /^ad=/{print k" "$2}' veri/istasyonlar.ini > /tmp/adlar.txt
+  awk '{split($2,a,"="); split($3,b,"="); print $1" "a[2]" "b[2]}' veri/olcumler.txt > /tmp/olcum.txt
+  join /tmp/olcum.txt /tmp/adlar.txt | sort > /tmp/birlesik.txt
+  {
+    printf '['
+    head -n 1 /tmp/birlesik.txt | awk '{printf "{\"kod\":\"%s\",\"ad\":\"%s\",\"sicaklik\":%s,\"nem\":%s}", $1, $4, $2, $3}'
+    tail -n +2 /tmp/birlesik.txt | awk '{printf ",{\"kod\":\"%s\",\"ad\":\"%s\",\"sicaklik\":%s,\"nem\":%s}", $1, $4, $2, $3}'
+    printf ']\n'
+  } > cikti.json
+
+outputs:
+  - {path: cikti.json, kind: json}
+
+checks:
+  - {op: json_eq, path: cikti.json, value: [{kod: IST, ad: Izmir, sicaklik: 18, nem: 65}]}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7133
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: hava-durumu-kayitlari
+    hedef: ayikla
+    girdi: ini
+    kaynak: iki-dosya-capraz
+    cikti: json
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

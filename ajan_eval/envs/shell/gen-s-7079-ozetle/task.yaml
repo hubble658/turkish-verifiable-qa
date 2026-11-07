@@ -1,0 +1,61 @@
+id: gen-s-7079-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Sabah sunucu izleme panosuna baktigimda disk ve baglanti hatalarinin ne kadar siklastigini fark ettim; gunun geri kalani da eski kayitlari tek tek gozden gecirmekle geçti. Artik loglar dizinindeki farkli bolgelerden gelen kayitlarin hepsini birden tarayip, ilk alani HATA olan satirlarin toplamina ulasmak istiyorum; boylece her seferinde tek tek dosya acmak zorunda kalmam.
+
+  loglar dizin agacindaki (alt dizinleriyle birlikte) tum .log dosyalarini ele al. Bu dosyalarda satir sonlari CRLF olsa da olmasa da, ilk alani HATA olan satirlari bul ve bunlarin toplam sayisini sonuc.txt dosyasina sadece sayi olarak yaz; dosyada sayidan baska hicbir sey bulunmasin.
+
+setup: |
+  mkdir -p loglar/bolge1 loglar/bolge2 loglar/bolge3
+  printf 'BILGI\tbasladi\r\nHATA\tdisk dolu\r\nBILGI\tgiris\r\n' > loglar/bolge1/a.log
+  printf 'HATA\tbaglanti koptu\r\nUYARI\tbellek az\r\nHATA\tzaman asimi\r\n' > loglar/bolge2/b.log
+  printf 'BILGI\ttamam\r\nHATA\tio hatasi\r\n' > loglar/bolge3/c.log
+  printf 'BILGI\tsaglik\r\n' > loglar/bolge3/d.log
+
+goal_tr: >
+  loglar dizin agacindaki tum .log dosyalarinda CRLF satir sonlarindan
+  bagimsiz olarak ilk alani HATA olan satirlarin toplam sayisini sonuc.txt
+  dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  find loglar -type f -name '*.log' > dosyalar.txt
+  tr -d '\r' < dosyalar.txt | xargs grep -h '^HATA' > hatirlar.txt
+  wc -l < hatirlar.txt > sonuc.txt
+  rm -f dosyalar.txt hatirlar.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '4'}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7079
+    bundle: cok-dosya-ara
+    tools:
+    - xargs
+    - grep
+    konu: sunucu-loglari
+    hedef: ozetle
+    girdi: tsv
+    kaynak: dizin-agaci
+    cikti: tek-sayi
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: crlf
+    bukulme: olcek
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

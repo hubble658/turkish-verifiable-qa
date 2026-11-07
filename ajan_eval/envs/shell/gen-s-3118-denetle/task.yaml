@@ -1,0 +1,62 @@
+id: gen-s-3118-denetle
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  notlar.csv dosyasındaki öğrenci notları arasında birden fazla öğrencinin aldığı not değerlerini, her birini yalnızca bir kez ve artan sırada olacak şekilde tekrar.txt dosyasına yaz; dosyada her satırda bir not bulunsun.
+
+setup: |
+  cat > notlar.csv <<'CSV'
+  ad,soyad,not
+  ayse,yilmaz,85
+  mehmet,demir,90
+  zeynep,kaya,78
+  ali,celik,92
+  fatma,ozturk,88
+  can,aydin,90
+  elif,sahin,78
+  burak,arslan,95
+  CSV
+
+goal_tr: >
+  notlar.csv dosyasindaki ogrenci notlarindan tekrar eden not degerlerini
+  (birden fazla ogrencinin aldigi notlari) bir kez, artan sirada tekrar.txt
+  dosyasina her satirda bir not olacak sekilde yaz.
+
+reference_solution: |
+  cut -d, -f3 notlar.csv | tail -n +2 | sort -n | uniq -d > tekrar.txt
+
+outputs:
+  - {path: tekrar.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: tekrar.txt, value: ['78', '90']}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3118
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: ogrenci-notlari
+    hedef: denetle
+    girdi: csv
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,167 @@
+id: gen-k-9111-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 20
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) exam/stats.py dosyasındaki average fonksiyonunda erken break hatasını gider; average(data.txt) çağrısı tüm satırların ortalamasını 80.0 döndürsün.
+
+  2) exam/stats.py dosyasındaki passing fonksiyonunda erken break hatasını gider; passing(data.txt, 75) çağrısı ["ada", "bora"] döndürsün.
+
+  3) exam/parse.py dosyasındaki iter_rows ve load_scores fonksiyonlarının davranışını koru; exam/stats.py bu fonksiyonları kullanmaya devam etsin.
+
+setup: |
+  mkdir -p exam
+  cat > exam/parse.py <<'PARSE'
+  def iter_rows(lines):
+      """Yield (student, score) pairs from raw CSV lines."""
+      for line in lines:
+          line = line.strip()
+          if not line:
+              continue
+          name, raw = line.split(",")
+          yield name, int(raw)
+
+
+  def load_scores(lines):
+      """Return a list of (student, score) tuples."""
+      out = []
+      for name, score in iter_rows(lines):
+          out.append((name, score))
+      return out
+  PARSE
+  cat > exam/stats.py <<'STATS'
+  from exam.parse import iter_rows
+
+
+  def average(lines):
+      """Return the mean score over all rows, or 0.0 if empty."""
+      total = 0
+      count = 0
+      for name, score in iter_rows(lines):
+          total = total + score
+          count = count + 1
+          break
+      if count == 0:
+          return 0.0
+      return total / count
+
+
+  def passing(lines, threshold):
+      """Return list of students scoring >= threshold."""
+      names = []
+      for name, score in iter_rows(lines):
+          if score >= threshold:
+              names.append(name)
+          break
+      return names
+  STATS
+  cat > data.txt <<'DATA'
+  ada,90
+  bora,80
+  cem,70
+  DATA
+
+goal_tr: >
+  exam/stats.py icindeki average ve passing fonksiyonlarindaki erken break
+  hatasini gider; average(data.txt) tum satirlarin ortalamasi 80.0,
+  passing(data.txt, 75) ise ["ada", "bora"] dondursun.
+
+reference_solution: |
+  cat > exam/stats.py <<'STATS'
+  from exam.parse import iter_rows
+
+
+  def average(lines):
+      """Return the mean score over all rows, or 0.0 if empty."""
+      total = 0
+      count = 0
+      for name, score in iter_rows(lines):
+          total = total + score
+          count = count + 1
+      if count == 0:
+          return 0.0
+      return total / count
+
+
+  def passing(lines, threshold):
+      """Return list of students scoring >= threshold."""
+      names = []
+      for name, score in iter_rows(lines):
+          if score >= threshold:
+              names.append(name)
+      return names
+  STATS
+
+ara_adim: |
+  cat > exam/stats.py <<'STATS'
+  from exam.parse import iter_rows
+
+
+  def average(lines):
+      """Return the mean score over all rows, or 0.0 if empty."""
+      total = 0
+      count = 0
+      for name, score in iter_rows(lines):
+          total = total + score
+          count = count + 1
+      if count == 0:
+          return 0.0
+      return total / count
+
+
+  def passing(lines, threshold):
+      """Return list of students scoring >= threshold."""
+      names = []
+      for name, score in iter_rows(lines):
+          if score >= threshold:
+              names.append(name)
+          break
+      return names
+  STATS
+
+outputs:
+  - {path: exam/stats.py, kind: program, run: 'python3 -c ''from exam.stats import average as a, passing as p; lines=open("data.txt").read().splitlines(); assert a(lines)==80.0, a(lines); assert p(lines,75)==["ada","bora"], p(lines,75); assert p(lines,95)==[]; print("TAMAM")'''}
+  - {path: exam/stats.py, kind: program, run: 'python3 -c ''from exam.stats import average as f; assert f(["ada,90","bora,80"])==85.0, f(["ada,90","bora,80"]); print("ILERLEME-TAMAM")'''}
+  - {path: exam/parse.py, kind: program, run: 'python3 -c ''from exam.parse import load_scores as f; rows=f(["ada,90","bora,80","cem,70"]); assert rows==[("ada",90),("bora",80),("cem",70)], rows; assert f([])==[]; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from exam.stats import average as a, passing as p; lines=open("data.txt").read().splitlines(); assert a(lines)==80.0, a(lines); assert p(lines,75)==["ada","bora"], p(lines,75); assert p(lines,95)==[]; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from exam.stats import average as f; assert f(["ada,90","bora,80"])==85.0, f(["ada,90","bora,80"]); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from exam.parse import load_scores as f; rows=f(["ada,90","bora,80","cem,70"]); assert rows==[("ada",90),("bora",80),("cem",70)], rows; assert f([])==[]; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9111
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: sinav-sonuclari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 7
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kapsam-hatasi
+      karmasiklik: orta
+      kalip: generator
+      akis: cok-dosya-birlestirme
+      topoloji: iki-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

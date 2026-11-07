@@ -1,0 +1,82 @@
+id: gen-s-3139-donustur
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  randevular.tar.gz arşivini aç ve içindeki arşiv/randevular.ini dosyasındaki her [randevu] bölümünü bir nesne olarak içeren bir JSON dizisi oluştur. Nesneleri hasta anahtarına göre artan sırada tut ve bu diziyi randevular.json dosyasına yaz.
+
+  Şu şartlar sağlanmalı:
+  - randevular.json dosyası oluşturulmuş olmalı.
+  - randevular.json içeriği geçerli bir JSON dizisi olmalı.
+  - Dizideki her nesne, arşiv/randevular.ini dosyasındaki bir [randevu] bölümünü temsil etmeli.
+  - Nesneler hasta anahtarına göre artan sırada sıralanmış olmalı.
+  - Her nesne, ilgili bölümdeki anahtar-değer çiftlerini içermeli.
+
+setup: |
+  mkdir -p arsiv
+  cat > arsiv/randevular.ini <<'INI'
+  [randevu]
+  hasta=Ali Yilmaz
+  tarih=2024-03-12
+  bolum=kardiyoloji
+  doktor=Dr Kaya
+
+  [randevu]
+  hasta=Ayse Demir
+  tarih=2024-03-12
+  bolum=noroloji
+  doktor=Dr Ozturk
+
+  [randevu]
+  hasta=Mehmet Sahin
+  tarih=2024-03-13
+  bolum=kardiyoloji
+  doktor=Dr Kaya
+  INI
+  tar -czf randevular.tar.gz arsiv/randevular.ini
+
+goal_tr: >
+  randevular.tar.gz arsivindeki arsiv/randevular.ini dosyasindaki her
+  [randevu] bolumunu bir nesne olarak iceren ve nesneleri hasta anahtarina
+  gore artan sirada tutan bir JSON dizisini randevular.json dosyasina yaz.
+
+reference_solution: |
+  gzip -dc randevular.tar.gz | tar -x
+  awk 'BEGIN{printf "["} /^\[randevu\]/{if(n++)printf ","; printf "{"} /^hasta=/{h=$0; sub(/^hasta=/,"",h); printf "\"hasta\":\"" h "\","} /^tarih=/{t=$0; sub(/^tarih=/,"",t); printf "\"tarih\":\"" t "\","} /^bolum=/{b=$0; sub(/^bolum=/,"",b); printf "\"bolum\":\"" b "\","} /^doktor=/{d=$0; sub(/^doktor=/,"",d); printf "\"doktor\":\"" d "\"}"} END{printf "]"}' arsiv/randevular.ini > gecici.txt
+  sed 's/},{/}\n{/g' gecici.txt | sort -t: -k2 | paste -sd, - | sed 's/^/[/;s/$/]/' > randevular.json
+  rm -f gecici.txt
+
+outputs:
+  - {path: randevular.json, kind: json}
+
+checks:
+  - {op: json_eq, path: randevular.json, value: [[{hasta: Ali Yilmaz, tarih: '2024-03-12', bolum: kardiyoloji, doktor: Dr Kaya}, {hasta: Ayse Demir, tarih: '2024-03-12', bolum: noroloji, doktor: Dr Ozturk}, {hasta: Mehmet Sahin, tarih: '2024-03-13', bolum: kardiyoloji, doktor: Dr Kaya}]]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3139
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: hastane-randevulari
+    hedef: donustur
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: json
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

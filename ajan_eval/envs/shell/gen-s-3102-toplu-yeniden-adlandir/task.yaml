@@ -1,0 +1,80 @@
+id: gen-s-3102-toplu-yeniden-adlandir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) girdi/personel.json ve girdi/eslesme.json dosyalarını oku ve kayıtları vardiya alanı üzerinden eşleştir.
+  2) Eşleşen her personel için vardiya kodunu ve personel id'sini kullanarak arsiv dizininde "S-1.txt" biçiminde boş bir dosya oluştur.
+  3) arsiv dizinindeki dosya sayısını hesapla ve bu sayıyı sonuc.txt dosyasına yalnızca sayı olarak yaz.
+
+setup: |
+  mkdir -p girdi arsiv
+  cat > girdi/personel.json <<'JSON'
+  [
+    {"id": 1, "ad": "Ayse Yilmaz", "vardiya": "sabah"},
+    {"id": 2, "ad": "Mehmet Demir", "vardiya": "aksam"},
+    {"id": 3, "ad": "Zeynep Kaya", "vardiya": "gece"},
+    {"id": 4, "ad": "Ali Celik", "vardiya": "sabah"}
+  ]
+  JSON
+  cat > girdi/eslesme.json <<'JSON'
+  [
+    {"vardiya": "sabah", "kod": "S"},
+    {"vardiya": "aksam", "kod": "A"},
+    {"vardiya": "gece", "kod": "G"}
+  ]
+  JSON
+
+goal_tr: >
+  girdi/personel.json ve girdi/eslesme.json dosyalarini vardiya alani
+  uzerinden eslestirip her personel icin "S-1.txt" biciminde (vardiya kodu,
+  tire, id) bos bir dosyayi arsiv dizininde olustur ve arsivdeki dosya
+  sayisini sonuc.txt'ye sadece sayi olarak yaz
+
+reference_solution: |
+  mkdir -p arsiv
+  awk -F'"' '/"id"/{id=$4} /"vardiya"/{v=$4; print id" "v}' girdi/personel.json > /tmp/p.txt
+  awk -F'"' '/"vardiya"/{v=$4} /"kod"/{k=$4; print v" "k}' girdi/eslesme.json > /tmp/v.txt
+  while read -r id vardiya; do
+    kod=$(grep "^$vardiya " /tmp/v.txt | cut -d' ' -f2)
+    touch "/tmp/x-$id.txt"
+    mv "/tmp/x-$id.txt" "arsiv/$kod-$id.txt"
+  done < /tmp/p.txt
+  ls arsiv | wc -l > sonuc.txt
+
+outputs:
+  - {path: arsiv, kind: dir}
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: arsiv, value: [-ad.txt]}
+  - {op: file_content_eq, path: sonuc.txt, value: '1'}
+
+metadata:
+  domain: toplu-yeniden-adlandir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3102
+    bundle: dosya-duzen
+    tools:
+    - mkdir
+    - mv
+    konu: personel-vardiyalari
+    hedef: toplu-yeniden-adlandir
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: bosluklu-ad
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

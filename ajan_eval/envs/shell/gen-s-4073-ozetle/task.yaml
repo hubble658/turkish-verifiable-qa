@@ -1,0 +1,93 @@
+id: gen-s-4073-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  notlar.txt dosyasındaki her öğrenci-ders çifti için aynı satırların tekrarlarını at, ardından öğrenci başına ders başına not ortalamasını hesapla. Her öğrenci için cikti/<ogrenci> dosyasına o öğrencinin derslerini "ders ortalama" biçiminde, ders adına göre alfabetik sıralı olarak yaz; bu dosyalar cikti dizini altında 101, 102, 103, 104, 105, 106, 107, 108, 110 ve 111 adlarıyla yer alsın. Notu eksik (boş) olan ders ortalamaya katılmasın ve hiçbir dersi ortalamaya girmeyen öğrenci için dosya oluşturulmasın.
+
+setup: |
+  cat > notlar.txt <<'DATA'
+  101 Ali  matematik 85
+  102 Ayse matematik 90
+  103 Ali  fizik 70
+  104 Ayse fizik 60
+  105 Can  matematik 55
+  106 Can  fizik 80
+  101 Ali  matematik 85
+  107 Deniz fizik 95
+  108 Deniz matematik 40
+  109 Ece  fizik
+  110 Ece  matematik 100
+  103 Ali  fizik 70
+  111 Can  matematik 55
+  DATA
+
+goal_tr: >
+  notlar.txt icindeki her ogrenci-ders cifti icin ayni satirlarin
+  tekrarlarini at, ogrenci basina ders basina not ortalamasini hesapla ve
+  her ogrenci icin cikti/<ogrenci> dosyasina o ogrencinin derslerini "ders
+  ortalama" biciminde ders adina gore alfabetik sirali yaz; notu eksik (bos)
+  olan ders ortalamaya katilmaz ve hicbir dersi ortalamaya girmeyen ogrenci
+  icin dosya olusturulmaz.
+
+reference_solution: |
+  mkdir -p cikti
+  sort notlar.txt | uniq > temiz.txt
+  awk '$4 != "" {toplam[$1" "$2]+=$4; sayi[$1" "$2]++} END {for (k in toplam) print k, toplam[k]/sayi[k]}' temiz.txt | sort -k1,1 -k2,2 > ort.txt
+  cut -d' ' -f1 ort.txt | sort -u | while read ogr; do grep "^$ogr " ort.txt | cut -d' ' -f2- > "cikti/$ogr"; done
+  rm -f temiz.txt ort.txt
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/101, kind: file}
+  - {path: cikti/102, kind: file}
+  - {path: cikti/103, kind: file}
+  - {path: cikti/104, kind: file}
+  - {path: cikti/105, kind: file}
+  - {path: cikti/106, kind: file}
+  - {path: cikti/107, kind: file}
+  - {path: cikti/108, kind: file}
+  - {path: cikti/110, kind: file}
+  - {path: cikti/111, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: ['101', '102', '103', '104', '105', '106', '107', '108', '110', '111']}
+  - {op: file_content_eq, path: cikti/101, value: Ali 85}
+  - {op: file_content_eq, path: cikti/102, value: Ayse 90}
+  - {op: file_content_eq, path: cikti/103, value: Ali 70}
+  - {op: file_content_eq, path: cikti/104, value: Ayse 60}
+  - {op: file_content_eq, path: cikti/105, value: Can 55}
+  - {op: file_content_eq, path: cikti/106, value: Can 80}
+  - {op: file_content_eq, path: cikti/107, value: Deniz 95}
+  - {op: file_content_eq, path: cikti/108, value: Deniz 40}
+  - {op: file_content_eq, path: cikti/110, value: Ece 100}
+  - {op: file_content_eq, path: cikti/111, value: Can 55}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4073
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: ogrenci-notlari
+    hedef: ozetle
+    girdi: duz-metin
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,97 @@
+id: gen-s-3008-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+prompt: 'randevular dizinindeki tüm CSV dosyalarındaki veri satırlarını birleştirip hasta_id, poliklinik ve tarih alanlarını
+  virgülle ayrılmış olarak birlesik_randevular.csv dosyasına yaz. Başlık satırı sadece bir kez en üstte yer alsın ve durum
+  alanı boş olan satırlar bu dosyaya dahil edilmesin.
+
+  '
+setup: 'mkdir -p randevular
+
+  cat > randevular/randevu_a.csv <<''CSV''
+
+  hasta_id;poliklinik;tarih;durum
+
+  101;Kardiyoloji;2024-03-01;onaylandi
+
+  102;Noroloji;2024-03-01;iptal
+
+  103;Kardiyoloji;2024-03-02;onaylandi
+
+  CSV
+
+  cat > randevular/randevu_b.csv <<''CSV''
+
+  hasta_id;poliklinik;tarih;durum
+
+  104;Ortopedi;2024-03-02;onaylandi
+
+  105;Noroloji;2024-03-03;beklemede
+
+  106;Kardiyoloji;2024-03-03;iptal
+
+  CSV
+
+  cat > randevular/randevu_c.csv <<''CSV''
+
+  hasta_id;poliklinik;tarih;durum
+
+  107;Ortopedi;2024-03-04;onaylandi
+
+  108;Kardiyoloji;2024-03-04;onaylandi
+
+  CSV
+
+  '
+goal_tr: 'randevular dizinindeki tum CSV dosyalarindaki veri satirlarini birlestirip hasta_id,poliklinik ve tarih alanlarini
+  virgulle ayrilmis tek bir birlesik_randevular.csv dosyasina yaz; baslik satirini bir kez en uste koy ve durum alani bos
+  olan satirlari disarida birak.
+
+  '
+reference_solution: '{ echo hasta_id,poliklinik,tarih; for f in randevular/*.csv; do tail -n +2 "$f"; done | awk -F'';'' ''$4!=""
+  {print $1","$2","$3}''; } > birlesik_randevular.csv
+
+  '
+outputs: []
+checks:
+- op: file_lines_eq
+  path: birlesik_randevular.csv
+  value:
+  - hasta_id,poliklinik,tarih
+  - 101,Kardiyoloji,2024-03-01
+  - 102,Noroloji,2024-03-01
+  - 103,Kardiyoloji,2024-03-02
+  - 104,Ortopedi,2024-03-02
+  - 105,Noroloji,2024-03-03
+  - 106,Kardiyoloji,2024-03-03
+  - 107,Ortopedi,2024-03-04
+  - 108,Kardiyoloji,2024-03-04
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3008
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: hastane-randevulari
+    hedef: donustur
+    girdi: csv
+    kaynak: dizin-agaci
+    cikti: csv
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}
+  duzeltme:
+    neden: altin_yanlis
+    not: Altında başlık üç kez ve farklı ayırıcıyla vardı.

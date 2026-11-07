@@ -1,0 +1,262 @@
+id: gen-k-2008-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  clinic paketindeki aralık cebiri ve randevu planlayıcısı üzerinde çalışman gerekiyor. clinic/intervals.py dosyasında Interval sınıfını ve normalize ile merge_all fonksiyonlarını gerçekleştir; aralıklar kapalı-açık [start, end) biçiminde ve saniye cinsinden düşünülsün. Interval nesneleri iki aralığın çakışıp çakışmadığını ve birleşip birleşemeyeceğini söyleyebilmeli; normalize aralıkları başlangıca göre sıralayıp boş olanları atmalı; merge_all ise çakışan ya da birbirine değen aralıkları tek bir sıralı liste halinde birleştirmeli. clinic/planner.py içindeki Planner sınıfının add, merged ve free_slots metotlarını da tamamla: add yeni bir meşgul aralık ekleyebilmeli, merged birleştirilmiş meşgul listesini döndürmeli, free_slots ise verilen gün başlangıcı ve bitişi arasında boş kalan pencereleri doğru biçimde cevaplamalı.
+
+  clinic/loader.py dosyasında ise randevu dosyalarını Interval nesnelerine çeviren parse_line ve load_busy fonksiyonlarını gerçekleştir. parse_line tek bir satırı okuyup bir Interval üretmeli, load_busy ise verilen yoldaki randevu dosyasını okuyup meşgul aralıkların listesini döndürmeli. Başlangıçta /workspace altında clinic/__init__.py, clinic/intervals.py, clinic/planner.py, clinic/loader.py ve appointments.txt dosyaları var; appointments.txt içinde her satırda "09:00 09:30" biçiminde başlangıç ve bitiş saatleri bulunuyor, bu saatleri saniye cinsine çevirerek aralıklara dönüştürmelisin. Amaç, bu paketin aralıkları saniye cinsinden birleştirmesi, randevu dosyasından okuyabilmesi ve boş pencere sorgusunu doğru yanıtlaması.
+
+setup: |
+  mkdir -p clinic
+  cat > clinic/__init__.py <<'INIT'
+  INIT
+  cat > clinic/intervals.py <<'INTERVALS'
+  """Core interval algebra used by the appointment planner."""
+
+
+  class Interval:
+      """A closed-open time range [start, end) on a linear scale."""
+
+      def __init__(self, start, end):
+          self.start = start
+          self.end = end
+
+      def overlaps(self, other):
+          raise NotImplementedError
+
+      def merge(self, other):
+          raise NotImplementedError
+
+      def __repr__(self):
+          return "Interval(%r, %r)" % (self.start, self.end)
+
+
+  def normalize(intervals):
+      """Sort intervals by start; drop empty ones."""
+      raise NotImplementedError
+
+
+  def merge_all(intervals):
+      """Collapse overlapping/touching intervals into a sorted list."""
+      raise NotImplementedError
+  INTERVALS
+  cat > clinic/planner.py <<'PLANNER'
+  """Appointment planner built on top of clinic.intervals."""
+  from clinic.intervals import Interval, merge_all, normalize
+
+
+  class Planner:
+      """Collects busy slots and answers free-window queries."""
+
+      def __init__(self, busy):
+          self.busy = list(busy)
+          self._merged = None
+
+      def add(self, start, end):
+          raise NotImplementedError
+
+      def merged(self):
+          raise NotImplementedError
+
+      def free_slots(self, day_start, day_end):
+          raise NotImplementedError
+  PLANNER
+  cat > clinic/loader.py <<'LOADER'
+  """Reads appointment files into Interval objects."""
+  from clinic.intervals import Interval
+
+
+  def parse_line(line):
+      raise NotImplementedError
+
+
+  def load_busy(path):
+      raise NotImplementedError
+  LOADER
+  cat > appointments.txt <<'DATA'
+  09:00 09:30
+  08:00 08:45
+  09:15 10:00
+  11:00 11:20
+  08:30 09:00
+  DATA
+
+goal_tr: >
+  clinic paketindeki Interval, normalize, merge_all, Planner ve loader
+  fonksiyonlarini gerceklestir; araliklari saniye cinsinden birlestirip
+  randevu dosyasindan okuyup bos pencere sorgusunu dogru cevaplasin.
+
+reference_solution: |
+  cat > clinic/intervals.py <<'INTERVALS'
+  """Core interval algebra used by the appointment planner."""
+
+
+  class Interval:
+      """A closed-open time range [start, end) on a linear scale."""
+
+      def __init__(self, start, end):
+          self.start = start
+          self.end = end
+
+      def overlaps(self, other):
+          return self.start < other.end and other.start < self.end
+
+      def merge(self, other):
+          return Interval(min(self.start, other.start), max(self.end, other.end))
+
+      def __repr__(self):
+          return "Interval(%r, %r)" % (self.start, self.end)
+
+
+  def normalize(intervals):
+      live = [iv for iv in intervals if iv.start < iv.end]
+      live.sort(key=lambda iv: (iv.start, iv.end))
+      return live
+
+
+  def merge_all(intervals):
+      live = normalize(intervals)
+      out = []
+      for iv in live:
+          if out and iv.start <= out[-1].end:
+              out[-1] = out[-1].merge(iv)
+          else:
+              out.append(Interval(iv.start, iv.end))
+      return out
+  INTERVALS
+  cat > clinic/planner.py <<'PLANNER'
+  """Appointment planner built on top of clinic.intervals."""
+  from clinic.intervals import Interval, merge_all, normalize
+
+
+  class Planner:
+      """Collects busy slots and answers free-window queries."""
+
+      def __init__(self, busy):
+          self.busy = list(busy)
+          self._merged = None
+
+      def add(self, start, end):
+          self.busy.append(Interval(start, end))
+          self._merged = None
+
+      def merged(self):
+          if self._merged is None:
+              self._merged = merge_all(self.busy)
+          return self._merged
+
+      def free_slots(self, day_start, day_end):
+          free = []
+          cursor = day_start
+          for iv in self.merged():
+              if iv.start > cursor:
+                  free.append(Interval(cursor, iv.start))
+              cursor = max(cursor, iv.end)
+          if cursor < day_end:
+              free.append(Interval(cursor, day_end))
+          return free
+  PLANNER
+  cat > clinic/loader.py <<'LOADER'
+  """Reads appointment files into Interval objects."""
+  from clinic.intervals import Interval
+
+
+  def parse_line(line):
+      start, end = line.split()
+      return Interval(_to_seconds(start), _to_seconds(end))
+
+
+  def _to_seconds(stamp):
+      hh, mm = stamp.split(":")
+      return int(hh) * 3600 + int(mm) * 60
+
+
+  def load_busy(path):
+      with open(path) as fh:
+          return [parse_line(ln) for ln in fh.read().splitlines() if ln.strip()]
+  LOADER
+
+ara_adim: |
+  cat > clinic/intervals.py <<'INTERVALS'
+  """Core interval algebra used by the appointment planner."""
+
+
+  class Interval:
+      """A closed-open time range [start, end) on a linear scale."""
+
+      def __init__(self, start, end):
+          self.start = start
+          self.end = end
+
+      def overlaps(self, other):
+          return self.start < other.end and other.start < self.end
+
+      def merge(self, other):
+          return Interval(min(self.start, other.start), max(self.end, other.end))
+
+      def __repr__(self):
+          return "Interval(%r, %r)" % (self.start, self.end)
+
+
+  def normalize(intervals):
+      live = [iv for iv in intervals if iv.start < iv.end]
+      live.sort(key=lambda iv: (iv.start, iv.end))
+      return live
+
+
+  def merge_all(intervals):
+      live = normalize(intervals)
+      out = []
+      for iv in live:
+          if out and iv.start <= out[-1].end:
+              out[-1] = out[-1].merge(iv)
+          else:
+              out.append(Interval(iv.start, iv.end))
+      return out
+  INTERVALS
+
+outputs:
+  - {path: clinic/loader.py, kind: program, run: 'python3 -c ''from clinic.loader import load_busy; from clinic.planner import Planner; b=load_busy("appointments.txt"); assert [(i.start,i.end) for i in b]==[(32400,34200),(28800,31500),(33300,36000),(39600,40800),(30600,32400)], [(i.start,i.end) for i in b]; p=Planner(b); f=p.free_slots(28800,43200); assert [(i.start,i.end) for i in f]==[(36000,39600),(40800,43200)], [(i.start,i.end) for i in f]; print("TAMAM")'''}
+  - {path: clinic/intervals.py, kind: program, run: 'python3 -c ''from clinic.intervals import Interval, merge_all; r=merge_all([Interval(10,20),Interval(15,25),Interval(30,35)]); assert [(i.start,i.end) for i in r]==[(10,25),(30,35)], [(i.start,i.end) for i in r]; r2=merge_all([Interval(5,5),Interval(1,2)]); assert [(i.start,i.end) for i in r2]==[(1,2)], [(i.start,i.end) for i in r2]; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from clinic.intervals import Interval, merge_all; r=merge_all([Interval(10,20),Interval(15,25),Interval(30,35)]); assert [(i.start,i.end) for i in r]==[(10,25),(30,35)], [(i.start,i.end) for i in r]; r2=merge_all([Interval(5,5),Interval(1,2)]); assert [(i.start,i.end) for i in r2]==[(1,2)], [(i.start,i.end) for i in r2]; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from clinic.loader import load_busy; from clinic.planner import Planner; b=load_busy("appointments.txt"); assert [(i.start,i.end) for i in b]==[(32400,34200),(28800,31500),(33300,36000),(39600,40800),(30600,32400)], [(i.start,i.end) for i in b]; p=Planner(b); f=p.free_slots(28800,43200); assert [(i.start,i.end) for i in f]==[(36000,39600),(40800,43200)], [(i.start,i.end) for i in f]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-2008
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: hastane-randevulari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: aralik-birlestirme
+      karmasiklik: orta
+      kalip: durumlu-sinif
+      akis: dosya-okuma
+      topoloji: yildiz
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

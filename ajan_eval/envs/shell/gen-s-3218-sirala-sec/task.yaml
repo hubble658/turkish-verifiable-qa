@@ -1,0 +1,81 @@
+id: gen-s-3218-sirala-sec
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  "randevu kayitlari.txt" içindeki geçerli satırları alanlarına ayır; bölüme göre alfabetik, aynı bölümde önce tarih sonra saate göre artan sırala ve başlık satırı olmadan virgülle ayrılmış olarak "sirali randevular.csv" dosyasına yaz. "(yedek)" içeren dosyaları kullanma.
+
+setup: |
+  mkdir -p /workspace
+  cat > "randevu kayitlari.txt" <<'EOF'
+  2024-03-01 09:15 | 102 | KARDIO | AYSE DEMIR | 40
+  2024-03-01 08:00 | 101 | DAHILIYE | MEHMET KAYA | 55
+  2024-03-01 09:15 | 103 | KARDIO | ZEYNEP AK | 33
+  2024-03-02 14:30 | 104 | ORTOPEDI | ALI VURAL | 61
+  2024-03-01 08:00 | 105 | DAHILIYE | FATMA OZ | 47
+  2024-03-02 10:45 | 106 | KARDIO | HUSEYIN TAS | 29
+  2024-03-02 14:30 | 107 | ORTOPEDI | EMINE SU | 52
+  EOF
+  cat > "randevu kayitlari (yedek).txt" <<'EOF'
+  2024-03-01 09:15 | 999 | TEST | SAHTE KAYIT | 1
+  EOF
+
+goal_tr: >
+  "randevu kayitlari.txt" dosyasindaki gecerli randevu satirlarini (tarih,
+  saat, hasta no, bolum, ad, yas alanlari) alanlara ayirip, once bolume gore
+  alfabetik, ayni bolum icinde once tarihe sonra saate gore artan sirada
+  sirala ve sonucu baslik satiri olmadan virgulle ayrilmis csv olarak
+  "sirali randevular.csv" dosyasina yaz; "(yedek)" iceren dosyalari girdi
+  olarak kullanma.
+
+reference_solution: |
+  awk -F' \\| ' '
+  BEGIN { OFS="," }
+  FNR==1 { next }
+  {
+    gsub(/^[ \t]+|[ \t]+$/, "", $1)
+    gsub(/^[ \t]+|[ \t]+$/, "", $2)
+    gsub(/^[ \t]+|[ \t]+$/, "", $3)
+    gsub(/^[ \t]+|[ \t]+$/, "", $4)
+    gsub(/^[ \t]+|[ \t]+$/, "", $5)
+    gsub(/^[ \t]+|[ \t]+$/, "", $6)
+    split($1, d, " ")
+    tarih = d[1]
+    saat = d[2]
+    print tarih, saat, $2, $3, $4, $5
+  }
+  ' "randevu kayitlari.txt" | awk -F',' 'BEGIN{OFS=","} {print $0}' | sort -t',' -k4,4 -k1,1 -k2,2 > "sirali randevular.csv"
+
+outputs:
+  - {path: sirali randevular.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: sirali randevular.csv, value: ['2024-03-01,08:00,101,DAHILIYE,MEHMET KAYA,55', '2024-03-01,08:00,105,DAHILIYE,FATMA OZ,47', '2024-03-01,09:15,103,KARDIO,ZEYNEP AK,33', '2024-03-02,10:45,106,KARDIO,HUSEYIN TAS,29', '2024-03-02,14:30,104,ORTOPEDI,ALI VURAL,61', '2024-03-02,14:30,107,ORTOPEDI,EMINE SU,52']}
+
+metadata:
+  domain: sirala-sec
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3218
+    bundle: awk
+    tools:
+    - awk
+    konu: hastane-randevulari
+    hedef: sirala-sec
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: csv
+    kesif: yok
+    uslup: terse
+    direnc: bosluklu-ad
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

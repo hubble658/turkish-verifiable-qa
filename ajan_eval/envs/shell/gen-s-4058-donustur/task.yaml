@@ -1,0 +1,73 @@
+id: gen-s-4058-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  siparisler dizin ağacındaki tüm .tsv dosyalarını oku. Bu dosyalarda CRLF satır sonları varsa temizle. Her ürün için toplam adet ve toplam ciroyu hesapla. Sonucu ürün adına göre artan sırada geçerli bir JSON nesnesi olarak ozet.json dosyasına yaz.
+
+  Şu şartlar sağlanmalı:
+  - siparisler dizin ağacındaki tüm .tsv dosyaları okunmuş olmalı.
+  - CRLF satır sonları temizlenmiş olmalı.
+  - Her ürün için toplam adet ve toplam ciro doğru hesaplanmış olmalı.
+  - Sonuç ürün adına göre artan sırada olmalı.
+  - Çıktı geçerli bir JSON nesnesi olmalı.
+  - Sonuç ozet.json dosyasına yazılmış olmalı.
+
+setup: |
+  mkdir -p siparisler/2024/ocak siparisler/2024/subat siparisler/2024/mart
+  printf 'urun\tadet\tfiyat\r\nmercimek\t3\t45\r\npide\t2\t90\r\n' > siparisler/2024/ocak/s1.tsv
+  printf 'urun\tadet\tfiyat\r\nkebab\t1\t120\r\nmercimek\t2\t45\r\n' > siparisler/2024/ocak/s2.tsv
+  printf 'urun\tadet\tfiyat\r\npide\t4\t90\r\nayran\t5\t15\r\n' > siparisler/2024/subat/s3.tsv
+  printf 'urun\tadet\tfiyat\r\nkebab\t2\t120\r\nayran\t3\t15\r\n' > siparisler/2024/subat/s4.tsv
+  printf 'urun\tadet\tfiyat\r\nmercimek\t6\t45\r\n' > siparisler/2024/mart/s5.tsv
+  printf 'urun\tadet\tfiyat\r\npide\t1\t90\r\nkebab\t3\t120\r\n' > siparisler/2024/mart/s6.tsv
+
+goal_tr: >
+  siparisler dizin agacindaki tum .tsv dosyalarini okuyup CRLF satir
+  sonlarini temizleyerek urun bazinda toplam adet ve toplam ciroyu hesapla
+  ve sonucu urun adina gore artan sirada gecerli bir JSON nesnesi olarak
+  ozet.json dosyasina yaz
+
+reference_solution: |
+  find siparisler -type f -name '*.tsv' -print0 | xargs -0 cat | tr -d '\r' | tail -n +2 | awk -F'\t' '{adet[$1]+=$2; ciro[$1]+=$2*$3} END {for (u in adet) printf "%s\t%d\t%d\n", u, adet[u], ciro[u]}' | sort | uniq > toplam.tsv
+  {
+    printf '{\n'
+    awk -F'\t' 'BEGIN {first=1} {if (!first) printf ",\n"; first=0; printf "  \"%s\": {\"adet\": %d, \"ciro\": %d}", $1, $2, $3}' toplam.tsv
+    printf '\n}\n'
+  } > ozet.json
+  rm -f toplam.tsv
+
+outputs:
+  - {path: ozet.json, kind: json, run: true}
+
+checks:
+  - {op: json_eq, path: ozet.json, value: {ayran: {adet: 8, ciro: 120}, kebab: {adet: 6, ciro: 720}, mercimek: {adet: 11, ciro: 495}, pide: {adet: 7, ciro: 630}, urun: {adet: 0, ciro: 0}}}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4058
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: restoran-siparisleri
+    hedef: donustur
+    girdi: tsv
+    kaynak: dizin-agaci
+    cikti: json
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: crlf
+    bukulme: olcek
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

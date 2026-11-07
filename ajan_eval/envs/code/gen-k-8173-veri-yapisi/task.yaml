@@ -1,0 +1,265 @@
+id: gen-k-8173-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  catalog/tree.py dosyasındaki DocumentTree sınıfını ve Node sınıfını tam olarak gerçekleştir. insert aynı anahtar için DuplicateError yükseltmeli, find eksik anahtar için NotFoundError yükseltmeli, remove silinen Record'u döndürmeli ve boş ağaçta EmptyTreeError yükseltmeli, in_order anahtarları sıralı liste olarak vermeli, depth en derin düğümün seviyesini döndürmeli ve boş ağaç için 0 vermeli, size düğüm sayısını vermeli, titles_by_depth ise her seviyeyi o seviyedeki başlıkların soldan sağa listesine eşleyen iç içe bir sözlük üretmeli.
+
+setup: |
+  mkdir -p catalog
+  cat > catalog/errors.py <<'ERR'
+  class CatalogError(Exception):
+      pass
+
+
+  class NotFoundError(CatalogError):
+      def __init__(self, key):
+          super().__init__("missing key: " + str(key))
+          self.key = key
+
+
+  class DuplicateError(CatalogError):
+      def __init__(self, key):
+          super().__init__("duplicate key: " + str(key))
+          self.key = key
+
+
+  class EmptyTreeError(CatalogError):
+      pass
+  ERR
+  cat > catalog/records.py <<'REC'
+  class Record:
+      def __init__(self, key, title, body):
+          self.key = key
+          self.title = title
+          self.body = body
+
+      def __repr__(self):
+          return "Record(%r, %r)" % (self.key, self.title)
+
+
+  def build_record(key, title, body):
+      if not isinstance(key, str) or key == "":
+          raise ValueError("key must be a non-empty string")
+      return Record(key, title, body)
+  REC
+  cat > catalog/tree.py <<'TREE'
+  from catalog.errors import DuplicateError, EmptyTreeError, NotFoundError
+  from catalog.records import build_record
+
+
+  class Node:
+      def __init__(self, record):
+          self.record = record
+          self.left = None
+          self.right = None
+
+
+  class DocumentTree:
+      def __init__(self):
+          self.root = None
+          self._size = 0
+
+      def insert(self, key, title, body):
+          raise NotImplementedError
+
+      def find(self, key):
+          raise NotImplementedError
+
+      def remove(self, key):
+          raise NotImplementedError
+
+      def in_order(self):
+          raise NotImplementedError
+
+      def depth(self):
+          raise NotImplementedError
+
+      def size(self):
+          raise NotImplementedError
+
+      def titles_by_depth(self):
+          raise NotImplementedError
+  TREE
+  cat > catalog/__init__.py <<'INIT'
+  INIT
+
+goal_tr: >
+  catalog/tree.py icindeki DocumentTree sinifini (Node ile birlikte) tam
+  olarak gerceklestir: insert ayni anahtar icin DuplicateError yukseltmeli,
+  find eksik anahtar icin NotFoundError yukseltmeli, remove silinen Record'u
+  dondurmeli ve bos agacta EmptyTreeError yukseltmeli, in_order anahtarlari
+  sirali liste olarak vermeli, depth en derin dugumun seviyesini (bos agac
+  0) dondurmeli, size dugum sayisini vermeli, titles_by_depth ise {seviye:
+  [o seviyedeki basliklar soldan saga]} biciminde ic ice bir sozluk
+  uretmeli.
+
+reference_solution: |
+  cat > catalog/tree.py <<'TREE'
+  from catalog.errors import DuplicateError, EmptyTreeError, NotFoundError
+  from catalog.records import build_record
+
+
+  class Node:
+      def __init__(self, record):
+          self.record = record
+          self.left = None
+          self.right = None
+
+
+  class DocumentTree:
+      def __init__(self):
+          self.root = None
+          self._size = 0
+
+      def insert(self, key, title, body):
+          record = build_record(key, title, body)
+          if self.root is None:
+              self.root = Node(record)
+              self._size = 1
+              return record
+          node = self.root
+          while True:
+              if key == node.record.key:
+                  raise DuplicateError(key)
+              if key < node.record.key:
+                  if node.left is None:
+                      node.left = Node(record)
+                      self._size += 1
+                      return record
+                  node = node.left
+              else:
+                  if node.right is None:
+                      node.right = Node(record)
+                      self._size += 1
+                      return record
+                  node = node.right
+
+      def find(self, key):
+          node = self.root
+          while node is not None:
+              if key == node.record.key:
+                  return node.record
+              if key < node.record.key:
+                  node = node.left
+              else:
+                  node = node.right
+          raise NotFoundError(key)
+
+      def remove(self, key):
+          if self.root is None:
+              raise EmptyTreeError("tree is empty")
+          parent = None
+          node = self.root
+          while node is not None and node.record.key != key:
+              parent = node
+              if key < node.record.key:
+                  node = node.left
+              else:
+                  node = node.right
+          if node is None:
+              raise NotFoundError(key)
+          removed = node.record
+          if node.left is not None and node.right is not None:
+              succ_parent = node
+              succ = node.right
+              while succ.left is not None:
+                  succ_parent = succ
+                  succ = succ.left
+              node.record = succ.record
+              parent = succ_parent
+              node = succ
+          child = node.left if node.left is not None else node.right
+          if parent is None:
+              self.root = child
+          elif parent.left is node:
+              parent.left = child
+          else:
+              parent.right = child
+          self._size -= 1
+          return removed
+
+      def in_order(self):
+          keys = []
+          stack = []
+          node = self.root
+          while stack or node is not None:
+              while node is not None:
+                  stack.append(node)
+                  node = node.left
+              node = stack.pop()
+              keys.append(node.record.key)
+              node = node.right
+          return keys
+
+      def depth(self):
+          best = 0
+          stack = [(self.root, 1)]
+          while stack:
+              node, level = stack.pop()
+              if node is None:
+                  continue
+              if level > best:
+                  best = level
+              stack.append((node.left, level + 1))
+              stack.append((node.right, level + 1))
+          return best
+
+      def size(self):
+          return self._size
+
+      def titles_by_depth(self):
+          levels = {}
+          stack = [(self.root, 1)]
+          while stack:
+              node, level = stack.pop()
+              if node is None:
+                  continue
+              levels.setdefault(level, []).append(node.record.title)
+              stack.append((node.right, level + 1))
+              stack.append((node.left, level + 1))
+          return levels
+  TREE
+
+outputs:
+  - {path: catalog/tree.py, kind: program, run: 'python3 -c ''exec("from catalog.tree import DocumentTree as T\nfrom catalog.errors import DuplicateError, EmptyTreeError, NotFoundError\nt=T()\nassert t.size()==0\nassert t.depth()==0\nassert t.in_order()==[]\nassert t.titles_by_depth()=={}\nt.insert(\"m\",\"Mid\",\"b\")\nt.insert(\"d\",\"Doc\",\"b\")\nt.insert(\"q\",\"Quo\",\"b\")\nt.insert(\"b\",\"Bee\",\"b\")\nt.insert(\"f\",\"Fee\",\"b\")\nt.insert(\"z\",\"Zed\",\"b\")\nassert t.size()==6\nassert t.in_order()==[\"b\",\"d\",\"f\",\"m\",\"q\",\"z\"]\nassert t.depth()==3\nassert t.titles_by_depth()=={1:[\"Mid\"],2:[\"Doc\",\"Quo\"],3:[\"Bee\",\"Fee\",\"Zed\"]}\nassert t.find(\"f\").title==\"Fee\"\nok=False\ntry:\n    t.insert(\"f\",\"X\",\"b\")\nexcept DuplicateError as e:\n    ok=(e.key==\"f\")\nassert ok\nok=False\ntry:\n    t.find(\"nope\")\nexcept NotFoundError as e:\n    ok=(e.key==\"nope\")\nassert ok\nr=t.remove(\"m\")\nassert r.key==\"m\" and r.title==\"Mid\"\nassert t.in_order()==[\"b\",\"d\",\"f\",\"q\",\"z\"]\nassert t.size()==5\nassert t.remove(\"b\").key==\"b\"\nassert t.in_order()==[\"d\",\"f\",\"q\",\"z\"]\nassert t.depth()==3\nassert t.size()==4\ne=T()\nbad=False\ntry:\n    e.remove(\"x\")\nexcept EmptyTreeError:\n    bad=True\nassert bad\nprint(\"TAMAM\")")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''exec("from catalog.tree import DocumentTree as T\nfrom catalog.errors import DuplicateError, EmptyTreeError, NotFoundError\nt=T()\nassert t.size()==0\nassert t.depth()==0\nassert t.in_order()==[]\nassert t.titles_by_depth()=={}\nt.insert(\"m\",\"Mid\",\"b\")\nt.insert(\"d\",\"Doc\",\"b\")\nt.insert(\"q\",\"Quo\",\"b\")\nt.insert(\"b\",\"Bee\",\"b\")\nt.insert(\"f\",\"Fee\",\"b\")\nt.insert(\"z\",\"Zed\",\"b\")\nassert t.size()==6\nassert t.in_order()==[\"b\",\"d\",\"f\",\"m\",\"q\",\"z\"]\nassert t.depth()==3\nassert t.titles_by_depth()=={1:[\"Mid\"],2:[\"Doc\",\"Quo\"],3:[\"Bee\",\"Fee\",\"Zed\"]}\nassert t.find(\"f\").title==\"Fee\"\nok=False\ntry:\n    t.insert(\"f\",\"X\",\"b\")\nexcept DuplicateError as e:\n    ok=(e.key==\"f\")\nassert ok\nok=False\ntry:\n    t.find(\"nope\")\nexcept NotFoundError as e:\n    ok=(e.key==\"nope\")\nassert ok\nr=t.remove(\"m\")\nassert r.key==\"m\" and r.title==\"Mid\"\nassert t.in_order()==[\"b\",\"d\",\"f\",\"q\",\"z\"]\nassert t.size()==5\nassert t.remove(\"b\").key==\"b\"\nassert t.in_order()==[\"d\",\"f\",\"q\",\"z\"]\nassert t.depth()==3\nassert t.size()==4\ne=T()\nbad=False\ntry:\n    e.remove(\"x\")\nexcept EmptyTreeError:\n    bad=True\nassert bad\nprint(\"TAMAM\")")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8173
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: metin-belgeleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: ikili-arama-agaci
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: ic-ice-yapi
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

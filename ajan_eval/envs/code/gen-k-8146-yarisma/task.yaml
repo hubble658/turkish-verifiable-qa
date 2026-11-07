@@ -1,0 +1,141 @@
+id: gen-k-8146-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) plans/billing.py dosyasındaki Billing sınıfını, abonelik yığınını doğru yöneten durumlu bir sınıf olacak biçimde düzelt.
+
+  2) subscribe metodu, abone olunan planın fiyatını plans/registry.py üzerinden kaydetsin.
+
+  3) undo_last metodu, en son eklenen planı hem fiyat kaydından hem de yığından çıkarsın.
+
+  4) active metodu, kalan planları eklenme sırasında döndürsün.
+
+setup: |
+  mkdir -p plans
+  cat > plans/registry.py <<'REG'
+  class PlanRegistry:
+      def __init__(self):
+          self._plans = {}
+
+      def register(self, name, price):
+          self._plans[name] = price
+
+      def price_of(self, name):
+          return self._plans[name]
+
+      def names(self):
+          return sorted(self._plans)
+  REG
+  cat > plans/billing.py <<'BILL'
+  from plans.registry import PlanRegistry
+
+
+  class Billing:
+      def __init__(self):
+          self.registry = PlanRegistry()
+          self._stack = []
+
+      def subscribe(self, plan):
+          self.registry.register(plan, len(self.registry.names()))
+          self._stack.append(plan)
+
+      def undo_last(self):
+          if self._stack:
+              self._stack.pop()
+
+      def active(self):
+          return list(self._stack)
+  BILL
+  cat > plans/__init__.py <<'INIT'
+  INIT
+
+goal_tr: >
+  plans/billing.py icindeki Billing sinifini, abonelik yiginini dogru
+  yoneten bir durumlu sinif olacak bicimde duzelt: subscribe planin fiyatini
+  plans/registry.py uzerinden kaydetsin, undo_last en son eklenen plani hem
+  fiyat kaydindan hem yigindan cikarsin, active kalan planlari eklenme
+  sirasinda dondursun.
+
+reference_solution: |
+  cat > plans/billing.py <<'BILL'
+  from plans.registry import PlanRegistry
+
+
+  class Billing:
+      def __init__(self):
+          self.registry = PlanRegistry()
+          self._stack = []
+
+      def subscribe(self, plan, price):
+          self.registry.register(plan, price)
+          self._stack.append(plan)
+
+      def undo_last(self):
+          if self._stack:
+              plan = self._stack.pop()
+              self.registry.remove(plan)
+
+      def active(self):
+          return list(self._stack)
+  BILL
+  cat > plans/registry.py <<'REG'
+  class PlanRegistry:
+      def __init__(self):
+          self._plans = {}
+
+      def register(self, name, price):
+          self._plans[name] = price
+
+      def remove(self, name):
+          self._plans.pop(name, None)
+
+      def price_of(self, name):
+          return self._plans[name]
+
+      def names(self):
+          return sorted(self._plans)
+  REG
+
+outputs:
+  - {path: plans/billing.py, kind: program, run: 'python3 -c ''from plans.billing import Billing; b=Billing(); b.subscribe("basic",10); b.subscribe("pro",30); assert b.active()==["basic","pro"], b.active(); assert b.registry.price_of("pro")==30; b.undo_last(); assert b.active()==["basic"], b.active(); assert b.registry.names()==["basic"], b.registry.names(); b.undo_last(); assert b.active()==[]; assert b.registry.names()==[]; b.undo_last(); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from plans.billing import Billing; b=Billing(); b.subscribe("basic",10); b.subscribe("pro",30); assert b.active()==["basic","pro"], b.active(); assert b.registry.price_of("pro")==30; b.undo_last(); assert b.active()==["basic"], b.active(); assert b.registry.names()==["basic"], b.registry.names(); b.undo_last(); assert b.active()==[]; assert b.registry.names()==[]; b.undo_last(); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8146
+    bundle: yarisma
+    tools:
+    - python3
+    konu: abonelik-planlari
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin-kullanimi
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: bellek-ici
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

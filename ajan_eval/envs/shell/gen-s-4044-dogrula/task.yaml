@@ -1,0 +1,87 @@
+id: gen-s-4044-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  envanter.dat dosyasındaki her veri satırını id, urun ve adet alanlarından oluşan bir nesneye dönüştürüp bu nesneleri içeren geçerli bir JSON dizisini envanter.json dosyasına yaz. bos.dat ve tuzak.dat dosyaları bu işleme dahil edilmemelidir.
+
+  Şu şartlar sağlanmalı:
+  - Çalışma dizini /workspace olmalı.
+  - envanter.json dosyası oluşturulmalı.
+  - envanter.json içeriği geçerli bir JSON dizisi olmalı.
+  - Dizideki her nesne id, urun ve adet alanlarını içermeli.
+  - envanter.dat dosyasındaki her veri satırı bu dizide bir nesneye karşılık gelmeli.
+  - bos.dat ve tuzak.dat dosyalarındaki veriler envanter.json içine dahil edilmemeli.
+
+setup: |
+  cat > envanter.dat <<'DAT'
+  ID  URUN       ADET DURUM
+  001 vida       120  OK
+  002 somun       80  OK
+  003 pul         45  OK
+  004 civi         0  OK
+  005 mentese     12  OK
+  DAT
+  touch bos.dat
+  cat > tuzak.dat <<'DAT'
+  ID  URUN       ADET DURUM
+  999 hayalet    777  HATA
+  DAT
+  cat > dogrula.sh <<'EOS'
+  #!/bin/bash
+  # envanter.dat icindeki OK satirlarini JSON'a cevirir
+  sed -n '2,$p' envanter.dat | tr -s ' ' | sed 's/^ //; s/ $//' | awk '{
+    printf "{\"id\":\"%s\",\"urun\":\"%s\",\"adet\":%s}\n", $1, $2, $3
+  }' > kayitlar.ndjson
+  printf '[' > envanter.json
+  paste -sd, kayitlar.ndjson >> envanter.json
+  printf ']\n' >> envanter.json
+  EOS
+  chmod +x dogrula.sh
+
+goal_tr: >
+  envanter.dat dosyasindaki her veri satirini id, urun ve adet alanlarindan
+  olusan bir nesneye cevirip bu nesneleri iceren gecerli bir JSON dizisini
+  envanter.json dosyasina yaz; bos.dat ve tuzak.dat dosyalari bu isleme
+  dahil edilmemelidir.
+
+reference_solution: |
+  sed -n '2,$p' envanter.dat | tr -s ' ' | sed 's/^ //; s/ $//' | awk '{ printf "{\"id\":\"%s\",\"urun\":\"%s\",\"adet\":%s}\n", $1, $2, $3 }' > kayitlar.ndjson
+  printf '[' > envanter.json
+  paste -sd, kayitlar.ndjson >> envanter.json
+  printf ']\n' >> envanter.json
+
+outputs:
+  - {path: envanter.json, kind: json}
+
+checks:
+  - {op: json_eq, path: envanter.json, value: [{id: '001', urun: vida, adet: 120}, {id: '002', urun: somun, adet: 80}, {id: '003', urun: pul, adet: 45}, {id: '004', urun: civi, adet: 0}, {id: '005', urun: mentese, adet: 12}]}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4044
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: envanter
+    hedef: dogrula
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: json
+    kesif: dolayli-hedef
+    uslup: kabul-kriteri
+    direnc: bos-dosya
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

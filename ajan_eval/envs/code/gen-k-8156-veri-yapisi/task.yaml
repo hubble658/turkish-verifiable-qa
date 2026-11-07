@@ -1,0 +1,226 @@
+id: gen-k-8156-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  fleet/undo.py dosyasındaki tracked dekoratörünü tamamla; sarmaladığı metot her çağrıldığında, çağrı öncesindeki metot adını ve o andaki yığın derinliğini self.log listesine eklesin. Aynı dosyadaki UndoStack sınıfını LIFO yığın olarak gerçekleştir; push, pop, peek ve depth metotları beklendiği gibi çalışsın. fleet/service.py içindeki FleetService sınıfında dispatch olayı yığına itsin ve geçmişe kaydetsin, undo_dispatch son olayı yığından çekip geçmişten çıkarsın, active_vehicles yığında hâlen duran araçları sırayla döndürsün, last_event yığının tepesindeki olayı (yığın boşsa None) versin ve log_size servis logundaki kayıt sayısını döndürsün.
+
+setup: |
+  mkdir -p fleet
+  cat > fleet/events.py <<'EVENTS'
+  def make_event(kind, vehicle, detail):
+      return {"kind": kind, "vehicle": vehicle, "detail": detail}
+
+
+  def split_events(raw):
+      out = []
+      for chunk in raw.split(";"):
+          chunk = chunk.strip()
+          if not chunk:
+              continue
+          kind, vehicle, detail = chunk.split(":")
+          out.append(make_event(kind, vehicle, detail))
+      return out
+  EVENTS
+  cat > fleet/store.py <<'STORE'
+  class VehicleStore:
+      def __init__(self):
+          self.records = []
+
+      def add(self, event):
+          self.records.append(event)
+
+      def all(self):
+          return list(self.records)
+  STORE
+  cat > fleet/history.py <<'HISTORY'
+  from fleet.store import VehicleStore
+
+
+  class History:
+      def __init__(self):
+          self.store = VehicleStore()
+
+      def record(self, event):
+          self.store.add(event)
+
+      def events(self):
+          return self.store.all()
+  HISTORY
+  cat > fleet/undo.py <<'UNDO'
+  def tracked(method):
+      def wrapper(self, *args, **kwargs):
+          raise NotImplementedError
+      return wrapper
+
+
+  class UndoStack:
+      def __init__(self):
+          raise NotImplementedError
+
+      @tracked
+      def push(self, item):
+          raise NotImplementedError
+
+      @tracked
+      def pop(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def depth(self):
+          raise NotImplementedError
+  UNDO
+  cat > fleet/service.py <<'SERVICE'
+  from fleet.history import History
+  from fleet.undo import UndoStack
+
+
+  class FleetService:
+      def __init__(self):
+          self.history = History()
+          self.undo = UndoStack()
+          self.log = []
+
+      def dispatch(self, event):
+          raise NotImplementedError
+
+      def undo_dispatch(self):
+          raise NotImplementedError
+
+      def active_vehicles(self):
+          raise NotImplementedError
+
+      def last_event(self):
+          raise NotImplementedError
+
+      def log_size(self):
+          raise NotImplementedError
+  SERVICE
+
+goal_tr: >
+  fleet/undo.py icindeki tracked dekoratorunu, sarilan metot her
+  cagrildiginda metot adini ve o anki yigin derinligini (cagri oncesi)
+  self.log listesine ekleyecek bicimde tamamla; UndoStack sinifini LIFO
+  yigin olarak (push/pop/peek/depth) gerceklestir ve fleet/service.py
+  icindeki FleetService sinifinda dispatch olayi yigina itip gecmise
+  kaydetsin, undo_dispatch son olayi yigindan cekip gecmisten cikarsin,
+  active_vehicles yiginda halen duran araclari sirayla dondursun, last_event
+  yigin tepesindeki olayi (bos ise None) versin ve log_size servis logundaki
+  kayit sayisini dondursun.
+
+reference_solution: |
+  cat > fleet/undo.py <<'UNDO'
+  def tracked(method):
+      def wrapper(self, *args, **kwargs):
+          self.log.append((method.__name__, self.depth()))
+          return method(self, *args, **kwargs)
+      return wrapper
+
+
+  class UndoStack:
+      def __init__(self):
+          self._items = []
+          self.log = []
+
+      @tracked
+      def push(self, item):
+          self._items.append(item)
+
+      @tracked
+      def pop(self):
+          if not self._items:
+              return None
+          return self._items.pop()
+
+      def peek(self):
+          if not self._items:
+              return None
+          return self._items[-1]
+
+      def depth(self):
+          return len(self._items)
+  UNDO
+  cat > fleet/service.py <<'SERVICE'
+  from fleet.history import History
+  from fleet.undo import UndoStack
+
+
+  class FleetService:
+      def __init__(self):
+          self.history = History()
+          self.undo = UndoStack()
+          self.log = []
+
+      def dispatch(self, event):
+          self.history.record(event)
+          self.undo.push(event)
+          self.log.append(("dispatch", event["vehicle"]))
+          return event
+
+      def undo_dispatch(self):
+          event = self.undo.pop()
+          if event is None:
+              return None
+          records = self.history.events()
+          for i in range(len(records) - 1, -1, -1):
+              if records[i] is event:
+                  del records[i]
+                  break
+          self.history.store.records = records
+          self.log.append(("undo", event["vehicle"]))
+          return event
+
+      def active_vehicles(self):
+          return [e["vehicle"] for e in self.undo._items]
+
+      def last_event(self):
+          return self.undo.peek()
+
+      def log_size(self):
+          return len(self.log)
+  SERVICE
+
+outputs:
+  - {path: fleet/undo.py, kind: program, run: 'python3 -c ''from fleet.events import split_events; from fleet.service import FleetService; s=FleetService(); ev=split_events("move:V1:north;fuel:V2:low;move:V3:south"); [s.dispatch(e) for e in ev]; assert s.undo.depth()==3; assert s.undo.log==[("push",0),("push",1),("push",2)], s.undo.log; assert s.active_vehicles()==["V1","V2","V3"]; assert s.last_event()["vehicle"]=="V3"; u=s.undo_dispatch(); assert u["vehicle"]=="V3"; assert s.undo.log[-1]==("pop",3), s.undo.log; assert s.undo.depth()==2; assert s.active_vehicles()==["V1","V2"]; assert s.last_event()["vehicle"]=="V2"; assert len(s.history.events())==2; s.undo_dispatch(); s.undo_dispatch(); assert s.undo_dispatch() is None; assert s.last_event() is None; assert s.active_vehicles()==[]; assert s.log_size()==6; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.events import split_events; from fleet.service import FleetService; s=FleetService(); ev=split_events("move:V1:north;fuel:V2:low;move:V3:south"); [s.dispatch(e) for e in ev]; assert s.undo.depth()==3; assert s.undo.log==[("push",0),("push",1),("push",2)], s.undo.log; assert s.active_vehicles()==["V1","V2","V3"]; assert s.last_event()["vehicle"]=="V3"; u=s.undo_dispatch(); assert u["vehicle"]=="V3"; assert s.undo.log[-1]==("pop",3), s.undo.log; assert s.undo.depth()==2; assert s.active_vehicles()==["V1","V2"]; assert s.last_event()["vehicle"]=="V2"; assert len(s.history.events())==2; s.undo_dispatch(); s.undo_dispatch(); assert s.undo_dispatch() is None; assert s.last_event() is None; assert s.active_vehicles()==[]; assert s.log_size()==6; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8156
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: arac-filosu
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin
+      karmasiklik: duz
+      kalip: dekorator
+      akis: bellek-ici
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

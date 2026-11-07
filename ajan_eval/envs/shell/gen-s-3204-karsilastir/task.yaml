@@ -1,0 +1,78 @@
+id: gen-s-3204-karsilastir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Cari takibi ile muhasebe kayıtlarını ayrı ayrı tutuyoruz ve ay sonu kapanışına yetişmeye çalışıyorum; iki klasördeki bakiyelerin birbirini tutup tutmadığını gözle karşılaştırmak artık çok zaman alıyor. cari ve hesap klasörlerinin içindeki kayitlar.txt dosyalarında her satırda önce sabit genişlikli bir hesap kodu, sonra tutar var. Bu iki dosyayı yalnızca o sabit genişlikli ilk alan (hesap kodu) üzerinden karşılaştırıp sadece her iki tarafta da ortak olan hesap kodlarını görmek istiyorum. Sonuç olarak çalışma dizinine ortak.csv adında bir dosya yazılsın; başlık satırı olmasın, her satırda bir hesap kodu yer alsın ve tutarlar da eklensin: tutarlar birbirinden farklıysa iki tutar ayrı iki sütunda, tutarlar aynıysa tek tutar sütununda görünsün. cari klasöründeki notlar.txt bu karşılaştırmaya dahil edilmesin.
+
+setup: |
+  mkdir -p cari hesap
+  cat > cari/kayitlar.txt <<'K'
+  1001ALFA     1200
+  1002BETA      350
+  1003GAMA      900
+  K
+  cat > hesap/kayitlar.txt <<'K'
+  1001ALFA     1200
+  1002BETA      500
+  1004DELTA     700
+  K
+  cat > cari/notlar.txt <<'K'
+  bu dosya karsilastirmaya girmez
+  K
+
+goal_tr: >
+  cari ve hesap klasorlerindeki kayitlar.txt dosyalarini sabit genislikli
+  ilk alan (hesap kodu) uzerinden karsilastirip yalnizca iki tarafta da
+  ortak olan hesap kodlarini ve tutarlarini, tutar farkliysa iki tutari iki
+  ayri sutunda, ayniysa tek tutar sutununda gosteren CSV'yi ortak.csv
+  dosyasina basliksiz olarak yaz.
+
+reference_solution: |
+  cut -c1-10 cari/kayitlar.txt | sort > /tmp/a.kod
+  cut -c1-10 hesap/kayitlar.txt | sort > /tmp/b.kod
+  comm -12 /tmp/a.kod /tmp/b.kod > /tmp/ortak.kod
+  while read k; do
+    a=$(grep "^$k" cari/kayitlar.txt | cut -c11-20 | tr -d ' ')
+    b=$(grep "^$k" hesap/kayitlar.txt | cut -c11-20 | tr -d ' ')
+    if [ "$a" = "$b" ]; then
+      printf '%s,%s\n' "$k" "$a"
+    else
+      printf '%s,%s,%s\n' "$k" "$a" "$b"
+    fi
+  done < /tmp/ortak.kod > ortak.csv
+
+outputs:
+  - {path: ortak.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: ortak.csv, value: ['1001ALFA,1200', '1002BETA,350,500']}
+
+metadata:
+  domain: karsilastir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3204
+    bundle: kume-farki
+    tools:
+    - comm
+    - sort
+    konu: muhasebe-kalemleri
+    hedef: karsilastir
+    girdi: sabit-genislik
+    kaynak: cok-dosya
+    cikti: csv
+    kesif: veriye-bak
+    uslup: baglam-gomulu
+    direnc: baslik-yok
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

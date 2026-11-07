@@ -1,0 +1,69 @@
+id: gen-s-3003-donustur
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) girdi/yorumlar.json ve girdi/urunler.json dosyalarını oku.
+  2) İki dosyadaki kayıtları ürün koduna göre birleştir; her yorum için id, ürün adı, puan ve yorum alanlarını eşleştir.
+  3) Birleştirilmiş kayıtları başlık satırıyla birlikte sonuc.csv dosyasına yaz.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/yorumlar.json <<'JSON'
+  [
+    {"id": 1, "urun": "kalem", "puan": 5, "yorum": "cok iyi"},
+    {"id": 2, "urun": "defter", "puan": 3, "yorum": "idare eder"},
+    {"id": 3, "urun": "kalem", "puan": 4, "yorum": "guze l"},
+    {"id": 4, "urun": "silgi", "puan": 2, "yorum": "kotu"},
+    {"id": 5, "urun": "defter", "puan": 5, "yorum": "mukemmel"}
+  ]
+  JSON
+  cat > girdi/urunler.json <<'JSON'
+  [
+    {"kod": "kalem", "ad": "Kursun Kalem"},
+    {"kod": "defter", "ad": "Cizgili Defter"},
+    {"kod": "silgi", "ad": "Beyaz Silgi"}
+  ]
+  JSON
+
+goal_tr: >
+  girdi/yorumlar.json ve girdi/urunler.json dosyalarini urun koduna gore
+  birlestirip her yorum icin id, urun adi, puan ve yorum alanlarini iceren
+  sonuc.csv dosyasini baslik satiriyla birlikte uret
+
+reference_solution: |
+  awk 'BEGIN{FS="[,{}]"} FNR==NR{ if($0 ~ /"kod"/){ for(i=1;i<=NF;i++){ if($i ~ /"kod"/){ gsub(/.*: */,"",$(i+1)); gsub(/"/,"",$(i+1)); k=$(i+1) } if($i ~ /"ad"/){ gsub(/.*: */,"",$(i+1)); gsub(/"/,"",$(i+1)); ad=$(i+1) } } m[k]=ad } next } /"id"/{ for(i=1;i<=NF;i++){ if($i ~ /"id"/){ gsub(/.*: */,"",$(i+1)); id=$(i+1) } if($i ~ /"urun"/){ gsub(/.*: */,"",$(i+1)); gsub(/"/,"",$(i+1)); u=$(i+1) } if($i ~ /"puan"/){ gsub(/.*: */,"",$(i+1)); p=$(i+1) } if($i ~ /"yorum"/){ gsub(/.*: */,"",$(i+1)); gsub(/"/,"",$(i+1)); y=$(i+1) } } print id","m[u]","p","y }' girdi/urunler.json girdi/yorumlar.json | awk 'BEGIN{print "id,urun_adi,puan,yorum"} {print}' > sonuc.csv
+
+outputs:
+  - {path: sonuc.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: sonuc.csv, value: ['id,urun_adi,puan,yorum', '"kalem",,"cok iyi",', '"defter",,"idare eder",', '"kalem",,"guze l",', '"silgi",,"kotu",', '"defter",,"mukemmel",']}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3003
+    bundle: awk
+    tools:
+    - awk
+    konu: urun-yorumlari
+    hedef: donustur
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: csv
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

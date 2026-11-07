@@ -1,0 +1,143 @@
+"""Task definition loading and host-side grading."""
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+import tempfile
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+from verifiable_dataset.terminal.checks import report as checks_report
+from verifiable_dataset.terminal.checks import run_checks
+from verifiable_dataset.terminal.sandbox import (DockerSandbox, ExecResult,
+                                                 sandbox_yap)
+
+# Bir boru hattinin ortasindaki hata, son komut basarili oldugu surece
+# gorunmez: `bc` kurulu degilse `hesapla | bc | tee out` yine exit 0 doner,
+# dosya bos kalir ve o bosluk ground truth olur. pipefail hatayi cikis
+# koduna tasiyor, boylece bozuk bir referans sessizce gecmiyor.
+PIPEFAIL = "set -o pipefail\n"
+
+
+def run_script(sandbox: DockerSandbox, script: str, timeout: int = 60) -> ExecResult:
+    """Task'a ait bir betigi (setup, referans, alternatif) pipefail ile calistir."""
+    return sandbox.exec(PIPEFAIL + script, timeout=timeout)
+
+
+@dataclass
+class Task:
+    id: str
+    image: str
+    prompt: str
+    task_dir: Path
+    split: str = "single_step"
+    workdir: str = "/workspace"
+    max_turns: int = 8
+    # Zincirleme gorevlerde yalnizca ilk hatayi gideren betik.
+    # Ara-durum kapisi kullaniyor; normal notlandirmada rolu yok.
+    ara_adim: str = ""
+    setup: str = ""
+    goal_tr: str = ""
+    reference_solution: str = ""
+    checks: list[dict] = field(default_factory=list)
+    outputs: list[dict] = field(default_factory=list)
+    alt_solutions: list[dict] = field(default_factory=list)
+    metadata: dict = field(default_factory=dict)
+
+    @classmethod
+    def load(cls, task_dir: str | Path) -> "Task":
+        task_dir = Path(task_dir)
+        spec = yaml.safe_load((task_dir / "task.yaml").read_text(encoding="utf-8"))
+        return cls(
+            id=spec["id"],
+            image=spec["image"],
+            prompt=spec["prompt"],
+            task_dir=task_dir,
+            split=spec.get("split", "single_step"),
+            workdir=spec.get("workdir", "/workspace"),
+            max_turns=spec.get("max_turns", 8),
+            ara_adim=spec.get("ara_adim", "") or "",
+            setup=spec.get("setup", ""),
+            goal_tr=spec.get("goal_tr", ""),
+            reference_solution=spec.get("reference_solution", ""),
+            checks=spec.get("checks", []),
+            outputs=spec.get("outputs", []),
+            alt_solutions=spec.get("alt_solutions", []),
+            metadata=spec.get("metadata", {}),
+        )
+
+    @property
+    def checker(self) -> Path:
+        """Legacy per-task checker script, used when no declarative checks exist."""
+        return self.task_dir / "tests" / "check.py"
+
+    def make_sandbox(self, yerel: bool | None = None):
+        """Moda gore Docker ya da yerel sandbox.
+
+        Butun cagri noktalari buradan gectigi icin mod tek yerde secilebiliyor
+        (bkz. sandbox.yerel_kullan).
+        """
+        return sandbox_yap(image=self.image, workdir=self.workdir, yerel=yerel)
+
+    def prepare(self, sandbox: DockerSandbox) -> None:
+        """Seed the world the task starts from."""
+        if not self.setup.strip():
+            return
+        result = run_script(sandbox, self.setup, timeout=120)
+        if result.exit_code != 0:
+            raise RuntimeError(
+                f"{self.id}: setup basarisiz (exit={result.exit_code}): "
+                f"{result.stderr.strip()[:300]}"
+            )
+
+
+@dataclass
+class GradeResult:
+    reward: float          # ikili: cozuldu mu, cozulmedi mi
+    solved: bool
+    passed: int
+    total: int
+    checks: list[dict]
+    partial: float = 0.0   # yalnizca teshis icin: gecen check orani
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "reward": self.reward,
+            "solved": self.solved,
+            "passed": self.passed,
+            "total": self.total,
+            "partial": self.partial,
+            "checks": self.checks,
+        }
+
+
+def grade(task: Task, sandbox: DockerSandbox) -> GradeResult:
+    """Snapshot the container and evaluate the task's checks on the host."""
+    with tempfile.TemporaryDirectory(prefix="vds-grade-") as tmp:
+        snapshot = sandbox.snapshot(Path(tmp) / "ws")
+        if task.checks:
+            # Yerel modda imaj adi yok: run_stdout_eq konteyner yerine
+            # host'ta kosar (bkz. checks.op_run_stdout_eq).
+            imaj = "" if getattr(sandbox, "yerel", False) else task.image
+            report = checks_report(run_checks(snapshot, task.checks, imaj))
+        else:
+            proc = subprocess.run(
+                [sys.executable, str(task.checker), str(snapshot)],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                timeout=120,
+            )
+            if proc.returncode != 0:
+                raise RuntimeError(f"checker hata verdi: {proc.stderr.strip()}")
+            report = json.loads(proc.stdout)
+    return GradeResult(
+        reward=report["reward"],
+        solved=report["solved"],
+        passed=report["passed"],
+        total=report["total"],
+        checks=report["checks"],
+        partial=report.get("partial", 0.0),
+    )

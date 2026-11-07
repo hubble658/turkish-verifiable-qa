@@ -1,0 +1,77 @@
+id: gen-s-7269-toplu-yeniden-adlandir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  defter dizin ağacındaki her kalemler.tsv dosyasını, içinde bulunduğu dizinin adıyla birleştirip (örneğin 2024-ocak-kalemler.tsv gibi) dosyanın kendi dizininde yeniden adlandır. Oluşan tüm yeni dosya yollarını defter/yeniden-adlandirildi.txt içine her satırda bir yol olacak şekilde yaz.
+
+setup: |
+  mkdir -p defter/2024/ocak defter/2024/subat defter/arsiv
+  cat > defter/2024/ocak/kalemler.tsv <<'TSV'
+  1001	Kira	5000
+  1002	Elektrik	750
+  TSV
+  cat > defter/2024/subat/kalemler.tsv <<'TSV'
+  2001	Su	300
+  2002	Internet	450
+  TSV
+  cat > defter/arsiv/kalemler.tsv <<'TSV'
+  9001	EskiKayit	100
+  TSV
+  cat > defter/2024/ocak/notlar.txt <<'TXT'
+  bu bir tuzak dosyadir
+  TSV
+
+goal_tr: >
+  defter dizin agacindaki her kalemler.tsv dosyasini, icinde bulundugu
+  dizinin adiyla birlestirip (ornek: 2024-ocak-kalemler.tsv) dosyanin kendi
+  dizinine yeniden adlandir ve olusan tum yeni dosya yollarini
+  defter/yeniden-adlandirildi.txt icine her satirda bir yol olacak sekilde
+  yaz.
+
+reference_solution: |
+  find defter -name 'kalemler.tsv' | while read -r f; do
+    d=$(dirname "$f")
+    b=$(basename "$f")
+    yeni="$d/$(basename "$d")-$b"
+    mv "$f" "$yeni"
+    echo "$yeni"
+  done > defter/yeniden-adlandirildi.txt
+
+outputs:
+  - {path: defter/yeniden-adlandirildi.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: defter/yeniden-adlandirildi.txt, value: [defter/2024/ocak/ocak-kalemler.tsv, defter/2024/subat/subat-kalemler.tsv, defter/arsiv/arsiv-kalemler.tsv]}
+  - {op: not_exists, path: defter/2024/ocak/kalemler.tsv}
+  - {op: not_exists, path: defter/2024/subat/kalemler.tsv}
+  - {op: not_exists, path: defter/arsiv/kalemler.tsv}
+
+metadata:
+  domain: toplu-yeniden-adlandir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7269
+    bundle: yol-parcala
+    tools:
+    - basename
+    - dirname
+    konu: muhasebe-kalemleri
+    hedef: toplu-yeniden-adlandir
+    girdi: tsv
+    kaynak: dizin-agaci
+    cikti: satir-listesi
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

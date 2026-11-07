@@ -1,0 +1,58 @@
+id: gen-s-3005-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri/olcumler.tsv dosyasındaki her satırın ilk alanı ile veri/gecerli.txt dosyasındaki ilgili satır eşleşiyorsa, ölçümler.tsv içinde geçen benzersiz istasyon kodlarını (ilk alan) sırala ve bu kodlardan veri/gecerli.txt dosyasında da bulunanların sayısını sonuc.txt dosyasına yalnızca bir sayı olarak yaz.
+
+setup: |
+  mkdir -p veri
+  printf 'IST ist_01 21.5\nANK ank_02 18.0\nIZM izm_03 24.2\nIST ist_04 19.9\nANK ank_05 17.1\nIST ist_06 22.3' > veri/olcumler.tsv
+  printf 'ist_01\nank_02\nizm_03\nist_04\nank_05\nist_06' > veri/gecerli.txt
+
+goal_tr: >
+  veri/olcumler.tsv icindeki her satirin ilk alani ile veri/gecerli.txt
+  icindeki ilgili satir eslesiyorsa, olcumler.tsv'de gecen benzersiz
+  istasyon kodlarini (ilk alan) siralayip veri/gecerli.txt'de de
+  bulunanlarin sayisini sonuc.txt'ye sadece sayi olarak yaz
+
+reference_solution: |
+  cut -f1 veri/olcumler.tsv | sort -u > /tmp/kodlar.txt
+  sort veri/gecerli.txt > /tmp/gecerli_sirali.txt
+  comm -12 /tmp/kodlar.txt /tmp/gecerli_sirali.txt > /tmp/ortak.txt
+  wc -l < /tmp/ortak.txt > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '0'}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3005
+    bundle: kume-farki
+    tools:
+    - comm
+    - sort
+    konu: hava-durumu-kayitlari
+    hedef: ayikla
+    girdi: tsv
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: son-newline-yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

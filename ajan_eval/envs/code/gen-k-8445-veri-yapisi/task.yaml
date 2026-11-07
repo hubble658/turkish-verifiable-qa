@@ -1,0 +1,142 @@
+id: gen-k-8445-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Bu sabah yolcu akışıyla ilgili bir sürü soru geldi; hangi istasyondan hangisine en kısa sürede gidilebileceğini hızlıca söyleyebilen bir aracın eksikliği iyice belli oldu. Elimizde transit/network.py dosyası zaten var, ama onu kullanan rota tarafı hâlâ boş duruyor, o yüzden günün kalanında bunu tamamlamamız gerekiyor.
+
+  transit/router.py dosyasındaki RouteQueue sınıfını gerçek bir FIFO kuyruk olarak çalışacak biçimde yaz: elemanlar (istasyon, dakika) çifti olarak eklenecek, en önce eklenen en önce çıkacak, kuyruğun boş olup olmadığı sorulabilecek ve uzunluğu alınabilecek. Aynı dosyadaki fastest_times fonksiyonunu da, verilen başlangıç istasyonundan ağdaki her istasyona ulaşmak için gereken en az toplam süreyi gösteren bir sözlük döndürecek şekilde tamamla; ulaşılamayan istasyonlar için bir şey uydurma, sadece gerçekten ulaşılabilenleri hesaba kat. transit/network.py içindeki RIDES ve neighbors zaten orada, onları kullan.
+
+setup: |
+  mkdir -p transit
+  cat > transit/network.py <<'NET'
+  """In-memory transit network: stations and one-way ride times."""
+
+  RIDES = {
+      "central": [("north", 4), ("east", 7)],
+      "north": [("central", 4), ("west", 9)],
+      "east": [("south", 3)],
+      "west": [("south", 6)],
+      "south": [],
+  }
+
+
+  def neighbors(station):
+      return list(RIDES.get(station, []))
+  NET
+  cat > transit/router.py <<'ROUTER'
+  from transit.network import RIDES, neighbors
+
+
+  class RouteQueue:
+      """FIFO queue of (station, minutes) pairs used to explore the network."""
+
+      def __init__(self):
+          raise NotImplementedError
+
+      def push(self, station, minutes):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def is_empty(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+
+
+  def fastest_times(start):
+      """Return dict station -> minimum ride minutes from start (BFS by cost)."""
+      raise NotImplementedError
+  ROUTER
+
+goal_tr: >
+  transit/router.py icindeki RouteQueue sinifini FIFO kuyruk olarak
+  gerceklestir ve fastest_times fonksiyonunu, baslangictan her istasyona en
+  az toplam sureyi dondurecek sekilde yaz.
+
+reference_solution: |
+  cat > transit/router.py <<'ROUTER'
+  from collections import deque
+
+  from transit.network import RIDES, neighbors
+
+
+  class RouteQueue:
+      """FIFO queue of (station, minutes) pairs used to explore the network."""
+
+      def __init__(self):
+          self._items = deque()
+
+      def push(self, station, minutes):
+          self._items.append((station, minutes))
+
+      def pop(self):
+          return self._items.popleft()
+
+      def is_empty(self):
+          return not self._items
+
+      def __len__(self):
+          return len(self._items)
+
+
+  def fastest_times(start):
+      """Return dict station -> minimum ride minutes from start (BFS by cost)."""
+      best = {}
+      queue = RouteQueue()
+      queue.push(start, 0)
+      while not queue.is_empty():
+          station, minutes = queue.pop()
+          if station in best and best[station] <= minutes:
+              continue
+          best[station] = minutes
+          for nxt, cost in neighbors(station):
+              queue.push(nxt, minutes + cost)
+      return best
+  ROUTER
+
+outputs:
+  - {path: transit/router.py, kind: program, run: 'python3 -c ''from transit.router import RouteQueue as Q, fastest_times as f; q=Q(); assert len(q)==0; q.push("a",1); q.push("b",2); q.push("c",3); assert len(q)==3; assert q.pop()==("a",1); assert q.pop()==("b",2); assert not q.is_empty(); assert q.pop()==("c",3); assert q.is_empty(); t=f("central"); assert t=={"central":0,"north":4,"east":7,"west":13,"south":10}, t; assert f("south")=={"south":0}; assert f("west")=={"west":0,"south":6}; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from transit.router import RouteQueue as Q, fastest_times as f; q=Q(); assert len(q)==0; q.push("a",1); q.push("b",2); q.push("c",3); assert len(q)==3; assert q.pop()==("a",1); assert q.pop()==("b",2); assert not q.is_empty(); assert q.pop()==("c",3); assert q.is_empty(); t=f("central"); assert t=={"central":0,"north":4,"east":7,"west":13,"south":10}, t; assert f("south")=={"south":0}; assert f("west")=={"west":0,"south":6}; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8445
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: yol-tarifi-agi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kuyruk
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: bellek-ici
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

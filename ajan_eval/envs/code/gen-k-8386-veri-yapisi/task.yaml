@@ -1,0 +1,126 @@
+id: gen-k-8386-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) exams/summary.py içindeki merge_bands fonksiyonunu, aynı puana sahip ardışık öğrencileri tek bir grupta toplayacak ve her grup için o gruptaki öğrenci adlarının listesini ve grubun puanını döndürecek şekilde düzelt.
+
+  2) exams/scores.py içindeki pass_bands fonksiyonunu, merge_bands fonksiyonunun ihtiyaç duyduğu gruplamayı doğru üretecek şekilde düzelt; böylece aynı puana sahip ardışık öğrenciler tek bir grupta toplanmış olsun.
+
+setup: |
+  mkdir -p exams
+  cat > exams/scores.py <<'SCORES'
+  def parse_scores(text):
+      rows = []
+      for line in text.strip().splitlines():
+          name, score = line.split(',')
+          rows.append((name.strip(), int(score)))
+      return rows
+
+
+  def pass_bands(text, cutoff):
+      rows = parse_scores(text)
+      bands = []
+      for name, score in rows:
+          if score >= cutoff:
+              if bands and bands[-1][1] == score:
+                  bands[-1][0].append(name)
+              else:
+                  bands.append(([name], score))
+      return bands
+  SCORES
+  cat > exams/summary.py <<'SUMMARY'
+  from exams.scores import pass_bands
+
+
+  def merge_bands(text, cutoff):
+      bands = pass_bands(text, cutoff)
+      return [(names[0], score) for names, score in bands]
+  SUMMARY
+  cat > input.txt <<'TXT'
+  ada,71
+  can,88
+  ece,88
+  efe,55
+  deniz,90
+  TXT
+
+goal_tr: >
+  exams/summary.py icindeki merge_bands fonksiyonunu, ayni puana sahip
+  ardisik ogrencileri tek bir grupta toplayip her grup icin o gruptaki
+  ogrenci adlarinin listesini ve puani dondurecek bicimde duzelt; ayrica
+  exams/scores.py icindeki pass_bands fonksiyonunu da bu gruplamayi dogru
+  uretecek sekilde duzelt.
+
+reference_solution: |
+  cat > exams/scores.py <<'SCORES'
+  def parse_scores(text):
+      rows = []
+      for line in text.strip().splitlines():
+          name, score = line.split(',')
+          rows.append((name.strip(), int(score)))
+      return rows
+
+
+  def pass_bands(text, cutoff):
+      rows = parse_scores(text)
+      bands = []
+      for name, score in rows:
+          if score >= cutoff:
+              if bands and bands[-1][1] == score:
+                  bands[-1][0].append(name)
+              else:
+                  bands.append(([name], score))
+      return bands
+  SCORES
+  cat > exams/summary.py <<'SUMMARY'
+  from exams.scores import pass_bands
+
+
+  def merge_bands(text, cutoff):
+      bands = pass_bands(text, cutoff)
+      return [(list(names), score) for names, score in bands]
+  SUMMARY
+
+outputs:
+  - {path: exams/summary.py, kind: program, run: 'python3 -c ''from exams.summary import merge_bands as f; t=open("input.txt").read(); r=f(t,70); assert r==[(["ada"],71),(["can","ece"],88),(["deniz"],90)], r; assert f(t,88)==[(["can","ece"],88),(["deniz"],90)]; assert f(t,95)==[]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from exams.summary import merge_bands as f; t=open("input.txt").read(); r=f(t,70); assert r==[(["ada"],71),(["can","ece"],88),(["deniz"],90)], r; assert f(t,88)==[(["can","ece"],88),(["deniz"],90)]; assert f(t,95)==[]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8386
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: sinav-sonuclari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: aralik-birlestirme
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: bellek-ici
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

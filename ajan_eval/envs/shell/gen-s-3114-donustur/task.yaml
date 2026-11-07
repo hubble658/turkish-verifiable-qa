@@ -1,0 +1,66 @@
+id: gen-s-3114-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Kafede yoğun bir cuma akşamı yaşandı, garsonlar siparişleri tek bir deftere karışık şekilde not aldı ve kapanışta masalara göre ayırmak gerekiyor. Kasadaki arkadaş her masanın hesabını ayrı ayrı kapatacağı için siparişlerin masa bazında düzenli dosyalara bölünmüş olması lazım. /workspace dizinindeki "siparis kayitlari.txt" dosyasında her satırda bir sipariş var ve her satırda masa numarası "masa=" ile belirtilmiş; bu satırları masa numarasına göre ayırıp /workspace altında bir "cikti" dizini oluştur, her masa için "masa_<numara>.txt" şeklinde ayrı bir dosya yaz; yani cikti/masa_5.txt, cikti/masa_2.txt ve cikti/masa_7.txt dosyaları oluşsun. Her dosyaya sadece o masaya ait satırlar, dosyadaki haliyle aynen kopyalansın; satırların içeriği değiştirilmesin.
+
+setup: |
+  mkdir -p /workspace
+  cat > "siparis kayitlari.txt" <<'EOF'
+  masa=5|urun=mercimek corbasi|adet=2|fiyat=45.50
+  masa=2|urun=izgara tavuk|adet=1|fiyat=120.00
+  masa=5|urun=ayran|adet=3|fiyat=15.00
+  masa=7|urun=karisik pizza|adet=1|fiyat=180.75
+  masa=2|urun=baklava|adet=2|fiyat=60.00
+  EOF
+
+goal_tr: >
+  siparis kayitlari.txt dosyasindaki her satiri masa numarasina gore ayirip
+  cikti/ altinda masa_<numara>.txt dosyalarina yaz; her dosyada o masaya ait
+  satirlar aynen korunsun.
+
+reference_solution: |
+  mkdir -p cikti
+  sed 's/.*masa=\([0-9]*\).*/\1 &/' "siparis kayitlari.txt" | tr ' ' '\t' | while IFS=$'\t' read -r masa satir; do printf '%s\n' "$satir" >> "cikti/masa_${masa}.txt"; done
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/masa_5.txt, kind: lines}
+  - {path: cikti/masa_2.txt, kind: lines}
+  - {path: cikti/masa_7.txt, kind: lines}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [masa_2.txt, masa_5.txt, masa_7.txt]}
+  - {op: file_lines_eq, path: cikti/masa_2.txt, value: ["masa=2|urun=izgara\ttavuk|adet=1|fiyat=120.00", masa=2|urun=baklava|adet=2|fiyat=60.00]}
+  - {op: file_lines_eq, path: cikti/masa_5.txt, value: ["masa=5|urun=mercimek\tcorbasi|adet=2|fiyat=45.50", masa=5|urun=ayran|adet=3|fiyat=15.00]}
+  - {op: file_content_eq, path: cikti/masa_7.txt, value: "masa=7|urun=karisik\tpizza|adet=1|fiyat=180.75"}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3114
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: restoran-siparisleri
+    hedef: donustur
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: bosluklu-ad
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

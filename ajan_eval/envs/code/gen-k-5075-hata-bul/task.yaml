@@ -1,0 +1,124 @@
+id: gen-k-5075-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sensors/limits.py dosyasındaki LIMITS sözlüğünü, her sensör için alt ve üst sınırları doğru sırada tutacak biçimde düzelt. Bu düzeltmeden sonra sensors/report.py içindeki alarm_report("readings.txt") çağrısı yalnızca gerçekten sınır dışı kalan sensörleri döndürmeli.
+
+setup: |
+  mkdir -p sensors
+  cat > sensors/reader.py <<'READER'
+  def read_readings(path):
+      rows = []
+      with open(path, "r", encoding="ascii") as handle:
+          for line in handle:
+              line = line.strip()
+              if not line:
+                  continue
+              name, value = line.split("=")
+              rows.append((name.strip(), float(value.strip())))
+      return rows
+  READER
+  cat > sensors/limits.py <<'LIMITS'
+  LIMITS = {
+      "temp": (10.0, 40.0),
+      "pressure": (90.0, 110.0),
+      "flow": (0.0, 5.0),
+  }
+  LIMITS["temp"] = (40.0, 10.0)
+  LIMITS["pressure"] = (110.0, 90.0)
+  LIMITS["flow"] = (5.0, 0.0)
+  LIMITS
+  cat > sensors/engine.py <<'ENGINE'
+  from sensors.limits import LIMITS
+
+
+  def is_breach(name, value):
+      low, high = LIMITS[name]
+      if value < low or value > high:
+          return True
+      return False
+
+
+  def scan(readings):
+      alarms = []
+      for name, value in readings:
+          if is_breach(name, value):
+              alarms.append(name)
+      return alarms
+  ENGINE
+  cat > sensors/report.py <<'REPORT'
+  from sensors.reader import read_readings
+  from sensors.engine import scan
+
+
+  def alarm_report(path):
+      readings = read_readings(path)
+      names = scan(readings)
+      return sorted(set(names))
+  REPORT
+  cat > readings.txt <<'DATA'
+  temp=25.0
+  pressure=95.0
+  flow=3.0
+  temp=45.0
+  flow=-1.0
+  DATA
+
+goal_tr: >
+  sensors/limits.py dosyasindaki LIMITS sozlugunu her sensor icin (alt, ust)
+  sinirlari dogru sirada tutacak bicimde duzelt; boylece sensors/report.py
+  icindeki alarm_report("readings.txt") yalnizca gercekten sinir disi kalan
+  sensorleri dondurur.
+
+reference_solution: |
+  cat > sensors/limits.py <<'LIMITS'
+  LIMITS = {
+      "temp": (10.0, 40.0),
+      "pressure": (90.0, 110.0),
+      "flow": (0.0, 5.0),
+  }
+  LIMITS
+
+outputs:
+  - {path: sensors/limits.py, kind: program, run: 'python3 -c ''from sensors.report import alarm_report as f; r=f("readings.txt"); assert r==["flow","temp"], r; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensors.report import alarm_report as f; r=f("readings.txt"); assert r==["flow","temp"], r; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5075
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: sensor-alarm-kurallari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-karsilastirma
+      karmasiklik: duz
+      kalip: ozyineleme
+      akis: dosya-okuma
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

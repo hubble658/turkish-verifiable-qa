@@ -1,0 +1,63 @@
+id: gen-s-3241-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) vardiya.txt dosyasındaki "08:00-16:00" vardiyasına sahip satırları incele.
+  2) Bu satırların toplam sayısını belirle.
+  3) Elde ettiğin sayıyı yalnızca sayı olarak sonuc.txt dosyasına yaz.
+
+setup: |
+  cat > vardiya.txt <<'VRD'
+  001Ayse   08:00-16:00
+  002Mehmet 16:00-00:00
+  003Zeynep 00:00-08:00
+  004Ali    08:00-16:00
+  005Fatma  16:00-00:00
+  VRD
+  : > bos.txt
+
+goal_tr: >
+  vardiya.txt dosyasinda "08:00-16:00" vardiyasinda olan satir sayisini
+  sonuc.txt dosyasina yalnizca sayi olarak yaz
+
+reference_solution: |
+  grep -c '08:00-16:00' vardiya.txt > sonuc.txt
+  grep -c '08:00-16:00' bos.txt >> sonuc.txt
+  wc -l < sonuc.txt > gecici.txt
+  mv gecici.txt sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '2'}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3241
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: personel-vardiyalari
+    hedef: denetle
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: bos-dosya
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

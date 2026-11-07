@@ -1,0 +1,104 @@
+id: gen-k-5135-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) pricing/tracker.py dosyasını oluştur; içinde PriceTracker adında bir context manager sınıfı tanımla. Bu sınıf __enter__ ve __exit__ metotlarına sahip olsun.
+
+  2) PriceTracker, pricing/feed.py içindeki stream_prices fonksiyonundan akan fiyatları toplasın; her ürün için ortalama fiyatı ve ürünün kaç kez görüldüğünü tutsun.
+
+  3) PriceTracker üzerinde summary() metodu olsun; bu metot ürün adına göre sıralı bir sözlük döndürsün.
+
+setup: |
+  mkdir -p pricing
+  mkdir -p data
+  cat > pricing/feed.py <<'FEED'
+  def stream_prices(text):
+      for line in text.strip().splitlines():
+          if not line:
+              continue
+          name, price = line.split(',')
+          yield name, float(price)
+  FEED
+  cat > data/prices.csv <<'CSV'
+  apple,1.50
+  banana,0.75
+  apple,2.00
+  cherry,3.25
+  banana,0.50
+  CSV
+
+goal_tr: >
+  pricing/tracker.py dosyasini yaz: PriceTracker sinifi context manager
+  olsun (__enter__/__exit__), feed modulundeki stream_prices ile akan
+  fiyatlari toplayip her urun icin ortalama fiyati ve kac kez goruldugunu
+  tutsun; summary() metodu urun adina gore sirali bir sozluk dondursun.
+
+reference_solution: |
+  cat > pricing/tracker.py <<'TRACKER'
+  from pricing.feed import stream_prices
+
+
+  class PriceTracker:
+      def __init__(self, text):
+          self._text = text
+          self._totals = {}
+          self._counts = {}
+
+      def __enter__(self):
+          for name, price in stream_prices(self._text):
+              self._totals[name] = self._totals.get(name, 0.0) + price
+              self._counts[name] = self._counts.get(name, 0) + 1
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self._text = None
+          return False
+
+      def summary(self):
+          return {name: self._totals[name] / self._counts[name]
+                  for name in sorted(self._totals)}
+  TRACKER
+
+outputs:
+  - {path: pricing/tracker.py, kind: program, run: 'python3 -c ''from pricing.tracker import PriceTracker as P; t=open("data/prices.csv").read(); c=P(t).__enter__(); s=c.summary(); assert list(s.keys())==["apple","banana","cherry"], s; assert abs(s["apple"]-1.75)<1e-9; assert abs(s["banana"]-0.625)<1e-9; assert abs(s["cherry"]-3.25)<1e-9; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from pricing.tracker import PriceTracker as P; t=open("data/prices.csv").read(); c=P(t).__enter__(); s=c.summary(); assert list(s.keys())==["apple","banana","cherry"], s; assert abs(s["apple"]-1.75)<1e-9; assert abs(s["banana"]-0.625)<1e-9; assert abs(s["cherry"]-3.25)<1e-9; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5135
+    bundle: yarisma
+    tools:
+    - python3
+    konu: urun-fiyatlari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: benzetim
+      karmasiklik: duz
+      kalip: context-manager
+      akis: parcali-akis
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

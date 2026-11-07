@@ -1,0 +1,163 @@
+id: gen-k-5059-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  stock/cache.py içindeki LRUCache sınıfını ve stock/ledger.py içindeki StockLedger sınıfını tamamla. LRUCache, en son kullanılan önbellek mantığıyla çalışsın: kapasiteyi aşınca en eski kullanılan anahtarı atsın; get, put ve len düzgün çalışsın. StockLedger ise stock/events.py içindeki parse_events ile parçalı akış metinlerini işlesin, her sku için en son stok seviyesini tutsun ve içinde bir LRUCache kullansın. apply_chunk verilen metni işleyip sonucu güncellesin, level ise bir skunun en son stok seviyesini döndürsün.
+
+setup: |
+  mkdir -p stock
+  cat > stock/events.py <<'EVENTS'
+  def parse_events(text):
+      events = []
+      for line in text.strip().splitlines():
+          if not line:
+              continue
+          kind, sku, qty = line.split(';')
+          events.append((kind, sku, int(qty)))
+      return events
+  EVENTS
+  cat > stock/cache.py <<'CACHE'
+  class LRUCache:
+      def __init__(self, capacity):
+          raise NotImplementedError
+
+      def get(self, key):
+          raise NotImplementedError
+
+      def put(self, key, value):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+  CACHE
+  cat > stock/ledger.py <<'LEDGER'
+  from stock.events import parse_events
+  from stock.cache import LRUCache
+
+
+  class StockLedger:
+      def __init__(self, cache_capacity):
+          raise NotImplementedError
+
+      def apply_chunk(self, text):
+          raise NotImplementedError
+
+      def level(self, sku):
+          raise NotImplementedError
+  LEDGER
+  cat > chunk1.txt <<'C1'
+  in;bolt;5
+  out;bolt;2
+  in;nut;10
+  C1
+  cat > chunk2.txt <<'C2'
+  out;bolt;1
+  in;bolt;4
+  out;nut;3
+  C2
+
+goal_tr: >
+  stock/cache.py icindeki LRUCache sinifini ve stock/ledger.py icindeki
+  StockLedger sinifini, parcali akista her sku icin en son stok seviyesini
+  tutacak ve en son kullanilan sku onbellegi kapasiteyi asinca en eski
+  kullanilani atacak bicimde tamamla.
+
+reference_solution: |
+  cat > stock/cache.py <<'CACHE'
+  class LRUCache:
+      def __init__(self, capacity):
+          self.capacity = capacity
+          self.store = {}
+          self.order = []
+
+      def _touch(self, key):
+          if key in self.order:
+              self.order.remove(key)
+          self.order.append(key)
+
+      def get(self, key):
+          if key not in self.store:
+              return None
+          self._touch(key)
+          return self.store[key]
+
+      def put(self, key, value):
+          self.store[key] = value
+          self._touch(key)
+          while len(self.order) > self.capacity:
+              old = self.order.pop(0)
+              del self.store[old]
+
+      def __len__(self):
+          return len(self.store)
+  CACHE
+  cat > stock/ledger.py <<'LEDGER'
+  from stock.events import parse_events
+  from stock.cache import LRUCache
+
+
+  class StockLedger:
+      def __init__(self, cache_capacity):
+          self.cache = LRUCache(cache_capacity)
+          self.levels = {}
+
+      def apply_chunk(self, text):
+          for kind, sku, qty in parse_events(text):
+              current = self.levels.get(sku, 0)
+              if kind == 'in':
+                  self.levels[sku] = current + qty
+              else:
+                  self.levels[sku] = current - qty
+              self.cache.put(sku, self.levels[sku])
+          return self
+
+      def level(self, sku):
+          cached = self.cache.get(sku)
+          if cached is not None:
+              return cached
+          return self.levels.get(sku, 0)
+  LEDGER
+
+outputs:
+  - {path: stock/ledger.py, kind: program, run: 'python3 -c ''from stock.ledger import StockLedger; from stock.cache import LRUCache; c=LRUCache(2); c.put("a",1); c.put("b",2); assert c.get("a")==1; c.put("c",3); assert c.get("b") is None; assert c.get("a")==1; assert c.get("c")==3; assert len(c)==2; L=StockLedger(1); L.apply_chunk(open("chunk1.txt").read()); assert L.level("bolt")==3; assert L.level("nut")==10; L.apply_chunk(open("chunk2.txt").read()); assert L.level("bolt")==6; assert L.level("nut")==7; assert L.level("ghost")==0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from stock.ledger import StockLedger; from stock.cache import LRUCache; c=LRUCache(2); c.put("a",1); c.put("b",2); assert c.get("a")==1; c.put("c",3); assert c.get("b") is None; assert c.get("a")==1; assert c.get("c")==3; assert len(c)==2; L=StockLedger(1); L.apply_chunk(open("chunk1.txt").read()); assert L.level("bolt")==3; assert L.level("nut")==10; L.apply_chunk(open("chunk2.txt").read()); assert L.level("bolt")==6; assert L.level("nut")==7; assert L.level("ghost")==0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5059
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: stok-hareketleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: lru-onbellek
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: parcali-akis
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

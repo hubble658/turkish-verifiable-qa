@@ -1,0 +1,62 @@
+id: gen-s-4124-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) muhasebe/kayitlar.json dosyasındaki her satırda geçen kalem adını muhasebe/kalemler.txt dosyasındaki adlarla karşılaştır.
+
+  2) muhasebe/kalemler.txt içinde geçen ve muhasebe/kayitlar.json içinde en az bir kez görülen kalem adlarının toplam tutarını hesapla.
+
+  3) Bu toplam tutarı sonuc.txt dosyasına sadece sayı olarak yaz.
+
+setup: |
+  mkdir -p muhasebe
+  printf '%s\n' '{"kalem":"kira","tutar":1500}' '{"kalem":"kira","tutar":1500}' '{"kalem":"yakit","tutar":400}' '{"kalem":"kira","tutar":1500}' > muhasebe/kayitlar.json
+  printf '%s\n' 'kira' 'yakit' 'kira' 'kira' 'yakit' > muhasebe/kalemler.txt
+
+goal_tr: >
+  muhasebe/kayitlar.json icindeki her satirda gecen kalem adini
+  muhasebe/kalemler.txt ile karsilastirip, kalemler.txt icinde gecen ve
+  kayitlar.json'da en az bir kez gorulen kalem adlarinin toplam tutarini
+  sonuc.txt'ye sadece sayi olarak yaz.
+
+reference_solution: |
+  grep -o '"kalem":"[^"]*"' muhasebe/kayitlar.json | cut -d'"' -f4 | sort -u > /tmp/gorulen_kalemler.txt
+  grep -F -x -f /tmp/gorulen_kalemler.txt muhasebe/kalemler.txt | sort -u > /tmp/gecen_kalemler.txt
+  grep -F -f /tmp/gecen_kalemler.txt muhasebe/kayitlar.json | grep -o '"tutar":[0-9]*' | cut -d':' -f2 | awk '{s+=$1} END {print s}' > sonuc.txt
+  cat /tmp/gecen_kalemler.txt | xargs -r -n1 echo > /dev/null
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '4900'}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4124
+    bundle: cok-dosya-ara
+    tools:
+    - xargs
+    - grep
+    konu: muhasebe-kalemleri
+    hedef: ozetle
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: son-newline-yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

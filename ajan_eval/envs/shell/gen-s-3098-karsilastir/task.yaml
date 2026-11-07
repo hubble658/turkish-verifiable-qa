@@ -1,0 +1,71 @@
+id: gen-s-3098-karsilastir
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  randevular dizini altındaki sabah ve ogleden_sonra alt dizinlerinde bulunan randevu.log dosyalarındaki satırları karşılaştır. Yalnızca bu iki dosyada da ortak olan satırları sıralı biçimde ortak.txt dosyasına yaz. Ayrıca fark.txt dosyasını da oluştur.
+
+setup: |
+  mkdir -p randevular/sabah randevular/ogleden_sonra arsiv
+  cat > randevular/sabah/randevu.log <<'LOG'
+  09:00 Ayse KARDES - kontrol
+  09:30 Mehmet DEMIR - tahlil
+  10:00 Zeynep AK - kontrol
+  LOG
+  cat > randevular/ogleden_sonra/randevu.log <<'LOG'
+  13:00 Ali VELI - kontrol
+  13:30 Fatma KAYA - tahlil
+  14:00 Hasan YILMAZ - kontrol
+  14:30 Ayse KARDES - tahlil
+  LOG
+  cat > arsiv/randevu.log <<'LOG'
+  09:00 Ayse KARDES - kontrol
+  09:30 Mehmet DEMIR - tahlil
+  13:00 Ali VELI - kontrol
+  LOG
+
+goal_tr: >
+  randevular dizini altindaki sabah ve ogleden_sonra alt dizinlerindeki
+  randevu.log dosyalarindaki satirlari karsilastirip yalnizca iki dosyada da
+  ortak olan satirlari sirali olarak ortak.txt dosyasina yaz
+
+reference_solution: |
+  comm -12 <(sort randevular/sabah/randevu.log) <(sort randevular/ogleden_sonra/randevu.log) > ortak.txt
+  diff <(sort randevular/sabah/randevu.log) <(sort randevular/ogleden_sonra/randevu.log) > fark.txt || true
+
+outputs:
+  - {path: ortak.txt, kind: lines}
+  - {path: fark.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: fark.txt, value: ['1,3c1,4', '< 09:00 Ayse KARDES - kontrol', '< 09:30 Mehmet DEMIR - tahlil', '< 10:00 Zeynep AK - kontrol', '---', '> 13:00 Ali VELI - kontrol', '> 13:30 Fatma KAYA - tahlil', '> 14:00 Hasan YILMAZ - kontrol', '> 14:30 Ayse KARDES - tahlil']}
+  - {op: is_file, path: ortak.txt}
+
+metadata:
+  domain: karsilastir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3098
+    bundle: karsilastir
+    tools:
+    - diff
+    - comm
+    konu: hastane-randevulari
+    hedef: karsilastir
+    girdi: log-satiri
+    kaynak: dizin-agaci
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

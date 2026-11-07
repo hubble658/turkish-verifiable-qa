@@ -1,0 +1,134 @@
+id: gen-k-8068-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  depo/depo.py içindeki Depo sınıfına, depo/kalem.py ve depo/raf.py modüllerini kullanarak ürünün stok miktarını düşüren bir çıkar metodu ekle. Stok yetersizse StokYetersiz hatası fırlatsın ama stok tam sıfıra indiğinde hata vermesin.
+
+setup: |
+  mkdir -p depo
+  cat > depo/kalem.py <<'KALEM'
+  class Kalem:
+      def __init__(self, ad, adet):
+          self.ad = ad
+          self.adet = adet
+  KALEM
+  cat > depo/raf.py <<'RAF'
+  from depo.kalem import Kalem
+
+
+  class Raf:
+      def __init__(self):
+          self.kalemler = {}
+
+      def ekle(self, ad, adet):
+          self.kalemler[ad] = Kalem(ad, adet)
+  RAF
+  cat > depo/depo.py <<'DEPO'
+  from depo.raf import Raf
+
+
+  class Depo:
+      def __init__(self):
+          self.raf = Raf()
+
+      def stok_ekle(self, ad, adet):
+          self.raf.ekle(ad, adet)
+  DEPO
+
+goal_tr: >
+  depo/depo.py icindeki Depo sinifina, depo/kalem.py ve depo/raf.py
+  modullerini kullanarak, bir urunun stok miktarini dusuren ve stok
+  yetersizse StokYetersiz hatasi firlatan bir cikar metodu ekle; stok tam
+  sifira indirildiginde hata firlatma.
+
+reference_solution: |
+  cat > depo/kalem.py <<'KALEM'
+  class StokYetersiz(Exception):
+      pass
+
+
+  class Kalem:
+      def __init__(self, ad, adet):
+          self.ad = ad
+          self.adet = adet
+
+      def dus(self, miktar):
+          if miktar > self.adet:
+              raise StokYetersiz(self.ad)
+          self.adet -= miktar
+  KALEM
+  cat > depo/raf.py <<'RAF'
+  from depo.kalem import Kalem, StokYetersiz
+
+
+  class Raf:
+      def __init__(self):
+          self.kalemler = {}
+
+      def ekle(self, ad, adet):
+          self.kalemler[ad] = Kalem(ad, adet)
+
+      def dus(self, ad, miktar):
+          if ad not in self.kalemler:
+              raise StokYetersiz(ad)
+          self.kalemler[ad].dus(miktar)
+  RAF
+  cat > depo/depo.py <<'DEPO'
+  from depo.raf import Raf
+  from depo.kalem import StokYetersiz
+
+
+  class Depo:
+      def __init__(self):
+          self.raf = Raf()
+
+      def stok_ekle(self, ad, adet):
+          self.raf.ekle(ad, adet)
+
+      def cikar(self, ad, miktar):
+          self.raf.dus(ad, miktar)
+  DEPO
+
+outputs:
+  - {path: depo/depo.py, kind: program, run: 'python3 -c ''from depo.depo import Depo; from depo.kalem import StokYetersiz; d=Depo(); d.stok_ekle("vida", 10); d.cikar("vida", 10); assert d.raf.kalemler["vida"].adet == 0; ok=False; exec("try:\n    d.cikar(\"vida\", 1)\nexcept StokYetersiz:\n    ok=True"); assert ok; d.stok_ekle("somun", 5); ok2=False; exec("try:\n    d.cikar(\"yok\", 1)\nexcept StokYetersiz:\n    ok2=True"); assert ok2; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.depo import Depo; from depo.kalem import StokYetersiz; d=Depo(); d.stok_ekle("vida", 10); d.cikar("vida", 10); assert d.raf.kalemler["vida"].adet == 0; ok=False; exec("try:\n    d.cikar(\"vida\", 1)\nexcept StokYetersiz:\n    ok=True"); assert ok; d.stok_ekle("somun", 5); ok2=False; exec("try:\n    d.cikar(\"yok\", 1)\nexcept StokYetersiz:\n    ok2=True"); assert ok2; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8068
+    bundle: yarisma
+    tools:
+    - python3
+    konu: depo-envanteri
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: benzetim
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: bellek-ici
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

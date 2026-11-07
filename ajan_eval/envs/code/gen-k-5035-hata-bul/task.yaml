@@ -1,0 +1,110 @@
+id: gen-k-5035-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  fx/convert.py dosyasındaki convert_all generatorunu, döviz kuru sözlüğünde bulunmayan bir para birimi kodu içeren bir ikili geldiğinde KeyError yerine ValueError yükseltecek şekilde düzelt. Hata mesajında, sözlükte bulunamayan bilinmeyen para birimi kodunu göster.
+
+  Şu şartlar sağlanmalı:
+  - fx/convert.py dosyası düzeltilmiş convert_all generatorunu içermeli.
+  - Bilinmeyen bir para birimi kodu içeren ikili verildiğinde KeyError değil ValueError yükseltilmeli.
+  - Yükseltilen ValueError mesajında bilinmeyen para birimi kodu yer almalı.
+  - Bilinen para birimlerini içeren ikililer için generator önceki gibi çalışmaya devam etmeli.
+
+setup: |
+  mkdir -p fx
+  mkdir -p fx/rates
+  cat > fx/rates/__init__.py <<'PY'
+  PY
+  cat > fx/rates/loader.py <<'PY'
+  def load_rates(text):
+      table = {}
+      for line in text.strip().splitlines():
+          code, value = line.split(",")
+          table[code.strip().upper()] = float(value)
+      return table
+  PY
+  cat > fx/rates/lookup.py <<'PY'
+  def find_rate(table, code):
+      return table[code.upper()]
+  PY
+  cat > fx/convert.py <<'PY'
+  from fx.rates.lookup import find_rate
+
+
+  def convert_all(pairs, table):
+      for amount, src, dst in pairs:
+          usd = amount / find_rate(table, src)
+          yield usd * find_rate(table, dst)
+  PY
+  cat > rates.txt <<'TXT'
+  USD,1.0
+  EUR,0.9
+  TRY,30.0
+  TXT
+
+goal_tr: >
+  fx/convert.py icindeki convert_all generatorunu, sozlukte bulunmayan bir
+  para birimi iceren ikili geldiginde KeyError yerine `ValueError`
+  yukseltecek ve bilinmeyen kodu hata mesajinda gosterecek bicimde duzelt.
+
+reference_solution: |
+  cat > fx/convert.py <<'PY'
+  from fx.rates.lookup import find_rate
+
+
+  def _rate(table, code):
+      try:
+          return find_rate(table, code)
+      except KeyError:
+          raise ValueError("unknown currency: " + code.upper()) from None
+
+
+  def convert_all(pairs, table):
+      for amount, src, dst in pairs:
+          usd = amount / _rate(table, src)
+          yield usd * _rate(table, dst)
+  PY
+
+outputs:
+  - {path: fx/convert.py, kind: program, run: 'python3 -c ''from fx.convert import convert_all as c; t={"USD":1.0,"EUR":0.9,"TRY":30.0}; r=list(c([(90.0,"EUR","USD"),(30.0,"TRY","EUR")],t)); assert abs(r[0]-100.0)<1e-9 and abs(r[1]-0.9)<1e-9, r; bad=0; exec("for src,dst in [(\"GBP\",\"USD\"),(\"USD\",\"GBP\")]:\n try:\n  list(c([(1.0,src,dst)],t))\n except ValueError as e:\n  assert \"GBP\" in str(e), str(e)\n except KeyError:\n  bad=1\n else:\n  bad=1"); assert bad==0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fx.convert import convert_all as c; t={"USD":1.0,"EUR":0.9,"TRY":30.0}; r=list(c([(90.0,"EUR","USD"),(30.0,"TRY","EUR")],t)); assert abs(r[0]-100.0)<1e-9 and abs(r[1]-0.9)<1e-9, r; bad=0; exec("for src,dst in [(\"GBP\",\"USD\"),(\"USD\",\"GBP\")]:\n try:\n  list(c([(1.0,src,dst)],t))\n except ValueError as e:\n  assert \"GBP\" in str(e), str(e)\n except KeyError:\n  bad=1\n else:\n  bad=1"); assert bad==0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5035
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kur-cevrimleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kolay
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sozluk-anahtar-hatasi
+      karmasiklik: duz
+      kalip: generator
+      akis: cok-dosya-birlestirme
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

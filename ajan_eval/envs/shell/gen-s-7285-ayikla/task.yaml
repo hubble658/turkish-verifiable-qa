@@ -1,0 +1,71 @@
+id: gen-s-7285-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kutuphane altındaki tüm .txt dosyalarındaki kitap kayıtlarını kayitlar.csv'deki durum bilgisiyle eşleştir; her kitap için id, ters çevrilmiş başlık ve durum içeren geçerli bir JSON dizisini kutuphane/ozet.json dosyasına yaz.
+
+setup: |
+  mkdir -p kutuphane/arsiv
+  cat > kutuphane/kitaplar.txt <<'EOF'
+  101|Sefiller|Victor Hugo|1862
+  102|Kurk Mantolu Madonna|Sabahattin Ali|1943
+  103|Tutunamayanlar|Oguz Atay|1971
+  104|Ince Memed|Yasar Kemal|1955
+  EOF
+  cat > kutuphane/arsiv/eski_kitaplar.txt <<'EOF'
+  105|Yaban|Yakup Kadri|1932
+  106|Araba Sevdasi|Recaizade Mahmut|1896
+  EOF
+  cat > kutuphane/kayitlar.csv <<'EOF'
+  101;odunc;2024-01-05
+  102;odunc;2024-01-06
+  103;iade;2024-01-07
+  104;odunc;2024-01-08
+  105;iade;2024-01-09
+  106;odunc;2024-01-10
+  EOF
+
+goal_tr: >
+  kutuphane dizinindeki tum .txt dosyalarindaki kitap kayitlarini
+  birlestirip, kayitlar.csv dosyasindaki durum bilgisiyle eslestirerek her
+  kitap icin id, ters cevrilmis baslik ve durum alanlarini iceren gecerli
+  bir JSON dizisi uret ve kutuphane/ozet.json dosyasina yaz.
+
+reference_solution: |
+  find kutuphane -name '*.txt' -exec cat {} + | cut -d'|' -f1,2 | while IFS='|' read -r id baslik; do durum=$(grep "^$id;" kutuphane/kayitlar.csv | cut -d';' -f2); ters=$(echo "$baslik" | rev); echo "{\"id\": $id, \"baslik\": \"$ters\", \"durum\": \"$durum\"}"; done | paste -sd',' - | sed 's/.*/[&]/' > kutuphane/ozet.json
+
+outputs:
+  - {path: kutuphane/ozet.json, kind: json}
+
+checks:
+  - {op: json_eq, path: kutuphane/ozet.json, value: [{id: 105, baslik: nabaY, durum: iade}, {id: 106, baslik: isadveS abarA, durum: odunc}, {id: 101, baslik: rellifeS, durum: odunc}, {id: 102, baslik: annodaM ulotnaM kruK, durum: odunc}, {id: 103, baslik: ralnayamanutuT, durum: iade}, {id: 104, baslik: demeM ecnI, durum: odunc}]}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7285
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: kutuphane-kayitlari
+    hedef: ayikla
+    girdi: duz-metin
+    kaynak: dizin-agaci
+    cikti: json
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

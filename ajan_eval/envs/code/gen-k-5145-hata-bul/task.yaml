@@ -1,0 +1,127 @@
+id: gen-k-5145-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  grid/aggregator.py dosyasındaki Aggregator sınıfının reset metodunu, toplamı gerçekten sıfırlayacak şekilde düzelt. Ayrıca grid/pipeline.py dosyasındaki run_batches fonksiyonunun her parti için yalnızca o partinin tüketimini döndürmesini sağla.
+
+  Şu şartlar sağlanmalı:
+  - grid/aggregator.py içindeki Aggregator.reset metodu çağrıldığında toplam gerçekten sıfırlanmalı.
+  - grid/pipeline.py içindeki run_batches fonksiyonu her parti için yalnızca o partinin tüketimini döndürmeli.
+  - Başlangıçta var olan grid/reading.py ve grid/pipeline.py dosyalarındaki mevcut yapı ve isimler korunmalı.
+
+setup: |
+  mkdir -p grid
+  cat > grid/reading.py <<'READING'
+  class Reading:
+      def __init__(self, meter_id, kwh):
+          self.meter_id = meter_id
+          self.kwh = kwh
+
+      def __add__(self, other):
+          if isinstance(other, Reading):
+              return Reading(self.meter_id + "+" + other.meter_id, self.kwh + other.kwh)
+          return Reading(self.meter_id, self.kwh + other)
+
+      def __radd__(self, other):
+          return Reading(self.meter_id, self.kwh + other)
+
+      def __repr__(self):
+          return "Reading(%r, %r)" % (self.meter_id, self.kwh)
+  READING
+  cat > grid/aggregator.py <<'AGG'
+  from grid.reading import Reading
+
+
+  class Aggregator:
+      def __init__(self):
+          self.total = Reading("", 0.0)
+
+      def add(self, reading):
+          self.total = self.total + reading
+          return self.total
+
+      def reset(self):
+          return self.total
+  AGG
+  cat > grid/pipeline.py <<'PIPE'
+  from grid.aggregator import Aggregator
+
+
+  def run_batches(batches):
+      agg = Aggregator()
+      results = []
+      for batch in batches:
+          for reading in batch:
+              agg.add(reading)
+          results.append(agg.total.kwh)
+          agg.reset()
+      return results
+  PIPE
+
+goal_tr: >
+  grid/aggregator.py icindeki Aggregator.reset metodunu, toplami gercekten
+  sifirlayacak ve grid/pipeline.py icindeki run_batches fonksiyonunun her
+  parti icin yalnizca o partinin tuketimini dondurmesini saglayacak bicimde
+  duzelt.
+
+reference_solution: |
+  cat > grid/aggregator.py <<'AGG'
+  from grid.reading import Reading
+
+
+  class Aggregator:
+      def __init__(self):
+          self.total = Reading("", 0.0)
+
+      def add(self, reading):
+          self.total = self.total + reading
+          return self.total
+
+      def reset(self):
+          self.total = Reading("", 0.0)
+          return self.total
+  AGG
+
+outputs:
+  - {path: grid/aggregator.py, kind: program, run: 'python3 -c ''from grid.reading import Reading; from grid.aggregator import Aggregator; from grid.pipeline import run_batches; a=Aggregator(); a.add(Reading("x",4.0)); a.reset(); assert a.total.kwh==0.0, a.total.kwh; assert a.total.meter_id=="", a.total.meter_id; b=[[Reading("a",1.0),Reading("b",2.0)],[Reading("c",5.0)],[Reading("d",0.5),Reading("e",0.5)]]; r=run_batches(b); assert r==[3.0,5.0,1.0], r; assert run_batches([[]])==[0.0]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from grid.reading import Reading; from grid.aggregator import Aggregator; from grid.pipeline import run_batches; a=Aggregator(); a.add(Reading("x",4.0)); a.reset(); assert a.total.kwh==0.0, a.total.kwh; assert a.total.meter_id=="", a.total.meter_id; b=[[Reading("a",1.0),Reading("b",2.0)],[Reading("c",5.0)],[Reading("d",0.5),Reading("e",0.5)]]; r=run_batches(b); assert r==[3.0,5.0,1.0], r; assert run_batches([[]])==[0.0]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5145
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: elektrik-sayaclari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-durum-sifirlama
+      karmasiklik: duz
+      kalip: operator-asiri-yukleme
+      akis: cok-dosya-birlestirme
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,57 @@
+id: gen-s-4138-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  uyeler.json içindeki üyeleri, her üye için no, ad ve tur alanlarını koruyarak ve tur alanını büyük harfe çevirerek uyeler_yeni.json dosyasına geçerli JSON olarak yazmanı istiyorum.
+
+setup: |
+  cat > uyeler.json <<'JSON'
+  {"uyeler":[{"no":"1001","ad":"Ayse Yilmaz","tur":"ogrenci"},{"no":"1002","ad":"Mehmet Demir","tur":"personel"},{"no":"1003","ad":"Zeynep Kaya","tur":"ogrenci"},{"no":"1004","ad":"Ali Celik","tur":"misafir"},{"no":"1005","ad":"Fatma Ozturk","tur":"personel"}]}
+  JSON
+
+goal_tr: >
+  uyeler.json icindeki uyeleri, her uye icin no, ad ve tur alanlarini
+  koruyarak ve tur alanini buyuk harfe cevirerek uyeler_yeni.json dosyasina
+  gecerli JSON olarak yaz
+
+reference_solution: |
+  cut -d':' -f2- uyeler.json | tee govde.txt > /dev/null
+  tr '}' '\n' < govde.txt | grep '"no"' | sed 's/^[^"]*//' | cut -d'"' -f4,8,12 > alanlar.txt
+  awk -F'"' '{print "{\"no\":\"" $1 "\",\"ad\":\"" $2 "\",\"tur\":\"" toupper($3) "\"}"}' alanlar.txt | tee satirlar.txt > /dev/null
+  { printf '{"uyeler":['; paste -sd, satirlar.txt; printf ']}\n'; } > uyeler_yeni.json
+
+outputs:
+  - {path: uyeler_yeni.json, kind: json}
+
+checks:
+  - {op: json_eq, path: uyeler_yeni.json, value: {uyeler: [{'no': '1001', ad: Ayse Yilmaz, tur: OGRENCI}, {'no': '1002', ad: Mehmet Demir, tur: PERSONEL}, {'no': '1003', ad: Zeynep Kaya, tur: OGRENCI}, {'no': '1004', ad: Ali Celik, tur: MISAFIR}, {'no': '1005', ad: Fatma Ozturk, tur: PERSONEL}]}}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4138
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: kutuphane-kayitlari
+    hedef: donustur
+    girdi: json
+    kaynak: tek-dosya
+    cikti: json
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,79 @@
+id: gen-s-3182-toplu-yeniden-adlandir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) gelen dizinindeki tüm .ini dosyalarını incele ve durum=yolda olan kayıtların kimliklerini topla.
+  2) Bu kimlikleri sevk/yolda.txt dosyasındaki kimliklerle karşılaştır.
+  3) Yalnızca her iki listede de bulunan kimlikleri, her satırda bir kimlik olacak şekilde sevk/ortak.txt dosyasına yaz.
+
+setup: |
+  mkdir -p gelen sevk
+  cat > gelen/part1.ini <<'INI'
+  [K001]
+  durum=yolda
+  sehir=Ankara
+  [K002]
+  durum=teslim
+  sehir=Izmir
+  [K003]
+  durum=yolda
+  sehir=Bursa
+  INI
+  cat > gelen/part2.ini <<'INI'
+  [K004]
+  durum=teslim
+  sehir=Adana
+  [K005]
+  durum=yolda
+  sehir=Konya
+  INI
+  printf 'K002\nK004\n' > sevk/teslim.txt
+  printf 'K001\nK003\nK005\n' > sevk/yolda.txt
+
+goal_tr: >
+  gelen dizinindeki .ini dosyalarindan durum=yolda olan kayitlarin
+  kimliklerini sevk/yolda.txt ile karsilastirip yalnizca iki listede de
+  bulunan kimlikleri sevk/ortak.txt dosyasina her satirda bir kimlik olacak
+  sekilde yaz
+
+reference_solution: |
+  find gelen -name '*.ini' -print0 | xargs -0 awk -F= '/^\[/{k=substr($0,2,length($0)-2)} $1=="durum" && $2=="yolda"{print k}' | sort > sevk/_yolda_ini.txt
+  sort sevk/yolda.txt > sevk/_yolda_liste.txt
+  comm -12 sevk/_yolda_ini.txt sevk/_yolda_liste.txt > sevk/ortak.txt
+  rm sevk/_yolda_ini.txt sevk/_yolda_liste.txt
+
+outputs:
+  - {path: sevk/ortak.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: sevk/ortak.txt, value: [K001, K003, K005]}
+
+metadata:
+  domain: toplu-yeniden-adlandir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3182
+    bundle: bul-tasi
+    tools:
+    - find
+    - xargs
+    konu: kargo-takibi
+    hedef: toplu-yeniden-adlandir
+    girdi: ini
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

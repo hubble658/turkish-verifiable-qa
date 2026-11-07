@@ -1,0 +1,308 @@
+id: gen-k-9095-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  `registrar/store/priority_queue.py` içindeki `PriorityQueue` sınıfını eksiksiz gerçekleştir: `push`, `pop`, `peek`, `__len__`, `__bool__` ve `__iter__` yanında `__add__` (iki kuyruğu birleştirip yeni bir kuyruk döndürür) ve `__lt__` (iki kuyruğun en yüksek önceliğini karşılaştırır) operatörlerini de aşırı yükle. Böylece `registrar/rules/grading.py` ve `registrar/report/summary.py` üzerinden en yüksek puanlı k öğrenci doğru sıralansın; `registrar/store/priority_queue.py` ve `registrar/rules/grading.py` dosyaları bu akışı destekleyecek şekilde çalışsın.
+
+setup: |
+  mkdir -p registrar/store registrar/rules registrar/report
+  cat > registrar/store/priority_queue.py <<'PQ'
+  class PriorityQueue:
+      def __init__(self):
+          raise NotImplementedError
+
+      def push(self, priority, item):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+
+      def __bool__(self):
+          raise NotImplementedError
+
+      def __iter__(self):
+          raise NotImplementedError
+
+      def __add__(self, other):
+          raise NotImplementedError
+
+      def __lt__(self, other):
+          raise NotImplementedError
+  PQ
+  cat > registrar/rules/grading.py <<'GRADE'
+  from registrar.store.priority_queue import PriorityQueue
+
+
+  def load_transcript(path):
+      rows = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              name, course, score = line.split(',')
+              rows.append((name.strip(), course.strip(), int(score)))
+      return rows
+
+
+  def rank_by_score(rows):
+      pq = PriorityQueue()
+      for name, course, score in rows:
+          pq.push(score, (name, course))
+      ranked = []
+      while pq:
+          score, (name, course) = pq.pop()
+          ranked.append((name, course, score))
+      return ranked
+
+
+  def merge_rankings(a, b):
+      combined = PriorityQueue()
+      for score, item in a:
+          combined.push(score, item)
+      for score, item in b:
+          combined.push(score, item)
+      out = []
+      while combined:
+          out.append(combined.pop())
+      return out
+  GRADE
+  cat > registrar/report/summary.py <<'SUM'
+  from registrar.rules.grading import load_transcript, rank_by_score
+
+
+  def top_students(path, k):
+      rows = load_transcript(path)
+      ranked = rank_by_score(rows)
+      seen = []
+      for name, course, score in ranked:
+          if name not in seen:
+              seen.append(name)
+          if len(seen) == k:
+              break
+      return seen
+  SUM
+  cat > transcript.csv <<'CSV'
+  ada,math,90
+  bora,math,75
+  ada,physics,60
+  ceng,math,90
+  bora,chem,88
+  CSV
+
+goal_tr: >
+  registrar/store/priority_queue.py icindeki PriorityQueue sinifini tam
+  gerceklestir; push/pop/peek/__len__/__bool__/__iter__ yaninda __add__ (iki
+  kuyrugu birlestirip yeni kuyruk dondurur) ve __lt__ (iki kuyrugun en
+  yuksek onceligini karsilastirir) operatorlerini de asiri yukle, oyle ki
+  registrar/rules/grading.py ve registrar/report/summary.py uzerinden en
+  yuksek puanli k ogrenci dogru siralansin.
+
+reference_solution: |
+  cat > registrar/store/priority_queue.py <<'PQ'
+  class PriorityQueue:
+      def __init__(self):
+          self._heap = []
+          self._counter = 0
+
+      def push(self, priority, item):
+          self._counter += 1
+          entry = (-priority, self._counter, item)
+          self._heap.append(entry)
+          self._sift_up(len(self._heap) - 1)
+
+      def pop(self):
+          if not self._heap:
+              raise IndexError("pop from empty priority queue")
+          top = self._heap[0]
+          last = self._heap.pop()
+          if self._heap:
+              self._heap[0] = last
+              self._sift_down(0)
+          return (-top[0], top[2])
+
+      def peek(self):
+          if not self._heap:
+              raise IndexError("peek from empty priority queue")
+          top = self._heap[0]
+          return (-top[0], top[2])
+
+      def __len__(self):
+          return len(self._heap)
+
+      def __bool__(self):
+          return bool(self._heap)
+
+      def __iter__(self):
+          ordered = sorted(self._heap, key=lambda e: (e[0], e[1]))
+          for neg, _, item in ordered:
+              yield (-neg, item)
+
+      def __add__(self, other):
+          merged = PriorityQueue()
+          for priority, item in self:
+              merged.push(priority, item)
+          for priority, item in other:
+              merged.push(priority, item)
+          return merged
+
+      def __lt__(self, other):
+          if not self:
+              return True
+          if not other:
+              return False
+          return self.peek()[0] < other.peek()[0]
+
+      def _sift_up(self, i):
+          heap = self._heap
+          while i > 0:
+              parent = (i - 1) // 2
+              if heap[i][:2] < heap[parent][:2]:
+                  heap[i], heap[parent] = heap[parent], heap[i]
+                  i = parent
+              else:
+                  break
+
+      def _sift_down(self, i):
+          heap = self._heap
+          n = len(heap)
+          while True:
+              left = 2 * i + 1
+              right = 2 * i + 2
+              smallest = i
+              if left < n and heap[left][:2] < heap[smallest][:2]:
+                  smallest = left
+              if right < n and heap[right][:2] < heap[smallest][:2]:
+                  smallest = right
+              if smallest == i:
+                  break
+              heap[i], heap[smallest] = heap[smallest], heap[i]
+              i = smallest
+  PQ
+
+ara_adim: |
+  cat > registrar/store/priority_queue.py <<'PQ'
+  class PriorityQueue:
+      def __init__(self):
+          self._heap = []
+          self._counter = 0
+
+      def push(self, priority, item):
+          self._counter += 1
+          entry = (-priority, self._counter, item)
+          self._heap.append(entry)
+          self._sift_up(len(self._heap) - 1)
+
+      def pop(self):
+          if not self._heap:
+              raise IndexError("pop from empty priority queue")
+          top = self._heap[0]
+          last = self._heap.pop()
+          if self._heap:
+              self._heap[0] = last
+              self._sift_down(0)
+          return (-top[0], top[2])
+
+      def peek(self):
+          if not self._heap:
+              raise IndexError("peek from empty priority queue")
+          top = self._heap[0]
+          return (-top[0], top[2])
+
+      def __len__(self):
+          return len(self._heap)
+
+      def __bool__(self):
+          return bool(self._heap)
+
+      def __iter__(self):
+          ordered = sorted(self._heap, key=lambda e: (e[0], e[1]))
+          for neg, _, item in ordered:
+              yield (-neg, item)
+
+      def __add__(self, other):
+          raise NotImplementedError
+
+      def __lt__(self, other):
+          raise NotImplementedError
+
+      def _sift_up(self, i):
+          heap = self._heap
+          while i > 0:
+              parent = (i - 1) // 2
+              if heap[i][:2] < heap[parent][:2]:
+                  heap[i], heap[parent] = heap[parent], heap[i]
+                  i = parent
+              else:
+                  break
+
+      def _sift_down(self, i):
+          heap = self._heap
+          n = len(heap)
+          while True:
+              left = 2 * i + 1
+              right = 2 * i + 2
+              smallest = i
+              if left < n and heap[left][:2] < heap[smallest][:2]:
+                  smallest = left
+              if right < n and heap[right][:2] < heap[smallest][:2]:
+                  smallest = right
+              if smallest == i:
+                  break
+              heap[i], heap[smallest] = heap[smallest], heap[i]
+              i = smallest
+  PQ
+
+outputs:
+  - {path: registrar/store/priority_queue.py, kind: program, run: 'python3 -c ''from registrar.store.priority_queue import PriorityQueue as Q; a=Q(); a.push(1,"x"); a.push(4,"y"); b=Q(); b.push(9,"z"); b.push(2,"w"); c=a+b; assert len(c)==4, len(c); assert c.pop()==(9,"z"); assert c.pop()==(4,"y"); d=Q(); d.push(3,"p"); e=Q(); e.push(7,"q"); assert d<e; assert not (e<d); print("TAMAM")'''}
+  - {path: registrar/store/priority_queue.py, kind: program, run: 'python3 -c ''from registrar.report.summary import top_students as f; r=f("transcript.csv",2); assert r==["ada","ceng"], r; assert f("transcript.csv",1)==["ada"]; assert f("transcript.csv",3)==["ada","ceng","bora"]; print("ILERLEME-TAMAM")'''}
+  - {path: registrar/rules/grading.py, kind: program, run: 'python3 -c ''from registrar.rules.grading import load_transcript as f; rows=f("transcript.csv"); assert rows==[("ada","math",90),("bora","math",75),("ada","physics",60),("ceng","math",90),("bora","chem",88)], rows; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from registrar.store.priority_queue import PriorityQueue as Q; a=Q(); a.push(1,"x"); a.push(4,"y"); b=Q(); b.push(9,"z"); b.push(2,"w"); c=a+b; assert len(c)==4, len(c); assert c.pop()==(9,"z"); assert c.pop()==(4,"y"); d=Q(); d.push(3,"p"); e=Q(); e.push(7,"q"); assert d<e; assert not (e<d); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from registrar.report.summary import top_students as f; r=f("transcript.csv",2); assert r==["ada","ceng"], r; assert f("transcript.csv",1)==["ada"]; assert f("transcript.csv",3)==["ada","ceng","bora"]; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from registrar.rules.grading import load_transcript as f; rows=f("transcript.csv"); assert rows==[("ada","math",90),("bora","math",75),("ada","physics",60),("ceng","math",90),("bora","chem",88)], rows; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9095
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: ogrenci-transkripti
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: oncelik-kuyrugu
+      karmasiklik: orta
+      kalip: operator-asiri-yukleme
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

@@ -1,0 +1,66 @@
+id: gen-s-7264-yeniden-duzenle
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) "muhasebe kayitlari/kalemler listesi.txt" dosyasını aç ve içindeki her satırda geçen kalem kodlarını oku.
+  2) "muhasebe kayitlari/isim eslesme.txt" dosyasındaki her kodu, o kodun karşısındaki adla eşleştir.
+  3) "muhasebe kayitlari/kalemler listesi.txt" içindeki her kalem kodunu, eşleşen adla değiştir.
+  4) Elde edilen sonucu "muhasebe kayitlari/kalemler listesi.isimli.txt" dosyasına yaz.
+
+setup: |
+  mkdir -p "muhasebe kayitlari"
+  cat > "muhasebe kayitlari/kalemler listesi.txt" <<'TXT'
+  100 kasa
+  120 alicilar
+  320 saticilar
+  TXT
+  cat > "muhasebe kayitlari/isim eslesme.txt" <<'TXT'
+  100 Merkez Kasa
+  120 Alici Hesaplari
+  320 Satici Hesaplari
+  TXT
+
+goal_tr: >
+  "muhasebe kayitlari/kalemler listesi.txt" icindeki her satirdaki kalem
+  kodunu, "muhasebe kayitlari/isim eslesme.txt" dosyasindaki ayni kodun
+  karsisindaki adla degistirip sonucu "muhasebe kayitlari/kalemler
+  listesi.isimli.txt" dosyasina yaz.
+
+reference_solution: |
+  awk 'NR==FNR { ad[$1]=substr($0, index($0,$2)); next } { print $1, ad[$1] }' "muhasebe kayitlari/isim eslesme.txt" "muhasebe kayitlari/kalemler listesi.txt" > "$(dirname "muhasebe kayitlari/kalemler listesi.txt")/$(basename "muhasebe kayitlari/kalemler listesi.txt" .txt).isimli.txt"
+
+outputs:
+  - {path: muhasebe kayitlari/kalemler listesi.isimli.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: muhasebe kayitlari/kalemler listesi.isimli.txt, value: [100 Merkez Kasa, 120 Alici Hesaplari, 320 Satici Hesaplari]}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7264
+    bundle: yol-parcala
+    tools:
+    - basename
+    - dirname
+    konu: muhasebe-kalemleri
+    hedef: yeniden-duzenle
+    girdi: duz-metin
+    kaynak: iki-dosya-capraz
+    cikti: yeniden-adlandirilmis
+    kesif: yok
+    uslup: numarali-emir
+    direnc: bosluklu-ad
+    bukulme: yok
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

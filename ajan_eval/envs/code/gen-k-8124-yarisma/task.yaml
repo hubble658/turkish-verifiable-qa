@@ -1,0 +1,121 @@
+id: gen-k-8124-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  maintenance/policy.py içindeki MaintenancePolicy sınıfına, verilen bütçeyi aşmadan en çok saat bakım yapılacak makineleri seçen bir select metodu ekle. Seçim (machine, hours) ikililerinden oluşan liste olsun ve saat/cost oranı büyükten küçüğe sıralansın.
+
+setup: |
+  mkdir -p maintenance
+  cat > maintenance/records.py <<'RECORDS'
+  def load_records(path):
+      rows = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              machine, hours, cost = line.split(',')
+              rows.append((machine, int(hours), int(cost)))
+      return rows
+  RECORDS
+  cat > maintenance/policy.py <<'POLICY'
+  from maintenance.records import load_records
+
+
+  class MaintenancePolicy:
+      def __init__(self, path, budget):
+          self.records = load_records(path)
+          self.budget = budget
+
+      def select(self):
+          raise NotImplementedError
+  POLICY
+  cat > maintenance/schedule.py <<'SCHEDULE'
+  from maintenance.policy import MaintenancePolicy
+
+
+  def build_schedule(path, budget):
+      policy = MaintenancePolicy(path, budget)
+      return policy.select()
+  SCHEDULE
+  cat > machines.txt <<'DATA'
+  press,4,30
+  lathe,7,10
+  mill,2,25
+  drill,9,5
+  DATA
+
+goal_tr: >
+  maintenance/policy.py icindeki MaintenancePolicy sinifina, verilen butceyi
+  asmadan en cok saat bakim yapilacak makineleri acgozlu secen select
+  metodunu yaz; secim (machine, hours) ikililerinin listesi olsun ve
+  saat/cost orani buyuk olandan kucuge dogru sirala.
+
+reference_solution: |
+  cat > maintenance/policy.py <<'POLICY'
+  from maintenance.records import load_records
+
+
+  class MaintenancePolicy:
+      def __init__(self, path, budget):
+          self.records = load_records(path)
+          self.budget = budget
+
+      def select(self):
+          ranked = sorted(
+              self.records,
+              key=lambda r: r[1] / r[2],
+              reverse=True,
+          )
+          chosen = []
+          remaining = self.budget
+          for machine, hours, cost in ranked:
+              if cost <= remaining:
+                  chosen.append((machine, hours))
+                  remaining -= cost
+          return chosen
+  POLICY
+
+outputs:
+  - {path: maintenance/policy.py, kind: program, run: 'python3 -c ''from maintenance.schedule import build_schedule as f; r=f("machines.txt", 40); assert r == [("drill", 9), ("lathe", 7), ("mill", 2)], r; r=f("machines.txt", 15); assert r == [("drill", 9), ("lathe", 7)], r; r=f("machines.txt", 0); assert r == [], r; r=f("machines.txt", 100); assert r == [("drill", 9), ("lathe", 7), ("press", 4), ("mill", 2)], r; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from maintenance.schedule import build_schedule as f; r=f("machines.txt", 40); assert r == [("drill", 9), ("lathe", 7), ("mill", 2)], r; r=f("machines.txt", 15); assert r == [("drill", 9), ("lathe", 7)], r; r=f("machines.txt", 0); assert r == [], r; r=f("machines.txt", 100); assert r == [("drill", 9), ("lathe", 7), ("press", 4), ("mill", 2)], r; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8124
+    bundle: yarisma
+    tools:
+    - python3
+    konu: makine-bakim-kayitlari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: acgozlu
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

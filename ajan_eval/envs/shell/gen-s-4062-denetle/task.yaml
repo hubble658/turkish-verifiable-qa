@@ -1,0 +1,64 @@
+id: gen-s-4062-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  loglar.txt dosyasındaki her satırda geçen hata kodunu (ERROR, WARN, INFO) çıkarıp her kodun kaç kez tekrarlandığını ozet.txt dosyasına yazmanı istiyorum. Kodlar azalan sıklık sırasına göre dizilsin ve her satırda kod ile sayı arasında boşluk bulunsun.
+
+setup: |
+  cat > loglar.txt <<'LOG'
+  2024-01-01 10:00:01 ERROR disk dolu
+  2024-01-01 10:00:02 INFO sunucu basladi
+  2024-01-01 10:00:03 WARN bellek az
+  2024-01-01 10:00:04 ERROR baglanti koptu
+  2024-01-01 10:00:05 INFO istek alindi
+  2024-01-01 10:00:06 ERROR zaman asimi
+  2024-01-01 10:00:07 WARN cpu yuksek
+  2024-01-01 10:00:08 ERROR disk dolu
+  2024-01-01 10:00:09 INFO istek alindi
+  2024-01-01 10:00:10 ERROR bellek az
+  LOG
+
+goal_tr: >
+  loglar.txt dosyasindaki her satirda gecen hata kodunu (ERROR, WARN, INFO)
+  cikarip bu kodlarin kac kez tekrar ettigini azalan siklik sirasina gore,
+  her satirda kod ve sayi arasinda bosluk olacak sekilde tek sayi yerine
+  ozet.txt dosyasina yaz
+
+reference_solution: |
+  awk '{print $3}' loglar.txt | sort | uniq -c | sort -rn | awk '{print $2, $1}' > ozet.txt
+
+outputs:
+  - {path: ozet.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: ozet.txt, value: [ERROR 5, INFO 3, WARN 2]}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4062
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: sunucu-loglari
+    hedef: denetle
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: baslik-yok
+    bukulme: olcek
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

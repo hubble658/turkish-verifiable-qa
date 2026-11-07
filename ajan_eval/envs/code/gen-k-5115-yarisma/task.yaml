@@ -1,0 +1,108 @@
+id: gen-k-5115-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Sınav sonuçlarını değerlendiren küçük bir araç üzerinde çalışıyoruz; öğrenci puanları scores.txt içinde tutuluyor ve puanlar exam/scores.py içindeki sorted_scores fonksiyonuyla sıralanıyor. Bugün de bu listeye belirli bir eşiğin üzerindeki en düşük puanlı öğrenciyi hızlıca bulma ihtiyacı doğdu, çünkü listeyi baştan sona taramak yerine ikili arama ile sonuca ulaşmak istiyoruz.
+
+  Bu iş için exam/lookup.py dosyasını yaz. Dosyanın içinde find_first_above(path, threshold) adlı bir fonksiyon olsun; bu fonksiyon, verilen path dosyasındaki puanlara göre eşik değerinin üzerindeki puanlar arasında en düşük olanın öğrenci adını döndürsün. Arama ikili arama ile yapılsın ve puanları elde etmek için exam/scores.py içindeki sorted_scores fonksiyonu kullanılsın. Eşikten büyük hiçbir puan yoksa fonksiyon None döndürsün.
+
+setup: |
+  mkdir -p exam
+  cat > exam/__init__.py <<'INIT'
+  INIT
+  cat > exam/scores.py <<'SCORES'
+  def load_scores(path):
+      rows = []
+      with open(path) as f:
+          for line in f:
+              line = line.strip()
+              if not line:
+                  continue
+              name, score = line.split(',')
+              rows.append((name, int(score)))
+      return rows
+
+
+  def sorted_scores(path):
+      rows = load_scores(path)
+      rows.sort(key=lambda r: r[1])
+      return rows
+  SCORES
+  cat > scores.txt <<'DATA'
+  ada,88
+  bora,72
+  cem,95
+  demir,60
+  ece,88
+  DATA
+
+goal_tr: >
+  exam/scores.py icindeki sorted_scores fonksiyonunu kullanarak, scores.txt
+  icindeki puanlara gore verilen bir esik degerinin uzerindeki en dusuk
+  puanli ogrencinin adini ikili arama ile bulan exam/lookup.py dosyasini
+  yaz; find_first_above(path, threshold) fonksiyonu esikten buyuk puanlar
+  arasinda en kucuk olanin adini dondursun, hicbir puan esikten buyuk
+  degilse None dondursun.
+
+reference_solution: |
+  cat > exam/lookup.py <<'LOOKUP'
+  from exam.scores import sorted_scores
+
+
+  def find_first_above(path, threshold):
+      rows = sorted_scores(path)
+      lo, hi = 0, len(rows)
+      while lo < hi:
+          mid = (lo + hi) // 2
+          if rows[mid][1] > threshold:
+              hi = mid
+          else:
+              lo = mid + 1
+      if lo == len(rows):
+          return None
+      return rows[lo][0]
+  LOOKUP
+
+outputs:
+  - {path: exam/lookup.py, kind: program, run: 'python3 -c ''from exam.lookup import find_first_above as f; assert f("scores.txt",0)=="demir"; assert f("scores.txt",59)=="demir"; assert f("scores.txt",60)=="bora"; assert f("scores.txt",71)=="bora"; assert f("scores.txt",72)=="ada"; assert f("scores.txt",87)=="ada"; assert f("scores.txt",88)=="cem"; assert f("scores.txt",94)=="cem"; assert f("scores.txt",95) is None; assert f("scores.txt",100) is None; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from exam.lookup import find_first_above as f; assert f("scores.txt",0)=="demir"; assert f("scores.txt",59)=="demir"; assert f("scores.txt",60)=="bora"; assert f("scores.txt",71)=="bora"; assert f("scores.txt",72)=="ada"; assert f("scores.txt",87)=="ada"; assert f("scores.txt",88)=="cem"; assert f("scores.txt",94)=="cem"; assert f("scores.txt",95) is None; assert f("scores.txt",100) is None; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5115
+    bundle: yarisma
+    tools:
+    - python3
+    konu: sinav-sonuclari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kolay
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-ikili-arama
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

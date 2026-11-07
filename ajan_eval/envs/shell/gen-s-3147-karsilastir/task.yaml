@@ -1,0 +1,63 @@
+id: gen-s-3147-karsilastir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  notlar/ara/notlar.txt ve notlar/final/notlar.txt dosyalarındaki sabit genişlikli notları karşılaştırıp iki dosyada da bulunan öğrencilerin ad, ara not, final not ve fark sütunlarını içeren virgülle ayrılmış karsilastirma.csv oluştur. Yalnızca bir dosyada bulunan öğrencileri de tespit edip farkliliklar.txt dosyasına yaz.
+
+setup: |
+  mkdir -p notlar/ara notlar/final
+  printf 'Ali    90\nVeli   75\nAyse   85\n' > notlar/ara/notlar.txt
+  printf 'Ali    95\nVeli   75\nAyse   80\n' > notlar/final/notlar.txt
+
+goal_tr: >
+  notlar/ara/notlar.txt ve notlar/final/notlar.txt dosyalarindaki sabit
+  genislikli ogrenci notlarini karsilastirip, iki dosyada da bulunan
+  ogrencilerin ad, ara not, final not ve fark sutunlarini iceren virgulle
+  ayrilmis karsilastirma.csv dosyasini uret; yalnizca bir dosyada bulunan
+  ogrencileri de comm ile tespit edip farkliliklar.txt dosyasina yaz.
+
+reference_solution: |
+  awk '{print $1","$2}' notlar/ara/notlar.txt | sort > /tmp/ara.csv
+  awk '{print $1","$2}' notlar/final/notlar.txt | sort > /tmp/final.csv
+  join -t, /tmp/ara.csv /tmp/final.csv | awk -F, '{print $1","$2","$3","$3-$2}' > karsilastirma.csv
+  diff /tmp/ara.csv /tmp/final.csv > /tmp/diff.txt
+  comm -3 /tmp/ara.csv /tmp/final.csv > farkliliklar.txt
+  cat /tmp/diff.txt >> farkliliklar.txt
+
+outputs:
+  - {path: karsilastirma.csv, kind: file}
+  - {path: farkliliklar.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: farkliliklar.txt, value: ['Ali,90', 'Ali,95', 'Ayse,80', 'Ayse,85', '1,2c1,2', '< Ali,90', '< Ayse,85', '---', '> Ali,95', '> Ayse,80']}
+  - {op: file_lines_eq, path: karsilastirma.csv, value: ['Ali,90,95,5', 'Ayse,85,80,-5', 'Veli,75,75,0']}
+
+metadata:
+  domain: karsilastir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3147
+    bundle: karsilastir
+    tools:
+    - diff
+    - comm
+    konu: ogrenci-notlari
+    hedef: karsilastir
+    girdi: sabit-genislik
+    kaynak: dizin-agaci
+    cikti: csv
+    kesif: veriye-bak
+    uslup: terse
+    direnc: crlf
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

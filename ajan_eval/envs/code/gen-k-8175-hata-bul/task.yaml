@@ -1,0 +1,105 @@
+id: gen-k-8175-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  grid/total.py içindeki total_usage fonksiyonunu düzeltmeni istiyorum. Şu an sayaç okumalarını ters sırada birleştiriyor; okumaları satır sırasında, yani okundukları sırayla, ilk okunan en başta kalacak biçimde birleştirmesi gerekiyor. grid/meters/reader.py ve grid altındaki diğer dosyalar olduğu gibi kalmalı, onlara dokunma.
+
+setup: |
+  mkdir -p grid/meters
+  cat > grid/meters/reader.py <<'READER'
+  class MeterReader:
+      def __init__(self, stream):
+          self.stream = stream
+
+      def __enter__(self):
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self.stream.close()
+          return False
+
+      def readings(self):
+          for line in self.stream:
+              line = line.strip()
+              if not line:
+                  continue
+              name, value = line.split()
+              yield name, value
+  READER
+  cat > grid/total.py <<'TOTAL'
+  from grid.meters.reader import MeterReader
+
+
+  def total_usage(stream):
+      total = ""
+      with MeterReader(stream) as reader:
+          for name, value in reader.readings():
+              total = value + total
+      return total
+  TOTAL
+  cat > grid/__init__.py <<'INIT'
+  INIT
+  cat > grid/meters/__init__.py <<'INIT2'
+  INIT2
+
+goal_tr: >
+  grid/total.py icindeki total_usage fonksiyonunu, sayac okumalarini satir
+  sirasinda okunduklari sirada birlestirecek (ilk okunan en basta kalacak)
+  bicimde duzelt.
+
+reference_solution: |
+  cat > grid/total.py <<'TOTAL'
+  from grid.meters.reader import MeterReader
+
+
+  def total_usage(stream):
+      total = ""
+      with MeterReader(stream) as reader:
+          for name, value in reader.readings():
+              total = total + value
+      return total
+  TOTAL
+
+outputs:
+  - {path: grid/total.py, kind: program, run: 'python3 -c ''import io; from grid.total import total_usage as f; assert f(io.StringIO("a 3\nb 4\nc 5\n"))=="345", repr(f(io.StringIO("a 3\nb 4\nc 5\n"))); assert f(io.StringIO("x 10\ny 2\nz 1\n"))=="1021"; assert f(io.StringIO(""))==""; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import io; from grid.total import total_usage as f; assert f(io.StringIO("a 3\nb 4\nc 5\n"))=="345", repr(f(io.StringIO("a 3\nb 4\nc 5\n"))); assert f(io.StringIO("x 10\ny 2\nz 1\n"))=="1021"; assert f(io.StringIO(""))==""; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8175
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: elektrik-sayaclari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: kolay
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-toplama-sirasi
+      karmasiklik: duz
+      kalip: context-manager
+      akis: stdin-boru
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

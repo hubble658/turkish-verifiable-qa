@@ -1,0 +1,75 @@
+id: gen-s-7259-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Depo sayımı işleri yüzünden son birkaç gündür eski kayıtları elden geçiriyoruz; her ürünün stoğunu tek tek gözden geçirmek yerine özet bir çıktı almak istiyoruz. /workspace dizininde duran envanter.ini dosyasındaki her [urun] bölümünün stok değerini topla. Bu toplamı, gzip ile sıkıştırılmış tek satırlık bir arşive yaz ve arşivin içindeki tek dosyada yalnızca toplam sayı bulunsun; arşivi sonuc.txt adıyla oluştur.
+
+setup: |
+  mkdir -p /workspace
+  cat > envanter.ini <<'INI'
+  [urun]
+  ad = vida
+  stok = 120
+  fiyat = 3
+
+  [urun]
+  ad = somun
+  stok = 80
+  fiyat = 2
+
+  [urun]
+  ad = pul
+  stok = 500
+  fiyat = 1
+
+  [kategori]
+  ad = metal
+  aciklama = celik urunler
+  INI
+
+goal_tr: >
+  envanter.ini dosyasindaki her [urun] bolumunun stok degerini toplayip, bu
+  toplami gzip ile sikistirilmis tek satirlik bir arsiv olustur ve arsiv
+  icindeki tek dosyada yalnizca toplam sayiyi tut.
+
+reference_solution: |
+  awk -F' = ' '/^stok/ {t+=$2} END {print t}' envanter.ini > toplam.txt
+  tar -czf envanter.tar.gz toplam.txt
+  gzip -dc envanter.tar.gz > cozuldu.tar
+  tar -xf cozuldu.tar -O toplam.txt > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '700'}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7259
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: envanter
+    hedef: donustur
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: dolayli-hedef
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

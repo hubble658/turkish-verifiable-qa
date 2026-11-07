@@ -1,0 +1,79 @@
+id: gen-s-7224-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) notlar dizinindeki tüm .tsv dosyalarını tara; öğrenci, ders ve not sütunlarını içeren satırları oku.
+
+  2) Notu 50'nin altında olan satırları ders adına göre grupla.
+
+  3) Her ders için cikti/<ders>.txt dosyası oluştur; örneğin Matematik dersi için cikti/Matematik.txt, Fizik dersi için cikti/Fizik.txt. Bu dosyaların her birine yalnızca o derse ait ve notu 50'nin altında olan satırları öğrenci, ders, not biçiminde yaz.
+
+  4) Her dersin kaç satır içerdiğini hesapla ve sonucu cikti/sayim.txt dosyasına "<ders> <sayi>" biçiminde yaz.
+
+setup: |
+  mkdir -p notlar
+  cat > notlar/notlar_a.tsv <<'TSV'
+  Ali	Matematik	85
+  Ayse	Matematik	40
+  Ali	Fizik	55
+  TSV
+  cat > notlar/notlar_b.tsv <<'TSV'
+  Ayse	Fizik	30
+  Mehmet	Matematik	70
+  Ali	Kimya	90
+  TSV
+
+goal_tr: >
+  notlar dizinindeki tum .tsv dosyalarindaki ogrenci-icerik satirlarindan
+  notu 50'nin altinda olanlari ders adina gore ayri dosyalara yaz; her ders
+  icin cikti/<ders>.txt dosyasi yalnizca o derse ait, notu 50'nin altinda
+  olan satirlari (ogrenci, ders, not) sekilde icersin ve her dersin kac
+  satir icerdigi cikti/sayim.txt dosyasina "<ders> <sayi>" biciminde
+  yazilsin
+
+reference_solution: |
+  mkdir -p cikti
+  grep -h -P '\t[0-9]+$' notlar/*.tsv | awk -F'\t' '$3 < 50 { print $0 >> ("cikti/" $2 ".txt") }'
+  for f in cikti/*.txt; do d=$(basename "$f" .txt); n=$(wc -l < "$f"); echo "$d $n"; done > cikti/sayim.txt
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/Matematik.txt, kind: lines}
+  - {path: cikti/Fizik.txt, kind: lines}
+  - {path: cikti/sayim.txt, kind: lines}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [Fizik.txt, Matematik.txt, sayim.txt]}
+  - {op: file_content_eq, path: cikti/Fizik.txt, value: "Ayse\tFizik\t30"}
+  - {op: file_content_eq, path: cikti/Matematik.txt, value: "Ayse\tMatematik\t40"}
+  - {op: file_lines_eq, path: cikti/sayim.txt, value: [Fizik 1, Matematik 1, sayim 2]}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7224
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: ogrenci-notlari
+    hedef: denetle
+    girdi: tsv
+    kaynak: cok-dosya
+    cikti: birden-cok-dosya
+    kesif: dolayli-hedef
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

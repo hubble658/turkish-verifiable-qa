@@ -1,0 +1,117 @@
+id: gen-k-8438-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Muhasebe ekibi dün akşam faturaları kapatırken bilinmeyen bir plan adı yüzünden raporun yarıda kesildiğini söyledi; meğer toplam alınırken tek bir tanınmayan satır bütün kalanı çöpe atıyormuş. Bu yüzden bugün billing tarafındaki toplama mantığını elden geçirmemiz gerekiyor. Çalışma dizini /workspace.
+
+  billing/invoice.py dosyasındaki total fonksiyonunu, bilinmeyen plan içeren satırları atlayıp geri kalan bütün geçerli satırları toplayacak şekilde düzelt.
+
+setup: |
+  mkdir -p billing/plans
+  cat > billing/__init__.py <<'INIT'
+  INIT
+  cat > billing/plans/__init__.py <<'INIT'
+  INIT
+  cat > billing/plans/tiers.py <<'TIERS'
+  class PlanError(Exception):
+      pass
+
+
+  class UnknownPlan(PlanError):
+      pass
+
+
+  RATES = {"basic": 1.0, "pro": 2.5, "enterprise": 4.0}
+
+
+  def plan_of(name):
+      if name not in RATES:
+          raise UnknownPlan(name)
+      return RATES[name]
+  TIERS
+  cat > billing/plans/usage.py <<'USAGE'
+  from billing.plans.tiers import plan_of
+
+
+  def line_cost(plan, units):
+      return plan_of(plan) * units
+  USAGE
+  cat > billing/invoice.py <<'INVOICE'
+  from billing.plans.tiers import UnknownPlan
+  from billing.plans.usage import line_cost
+
+
+  def total(lines):
+      acc = 0.0
+      for plan, units in lines:
+          try:
+              acc += line_cost(plan, units)
+          except UnknownPlan:
+              return acc
+      return acc
+  INVOICE
+
+goal_tr: >
+  billing/invoice.py icindeki total fonksiyonunu, bilinmeyen plan
+  satirlarini atlayip kalan butun gecerli satirlari toplayacak bicimde
+  duzelt.
+
+reference_solution: |
+  cat > billing/invoice.py <<'INVOICE'
+  from billing.plans.tiers import UnknownPlan
+  from billing.plans.usage import line_cost
+
+
+  def total(lines):
+      acc = 0.0
+      for plan, units in lines:
+          try:
+              acc += line_cost(plan, units)
+          except UnknownPlan:
+              continue
+      return acc
+  INVOICE
+
+outputs:
+  - {path: billing/invoice.py, kind: program, run: 'python3 -c ''from billing.invoice import total; assert total([("basic",2),("pro",1)])==4.5, total([("basic",2),("pro",1)]); assert total([("pro",2),("nope",5),("enterprise",1)])==9.0, total([("pro",2),("nope",5),("enterprise",1)]); assert total([("nope",3),("basic",4)])==4.0, total([("nope",3),("basic",4)]); assert total([])==0.0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from billing.invoice import total; assert total([("basic",2),("pro",1)])==4.5, total([("basic",2),("pro",1)]); assert total([("pro",2),("nope",5),("enterprise",1)])==9.0, total([("pro",2),("nope",5),("enterprise",1)]); assert total([("nope",3),("basic",4)])==4.0, total([("nope",3),("basic",4)]); assert total([])==0.0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8438
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: abonelik-planlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: erken-donus
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: stdin-boru
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

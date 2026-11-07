@@ -1,0 +1,147 @@
+id: gen-k-8201-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sensor/queue.py dosyasındaki PriorityQueue sınıfını heapq tabanlı bir min-yığın kullanarak gerçekleştir. Sınıfın push, pop, __len__ ve peek metotları bu yapıya uygun şekilde çalışsın; böylece sensor/series.py içindeki top_readings fonksiyonu en düşük değerli k okumayı doğru sırada döndürebilsin.
+
+setup: |
+  mkdir -p sensor
+  cat > sensor/reading.py <<'READING'
+  class Reading:
+      def __init__(self, sensor_id, value):
+          self.sensor_id = sensor_id
+          self.value = value
+
+      def __lt__(self, other):
+          return self.value < other.value
+
+      def __repr__(self):
+          return "Reading(%s, %s)" % (self.sensor_id, self.value)
+  READING
+  cat > sensor/queue.py <<'QUEUE'
+  import heapq
+
+  from sensor.reading import Reading
+
+
+  class PriorityQueue:
+      def push(self, reading):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+  QUEUE
+  cat > sensor/series.py <<'SERIES'
+  from sensor.queue import PriorityQueue
+  from sensor.reading import Reading
+
+
+  def load_readings(path):
+      readings = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              sensor_id, value = line.split(",")
+              readings.append(Reading(sensor_id, float(value)))
+      return readings
+
+
+  def top_readings(path, k):
+      pq = PriorityQueue()
+      for reading in load_readings(path):
+          pq.push(reading)
+      result = []
+      for _ in range(k):
+          if len(pq) == 0:
+              break
+          result.append(pq.pop().sensor_id)
+      return result
+  SERIES
+  cat > readings.txt <<'DATA'
+  s1,3.5
+  s2,1.25
+  s3,7.0
+  s4,0.5
+  s5,4.75
+  DATA
+
+goal_tr: >
+  sensor/queue.py icindeki PriorityQueue sinifini heapq tabanli bir
+  min-yigin kullanarak gerceklestir; boylece sensor/series.py en dusuk
+  degerli k okumayi dogru sirada dondurur.
+
+reference_solution: |
+  cat > sensor/queue.py <<'QUEUE'
+  import heapq
+
+  from sensor.reading import Reading
+
+
+  class PriorityQueue:
+      def __init__(self):
+          self._heap = []
+
+      def push(self, reading):
+          heapq.heappush(self._heap, reading)
+
+      def pop(self):
+          return heapq.heappop(self._heap)
+
+      def __len__(self):
+          return len(self._heap)
+
+      def peek(self):
+          return self._heap[0]
+  QUEUE
+
+outputs:
+  - {path: sensor/queue.py, kind: program, run: 'python3 -c ''from sensor.queue import PriorityQueue as Q; from sensor.reading import Reading as R; q=Q(); [q.push(x) for x in [R("a",3.0),R("b",1.0),R("c",2.0)]]; assert len(q)==3; assert q.peek().sensor_id=="b"; assert q.pop().sensor_id=="b"; assert q.pop().sensor_id=="c"; assert q.pop().sensor_id=="a"; assert len(q)==0; from sensor.series import top_readings as t; assert t("readings.txt",3)==["s4","s2","s1"], t("readings.txt",3); assert t("readings.txt",2)==["s4","s2"]; assert t("readings.txt",9)==["s4","s2","s1","s5","s3"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensor.queue import PriorityQueue as Q; from sensor.reading import Reading as R; q=Q(); [q.push(x) for x in [R("a",3.0),R("b",1.0),R("c",2.0)]]; assert len(q)==3; assert q.peek().sensor_id=="b"; assert q.pop().sensor_id=="b"; assert q.pop().sensor_id=="c"; assert q.pop().sensor_id=="a"; assert len(q)==0; from sensor.series import top_readings as t; assert t("readings.txt",3)==["s4","s2","s1"], t("readings.txt",3); assert t("readings.txt",2)==["s4","s2"]; assert t("readings.txt",9)==["s4","s2","s1","s5","s3"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8201
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: sensor-serisi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: oncelik-kuyrugu
+      karmasiklik: duz
+      kalip: operator-asiri-yukleme
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

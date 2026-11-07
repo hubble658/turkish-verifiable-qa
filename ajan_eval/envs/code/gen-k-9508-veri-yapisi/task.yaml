@@ -1,0 +1,201 @@
+id: gen-k-9508-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 28
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  exam/queue paketindeki öncelik kuyruğu, parça parça gelen sınav sonuçlarından en yüksek puanlı öğrencileri eksiksiz ve doğru sırada döndürmüyor. exam/queue/report.py içindeki top_students fonksiyonu, verilen kayıtlardan en yüksek puanlı k kaydı tam olarak döndürmeli; şu anki davranışı bu beklentiyi karşılamıyor ve düzeltilmeli. exam/queue/store.py içindeki ScoreStore sınıfı, kapasitesi ne olursa olsun eklenen tüm kayıtları tutuyor ve boşaltma sırasında hepsini veriyor; en yüksek k kaydı doğru biçimde elde edebilmek için bu davranış gözden geçirilmeli. exam/queue/entry.py içindeki Entry sınıfı karşılaştırma anahtarını puan ve sıra numarası üzerinden kuruyor; sıralamanın tutarlı olması için bu yapı korunmalı.
+
+  Ayrıca exam/queue/report.py içindeki band fonksiyonu, puan aralığı etiketlerini tutarlı biçimde döndürmeli: 90 ve üzeri için "A", 80 ve üzeri için "B", geri kalanı için "C". Etiketlerin sınır değerlerinde tutarlı olduğundan emin ol. Bu üç dosyadaki (exam/queue/report.py, exam/queue/entry.py, exam/queue/store.py) sorunları gidererek en yüksek k kaydın eksiksiz ve doğru sırada döndürülmesini sağla.
+
+setup: |
+  mkdir -p exam/queue
+  cat > exam/queue/entry.py <<'ENTRY'
+  from dataclasses import dataclass, field
+
+
+  @dataclass(order=False)
+  class Entry:
+      student: str
+      score: int
+      seq: int = 0
+      _key: tuple = field(init=False, repr=False)
+
+      def __post_init__(self):
+          self._key = (self.score, self.seq)
+
+      def __lt__(self, other):
+          return self._key < other._key
+  ENTRY
+  cat > exam/queue/store.py <<'STORE'
+  import heapq
+  from exam.queue.entry import Entry
+
+
+  class ScoreStore:
+      def __init__(self, capacity):
+          self.capacity = capacity
+          self._heap = []
+          self._counter = 0
+
+      def add(self, student, score):
+          heapq.heappush(self._heap, Entry(student, score, self._counter))
+          self._counter += 1
+
+      def drain(self):
+          out = []
+          while self._heap:
+              out.append(heapq.heappop(self._heap))
+          return out
+  STORE
+  cat > exam/queue/report.py <<'REPORT'
+  from exam.queue.store import ScoreStore
+
+
+  def top_students(records, k):
+      store = ScoreStore(k)
+      for student, score in records:
+          store.add(student, score)
+      return [e.student for e in store.drain()][:k - 1]
+
+
+  def band(score):
+      if score >= 90:
+          return "A"
+      if score >= 80:
+          return "B"
+      return "C"
+  REPORT
+  cat > exam/__init__.py <<'I'
+  I
+  cat > exam/queue/__init__.py <<'I'
+  I
+
+goal_tr: >
+  exam/queue paketindeki oncelik kuyrugu, parca parca gelen sinav
+  sonuclarindan en yuksek puanli ogrencileri eksiksiz ve dogru sirada
+  dondurmuyor; kuyruk en yuksek k kaydi tam olarak vermeli ve puan araligi
+  etiketleri tutarli olmali.
+
+reference_solution: |
+  cat > exam/queue/entry.py <<'ENTRY'
+  from dataclasses import dataclass, field
+
+
+  @dataclass(order=False)
+  class Entry:
+      student: str
+      score: int
+      seq: int = 0
+      _key: tuple = field(init=False, repr=False)
+
+      def __post_init__(self):
+          self._key = (-self.score, self.seq)
+
+      def __lt__(self, other):
+          return self._key < other._key
+  ENTRY
+  cat > exam/queue/store.py <<'STORE'
+  import heapq
+  from exam.queue.entry import Entry
+
+
+  class ScoreStore:
+      def __init__(self, capacity):
+          self.capacity = capacity
+          self._heap = []
+          self._counter = 0
+
+      def add(self, student, score):
+          heapq.heappush(self._heap, Entry(student, score, self._counter))
+          self._counter += 1
+
+      def drain(self):
+          out = []
+          while self._heap:
+              out.append(heapq.heappop(self._heap))
+          return out
+  STORE
+  cat > exam/queue/report.py <<'REPORT'
+  from exam.queue.store import ScoreStore
+
+
+  def top_students(records, k):
+      store = ScoreStore(k)
+      for student, score in records:
+          store.add(student, score)
+      return [e.student for e in store.drain()][:k]
+
+
+  def band(score):
+      if score >= 90:
+          return "A"
+      if score >= 80:
+          return "B"
+      return "C"
+  REPORT
+
+ara_adim: |
+  cat > exam/queue/entry.py <<'ENTRY'
+  from dataclasses import dataclass, field
+
+
+  @dataclass(order=False)
+  class Entry:
+      student: str
+      score: int
+      seq: int = 0
+      _key: tuple = field(init=False, repr=False)
+
+      def __post_init__(self):
+          self._key = (-self.score, self.seq)
+
+      def __lt__(self, other):
+          return self._key < other._key
+  ENTRY
+
+outputs:
+  - {path: exam/queue/report.py, kind: program, run: 'python3 -c ''from exam.queue.report import top_students as f, band as b; r=[("ada",95),("bora",88),("cem",95),("dem",70)]; assert f(r,2)==["ada","cem"], f(r,2); assert f(r,4)==["ada","cem","bora","dem"]; assert b(90)=="A" and b(80)=="B" and b(79)=="C"; print("TAMAM")'''}
+  - {path: exam/queue/entry.py, kind: program, run: 'python3 -c ''from exam.queue.store import ScoreStore; s=ScoreStore(3); s.add("x",50); s.add("y",90); assert [e.student for e in s.drain()]==["y","x"]; print("ILERLEME-TAMAM")'''}
+  - {path: exam/queue/store.py, kind: program, run: 'python3 -c ''from exam.queue.store import ScoreStore; s=ScoreStore(2); s.add("a",10); s.add("b",20); assert [e.student for e in s.drain()]==["b","a"]; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from exam.queue.store import ScoreStore; s=ScoreStore(3); s.add("x",50); s.add("y",90); assert [e.student for e in s.drain()]==["y","x"]; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from exam.queue.report import top_students as f, band as b; r=[("ada",95),("bora",88),("cem",95),("dem",70)]; assert f(r,2)==["ada","cem"], f(r,2); assert f(r,4)==["ada","cem","bora","dem"]; assert b(90)=="A" and b(80)=="B" and b(79)=="C"; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from exam.queue.store import ScoreStore; s=ScoreStore(2); s.add("a",10); s.add("b",20); assert [e.student for e in s.drain()]==["b","a"]; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9508
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: sinav-sonuclari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: kolay
+    adim: 11
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: oncelik-kuyrugu
+      karmasiklik: derin
+      kalip: dataclass-dogrulama
+      akis: parcali-akis
+      topoloji: paket-alt-paket
+      zincir: 3
+      regresyon: true
+      bagimli: true
+      kesif_zor: true

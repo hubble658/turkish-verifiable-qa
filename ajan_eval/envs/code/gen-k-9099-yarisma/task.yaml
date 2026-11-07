@@ -1,0 +1,148 @@
+id: gen-k-9099-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 18
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Sabah beri kurlarla ugrasan finans ekibinden birkaç mesaj geldi; dun aksamki raporun net tutari bir turlu tutmuyor, mutabakat yapan arkadaslar hangi kaleme baksalar tuhaf bir farkla karsilasiyorlar. Ben de once kodun kendisine bakayim dedim, fx klasorundeki birkac dosyada isler karismis gibi duruyor.
+
+  fx/report.py icindeki summarize fonksiyonu net tutari yanlis hesapliyor; onu duzeltmeni istiyorum. Ayrica fx/ledger.py icindeki settle fonksiyonunda bankanin alis yonundeki yani "B" tarafindaki islemlerde sattigi kuru, satis yonundeki yani "S" tarafindaki islemlerde ise aldigi kuru uyguladigindan emin ol. Son olarak fx/rates.py dosyasindaki buy_rate ile sell_rate fonksiyonlarinin dogru tarafa kaydirilmis oldugunu dogrula; yani alis ve satis kurlarinin birbirine gore hangi yone egimli olmasi gerektigini kontrol et. Bu uc dosyadaki duzeltmeleri yapip sonucu bana birak.
+
+setup: |
+  mkdir -p fx
+  cat > fx/rates.py <<'RATES'
+  def make_converter(base_rate):
+      def convert(amount):
+          return round(amount * base_rate, 2)
+      return convert
+
+
+  def buy_rate(mid, spread_bp):
+      return round(mid * (1 + spread_bp / 10000.0), 6)
+
+
+  def sell_rate(mid, spread_bp):
+      return round(mid * (1 - spread_bp / 10000.0), 6)
+  RATES
+  cat > fx/ledger.py <<'LEDGER'
+  from fx.rates import make_converter, buy_rate, sell_rate
+
+
+  def settle(trades, mid, spread_bp):
+      buy = make_converter(buy_rate(mid, spread_bp))
+      sell = make_converter(sell_rate(mid, spread_bp))
+      total = 0.0
+      for side, amount in trades:
+          if side == "B":
+              total += sell(amount)
+          else:
+              total += buy(amount)
+      return round(total, 2)
+  LEDGER
+  cat > fx/report.py <<'REPORT'
+  from fx.ledger import settle
+
+
+  def summarize(trades, mid, spread_bp):
+      return {"count": len(trades), "net": round(settle(trades, mid, spread_bp) / 2.0, 2)}
+  REPORT
+
+goal_tr: >
+  fx/report.py icindeki summarize fonksiyonunun net tutari yanlis
+  hesapladigini duzelt; fx/ledger.py icindeki settle'da bankanin alis(B)
+  islemlerinde sattigi kuru, satis(S) islemlerinde aldigi kuru
+  uyguladigindan emin ol ve fx/rates.py'deki buy_rate ile sell_rate'in dogru
+  tarafi kaydirilmis oldugunu dogrula.
+
+reference_solution: |
+  cat > fx/rates.py <<'RATES'
+  def make_converter(base_rate):
+      def convert(amount):
+          return round(amount * base_rate, 2)
+      return convert
+
+
+  def buy_rate(mid, spread_bp):
+      return round(mid * (1 - spread_bp / 10000.0), 6)
+
+
+  def sell_rate(mid, spread_bp):
+      return round(mid * (1 + spread_bp / 10000.0), 6)
+  RATES
+  cat > fx/ledger.py <<'LEDGER'
+  from fx.rates import make_converter, buy_rate, sell_rate
+
+
+  def settle(trades, mid, spread_bp):
+      buy = make_converter(buy_rate(mid, spread_bp))
+      sell = make_converter(sell_rate(mid, spread_bp))
+      total = 0.0
+      for side, amount in trades:
+          if side == "B":
+              total += buy(amount)
+          else:
+              total += sell(amount)
+      return round(total, 2)
+  LEDGER
+  cat > fx/report.py <<'REPORT'
+  from fx.ledger import settle
+
+
+  def summarize(trades, mid, spread_bp):
+      return {"count": len(trades), "net": settle(trades, mid, spread_bp)}
+  REPORT
+
+ara_adim: |
+  cat > fx/report.py <<'REPORT'
+  from fx.ledger import settle
+
+
+  def summarize(trades, mid, spread_bp):
+      return {"count": len(trades), "net": settle(trades, mid, spread_bp)}
+  REPORT
+
+outputs:
+  - {path: fx/ledger.py, kind: program, run: 'python3 -c ''from fx.ledger import settle as f; assert f([("B",100.0),("S",100.0)],10.0,20)==2000.0, f([("B",100.0),("S",100.0)],10.0,20); print("TAMAM")'''}
+  - {path: fx/report.py, kind: program, run: 'python3 -c ''from fx.report import summarize as f; assert f([("B",100.0),("S",100.0)],10.0,20)=={"count":2,"net":2000.0}, f([("B",100.0),("S",100.0)],10.0,20); print("ILERLEME-TAMAM")'''}
+  - {path: fx/rates.py, kind: program, run: 'python3 -c ''from fx.rates import buy_rate as f, sell_rate as g; assert f(10.0,20)==9.98, f(10.0,20); assert g(10.0,20)==10.02, g(10.0,20); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fx.ledger import settle as f; assert f([("B",100.0),("S",100.0)],10.0,20)==2000.0, f([("B",100.0),("S",100.0)],10.0,20); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fx.rates import buy_rate as f, sell_rate as g; assert f(10.0,20)==9.98, f(10.0,20); assert g(10.0,20)==10.02, g(10.0,20); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fx.report import summarize as f; assert f([("B",100.0),("S",100.0)],10.0,20)=={"count":2,"net":2000.0}, f([("B",100.0),("S",100.0)],10.0,20); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9099
+    bundle: yarisma
+    tools:
+    - python3
+    konu: kur-cevrimleri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: orta
+    adim: 6
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sayma
+      karmasiklik: orta
+      kalip: closure-fabrika
+      akis: bellek-ici
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

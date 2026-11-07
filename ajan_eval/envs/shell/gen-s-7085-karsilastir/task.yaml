@@ -1,0 +1,107 @@
+id: gen-s-7085-karsilastir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  eski/ ve yeni/ dizinlerindeki .ini dosyalarını karşılaştır: yalnızca eski/'de olanlar silinen, yalnızca yeni/'de olanlar eklenen, ikisinde de olup içeriği farklı olanlar degisen listesine girsin. Sonucu {"silinen": [...], "eklenen": [...], "degisen": [...]} biçiminde, alfabetik sıralı geçerli JSON olarak karsilastirma.json'a yaz.
+
+setup: |
+  mkdir -p eski yeni
+  cat > eski/depo.ini <<'INI'
+  [genel]
+  ad=depo
+  surum=1
+  INI
+  cat > eski/ag.ini <<'INI'
+  [genel]
+  ad=ag
+  surum=1
+  INI
+  cat > eski/ortak.ini <<'INI'
+  [genel]
+  ad=ortak
+  surum=1
+  INI
+  cat > yeni/depo.ini <<'INI'
+  [genel]
+  ad=depo
+  surum=2
+  INI
+  cat > yeni/ag.ini <<'INI'
+  [genel]
+  ad=ag
+  surum=1
+  INI
+  cat > yeni/yedek.ini <<'INI'
+  [genel]
+  ad=yedek
+  surum=1
+  INI
+
+goal_tr: >
+  eski ve yeni dizinlerindeki .ini dosyalarinin adlarini karsilastirip
+  yalnizca eski/de bulunup yeni/de bulunmayan dosyalarin adlarini silinen,
+  yalnizca yeni/de bulunup eski/de bulunmayan dosyalarin adlarini eklenen,
+  her iki dizinde de bulunup icerigi farkli olan dosyalarin adlarini degisen
+  listesine koy; sonucu {"silinen": [...], "eklenen": [...], "degisen":
+  [...]} biciminde alfabetik sirali gecerli JSON olarak karsilastirma.json
+  dosyasina yaz
+
+reference_solution: |
+  find eski -maxdepth 1 -type f -name '*.ini' -printf '%f\n' | sort > /tmp/eski.lst
+  find yeni -maxdepth 1 -type f -name '*.ini' -printf '%f\n' | sort > /tmp/yeni.lst
+  comm -23 /tmp/eski.lst /tmp/yeni.lst > /tmp/silinen.lst
+  comm -13 /tmp/eski.lst /tmp/yeni.lst > /tmp/eklenen.lst
+  comm -12 /tmp/eski.lst /tmp/yeni.lst > /tmp/ortak.lst
+  : > /tmp/degisen.lst
+  while IFS= read -r f; do
+    if ! diff -q "eski/$f" "yeni/$f" > /dev/null 2>&1; then
+      printf '%s\n' "$f" >> /tmp/degisen.lst
+    fi
+  done < /tmp/ortak.lst
+  sort /tmp/degisen.lst -o /tmp/degisen.lst
+  {
+    printf '{\n'
+    printf '  "silinen": ['
+    awk 'NR>1{printf ", "} {printf "\"%s\"", $0}' /tmp/silinen.lst
+    printf '],\n  "eklenen": ['
+    awk 'NR>1{printf ", "} {printf "\"%s\"", $0}' /tmp/eklenen.lst
+    printf '],\n  "degisen": ['
+    awk 'NR>1{printf ", "} {printf "\"%s\"", $0}' /tmp/degisen.lst
+    printf ']\n}\n'
+  } > karsilastirma.json
+
+outputs:
+  - {path: karsilastirma.json, kind: json}
+
+checks:
+  - {op: json_eq, path: karsilastirma.json, value: {silinen: [ortak.ini], eklenen: [yedek.ini], degisen: [depo.ini]}}
+
+metadata:
+  domain: karsilastir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7085
+    bundle: karsilastir
+    tools:
+    - diff
+    - comm
+    konu: envanter
+    hedef: karsilastir
+    girdi: ini
+    kaynak: cok-dosya
+    cikti: json
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: olcek
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

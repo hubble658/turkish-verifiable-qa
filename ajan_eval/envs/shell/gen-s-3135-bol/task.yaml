@@ -1,0 +1,84 @@
+id: gen-s-3135-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  arsiv.tar.gz içinden öğrenci notu dosyasını bulup çıkar; içindeki OKUBENI.txt tuzağına takılma, yalnızca gerçek not satırlarını kullan. Çıkardığın notlar.txt'deki satırları öğrenci adına göre ayır ve çalışma dizininde cikti adlı bir dizin oluştur. Bu dizinin içinde her öğrenci için, öğrencinin adıyla aynı olan bir alt dizin aç: cikti/ali, cikti/veli ve cikti/ayse. Her öğrencinin notlar.txt'de kendisine ait olan tüm satırlarını, o öğrencinin alt dizinindeki notlar.txt dosyasına yaz; yani cikti/ali/notlar.txt, cikti/veli/notlar.txt ve cikti/ayse/notlar.txt dosyaları oluşsun ve her biri yalnızca ilgili öğrencinin satırlarını içersin. Sonuçta cikti dizininde her öğrenci için bir alt dizin ve o alt dizinde o öğrencinin satırlarını barındıran bir notlar.txt bulunsun.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/notlar.txt <<'EOF'
+  2024-01-01 ali matematik 90
+  2024-01-01 veli fizik 75
+  2024-01-02 ali fizik 80
+  2024-01-02 veli matematik 85
+  2024-01-03 ayse kimya 95
+  2024-01-03 ali kimya 70
+  2024-01-04 ayse matematik 88
+  2024-01-04 veli kimya 60
+  2024-01-05 ayse fizik 92
+  2024-01-05 ali matematik 100
+  EOF
+  cat > girdi/OKUBENI.txt <<'EOF'
+  Bu dosya tuzaktir, ogrenci notu degildir.
+  2024-01-01 sahte ders 0
+  EOF
+  tar -czf arsiv.tar.gz -C girdi notlar.txt OKUBENI.txt
+  rm -rf girdi
+
+goal_tr: >
+  arsiv.tar.gz icindeki ogrenci notu dosyasini bulup cikar ve her ogrenci
+  icin notlar.txt'deki satirlarindan ogrenci adiyla ayni olan bir alt dizin
+  olusturup o ogrencinin tum satirlarini o dizindeki notlar.txt dosyasina
+  yaz, boylece cikti dizininde her ogrenci icin bir alt dizin olussun.
+
+reference_solution: |
+  mkdir -p cikti
+  gzip -dc arsiv.tar.gz | tar -tf - | grep -v 'OKUBENI.txt' > dosyalar.txt
+  gzip -dc arsiv.tar.gz | tar -xf - -C cikti $(head -n 1 dosyalar.txt)
+  while read -r ogr; do
+    mkdir -p "cikti/$ogr"
+    grep " $ogr " "cikti/$(head -n 1 dosyalar.txt)" > "cikti/$ogr/notlar.txt"
+  done < <(cut -d' ' -f2 "cikti/$(head -n 1 dosyalar.txt)" | sort -u)
+  rm -f dosyalar.txt "cikti/$(head -n 1 dosyalar.txt)"
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/ali/notlar.txt, kind: file}
+  - {path: cikti/veli/notlar.txt, kind: file}
+  - {path: cikti/ayse/notlar.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [ali, ayse, veli]}
+  - {op: file_lines_eq, path: cikti/ali/notlar.txt, value: [2024-01-01 ali matematik 90, 2024-01-02 ali fizik 80, 2024-01-03 ali kimya 70, 2024-01-05 ali matematik 100]}
+  - {op: file_lines_eq, path: cikti/ayse/notlar.txt, value: [2024-01-03 ayse kimya 95, 2024-01-04 ayse matematik 88, 2024-01-05 ayse fizik 92]}
+  - {op: file_lines_eq, path: cikti/veli/notlar.txt, value: [2024-01-01 veli fizik 75, 2024-01-02 veli matematik 85, 2024-01-04 veli kimya 60]}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3135
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: ogrenci-notlari
+    hedef: bol
+    girdi: log-satiri
+    kaynak: tarball
+    cikti: dizin-yapisi
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

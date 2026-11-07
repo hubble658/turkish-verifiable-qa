@@ -1,0 +1,114 @@
+id: gen-k-8322-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  store/merge.py dosyasına top_spender(paths) adında bir fonksiyon ekle. Bu fonksiyon kendisine verilen birden fazla CSV yolundaki kayıtları birleştirip her müşterinin toplam tutarını büyükten küçüğe doğru hesaplasın ve en yüksek harcamaya sahip müşterinin adını döndürsün. Toplama işini bir generator ile yapması gerekiyor.
+
+setup: |
+  mkdir -p store
+  cat > store/records.py <<'RECORDS'
+  def load_records(path):
+      with open(path, encoding="utf-8") as handle:
+          for line in handle:
+              line = line.strip()
+              if not line:
+                  continue
+              name, amount, ts = line.rsplit(",", 2)
+              yield name, int(amount), ts
+  RECORDS
+  cat > store/merge.py <<'MERGE'
+  from store.records import load_records
+
+
+  def merged_stream(paths):
+      for path in paths:
+          for name, amount, ts in load_records(path):
+              yield name, amount, ts
+  MERGE
+  cat > orders_a.csv <<'A'
+  alpha,10,2024-01-01
+  beta,5,2024-01-02
+  alpha,7,2024-01-03
+  A
+  cat > orders_b.csv <<'B'
+  gamma,20,2024-01-01
+  beta,3,2024-01-04
+  gamma,1,2024-01-05
+  B
+
+goal_tr: >
+  store/merge.py'ye, birden fazla CSV yolunu birlestirip her musterinin
+  toplam tutarini buyukten kucuge hesaplayan ve en yuksek harcamali
+  musterinin adini donduren top_spender(paths) fonksiyonunu ekle; fonksiyon
+  toplama isini bir generator ile yapmali.
+
+reference_solution: |
+  cat > store/merge.py <<'MERGE'
+  from store.records import load_records
+
+
+  def merged_stream(paths):
+      for path in paths:
+          for name, amount, ts in load_records(path):
+              yield name, amount, ts
+
+
+  def totals_stream(paths):
+      totals = {}
+      for name, amount, ts in merged_stream(paths):
+          totals[name] = totals.get(name, 0) + amount
+      for name, total in totals.items():
+          yield name, total
+
+
+  def top_spender(paths):
+      best = None
+      for name, total in totals_stream(paths):
+          if best is None or total > best[1] or (total == best[1] and name < best[0]):
+              best = (name, total)
+      return best[0] if best else None
+  MERGE
+
+outputs:
+  - {path: store/merge.py, kind: program, run: 'python3 -c ''from store.merge import top_spender as f; r=f(["orders_a.csv","orders_b.csv"]); assert r=="gamma", r; assert f(["orders_b.csv"])=="gamma"; assert f(["orders_a.csv"])=="alpha"; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from store.merge import top_spender as f; r=f(["orders_a.csv","orders_b.csv"]); assert r=="gamma", r; assert f(["orders_b.csv"])=="gamma"; assert f(["orders_a.csv"])=="alpha"; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8322
+    bundle: yarisma
+    tools:
+    - python3
+    konu: siparis-kayitlari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-ikili-arama
+      karmasiklik: duz
+      kalip: generator
+      akis: cok-dosya-birlestirme
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,72 @@
+id: gen-s-3054-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  depo klasöründeki tüm .txt dosyalarında ürün ve adet satırları var. Bu satırları ürün adına göre gruplayıp adetleri toplamanı, her ürün için ürün adı ile toplam adedi virgülle ayrılmış olarak ve ürün adına göre artan sırada envanter.csv dosyasına yazmanı istiyorum. Ayrıca toplam satır sayısı satir_sayisi.txt dosyasına sadece sayı olarak yazılsın.
+
+setup: |
+  mkdir -p depo
+  cat > depo/urunler.txt <<'EOF'
+  masa:12
+  sandalye:7
+  masa:3
+  lamba:9
+  sandalye:5
+  EOF
+  cat > depo/yedek.txt <<'EOF'
+  lamba:2
+  masa:8
+  perde:4
+  EOF
+  cat > depo/notlar.txt <<'EOF'
+  perde:1
+  EOF
+
+goal_tr: >
+  depo klasorundeki tum .txt dosyalarindaki satirlari adet alani toplanarak
+  urun adina gore gruplayip, urun adi ve toplam adedi virgulle ayrilmis
+  olarak urun adina gore artan sirada envanter.csv dosyasina yaz ve toplam
+  satir sayisini satir_sayisi.txt dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  find depo -name '*.txt' -type f -exec cat {} + > birlesik.txt
+  awk -F: '{toplam[$1]+=$2} END {for (u in toplam) print u "," toplam[u]}' birlesik.txt | sort > envanter.csv
+  wc -l < envanter.csv > satir_sayisi.txt
+
+outputs:
+  - {path: envanter.csv, kind: file}
+  - {path: satir_sayisi.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: envanter.csv, value: ['lamba,11', 'masa,23', 'perde,5', 'sandalye,12']}
+  - {op: file_content_eq, path: satir_sayisi.txt, value: '4'}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3054
+    bundle: dizin-istatistik
+    tools:
+    - wc
+    - find
+    konu: envanter
+    hedef: grupla-say
+    girdi: log-satiri
+    kaynak: cok-dosya
+    cikti: csv
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

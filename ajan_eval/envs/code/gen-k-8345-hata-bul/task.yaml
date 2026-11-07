@@ -1,0 +1,107 @@
+id: gen-k-8345-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  depot/toplam.py dosyasındaki toplam_adet fonksiyonunu düzelt; depo.txt dosyasındaki tüm kalemlerin adetlerini doğru biçimde toplayıp toplamı döndürsün.
+
+setup: |
+  mkdir -p depot
+  cat > depot/stok.py <<'STOK'
+  def oku_satirlar(path):
+      with open(path, "r", encoding="utf-8") as f:
+          return [ln.strip() for ln in f if ln.strip()]
+
+
+  def ayristir(satir):
+      parca = satir.split(";")
+      return parca[0], int(parca[1])
+  STOK
+  cat > depot/indeks.py <<'INDEKS'
+  from depot.stok import oku_satirlar, ayristir
+
+
+  def stok_sozlugu(path):
+      sonuc = {}
+      for satir in oku_satirlar(path):
+          kod, adet = ayristir(satir)
+          sonuc[kod] = adet
+      return sonuc
+  INDEKS
+  cat > depot/toplam.py <<'TOPLAM'
+  from depot.indeks import stok_sozlugu
+
+
+  def toplam_adet(path):
+      sozluk = stok_sozlugu(path)
+      toplam = 0
+      for kod in sozluk:
+          toplam += sozluk[kod]
+          return toplam
+      return toplam
+  TOPLAM
+  cat > depo.txt <<'VERI'
+  vida;120
+  somun;80
+  pul;45
+  VERI
+
+goal_tr: >
+  depot/toplam.py icindeki toplam_adet fonksiyonunu, depo.txt dosyasindaki
+  tum kalemlerin adetlerini toplayip dogru toplami dondurecek bicimde duzelt
+
+reference_solution: |
+  cat > depot/toplam.py <<'TOPLAM'
+  from depot.indeks import stok_sozlugu
+
+
+  def toplam_adet(path):
+      sozluk = stok_sozlugu(path)
+      toplam = 0
+      for kod in sozluk:
+          toplam += sozluk[kod]
+      return toplam
+  TOPLAM
+
+outputs:
+  - {path: depot/toplam.py, kind: program, run: 'python3 -c ''from depot.toplam import toplam_adet as f; assert f("depo.txt")==245, f("depo.txt"); open("bos.txt","w").close(); assert f("bos.txt")==0; open("tek.txt","w").write("civisi;7\n"); assert f("tek.txt")==7; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depot.toplam import toplam_adet as f; assert f("depo.txt")==245, f("depo.txt"); open("bos.txt","w").close(); assert f("bos.txt")==0; open("tek.txt","w").write("civisi;7\n"); assert f("tek.txt")==7; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8345
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: depo-envanteri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: erken-donus
+      karmasiklik: duz
+      kalip: ozyineleme
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

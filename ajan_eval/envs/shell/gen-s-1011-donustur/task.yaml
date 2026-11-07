@@ -1,0 +1,74 @@
+id: gen-s-1011-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) girdi/muhasebe.csv dosyasındaki muhasebe kalemlerini oku; girdi altındaki csv dışındaki dosyaları yok say.
+  2) cikti/ dizini altında her hesap numarası için o numarayı taşıyan bir alt dizin oluştur.
+  3) Her kalemi kendi hesap numarasının dizinine yerleştir: dizinde kalem adını ve tutarı içeren bir dosya bulunsun.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/muhasebe.csv <<'CSV'
+  kalem,hesap,tutar
+  Kira,760,1500.50
+  Elektrik,770,220.75
+  Su,770,90.25
+  Internet,770,300.00
+  Maas,720,5000.00
+  CSV
+  cat > girdi/notlar.txt <<'TXT'
+  Bu dosya bir tuzaktir, islenmemelidir.
+  TXT
+
+goal_tr: >
+  girdi/muhasebe.csv dosyasindaki her muhasebe kalemini kendi hesap numarasi
+  adinda bir alt dizine yerlestirip cikti/ dizini altinda hesap bazli bir
+  dizin yapisi olustur; her dizinde kalem adini ve tutari iceren bir dosya
+  bulunsun, csv disindaki dosyalar yok sayilsin.
+
+reference_solution: |
+  mkdir -p cikti
+  python3 - <<'PY'
+  import csv, os
+  with open('girdi/muhasebe.csv', newline='') as f:
+      for row in csv.DictReader(f):
+          d = os.path.join('cikti', row['hesap'])
+          os.makedirs(d, exist_ok=True)
+          with open(os.path.join(d, row['kalem'] + '.txt'), 'w') as out:
+              out.write(row['kalem'] + ' ' + row['tutar'] + '\n')
+  PY
+
+outputs:
+  - {path: cikti, kind: dir}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: ['720', '760', '770']}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-1011
+    bundle: python-veri
+    tools:
+    - python3
+    konu: muhasebe-kalemleri
+    hedef: donustur
+    girdi: csv
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

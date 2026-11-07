@@ -1,0 +1,59 @@
+id: gen-s-3189-donustur
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) depo dizin ağacındaki tüm .ini uzantılı dosyaları bul.
+  2) Bulunan her .ini dosyasındaki adet anahtarlarının değerlerini topla.
+  3) Toplamı sadece sayı olarak toplam.txt dosyasına yaz.
+
+setup: |
+  mkdir -p depo/alt klasor
+  printf '%s\n' '[birim]' 'adet=3' > depo/alt/parca bir.ini
+  printf '%s\n' '[birim]' 'adet=5' > depo/ikinci.ini
+  printf '%s\n' '[birim]' 'adet=7' > depo/alt/ucuncu.ini
+  printf '%s\n' 'adet=11' > depo/dorduncu.ini
+  printf '%s\n' 'not bu dosyada adet yok' > depo/besinci.txt
+
+goal_tr: >
+  depo dizin agacindaki .ini uzantili dosyalardaki adet anahtarlarinin
+  degerleri toplamini toplam.txt dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  find depo -type f -name '*.ini' | sort | while IFS= read -r f; do grep '^adet=' "$f" | cut -d= -f2; done | paste -sd+ | xargs -I{} bash -c 'printf "%d\n" $(({}))' > toplam.txt
+  seq 1 1 | while IFS= read -r i; do printf '%s' "$i" >/dev/null; done
+
+outputs:
+  - {path: toplam.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: toplam.txt, value: '23'}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3189
+    bundle: uret
+    tools:
+    - printf
+    - seq
+    konu: envanter
+    hedef: donustur
+    girdi: ini
+    kaynak: dizin-agaci
+    cikti: tek-sayi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: bosluklu-ad
+    bukulme: olcek
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

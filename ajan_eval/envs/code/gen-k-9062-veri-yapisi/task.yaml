@@ -1,0 +1,206 @@
+id: gen-k-9062-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Bakım aracını bir süredir kullanıyoruz ama en son değişikliklerden sonra yığın tarafındaki fonksiyonlar bir türlü tamamlanmadı; dün akşam olay kayıtlarını yeniden oynatmayı denedim, yarıda kaldı. Bu sabah da toplantıda bu eksik yüzünden ilerleyemedik, o yüzden şu işi artık bitirmek istiyorum.
+
+  `maint/stack.py` içindeki `push`, `pop`, `peek`, `size` ve `is_empty` fonksiyonlarını gerçekten çalışır hale getir. Ardından `maint/log.py` içindeki `replay` ve `latest` fonksiyonlarını tamamla. `replay`, `events.txt` dosyasındaki her satırı sırayla uygulasın: `push X` satırında X yığına konsun, `peek` satırında üstteki değer alınsın, `pop` satırında üstteki değer çıkarılsın, `size` satırında elemandan sayısı alınsın; her satır için bir `(sonuç, derinlik)` çifti döndürsün. `latest` ise tüm olaylar bittikten sonra üstteki değeri döndürsün, yığın boşsa `None` versin.
+
+setup: |
+  mkdir -p maint
+  cat > maint/stack.py <<'STACK'
+  def new_stack():
+      return []
+
+
+  def push(stack, item):
+      raise NotImplementedError
+
+
+  def pop(stack):
+      raise NotImplementedError
+
+
+  def peek(stack):
+      raise NotImplementedError
+
+
+  def size(stack):
+      raise NotImplementedError
+
+
+  def is_empty(stack):
+      raise NotImplementedError
+  STACK
+  cat > maint/log.py <<'LOG'
+  from maint.stack import new_stack, push, pop, peek, size, is_empty
+
+
+  def replay(events):
+      """events: list of (op, value) tuples. Returns list of (result, depth)."""
+      raise NotImplementedError
+
+
+  def latest(events):
+      """Return the value on top after replaying events, or None if empty."""
+      raise NotImplementedError
+  LOG
+  cat > events.txt <<'EV'
+  push rotor_a
+  push rotor_b
+  peek
+  pop
+  push pump_7
+  size
+  pop
+  pop
+  EV
+
+goal_tr: >
+  maint/stack.py icindeki yigin fonksiyonlarini (push, pop, peek, size,
+  is_empty) ve maint/log.py icindeki replay ile latest fonksiyonlarini
+  gerceklestir; replay events.txt'deki her satiri uygulayip (push X -> X
+  yigina konur, peek -> ust deger, pop -> ust deger cikarilir, size ->
+  eleman sayisi) her satir icin (sonuc, derinlik) cifti dondursun, latest
+  ise tum olaylar bittikten sonra ustteki degeri (bos ise None) dondursun.
+
+reference_solution: |
+  cat > maint/stack.py <<'STACK'
+  def new_stack():
+      return []
+
+
+  def push(stack, item):
+      stack.append(item)
+
+
+  def pop(stack):
+      if not stack:
+          raise IndexError("pop from empty stack")
+      return stack.pop()
+
+
+  def peek(stack):
+      if not stack:
+          raise IndexError("peek from empty stack")
+      return stack[-1]
+
+
+  def size(stack):
+      return len(stack)
+
+
+  def is_empty(stack):
+      return len(stack) == 0
+  STACK
+  cat > maint/log.py <<'LOG'
+  from maint.stack import new_stack, push, pop, peek, size, is_empty
+
+
+  def replay(events):
+      stack = new_stack()
+      out = []
+      for op, value in events:
+          if op == "push":
+              push(stack, value)
+              out.append((value, size(stack)))
+          elif op == "pop":
+              out.append((pop(stack), size(stack)))
+          elif op == "peek":
+              out.append((peek(stack), size(stack)))
+          elif op == "size":
+              out.append((size(stack), size(stack)))
+          else:
+              raise ValueError("unknown op: " + op)
+      return out
+
+
+  def latest(events):
+      stack = new_stack()
+      for op, value in events:
+          if op == "push":
+              push(stack, value)
+          elif op == "pop":
+              pop(stack)
+      if is_empty(stack):
+          return None
+      return peek(stack)
+  LOG
+
+ara_adim: |
+  cat > maint/stack.py <<'STACK'
+  def new_stack():
+      return []
+
+
+  def push(stack, item):
+      stack.append(item)
+
+
+  def pop(stack):
+      if not stack:
+          raise IndexError("pop from empty stack")
+      return stack.pop()
+
+
+  def peek(stack):
+      if not stack:
+          raise IndexError("peek from empty stack")
+      return stack[-1]
+
+
+  def size(stack):
+      return len(stack)
+
+
+  def is_empty(stack):
+      return len(stack) == 0
+  STACK
+
+outputs:
+  - {path: maint/log.py, kind: program, run: 'python3 -c ''from maint.log import replay as f; ev=[("push","a"),("push","b"),("peek",None),("pop",None)]; assert f(ev)==[("a",1),("b",2),("b",2),("b",1)], f(ev); print("TAMAM")'''}
+  - {path: maint/stack.py, kind: program, run: 'python3 -c ''from maint.stack import new_stack, push, pop, peek, size, is_empty; s=new_stack(); assert is_empty(s) is True; push(s,"x"); push(s,"y"); assert size(s)==2; assert peek(s)=="y"; assert pop(s)=="y"; assert pop(s)=="x"; assert is_empty(s) is True; print("ILERLEME-TAMAM")'''}
+  - {path: maint/log.py, kind: program, run: 'python3 -c ''from maint.log import latest as f; assert f([("push","a"),("push","b"),("pop",None)]) == "a"; assert f([("push","a"),("pop",None)]) is None; assert f([]) is None; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from maint.log import replay as f; ev=[("push","a"),("push","b"),("peek",None),("pop",None)]; assert f(ev)==[("a",1),("b",2),("b",2),("b",1)], f(ev); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from maint.log import latest as f; assert f([("push","a"),("push","b"),("pop",None)]) == "a"; assert f([("push","a"),("pop",None)]) is None; assert f([]) is None; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from maint.stack import new_stack, push, pop, peek, size, is_empty; s=new_stack(); assert is_empty(s) is True; push(s,"x"); push(s,"y"); assert size(s)==2; assert peek(s)=="y"; assert pop(s)=="y"; assert pop(s)=="x"; assert is_empty(s) is True; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9062
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: makine-bakim-kayitlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin
+      karmasiklik: orta
+      kalip: duz-fonksiyon
+      akis: cok-dosya-birlestirme
+      topoloji: iki-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

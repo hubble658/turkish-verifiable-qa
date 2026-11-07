@@ -1,0 +1,71 @@
+id: gen-s-7275-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  cfg içindeki her .ini dosyasının LOG_PATH değerinin gösterdiği log dosyasında ERROR geçen satır sayısını al, denetim dizinini oluştur ve sayıları denetim/server.sayi, denetim/db.sayi, denetim/web.sayi dosyalarına sadece sayı olarak yaz.
+
+setup: |
+  mkdir -p cfg
+  printf 'LOG_PATH=logs/app.log\r\nRETRY=3\r\nMODE=strict\r\n' > cfg/server.ini
+  printf 'LOG_PATH=logs/db.log\r\nRETRY=5\r\nMODE=lax\r\n' > cfg/db.ini
+  printf 'LOG_PATH=logs/web.log\r\nRETRY=2\r\nMODE=strict\r\n' > cfg/web.ini
+  mkdir -p logs
+  printf 'INFO boot ok\r\nERROR disk full\r\nWARN retry\r\nERROR timeout\r\nINFO ready\r\n' > logs/app.log
+  printf 'INFO boot ok\r\nWARN slow\r\nINFO done\r\n' > logs/db.log
+  printf 'ERROR crash\r\nERROR oom\r\nERROR io\r\n' > logs/web.log
+
+goal_tr: >
+  cfg altindaki her .ini dosyasindaki LOG_PATH degerinin gosterdigi log
+  dosyasini bulup, o dosyada ERROR gecen satir sayisini alip
+  denetim/<ini-ad>.sayi dosyasina sadece sayi olarak yaz; boylece cfg
+  icindeki her ini icin bir sayi dosyasi olan denetim dizinini uret.
+
+reference_solution: |
+  mkdir -p denetim
+  for f in cfg/*.ini; do
+    lp=$(grep '^LOG_PATH=' "$f" | cut -d= -f2 | tr -d '\r')
+    n=$(grep 'ERROR' "$lp" | wc -l)
+    printf '%s\n' "$n" > "denetim/$(basename "$f" .ini).sayi"
+  done
+
+outputs:
+  - {path: denetim, kind: dir}
+  - {path: denetim/server.sayi, kind: file}
+  - {path: denetim/db.sayi, kind: file}
+  - {path: denetim/web.sayi, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: denetim, value: [db.sayi, server.sayi, web.sayi]}
+  - {op: file_content_eq, path: denetim/db.sayi, value: '0'}
+  - {op: file_content_eq, path: denetim/server.sayi, value: '2'}
+  - {op: file_content_eq, path: denetim/web.sayi, value: '3'}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7275
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: sunucu-loglari
+    hedef: denetle
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: dolayli-hedef
+    uslup: terse
+    direnc: crlf
+    bukulme: olcek
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

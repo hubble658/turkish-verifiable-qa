@@ -1,0 +1,249 @@
+id: gen-k-9058-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 20
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  bank/loader.py dosyasındaki yükleyici, hareket satırlarını virgül yerine noktalı virgül ile ayrıştıracak şekilde düzeltilsin. bank/report.py içindeki summarize fonksiyonu, hesapların toplamlarını satır satır liste yerine birleştirilmiş tek bir metin olarak döndürsün; her hesap için "hesap=toplam" biçimi korunsun ve tutarlar iki ondalık basamakla gösterilsin. bank/ledger.py içindeki Ledger sınıfı, bilinmeyen bir hesaba hareket uygulanmak istendiğinde UnknownAccount hatası yükseltsin; ayrıca accounts ve balance çağrıları geçerli hesaplar ile doğru bakiyeleri versin. Bu üç modülün dışındaki dosyalar olduğu gibi bırakılsın.
+
+setup: |
+  mkdir -p bank
+  cat > bank/loader.py <<'LOADER'
+  def load_ledger(path):
+      entries = []
+      with open(path, "r", encoding="ascii") as fh:
+          for raw in fh:
+              raw = raw.strip()
+              if not raw or raw.startswith("#"):
+                  continue
+              parts = raw.split(",")
+              entries.append({
+                  "id": parts[0],
+                  "kind": parts[1],
+                  "amount": float(parts[2]),
+                  "account": parts[3],
+              })
+      return entries
+  LOADER
+  cat > bank/ledger.py <<'LEDGER'
+  class LedgerError(Exception):
+      pass
+
+
+  class UnknownAccount(LedgerError):
+      pass
+
+
+  class Ledger:
+      def __init__(self, entries):
+          self.entries = entries
+          self._balances = {}
+          self._kinds = {}
+          for e in entries:
+              self._balances[e["account"]] = 0.0
+              self._kinds[e["kind"]] = self._kinds.get(e["kind"], 0) + 1
+
+      def accounts(self):
+          return sorted(self._balances)
+
+      def kind_count(self, kind):
+          return self._kinds.get(kind, 0)
+
+      def apply(self, entry):
+          acct = entry["account"]
+          if acct not in self._balances:
+              raise UnknownAccount(acct)
+          if entry["kind"] == "deposit":
+              self._balances[acct] += entry["amount"]
+          else:
+              self._balances[acct] -= entry["amount"]
+
+      def balance(self, account):
+          return self._balances[account]
+  LEDGER
+  cat > bank/report.py <<'REPORT'
+  from bank.ledger import Ledger, UnknownAccount
+  from bank.loader import load_ledger
+
+
+  def account_totals(entries):
+      led = Ledger(entries)
+      for e in entries:
+          led.apply(e)
+      return {a: led.balance(a) for a in led.accounts()}
+
+
+  def summarize(path):
+      entries = load_ledger(path)
+      totals = account_totals(entries)
+      lines = []
+      for acct in sorted(totals):
+          lines.append("%s=%0.2f" % (acct, totals[acct]))
+      return lines
+
+
+  def count_kind(path, kind):
+      entries = load_ledger(path)
+      led = Ledger(entries)
+      return led.kind_count(kind)
+  REPORT
+  cat > ledger.txt <<'DATA'
+  t1;deposit;100.00;alice
+  t2;deposit;50.00;bob
+  t3;withdraw;20.00;alice
+  t4;deposit;10.00;alice
+  t5;withdraw;5.00;bob
+  DATA
+
+goal_tr: >
+  bank paketindeki uc modulu duzelt: bank/loader.py hareket satirlarini
+  noktali virgul ile ayristirsin, bank/report.py summarize fonksiyonu
+  satirlari birlestirilmis tek bir metin dondursun, bank/ledger.py Ledger
+  sinifi bilinmeyen hesap icin UnknownAccount yukseltsin ve bakiye/hesap
+  listesi dogru olsun.
+
+reference_solution: |
+  cat > bank/loader.py <<'LOADER'
+  def load_ledger(path):
+      entries = []
+      with open(path, "r", encoding="ascii") as fh:
+          for raw in fh:
+              raw = raw.strip()
+              if not raw or raw.startswith("#"):
+                  continue
+              parts = raw.split(";")
+              entries.append({
+                  "id": parts[0],
+                  "kind": parts[1],
+                  "amount": float(parts[2]),
+                  "account": parts[3],
+              })
+      return entries
+  LOADER
+  cat > bank/report.py <<'REPORT'
+  from bank.ledger import Ledger, UnknownAccount
+  from bank.loader import load_ledger
+
+
+  def account_totals(entries):
+      led = Ledger(entries)
+      for e in entries:
+          led.apply(e)
+      return {a: led.balance(a) for a in led.accounts()}
+
+
+  def summarize(path):
+      entries = load_ledger(path)
+      totals = account_totals(entries)
+      lines = []
+      for acct in sorted(totals):
+          lines.append("%s=%0.2f" % (acct, totals[acct]))
+      return "\n".join(lines)
+
+
+  def count_kind(path, kind):
+      entries = load_ledger(path)
+      led = Ledger(entries)
+      return led.kind_count(kind)
+  REPORT
+  cat > bank/ledger.py <<'LEDGER'
+  class LedgerError(Exception):
+      pass
+
+
+  class UnknownAccount(LedgerError):
+      pass
+
+
+  class Ledger:
+      def __init__(self, entries):
+          self.entries = entries
+          self._balances = {}
+          self._kinds = {}
+          for e in entries:
+              self._balances[e["account"]] = 0.0
+              self._kinds[e["kind"]] = self._kinds.get(e["kind"], 0) + 1
+
+      def accounts(self):
+          return sorted(self._balances)
+
+      def kind_count(self, kind):
+          return self._kinds.get(kind, 0)
+
+      def apply(self, entry):
+          acct = entry["account"]
+          if acct not in self._balances:
+              raise UnknownAccount(acct)
+          if entry["kind"] == "deposit":
+              self._balances[acct] += entry["amount"]
+          else:
+              self._balances[acct] -= entry["amount"]
+
+      def balance(self, account):
+          return self._balances[account]
+  LEDGER
+
+ara_adim: |
+  cat > bank/loader.py <<'LOADER'
+  def load_ledger(path):
+      entries = []
+      with open(path, "r", encoding="ascii") as fh:
+          for raw in fh:
+              raw = raw.strip()
+              if not raw or raw.startswith("#"):
+                  continue
+              parts = raw.split(";")
+              entries.append({
+                  "id": parts[0],
+                  "kind": parts[1],
+                  "amount": float(parts[2]),
+                  "account": parts[3],
+              })
+      return entries
+  LOADER
+
+outputs:
+  - {path: bank/report.py, kind: program, run: 'python3 -c ''from bank.report import summarize as f; got=f("ledger.txt"); assert got=="alice=90.00\nbob=45.00", repr(got); print("ZINCIR-TAMAM")'''}
+  - {path: bank/loader.py, kind: program, run: 'python3 -c ''from bank.loader import load_ledger as f; rows=f("ledger.txt"); assert len(rows)==5, len(rows); assert rows[0]["account"]=="alice" and rows[0]["amount"]==100.0 and rows[0]["kind"]=="deposit", rows[0]; print("ILERLEME-TAMAM")'''}
+  - {path: bank/ledger.py, kind: program, run: 'python3 -c ''from bank.ledger import Ledger, UnknownAccount, LedgerError; e=[{"id":"x","kind":"deposit","amount":5.0,"account":"a"}]; led=Ledger(e); led.apply(e[0]); assert led.balance("a")==5.0; assert led.kind_count("deposit")==1; assert led.kind_count("nope")==0; assert issubclass(UnknownAccount, LedgerError); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from bank.loader import load_ledger as f; rows=f("ledger.txt"); assert len(rows)==5, len(rows); assert rows[0]["account"]=="alice" and rows[0]["amount"]==100.0 and rows[0]["kind"]=="deposit", rows[0]; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from bank.report import summarize as f; got=f("ledger.txt"); assert got=="alice=90.00\nbob=45.00", repr(got); print("ZINCIR-TAMAM")''', value: ZINCIR-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from bank.ledger import Ledger, UnknownAccount, LedgerError; e=[{"id":"x","kind":"deposit","amount":5.0,"account":"a"}]; led=Ledger(e); led.apply(e[0]); assert led.balance("a")==5.0; assert led.kind_count("deposit")==1; assert led.kind_count("nope")==0; assert issubclass(UnknownAccount, LedgerError); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9058
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: banka-hareketleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: orta
+    adim: 7
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sozluk-anahtar-hatasi
+      karmasiklik: orta
+      kalip: istisna-hiyerarsisi
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

@@ -1,0 +1,170 @@
+id: gen-k-9004-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  stok/isleyici.py dosyasındaki hareketleri_uygula fonksiyonunda, hareketlerin işlenmesini yarıda kesen erken dönüşü kaldır; fonksiyon tüm hareketleri uyguladıktan sonra depoyu döndürsün. Ardından stok/rapor.py dosyasındaki stok_ozeti fonksiyonunda B2 miktarının yanlışlıkla bir fazla hesaplanmasına yol açan hatayı gider; dönen sözlükte B2 değeri depodaki gerçek miktarı yansıtmalı. stok/depo.py dosyasındaki Depo sınıfı ve satirlari_oku fonksiyonu ise olduğu gibi korunsun.
+
+setup: |
+  mkdir -p stok
+  cat > stok/depo.py <<'DEPO'
+  class Depo:
+      def __init__(self):
+          self._kayitlar = {}
+
+      def ekle(self, kod, adet):
+          self._kayitlar[kod] = self._kayitlar.get(kod, 0) + adet
+
+      def cikar(self, kod, adet):
+          self._kayitlar[kod] = self._kayitlar.get(kod, 0) - adet
+
+      def miktar(self, kod):
+          return self._kayitlar.get(kod, 0)
+
+
+  def satirlari_oku(yol):
+      kayitlar = []
+      with open(yol) as f:
+          for satir in f:
+              satir = satir.strip()
+              if not satir:
+                  continue
+              kod, islem, adet = satir.split(",")
+              kayitlar.append((kod, islem, int(adet)))
+      return kayitlar
+  DEPO
+  cat > stok/isleyici.py <<'ISLEYICI'
+  from stok.depo import Depo, satirlari_oku
+
+
+  def hareketleri_uygula(depo, kayitlar):
+      for kod, islem, adet in kayitlar:
+          if islem == "giris":
+              depo.ekle(kod, adet)
+          elif islem == "cikis":
+              depo.cikar(kod, adet)
+              return depo
+      return depo
+
+
+  def dosyadan_yukle(yol):
+      depo = Depo()
+      kayitlar = satirlari_oku(yol)
+      return hareketleri_uygula(depo, kayitlar)
+  ISLEYICI
+  cat > stok/rapor.py <<'RAPOR'
+  from stok.isleyici import dosyadan_yukle
+
+
+  def stok_ozeti(yol):
+      depo = dosyadan_yukle(yol)
+      return {"A1": depo.miktar("A1"), "B2": depo.miktar("B2") + 1}
+  RAPOR
+  cat > hareketler.csv <<'CSV'
+  A1,giris,10
+  B2,giris,5
+  A1,cikis,3
+  B2,cikis,5
+  A1,giris,2
+  CSV
+
+goal_tr: >
+  stok/isleyici.py icindeki hareketleri_uygula fonksiyonundaki erken donusu
+  kaldirip tum hareketleri isledikten sonra depoyu dondur; ardindan
+  stok/rapor.py icindeki stok_ozeti fonksiyonunun B2 miktarini yanlislikla
+  bir artirmasini duzelt.
+
+reference_solution: |
+  cat > stok/isleyici.py <<'ISLEYICI'
+  from stok.depo import Depo, satirlari_oku
+
+
+  def hareketleri_uygula(depo, kayitlar):
+      for kod, islem, adet in kayitlar:
+          if islem == "giris":
+              depo.ekle(kod, adet)
+          elif islem == "cikis":
+              depo.cikar(kod, adet)
+      return depo
+
+
+  def dosyadan_yukle(yol):
+      depo = Depo()
+      kayitlar = satirlari_oku(yol)
+      return hareketleri_uygula(depo, kayitlar)
+  ISLEYICI
+  cat > stok/rapor.py <<'RAPOR'
+  from stok.isleyici import dosyadan_yukle
+
+
+  def stok_ozeti(yol):
+      depo = dosyadan_yukle(yol)
+      return {"A1": depo.miktar("A1"), "B2": depo.miktar("B2")}
+  RAPOR
+
+ara_adim: |
+  cat > stok/isleyici.py <<'ISLEYICI'
+  from stok.depo import Depo, satirlari_oku
+
+
+  def hareketleri_uygula(depo, kayitlar):
+      for kod, islem, adet in kayitlar:
+          if islem == "giris":
+              depo.ekle(kod, adet)
+          elif islem == "cikis":
+              depo.cikar(kod, adet)
+      return depo
+
+
+  def dosyadan_yukle(yol):
+      depo = Depo()
+      kayitlar = satirlari_oku(yol)
+      return hareketleri_uygula(depo, kayitlar)
+  ISLEYICI
+
+outputs:
+  - {path: stok/rapor.py, kind: program, run: 'python3 -c ''from stok.rapor import stok_ozeti as f; r=f("hareketler.csv"); assert r=={"A1":9,"B2":0}, r; print("TAMAM")'''}
+  - {path: stok/isleyici.py, kind: program, run: 'python3 -c ''from stok.depo import Depo; from stok.isleyici import hareketleri_uygula; k=[("A1","giris",10),("B2","giris",5),("A1","cikis",3),("B2","cikis",5),("A1","giris",2)]; d=hareketleri_uygula(Depo(),k); assert d.miktar("A1")==9 and d.miktar("B2")==0, (d.miktar("A1"),d.miktar("B2")); print("ILERLEME-TAMAM")'''}
+  - {path: stok/depo.py, kind: program, run: 'python3 -c ''from stok.depo import Depo; d=Depo(); d.ekle("A1",10); d.cikar("A1",3); assert d.miktar("A1")==7, d.miktar("A1"); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from stok.depo import Depo; from stok.isleyici import hareketleri_uygula; k=[("A1","giris",10),("B2","giris",5),("A1","cikis",3),("B2","cikis",5),("A1","giris",2)]; d=hareketleri_uygula(Depo(),k); assert d.miktar("A1")==9 and d.miktar("B2")==0, (d.miktar("A1"),d.miktar("B2")); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from stok.rapor import stok_ozeti as f; r=f("hareketler.csv"); assert r=={"A1":9,"B2":0}, r; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from stok.depo import Depo; d=Depo(); d.ekle("A1",10); d.cikar("A1",3); assert d.miktar("A1")==7, d.miktar("A1"); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9004
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: stok-hareketleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: erken-donus
+      karmasiklik: orta
+      kalip: durumlu-sinif
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

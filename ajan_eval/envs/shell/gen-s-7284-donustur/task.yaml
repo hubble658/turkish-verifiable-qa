@@ -1,0 +1,82 @@
+id: gen-s-7284-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  vardiya dizin ağacındaki tüm .tsv dosyalarını, göreli yollarını koruyarak cikti/ altına kopyalamanı istiyorum; yani cikti/vardiya/gunduz/pazartesi.tsv, cikti/vardiya/gunduz/sali.tsv, cikti/vardiya/gece/pazartesi.tsv ve cikti/vardiya/gece/sali.tsv oluşmalı. Her kopyada yalnızca ad ve baslangic sütunları kalsın, satırlar da ad sütununa göre artan sırada olsun.
+
+setup: |
+  mkdir -p vardiya/gunduz vardiya/gece
+  cat > vardiya/gunduz/pazartesi.tsv <<'TSV'
+  ad	baslangic	bitis
+  ali	08:00	16:00
+  ayse	09:00	17:00
+  TSV
+  cat > vardiya/gunduz/sali.tsv <<'TSV'
+  ad	baslangic	bitis
+  ali	08:00	16:00
+  mehmet	10:00	18:00
+  TSV
+  cat > vardiya/gece/pazartesi.tsv <<'TSV'
+  ad	baslangic	bitis
+  zeynep	22:00	06:00
+  TSV
+  cat > vardiya/gece/sali.tsv <<'TSV'
+  ad	baslangic	bitis
+  zeynep	22:00	06:00
+  can	23:00	07:00
+  TSV
+
+goal_tr: >
+  vardiya dizin agacindaki tum .tsv dosyalarini, her biri kendi goreli
+  yoluyla ayni yapiyi koruyacak sekilde cikti/ altina kopyala; her kopyada
+  yalnizca ad ve baslangic sutunlarini tut ve satirlari ad sutununa gore
+  artan sirada yaz.
+
+reference_solution: |
+  find vardiya -name '*.tsv' | while read -r f; do
+    d="cikti/$(dirname "$f")"
+    mkdir -p "$d"
+    { head -n1 "$f" | cut -f1,2; tail -n +2 "$f" | sort -t"$(printf '\t')" -k1,1 | cut -f1,2; } | tee "$d/$(basename "$f")" >/dev/null
+  done
+
+outputs:
+  - {path: cikti/vardiya/gunduz/pazartesi.tsv, kind: file}
+  - {path: cikti/vardiya/gunduz/sali.tsv, kind: file}
+  - {path: cikti/vardiya/gece/pazartesi.tsv, kind: file}
+  - {path: cikti/vardiya/gece/sali.tsv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: cikti/vardiya/gece/pazartesi.tsv, value: ["ad\tbaslangic", "zeynep\t22:00"]}
+  - {op: file_lines_eq, path: cikti/vardiya/gece/sali.tsv, value: ["ad\tbaslangic", "can\t23:00", "zeynep\t22:00"]}
+  - {op: file_lines_eq, path: cikti/vardiya/gunduz/pazartesi.tsv, value: ["ad\tbaslangic", "ali\t08:00", "ayse\t09:00"]}
+  - {op: file_lines_eq, path: cikti/vardiya/gunduz/sali.tsv, value: ["ad\tbaslangic", "ali\t08:00", "mehmet\t10:00"]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7284
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: personel-vardiyalari
+    hedef: donustur
+    girdi: tsv
+    kaynak: dizin-agaci
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: olcek
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

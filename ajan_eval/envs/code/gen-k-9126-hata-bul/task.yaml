@@ -1,0 +1,158 @@
+id: gen-k-9126-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sensor/reader.py içindeki read_series fonksiyonu, sıfır ve negatif okumaları da akışa dahil etsin; yalnızca pozitif değerleri değil, tüm okumaları versin. Ardından sensor/stats.py içindeki max_value fonksiyonu, serideki en büyük değeri döndürecek şekilde düzeltilsin; sum_value fonksiyonu ise doğru çalışmaya devam etsin.
+
+setup: |
+  mkdir -p sensor
+  cat > sensor/reader.py <<'READER'
+  def read_series(stream):
+      """Yield (name, value) pairs from lines like 'temp 21.5'."""
+      for line in stream:
+          line = line.strip()
+          if not line:
+              continue
+          name, raw = line.split()
+          value = float(raw)
+          if value > 0:
+              yield name, value
+  READER
+  cat > sensor/stats.py <<'STATS'
+  from sensor.reader import read_series
+
+
+  def make_accumulator(func):
+      def wrapper(stream):
+          acc = None
+          for _, value in read_series(stream):
+              if acc is None:
+                  acc = value
+              else:
+                  acc = func(acc, value)
+          if acc is None:
+              return 0.0
+          return acc
+      return wrapper
+
+
+  @make_accumulator
+  def sum_value(acc, value):
+      return acc + value
+
+
+  @make_accumulator
+  def max_value(acc, value):
+      if value < acc:
+          return value
+      return acc
+  STATS
+
+goal_tr: >
+  sensor/reader.py icindeki read_series fonksiyonunun sifir ve negatif
+  okumalari da akisa katmasini sagla, ardindan sensor/stats.py icindeki
+  max_value fonksiyonunu serideki en buyuk degeri dondurecek bicimde duzelt;
+  sum_value dogru kalmalidir.
+
+reference_solution: |
+  cat > sensor/reader.py <<'READER'
+  def read_series(stream):
+      """Yield (name, value) pairs from lines like 'temp 21.5'."""
+      for line in stream:
+          line = line.strip()
+          if not line:
+              continue
+          name, raw = line.split()
+          value = float(raw)
+          yield name, value
+  READER
+  cat > sensor/stats.py <<'STATS'
+  from sensor.reader import read_series
+
+
+  def make_accumulator(func):
+      def wrapper(stream):
+          acc = None
+          for _, value in read_series(stream):
+              if acc is None:
+                  acc = value
+              else:
+                  acc = func(acc, value)
+          if acc is None:
+              return 0.0
+          return acc
+      return wrapper
+
+
+  @make_accumulator
+  def sum_value(acc, value):
+      return acc + value
+
+
+  @make_accumulator
+  def max_value(acc, value):
+      if value > acc:
+          return value
+      return acc
+  STATS
+
+ara_adim: |
+  cat > sensor/reader.py <<'READER'
+  def read_series(stream):
+      """Yield (name, value) pairs from lines like 'temp 21.5'."""
+      for line in stream:
+          line = line.strip()
+          if not line:
+              continue
+          name, raw = line.split()
+          value = float(raw)
+          yield name, value
+  READER
+
+outputs:
+  - {path: sensor/stats.py, kind: program, run: 'python3 -c ''import io; from sensor.stats import max_value as f; s=io.StringIO("a 3.0\nb -1.0\nc 2.0\n"); r=f(s); assert r==3.0, r; print("TAMAM")'''}
+  - {path: sensor/reader.py, kind: program, run: 'python3 -c ''import io; from sensor.reader import read_series as f; s=io.StringIO("a 3.0\nb -1.0\n"); r=list(f(s)); assert r==[("a",3.0),("b",-1.0)], r; print("ILERLEME-TAMAM")'''}
+  - {path: sensor/stats.py, kind: program, run: 'python3 -c ''import io; from sensor.stats import sum_value as f; s=io.StringIO("a 1.0\nb 2.0\nc 3.0\n"); r=f(s); assert r==6.0, r; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import io; from sensor.reader import read_series as f; s=io.StringIO("a 3.0\nb -1.0\n"); r=list(f(s)); assert r==[("a",3.0),("b",-1.0)], r; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import io; from sensor.stats import max_value as f; s=io.StringIO("a 3.0\nb -1.0\nc 2.0\n"); r=f(s); assert r==3.0, r; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import io; from sensor.stats import sum_value as f; s=io.StringIO("a 1.0\nb 2.0\nc 3.0\n"); r=f(s); assert r==6.0, r; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9126
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: sensor-serisi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-karsilastirma
+      karmasiklik: orta
+      kalip: dekorator
+      akis: stdin-boru
+      topoloji: iki-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

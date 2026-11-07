@@ -1,0 +1,117 @@
+id: gen-k-5045-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) depo/ozet.py dosyasındaki EnvanterOzeti sınıfını, aynı ürüne ait parçalı hareketleri sırayla toplayacak şekilde düzelt; böylece topla çağrıldığında her ürün için nihai stok miktarı doğru hesaplansın.
+
+  2) topla metodu, depo/kayit.py içindeki DepoKaydi üzerinden gelen hareketleri kullanarak her ürünün miktarını önceki toplamın üzerine ekleyip nihai stok sözlüğünü döndürsün; aynı ürün için birden fazla hareket varsa hepsi toplama dahil edilsin.
+
+  3) akis.txt içindeki vida:5, somun:3, vida:-2, somun:7, vida:4 satırları işlendiğinde topla sonucu vida ve somun için doğru nihai miktarları verecek biçimde davranış sağlansın.
+
+setup: |
+  mkdir -p depo
+  cat > depo/kayit.py <<'KAYIT'
+  class DepoKaydi:
+      def __init__(self):
+          self._hareketler = []
+
+      def ekle(self, urun, miktar):
+          self._hareketler.append((urun, int(miktar)))
+
+      def hareketler(self):
+          return list(self._hareketler)
+  KAYIT
+  cat > depo/ozet.py <<'OZET'
+  from depo.kayit import DepoKaydi
+
+
+  class EnvanterOzeti:
+      def __init__(self):
+          self._kayit = DepoKaydi()
+          self._stok = {}
+
+      def isle(self, satir):
+          urun, miktar = satir.split(':')
+          self._kayit.ekle(urun, miktar)
+
+      def topla(self):
+          for urun, miktar in self._kayit.hareketler():
+              self._stok[urun] = miktar
+          return dict(self._stok)
+  OZET
+  cat > akis.txt <<'AKIS'
+  vida:5
+  somun:3
+  vida:-2
+  somun:7
+  vida:4
+  AKIS
+
+goal_tr: >
+  depo/ozet.py icindeki EnvanterOzeti sinifini, ayni urune ait parcali
+  hareketleri sirayla toplayip nihai stok sozlugunu dogru dondurecek bicimde
+  duzelt.
+
+reference_solution: |
+  cat > depo/ozet.py <<'OZET'
+  from depo.kayit import DepoKaydi
+
+
+  class EnvanterOzeti:
+      def __init__(self):
+          self._kayit = DepoKaydi()
+          self._stok = {}
+
+      def isle(self, satir):
+          urun, miktar = satir.split(':')
+          self._kayit.ekle(urun, miktar)
+
+      def topla(self):
+          for urun, miktar in self._kayit.hareketler():
+              self._stok[urun] = self._stok.get(urun, 0) + miktar
+          return dict(self._stok)
+  OZET
+
+outputs:
+  - {path: depo/ozet.py, kind: program, run: 'python3 -c ''from depo.ozet import EnvanterOzeti as E; s=E(); [s.isle(l) for l in open("akis.txt").read().split()]; r=s.topla(); assert r=={"vida":7,"somun":10}, r; s2=E(); s2.isle("vida:5"); s2.isle("vida:-2"); assert s2.topla()=={"vida":3}; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.ozet import EnvanterOzeti as E; s=E(); [s.isle(l) for l in open("akis.txt").read().split()]; r=s.topla(); assert r=={"vida":7,"somun":10}, r; s2=E(); s2.isle("vida:5"); s2.isle("vida:-2"); assert s2.topla()=={"vida":3}; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5045
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: depo-envanteri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-toplama-sirasi
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: parcali-akis
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

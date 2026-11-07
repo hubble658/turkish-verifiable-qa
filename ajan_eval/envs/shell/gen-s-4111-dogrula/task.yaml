@@ -1,0 +1,79 @@
+id: gen-s-4111-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  istasyon_a.txt ve istasyon_b.txt dosyalarındaki aynı istasyon kodlarını karşılaştır. Her iki dosyada da sıcaklık ve nem değerleri 0 ile 60 arasında geçerli olan istasyonlardan, iki dosyadaki sıcaklık ve nem değerleri birbirinden farklı olanların sayısını sonuc.txt dosyasına sadece sayı olarak yaz.
+
+  Şu şartlar sağlanmalı:
+  - sonuc.txt dosyası oluşturulmalı.
+  - sonuc.txt içinde yalnızca bir sayı bulunmalı; başka metin, etiket veya açıklama olmamalı.
+  - Sayı, her iki dosyada da sıcaklık ve nem değerleri 0 ile 60 arasında geçerli olan istasyonlar arasından, iki dosyadaki sıcaklık ve nem değerleri birbirinden farklı olanların sayısını vermeli.
+  - İstasyon kodları iki dosya arasında eşleştirilmeli; yalnızca her iki dosyada da bulunan ortak istasyon kodları değerlendirilmeli.
+
+setup: |
+  cat > istasyon_a.txt <<'DATA'
+  IST01+025.3+018.7
+  IST02+019.8+022.1
+  IST03+031.0+015.4
+  IST04+027.6+020.0
+  IST05+999.9+011.2
+  DATA
+
+  cat > istasyon_b.txt <<'DATA'
+  IST01+025.1+018.9
+  IST02+019.9+021.8
+  IST03+030.8+015.6
+  IST04+027.7+020.1
+  IST05+012.3+011.0
+  DATA
+
+goal_tr: >
+  istasyon_a.txt ve istasyon_b.txt dosyalarindaki ayni istasyon kodlari icin
+  sicaklik ve nem alanlarini karsilastir; her iki dosyada da sicaklik ve nem
+  degerleri 0 ile 60 arasinda gecerli olan istasyonlardan, iki dosyadaki
+  sicaklik ve nem degerleri birbirinden farkli olanlarin sayisini sonuc.txt
+  dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  awk -F'+' '{ if ($2+0 >= 0 && $2+0 <= 60 && $3+0 >= 0 && $3+0 <= 60) print $1, $2, $3 }' istasyon_a.txt | sort > gecerli_a.txt
+  awk -F'+' '{ if ($2+0 >= 0 && $2+0 <= 60 && $3+0 >= 0 && $3+0 <= 60) print $1, $2, $3 }' istasyon_b.txt | sort > gecerli_b.txt
+  join gecerli_a.txt gecerli_b.txt > eslesen.txt
+  awk '{ if ($2 != $4 || $3 != $5) print $1 }' eslesen.txt > farkli.txt
+  grep -c '.' farkli.txt > sonuc.txt
+  wc -l < sonuc.txt >> /dev/null
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '4'}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4111
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: hava-durumu-kayitlari
+    hedef: dogrula
+    girdi: sabit-genislik
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

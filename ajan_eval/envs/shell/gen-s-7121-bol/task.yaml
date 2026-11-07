@@ -1,0 +1,74 @@
+id: gen-s-7121-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  notlar klasöründeki matematik.txt, fizik.txt ve kimya.txt dosyalarındaki öğrenci notlarını birleştirip her öğrenci için ortalama notu hesapla ve sonucu ortalamalar.json dosyasına geçerli JSON olarak yaz.
+
+setup: |
+  mkdir -p notlar
+  cat > notlar/matematik.txt <<'T'
+  Ali:85
+  Ayse:92
+  Can:78
+  T
+  cat > notlar/fizik.txt <<'T'
+  Ali:90
+  Ayse:88
+  Can:95
+  T
+  cat > notlar/kimya.txt <<'T'
+  Ali:70
+  Ayse:99
+  Can:82
+  T
+
+goal_tr: >
+  notlar klasorundeki tum ders dosyalarindaki ogrenci notlarini birlestirip
+  her ogrenci icin ortalama notu hesaplayarak ortalamalar.json dosyasina
+  gecerli JSON olarak yaz
+
+reference_solution: |
+  cat notlar/*.txt | tee tum_notlar.txt | cut -d: -f1 | sort -u > ogrenciler.txt
+  while read ogr; do
+    toplam=$(grep "^$ogr:" tum_notlar.txt | cut -d: -f2 | awk '{s+=$1} END {print s}')
+    adet=$(grep -c "^$ogr:" tum_notlar.txt)
+    ortalama=$(awk -v t="$toplam" -v a="$adet" 'BEGIN {printf "%.1f", t/a}')
+    echo "$ogr $ortalama"
+  done < ogrenciler.txt > ortalamalar.txt
+  awk 'BEGIN {print "{"} {printf "  \"%s\": %s", $1, $2; if (NR<3) printf ","; printf "\n"} END {print "}"}' ortalamalar.txt > ortalamalar.json
+
+outputs:
+  - {path: ortalamalar.json, kind: json}
+
+checks:
+  - {op: json_eq, path: ortalamalar.json, value: {Ali: 81.7, Ayse: 93.0, Can: 85.0}}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7121
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: ogrenci-notlari
+    hedef: bol
+    girdi: log-satiri
+    kaynak: cok-dosya
+    cikti: json
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

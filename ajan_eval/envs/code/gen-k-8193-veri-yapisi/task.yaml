@@ -1,0 +1,195 @@
+id: gen-k-8193-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kitchen/planner.py dosyasını tamamla. MenuPlanner sınıfının __init__ metodu recipes/pantry dosyalarını yükleyip stoğu tutmalı. feasible metodu verilen bir yemeğin stokta yapılıp yapılamayacağını döndürmeli. requires_stock dekoratörüyle sarılı cook metodu yalnızca yemek feasible ise stoktan düşüp True döndürmeli, aksi halde False döndürmeli ve stokta hiçbir değişiklik yapmamalı. reachable_dishes metodu ise aynı malzemeyi paylaşan yemekler üzerinden start'tan graf gezinmesiyle ulaşılabilen tüm yemekleri, start'ın kendisi dahil, sıralı biçimde döndürmeli.
+
+setup: |
+  mkdir -p kitchen
+  cat > kitchen/__init__.py <<'INIT'
+  INIT
+  cat > kitchen/recipes.py <<'RECIPES'
+  def load_recipe(path):
+      """Read a recipe file. Returns dict: name -> list of (ingredient, grams)."""
+      recipe = {}
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line or line.startswith("#"):
+                  continue
+              dish, rest = line.split(":", 1)
+              items = []
+              for chunk in rest.split(";"):
+                  ing, grams = chunk.split("=")
+                  items.append((ing.strip(), int(grams)))
+              recipe[dish.strip()] = items
+      return recipe
+  RECIPES
+  cat > kitchen/pantry.py <<'PANTRY'
+  def load_pantry(path):
+      """Read pantry stock. Returns dict: ingredient -> grams available."""
+      stock = {}
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line or line.startswith("#"):
+                  continue
+              ing, grams = line.split("=")
+              stock[ing.strip()] = int(grams)
+      return stock
+  PANTRY
+  cat > data_recipes.txt <<'R'
+  # dish: ingredient=grams; ingredient=grams
+  soup: broth=200; carrot=50
+  stew: broth=300; carrot=80; beef=150
+  salad: carrot=40; lettuce=60
+  R
+  cat > data_pantry.txt <<'P'
+  broth=250
+  carrot=100
+  beef=150
+  lettuce=60
+  P
+  cat > kitchen/planner.py <<'PLANNER'
+  from functools import wraps
+  from kitchen.recipes import load_recipe
+  from kitchen.pantry import load_pantry
+
+
+  def requires_stock(method):
+      """Decorator: only run method if its dish argument is feasible."""
+      @wraps(method)
+      def wrapper(self, dish, *args, **kwargs):
+          raise NotImplementedError
+      return wrapper
+
+
+  class MenuPlanner:
+      def __init__(self, recipe_path, pantry_path):
+          raise NotImplementedError
+
+      def feasible(self, dish):
+          raise NotImplementedError
+
+      @requires_stock
+      def cook(self, dish):
+          raise NotImplementedError
+
+      def reachable_dishes(self, start):
+          raise NotImplementedError
+  PLANNER
+
+goal_tr: >
+  kitchen/planner.py icindeki MenuPlanner sinifini ve requires_stock
+  dekoratorunu gerceklestir: __init__ recipes/pantry dosyalarini yukleyip
+  stogu tutsun, feasible bir yemegin stokta yapilip yapilamayacagini
+  dondursun, requires_stock ile sarili cook yalnizca feasible ise stogu
+  dusup True dondursun aksi halde False dondursun ve stogu degistirmesin,
+  reachable_dishes ise ayni malzemeyi paylasan yemekler uzerinden start'tan
+  graf gezinmesiyle ulasilabilen tum yemekleri (kendisi dahil) sirali
+  dondursun.
+
+reference_solution: |
+  cat > kitchen/planner.py <<'PLANNER'
+  from functools import wraps
+  from kitchen.recipes import load_recipe
+  from kitchen.pantry import load_pantry
+
+
+  def requires_stock(method):
+      """Decorator: only run method if its dish argument is feasible."""
+      @wraps(method)
+      def wrapper(self, dish, *args, **kwargs):
+          if not self.feasible(dish):
+              return False
+          return method(self, dish, *args, **kwargs)
+      return wrapper
+
+
+  class MenuPlanner:
+      def __init__(self, recipe_path, pantry_path):
+          self.recipes = load_recipe(recipe_path)
+          self.stock = load_pantry(pantry_path)
+
+      def feasible(self, dish):
+          if dish not in self.recipes:
+              return False
+          for ing, grams in self.recipes[dish]:
+              if self.stock.get(ing, 0) < grams:
+                  return False
+          return True
+
+      @requires_stock
+      def cook(self, dish):
+          for ing, grams in self.recipes[dish]:
+              self.stock[ing] = self.stock.get(ing, 0) - grams
+          return True
+
+      def _neighbors(self, dish):
+          mine = {ing for ing, _ in self.recipes.get(dish, [])}
+          out = []
+          for other in self.recipes:
+              if other == dish:
+                  continue
+              theirs = {ing for ing, _ in self.recipes[other]}
+              if mine & theirs:
+                  out.append(other)
+          return out
+
+      def reachable_dishes(self, start):
+          if start not in self.recipes:
+              return []
+          seen = {start}
+          stack = [start]
+          while stack:
+              cur = stack.pop()
+              for nxt in self._neighbors(cur):
+                  if nxt not in seen:
+                      seen.add(nxt)
+                      stack.append(nxt)
+          return sorted(seen)
+  PLANNER
+
+outputs:
+  - {path: kitchen/planner.py, kind: program, run: 'python3 -c ''from kitchen.planner import MenuPlanner as M; p=M("data_recipes.txt","data_pantry.txt"); assert p.feasible("soup") is True; assert p.feasible("stew") is False; assert p.reachable_dishes("soup")==["salad","soup","stew"]; assert p.reachable_dishes("salad")==["salad","soup","stew"]; assert p.reachable_dishes("stew")==["salad","soup","stew"]; assert p.cook("stew") is False; assert p.stock["beef"]==150; assert p.cook("soup") is True; assert p.stock["broth"]==50; assert p.stock["carrot"]==50; assert p.feasible("soup") is False; assert p.cook("soup") is False; assert p.stock["broth"]==50; assert p.reachable_dishes("nope")==[]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from kitchen.planner import MenuPlanner as M; p=M("data_recipes.txt","data_pantry.txt"); assert p.feasible("soup") is True; assert p.feasible("stew") is False; assert p.reachable_dishes("soup")==["salad","soup","stew"]; assert p.reachable_dishes("salad")==["salad","soup","stew"]; assert p.reachable_dishes("stew")==["salad","soup","stew"]; assert p.cook("stew") is False; assert p.stock["beef"]==150; assert p.cook("soup") is True; assert p.stock["broth"]==50; assert p.stock["carrot"]==50; assert p.feasible("soup") is False; assert p.cook("soup") is False; assert p.stock["broth"]==50; assert p.reachable_dishes("nope")==[]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8193
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: restoran-siparisleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: graf-gezinme
+      karmasiklik: duz
+      kalip: dekorator
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

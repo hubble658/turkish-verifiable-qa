@@ -28,6 +28,8 @@ from puanlama import _uyarla, istem, orijinal, puanla  # noqa: E402
 
 def altin_metin(r):
     k, o, c = r["kategori"], orijinal(r), r["cevap"]
+    if r["kaynak"] == "regex":  # REGEX satiri kirpilir; kenardaki bosluk [ ] olarak yazilir (kaynak sweep --reference ile ayni)
+        return "REGEX: " + "[ ]" * (len(c) - len(c.lstrip(" "))) + c.strip(" ") + "[ ]" * (len(c) - len(c.rstrip(" ")))
     if r["kaynak"] == "korpus":
         return json.dumps({"cevap": c}, ensure_ascii=False)
     if k == "solver":
@@ -44,6 +46,8 @@ def altin_metin(r):
 def yanlis_metin(r):
     """Ters sinama: bariz yanlis cevap; gecen olmamali (her seye dogru diyen puanlayiciyi yakalar)."""
     k, o = r["kategori"], orijinal(r)
+    if r["kaynak"] == "regex":
+        return "REGEX: [#]{99}"
     if r["kaynak"] == "korpus":
         return json.dumps({"cevap": "bilmiyorum"}, ensure_ascii=False)
     if k == "solver":
@@ -128,6 +132,8 @@ def yakin_metin(r):
 
 def sina(r, ters=False, yakin=False):
     r = _uyarla(r)
+    if r["kaynak"] == "ajan_terminal":  # ajan: ajan_eval/ ile sinanir
+        return r["kategori"], r["id"], None, None
     try:
         istem(r)  # istem kurulabiliyor mu (sema, eslik dosyasi, iskelet)
         if yakin:
@@ -135,7 +141,13 @@ def sina(r, ters=False, yakin=False):
             return r["kategori"], r["id"], (None if m is None else puanla(r, m) is not True), None
         if ters:
             return r["kategori"], r["id"], puanla(r, yanlis_metin(r)) is not True, None
-        return r["kategori"], r["id"], puanla(r, altin_metin(r)), None
+        m = altin_metin(r)
+        if r["kategori"] == "regex_yazma":  # otomat cevirisi regex motoruyla ayni dili mi soyluyor; ceviri hatasi sessiz kalmasin
+            from puanlama._ek.regex_cekirdek import ceviri_denetle
+            fark = ceviri_denetle(orijinal(r))
+            if fark is not None:
+                return r["kategori"], r["id"], False, f"otomat ve motor ayrisiyor: {fark!r}"
+        return r["kategori"], r["id"], (None if m is None else puanla(r, m)), None
     except Exception as e:  # noqa: BLE001
         return r["kategori"], r["id"], False, f"{type(e).__name__}: {e}"[:300]
 

@@ -1,0 +1,59 @@
+id: gen-s-4140-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi dizin ağacındaki .ini uzantılı tüm dosyaların son satırındaki değerleri ters çevirip tek bir sayı olarak topla ve bu toplamı toplam.txt dosyasına yaz. Sonu yeni satırla bitmeyen .ini dosyaları da hesaba kat; girdi dizinindeki .txt gibi diğer uzantılı dosyalar tümüyle yok sayılsın. toplam.txt içinde yalnızca sayı bulunsun ve dosya yeni satırla bitsin.
+
+setup: |
+  mkdir -p girdi/alt
+  printf 'ayar=1\n' > girdi/a.ini
+  printf 'ayar=2\n' > girdi/alt/b.ini
+  printf 'ayar=3\n' > girdi/alt/c.ini
+  printf 'ayar=4\n' > girdi/d.ini
+  printf 'bu bir tuzak\n' > girdi/notlar.txt
+  printf 'ayar=5' > girdi/e.ini
+
+goal_tr: >
+  girdi dizin agacindaki .ini uzantili her dosyanin son satirindaki degeri
+  ters cevirip tek bir sayi olarak toplam.txt dosyasina yaz; sonu yeni
+  satirla bitmeyen dosyalar da dahil edilsin, .txt gibi diger dosyalar yok
+  sayilsin
+
+reference_solution: |
+  find girdi -name '*.ini' | sort | xargs cat | cut -d= -f2 | rev | paste -sd+ | xargs -I{} echo {} | bc 2>/dev/null || find girdi -name '*.ini' | sort | xargs cat | cut -d= -f2 | rev | paste -sd+ | sed 's/^/echo $(( /;s/$/ ))/' | sh > toplam.txt
+
+outputs:
+  - {path: toplam.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: toplam.txt, value: '15'}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4140
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: sunucu-loglari
+    hedef: donustur
+    girdi: ini
+    kaynak: dizin-agaci
+    cikti: tek-sayi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: son-newline-yok
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

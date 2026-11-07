@@ -1,0 +1,69 @@
+id: gen-s-7270-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Kütüphanedeki üye kayıtlarını tuttuğumuz defter iyice karıştı; hangi üyenin kaç kez geldiğini artık elle takip edemiyorum. Bugün de bu işle uğraşırken yedek dosyalarla asıl kayıt dosyasını birbirine karıştırdım, o yüzden temiz bir özet çıkarmam lazım.
+
+  kutuphane dizinine bak; orada .json uzantılı tek gerçek kayıt dosyası var, yedek dosyaları sakın karıştırma. O dosyadaki her satırda geçen "uye" alanındaki isimleri ters çevir ve aynı dosyada kaç farklı ters isim olduğunu bul. Bu sayıyı sadece sayı olarak, başka hiçbir şey eklemeden sonuc.txt dosyasına yaz.
+
+setup: |
+  mkdir -p kutuphane
+  cat > kutuphane/kayitlar.json <<'JSON'
+  [
+    {"id": 1, "kitap": "Simyaci", "uye": "ahmet", "yil": 1988},
+    {"id": 2, "kitap": "Tutunamayanlar", "uye": "zeynep", "yil": 1971},
+    {"id": 3, "kitap": "Kurk Mantolu Madonna", "uye": "ahmet", "yil": 1943},
+    {"id": 4, "kitap": "Ince Memed", "uye": "mehmet", "yil": 1955}
+  ]
+  JSON
+  cat > kutuphane/kayitlar.json.bak <<'JSON'
+  [
+    {"id": 99, "kitap": "Yanlis Dosya", "uye": "hayalet", "yil": 2000}
+  ]
+  JSON
+
+goal_tr: >
+  kutuphane dizinindeki .json uzantili tek gercek kayit dosyasini bulup
+  (yedek dosyalari disla), icindeki her satirda gecen "uye" alanindaki
+  isimleri ters cevirip ayni dosyada kac farkli ters isim oldugunu
+  sonuc.txt'ye sadece sayi olarak yaz
+
+reference_solution: |
+  dosya=$(find kutuphane -name '*.json' ! -name '*.bak' | head -n 1)
+  cut -d'"' -f8 "$dosya" | rev | sort -u | wc -l > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '3'}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7270
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: kutuphane-kayitlari
+    hedef: donustur
+    girdi: json
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: dosyayi-bul
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

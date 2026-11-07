@@ -1,0 +1,99 @@
+id: gen-k-8148-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+prompt: '1) documents.py dosyasındaki DocumentIndex sınıfını tamamla; sınıf durumlu olsun ve kelimeleri ikili arama ağacına
+  yerleştirsin.
+
+
+  2) insert metodunu, verilen doc_id ve text ile belgeyi dizine ekleyecek şekilde tamamla.
+
+
+  3) search metodunu, verilen word için arama yapacak şekilde tamamla.
+
+
+  4) feed metodunu, parçalı akıştan (chunks) belge ekleyecek şekilde tamamla.
+
+
+  5) words metodunu, dizindeki kelimeleri döndürecek şekilde tamamla.
+
+
+  Kelimeler boşlukla ayrılıp küçük harfe çevrilsin; search belge kimliklerini, words kelimeleri sıralı liste döndürsün; feed
+  (doc_id, text) çiftleri alsın.
+
+  '
+setup: "cat > documents.py <<'DOCS'\nclass DocumentIndex:\n    def __init__(self):\n        self.root = None\n\n    def insert(self,\
+  \ doc_id, text):\n        raise NotImplementedError\n\n    def search(self, word):\n        raise NotImplementedError\n\n\
+  \    def feed(self, chunks):\n        raise NotImplementedError\n\n    def words(self):\n        raise NotImplementedError\n\
+  DOCS\n"
+goal_tr: 'documents.py icindeki DocumentIndex sinifini, kelimeleri ikili arama agacina yerlestiren, parcali akistan belge
+  ekleyen ve kelime aramasini yapan durumlu bir sinif olarak tamamla.
+
+  '
+reference_solution: "cat > documents.py <<'DOCS'\nclass _Node:\n    def __init__(self, word):\n        self.word = word\n\
+  \        self.ids = []\n        self.left = None\n        self.right = None\n\n\nclass DocumentIndex:\n    def __init__(self):\n\
+  \        self.root = None\n\n    def _insert_word(self, word, doc_id):\n        if self.root is None:\n            self.root\
+  \ = _Node(word)\n            self.root.ids.append(doc_id)\n            return\n        node = self.root\n        while True:\n\
+  \            if word == node.word:\n                if doc_id not in node.ids:\n                    node.ids.append(doc_id)\n\
+  \                return\n            if word < node.word:\n                if node.left is None:\n                    node.left\
+  \ = _Node(word)\n                    node.left.ids.append(doc_id)\n                    return\n                node = node.left\n\
+  \            else:\n                if node.right is None:\n                    node.right = _Node(word)\n             \
+  \       node.right.ids.append(doc_id)\n                    return\n                node = node.right\n\n    def insert(self,\
+  \ doc_id, text):\n        for word in text.lower().split():\n            self._insert_word(word, doc_id)\n\n    def feed(self,\
+  \ chunks):\n        for doc_id, text in chunks:\n            self.insert(doc_id, text)\n\n    def search(self, word):\n\
+  \        node = self.root\n        word = word.lower()\n        while node is not None:\n            if word == node.word:\n\
+  \                return list(node.ids)\n            if word < node.word:\n                node = node.left\n           \
+  \ else:\n                node = node.right\n        return []\n\n    def words(self):\n        out = []\n        stack =\
+  \ []\n        node = self.root\n        while stack or node is not None:\n            while node is not None:\n        \
+  \        stack.append(node)\n                node = node.left\n            node = stack.pop()\n            out.append(node.word)\n\
+  \            node = node.right\n        return out\nDOCS\n"
+outputs:
+- path: documents.py
+  kind: program
+  run: python3 -c 'from documents import DocumentIndex; d=DocumentIndex(); d.feed([("a","Red Apple"),("b","green apple"),("c","red
+    berry")]); assert d.search("apple")==["a","b"], d.search("apple"); assert d.search("red")==["a","c"]; assert d.search("berry")==["c"];
+    assert d.search("kiwi")==[]; assert d.words()==["apple","berry","green","red"], d.words(); d.insert("d","apple"); assert
+    d.search("apple")==["a","b","d"]; print("TAMAM")'
+checks:
+- op: run_stdout_eq
+  cmd: python3 -c 'from documents import DocumentIndex; d=DocumentIndex(); d.feed([("a","Red Apple"),("b","green apple"),("c","red
+    berry")]); assert d.search("apple")==["a","b"], d.search("apple"); assert d.search("red")==["a","c"]; assert d.search("berry")==["c"];
+    assert d.search("kiwi")==[]; assert d.words()==["apple","berry","green","red"], d.words(); d.insert("d","apple"); assert
+    d.search("apple")==["a","b","d"]; print("TAMAM")'
+  value: TAMAM
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8148
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: metin-belgeleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: ikili-arama-agaci
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: parcali-akis
+      topoloji: tek-modul
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false
+  duzeltme:
+    neden: gizli_sart
+    not: Küçük harf ve dönüş biçimi yazmıyordu.

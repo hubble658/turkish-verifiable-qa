@@ -1,0 +1,104 @@
+id: gen-k-8190-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) pipeline/stream.py dosyasında, read_lines generator'ünü kullanarak docs.txt dosyasını okuyan ve satırları bir kuyruk (FIFO) üzerinden işleyip her satırdaki eşsiz kelimeleri sırayla üreten token_queue adında bir generator yaz.
+
+  2) Aynı pipeline/stream.py dosyasına, token_queue generator'ünü tüketen count_tokens adında bir fonksiyon ekle; bu fonksiyon her eşsiz kelimeyi ve o kelimenin kaç satırda geçtiğini, ilk görülme sırasına göre döndüren bir liste üretsin.
+
+setup: |
+  mkdir -p pipeline
+  cat > pipeline/stream.py <<'STREAM'
+  def read_lines(path):
+      with open(path, "r", encoding="utf-8") as handle:
+          for line in handle:
+              yield line.rstrip("\n")
+  STREAM
+  cat > docs.txt <<'DOCS'
+  alpha beta gamma
+  beta gamma delta
+  gamma delta epsilon
+  DOCS
+
+goal_tr: >
+  pipeline/stream.py icindeki read_lines generator'ini kullanan, docs.txt
+  dosyasini okuyup satirlari bir kuyruk (FIFO) uzerinden isleyerek her
+  satirdaki essiz kelimeleri sirayla ureten bir token_queue generator'u ile
+  ayni dosyada bu generator'u tuketen count_tokens fonksiyonunu yaz;
+  count_tokens her essiz kelimeyi ve kac satirda gectigini (ilk gorulme
+  sirasina gore) donduren bir liste uretsin.
+
+reference_solution: |
+  cat > pipeline/stream.py <<'STREAM'
+  from collections import deque
+
+
+  def read_lines(path):
+      with open(path, "r", encoding="utf-8") as handle:
+          for line in handle:
+              yield line.rstrip("\n")
+
+
+  def token_queue(path):
+      pending = deque()
+      for line in read_lines(path):
+          for word in line.split():
+              pending.append(word)
+          while pending:
+              yield pending.popleft()
+
+
+  def count_tokens(path):
+      counts = {}
+      order = []
+      for word in token_queue(path):
+          if word not in counts:
+              counts[word] = 0
+              order.append(word)
+          counts[word] += 1
+      return [(word, counts[word]) for word in order]
+  STREAM
+
+outputs:
+  - {path: pipeline/stream.py, kind: program, run: 'python3 -c ''from pipeline.stream import read_lines, token_queue, count_tokens; assert list(read_lines("docs.txt"))==["alpha beta gamma","beta gamma delta","gamma delta epsilon"]; assert list(token_queue("docs.txt"))==["alpha","beta","gamma","beta","gamma","delta","gamma","delta","epsilon"]; assert count_tokens("docs.txt")==[("alpha",1),("beta",2),("gamma",3),("delta",2),("epsilon",1)]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from pipeline.stream import read_lines, token_queue, count_tokens; assert list(read_lines("docs.txt"))==["alpha beta gamma","beta gamma delta","gamma delta epsilon"]; assert list(token_queue("docs.txt"))==["alpha","beta","gamma","beta","gamma","delta","gamma","delta","epsilon"]; assert count_tokens("docs.txt")==[("alpha",1),("beta",2),("gamma",3),("delta",2),("epsilon",1)]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8190
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: metin-belgeleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kuyruk
+      karmasiklik: duz
+      kalip: generator
+      akis: dosya-okuma
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

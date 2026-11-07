@@ -1,0 +1,132 @@
+id: gen-k-5134-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) shift/schedule.py dosyasını aç ve içindeki Scheduler sınıfını, çakışmayan vardiyalardan en fazla kaç tanesinin seçilebileceğini hesaplayıp max_covered olarak döndürecek şekilde tamamla.
+
+  2) Aynı Scheduler sınıfına, seçilen vardiyaların adlarını artan başlangıç sırasına göre içeren chosen sonucunu döndüren kısmı ekle.
+
+  3) Scheduler sınıfının max_covered ve chosen davranışını, shift/main.py içindeki run fonksiyonu ve slots.txt içeriğiyle uyumlu olacak şekilde bitir.
+
+setup: |
+  mkdir -p shift
+  cat > shift/parse.py <<'PARSE'
+  def parse_slots(text):
+      slots = []
+      for line in text.strip().splitlines():
+          name, start, end = line.split(',')
+          slots.append((name, int(start), int(end)))
+      return slots
+  PARSE
+  cat > shift/schedule.py <<'SCHEDULE'
+  from shift.parse import parse_slots
+
+
+  class Scheduler:
+      def __init__(self, slots):
+          self.slots = slots
+
+      def max_covered(self):
+          raise NotImplementedError
+
+      def chosen(self):
+          raise NotImplementedError
+  SCHEDULE
+  cat > shift/main.py <<'MAIN'
+  from shift.parse import parse_slots
+  from shift.schedule import Scheduler
+
+
+  def run(text):
+      slots = parse_slots(text)
+      s = Scheduler(slots)
+      return s.max_covered(), s.chosen()
+  MAIN
+  cat > slots.txt <<'TXT'
+  a,0,4
+  b,3,7
+  c,6,9
+  d,8,12
+  e,10,14
+  TXT
+
+goal_tr: >
+  shift/schedule.py icindeki Scheduler sinifini, cakismayan vardiyalardan en
+  fazla kac tanesinin secilebilecegini (max_covered) ve secilen vardiya
+  adlarini artan baslangic sirasiyla (chosen) dondurecek bicimde tamamla.
+
+reference_solution: |
+  cat > shift/schedule.py <<'SCHEDULE'
+  class Scheduler:
+      def __init__(self, slots):
+          self.slots = slots
+
+      def max_covered(self):
+          if not self.slots:
+              return 0
+          ordered = sorted(self.slots, key=lambda s: s[2])
+          count = 0
+          last_end = None
+          for name, start, end in ordered:
+              if last_end is None or start >= last_end:
+                  count += 1
+                  last_end = end
+          return count
+
+      def chosen(self):
+          if not self.slots:
+              return []
+          ordered = sorted(self.slots, key=lambda s: s[2])
+          picked = []
+          last_end = None
+          for name, start, end in ordered:
+              if last_end is None or start >= last_end:
+                  picked.append((name, start, end))
+                  last_end = end
+          picked.sort(key=lambda s: s[1])
+          return [name for name, start, end in picked]
+  SCHEDULE
+
+outputs:
+  - {path: shift/schedule.py, kind: program, run: 'python3 -c ''from shift.main import run as r; t=open("slots.txt").read(); n,c=r(t); assert n==3, (n,c); assert c==["a","c","e"], c; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from shift.main import run as r; t=open("slots.txt").read(); n,c=r(t); assert n==3, (n,c); assert c==["a","c","e"], c; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5134
+    bundle: yarisma
+    tools:
+    - python3
+    konu: vardiya-cizelgesi
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: dinamik-programlama
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: bellek-ici
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

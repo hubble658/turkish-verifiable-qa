@@ -1,0 +1,110 @@
+id: gen-k-8316-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  flights/decorators.py dosyasındaki with_priority dekoratörünü düzelt. Dekoratör, satırları verilen anahtara göre artan sırada (en küçük değer önce gelecek şekilde) sıralamalı ve aynı anahtar değerine sahip satırlar giriş sırasını koruyacak şekilde kararlı bir sıralama ile dizilmeli. Böylece flights/ranker.py içindeki top_flights, en ucuz k rezervasyonun kodunu doğru döndürür.
+
+setup: |
+  mkdir -p flights
+  cat > flights/loader.py <<'LOADER'
+  def load_rows(path):
+      rows = []
+      with open(path, encoding="utf-8") as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              code, seat, price = line.split(",")
+              rows.append({"code": code, "seat": seat, "price": float(price)})
+      return rows
+  LOADER
+  cat > flights/decorators.py <<'DECORATORS'
+  def with_priority(key_name):
+      def wrap(func):
+          def inner(rows, *args, **kwargs):
+              ordered = sorted(rows, key=lambda r: r[key_name], reverse=True)
+              return func(ordered, *args, **kwargs)
+          return inner
+      return wrap
+  DECORATORS
+  cat > flights/ranker.py <<'RANKER'
+  from flights.decorators import with_priority
+  from flights.loader import load_rows
+
+
+  @with_priority("price")
+  def top_flights(rows, k):
+      return [r["code"] for r in rows[:k]]
+
+
+  def top_from_file(path, k):
+      return top_flights(load_rows(path), k)
+  RANKER
+  cat > data.csv <<'CSV'
+  TK101,aisle,120.0
+  LH200,window,90.0
+  BA300,middle,90.0
+  AF400,aisle,150.0
+  CSV
+
+goal_tr: >
+  flights/decorators.py icindeki with_priority dekoratorunu, satirlari
+  verilen anahtara gore ARTAN sirada (en kucuk once) ve ayni anahtar
+  degerine sahip satirlarin giris sirasini koruyacak kararli bir siralama
+  ile dizecek bicimde duzelt; boylece flights/ranker.py icindeki top_flights
+  en ucuz k rezervasyonun kodunu dogru dondurur.
+
+reference_solution: |
+  cat > flights/decorators.py <<'DECORATORS'
+  def with_priority(key_name):
+      def wrap(func):
+          def inner(rows, *args, **kwargs):
+              ordered = sorted(rows, key=lambda r: r[key_name])
+              return func(ordered, *args, **kwargs)
+          return inner
+      return wrap
+  DECORATORS
+
+outputs:
+  - {path: flights/decorators.py, kind: program, run: 'python3 -c ''from flights.ranker import top_from_file as f; assert f("data.csv",2)==["LH200","BA300"], f("data.csv",2); assert f("data.csv",1)==["LH200"]; assert f("data.csv",4)==["LH200","BA300","TK101","AF400"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from flights.ranker import top_from_file as f; assert f("data.csv",2)==["LH200","BA300"], f("data.csv",2); assert f("data.csv",1)==["LH200"]; assert f("data.csv",4)==["LH200","BA300","TK101","AF400"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8316
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: ucus-rezervasyonlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-kararsizligi
+      karmasiklik: duz
+      kalip: dekorator
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

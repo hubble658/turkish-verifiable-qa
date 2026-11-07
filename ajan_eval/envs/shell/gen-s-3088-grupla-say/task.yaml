@@ -1,0 +1,75 @@
+id: gen-s-3088-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) veri/randevular.txt dosyasındaki her bölüm için, o bölümü alan doktorun adını veri/doktorlar.txt dosyasından bul.
+
+  2) Her bölüm için "doktor adı<TAB>bölüm<TAB>randevu sayısı" biçiminde satırlar oluştur.
+
+  3) Bu satırları doktor adına göre alfabetik sıralı olarak bolum_ozet.txt dosyasına yaz.
+
+setup: |
+  mkdir -p veri
+  cat > veri/randevular.txt <<'DATA'
+  1001 20240301 0900 Kardiyoloji
+  1002 20240301 0930 Noroloji
+  1003 20240301 0900 Kardiyoloji
+  1004 20240302 1015 Ortopedi
+  1005 20240302 0930 Noroloji
+  1006 20240303 1100 Kardiyoloji
+  1007 20240303 1015 Ortopedi
+  1008 20240303 0930 Noroloji
+  DATA
+  cat > veri/doktorlar.txt <<'DATA'
+  Kardiyoloji DrA
+  Noroloji DrB
+  Ortopedi DrC
+  DATA
+
+goal_tr: >
+  veri/randevular.txt icindeki her bolum icin o bolumu alan doktorun adini
+  veri/doktorlar.txt dosyasindan bulup, "doktor adi<TAB>bolum<TAB>randevu
+  sayisi" biciminde, doktor adina gore alfabetik sirali satirlar halinde
+  bolum_ozet.txt dosyasina yaz
+
+reference_solution: |
+  awk '{print $4}' veri/randevular.txt | sort | uniq -c | awk '{print $2, $1}' > /tmp/sayim.txt
+  awk 'NR==FNR{d[$1]=$2; next} {print d[$1]"\t"$1"\t"$2}' veri/doktorlar.txt /tmp/sayim.txt | sort > bolum_ozet.txt
+  grep -c . bolum_ozet.txt > /dev/null
+  xargs -a bolum_ozet.txt echo > /dev/null
+
+outputs:
+  - {path: bolum_ozet.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: bolum_ozet.txt, value: ["DrA\tKardiyoloji\t3", "DrB\tNoroloji\t3", "DrC\tOrtopedi\t2"]}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3088
+    bundle: cok-dosya-ara
+    tools:
+    - xargs
+    - grep
+    konu: hastane-randevulari
+    hedef: grupla-say
+    girdi: sabit-genislik
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

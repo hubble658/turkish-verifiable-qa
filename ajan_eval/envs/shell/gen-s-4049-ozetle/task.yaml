@@ -1,0 +1,65 @@
+id: gen-s-4049-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  muhasebe.csv dosyasını okuyup her kalemin tutar toplamını çıkar ve sonucu kalem_toplamlari.txt dosyasına yaz. Çıktıda her satırda kalem adı ile toplam tutar bir sekme karakteriyle ayrılmış olsun ve satırlar kalem adına göre alfabetik olarak sıralansın. Aynı kalem birden fazla satırda geçtiğinde tutarları toplanmalı; muhasebe.csv dosyası olduğu gibi korunmalı.
+
+setup: |
+  cat > muhasebe.csv <<'CSV'
+  tarih,kalem,tutar,para_birimi
+  2024-01-03,Kira,1200,TRY
+  2024-01-05,Malzeme,340,TRY
+  2024-01-05,Malzeme,340,TRY
+  2024-01-09,Maas,5000,TRY
+  2024-01-11,Kira,1200,TRY
+  2024-01-15,Nakliye,150,TRY
+  2024-01-18,Malzeme,220,TRY
+  2024-01-20,Maas,5000,TRY
+  2024-01-22,Kira,1200,TRY
+  2024-01-25,Nakliye,150,TRY
+  CSV
+
+goal_tr: >
+  muhasebe.csv dosyasindaki tutar sutununun toplamini, kalem adina gore
+  alfabetik sirali olarak "kalem<TAB>toplam" biciminde kalem_toplamlari.txt
+  dosyasina yaz; ayni kalem birden fazla satirda gecerse tutarlari topla.
+
+reference_solution: |
+  tail -n +2 muhasebe.csv | awk -F, '{toplam[$2]+=$3} END {for (k in toplam) printf "%s\t%d\n", k, toplam[k]}' | sort > kalem_toplamlari.txt
+  head -n 5 kalem_toplamlari.txt
+
+outputs:
+  - {path: kalem_toplamlari.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: kalem_toplamlari.txt, value: ["Kira\t3600", "Maas\t10000", "Malzeme\t900", "Nakliye\t300"]}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4049
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: muhasebe-kalemleri
+    hedef: ozetle
+    girdi: csv
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: dolayli-hedef
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

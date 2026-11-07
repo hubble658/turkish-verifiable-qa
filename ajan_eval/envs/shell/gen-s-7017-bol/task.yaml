@@ -1,0 +1,86 @@
+id: gen-s-7017-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  gelen/siparisler.log dosyasındaki her satırı saat masa ürün adet alanlarına göre ayrıştırıp gelen/masalar.txt içindeki her masa için cikti/<masa>/siparisler.log dosyası oluştur ve o masaya ait satırları aynen yaz; siparişi olmayan masa için de boş siparisler.log oluştur, hiçbir masa atlanmasın.
+
+setup: |
+  mkdir -p gelen
+  cat > gelen/siparisler.log <<'LOG'
+  12:01 masa3 corba 2
+  12:03 masa1 kebap 1
+  12:04 masa3 kebap 1
+  12:07 masa2 salata 3
+  12:09 masa1 corba 1
+  12:10 masa4 kebap 2
+  LOG
+  cat > gelen/masalar.txt <<'TXT'
+  masa1
+  masa2
+  masa3
+  masa4
+  masa5
+  TXT
+  : > gelen/bos.log
+
+goal_tr: >
+  gelen/siparisler.log dosyasindaki her satiri "saat masa urun adet"
+  alanlarina gore ayristirip, gelen/masalar.txt icindeki her masa icin
+  cikti/<masa> dizinini olustur ve o masaya ait siparis satirlarini aynen
+  cikti/<masa>/ siparisler.log dosyasina yaz; hic siparisi olmayan masa icin
+  de bos bir siparisler.log olustur, hicbir masa adi atlanmasin.
+
+reference_solution: |
+  mkdir -p cikti
+  while read -r masa; do
+    mkdir -p "cikti/$masa"
+    grep " $masa " gelen/siparisler.log > "cikti/$masa/siparisler.log"
+  done < gelen/masalar.txt
+  mv cikti/masa1/siparisler.log cikti/masa1/siparisler.log.tmp
+  mv cikti/masa1/siparisler.log.tmp cikti/masa1/siparisler.log
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/masa1/siparisler.log, kind: file}
+  - {path: cikti/masa2/siparisler.log, kind: file}
+  - {path: cikti/masa3/siparisler.log, kind: file}
+  - {path: cikti/masa4/siparisler.log, kind: file}
+  - {path: cikti/masa5/siparisler.log, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [masa1, masa2, masa3, masa4, masa5]}
+  - {op: file_lines_eq, path: cikti/masa1/siparisler.log, value: ['12:03 masa1 kebap 1', '12:09 masa1 corba 1']}
+  - {op: file_content_eq, path: cikti/masa2/siparisler.log, value: '12:07 masa2 salata 3'}
+  - {op: file_lines_eq, path: cikti/masa3/siparisler.log, value: ['12:01 masa3 corba 2', '12:04 masa3 kebap 1']}
+  - {op: file_content_eq, path: cikti/masa4/siparisler.log, value: '12:10 masa4 kebap 2'}
+  - {op: is_file, path: cikti/masa5/siparisler.log}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7017
+    bundle: dosya-duzen
+    tools:
+    - mkdir
+    - mv
+    konu: restoran-siparisleri
+    hedef: bol
+    girdi: log-satiri
+    kaynak: iki-dosya-capraz
+    cikti: dizin-yapisi
+    kesif: veriye-bak
+    uslup: terse
+    direnc: bos-dosya
+    bukulme: olcek
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

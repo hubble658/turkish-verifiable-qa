@@ -1,0 +1,99 @@
+id: gen-s-3108-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  /workspace/veri altındaki kargo.ini dosyasını bulup içindeki her [KOD] bölümünü; kod, sehir, durum ve agirlik alanlarını içeren bir nesne olarak ele al ve tüm bu nesneleri barındıran bir JSON dizisini /workspace/kargo.json dosyasına yaz.
+
+  Şu şartlar sağlanmalı:
+  - /workspace/veri/kargo.ini dosyası okunmuş olmalı.
+  - kargo.ini içindeki her [KOD] bölümü için bir nesne oluşturulmalı.
+  - Her nesnede kod, sehir, durum ve agirlik alanları bulunmalı.
+  - Tüm nesneler tek bir JSON dizisi halinde /workspace/kargo.json dosyasına yazılmalı.
+  - /workspace/kargo.json geçerli bir JSON dizisi içermeli.
+
+setup: |
+  mkdir -p /workspace/veri
+  cat > /workspace/veri/kargo.ini <<'INI'
+  [K1001]
+  sehir=Ankara
+  durum=yolda
+  agirlik=12
+
+  [K1002]
+  sehir=Izmir
+  durum=teslim
+  agirlik=3
+
+  [K1003]
+  sehir=Bursa
+  durum=yolda
+  agirlik=7
+
+  [K1004]
+  sehir=Antalya
+  durum=iptal
+  agirlik=5
+
+  [K1005]
+  sehir=Ankara
+  durum=teslim
+  agirlik=9
+  INI
+
+goal_tr: >
+  /workspace/veri altindaki kargo.ini dosyasini bulup her [KOD] bolumunu
+  kod, sehir, durum ve agirlik alanlariyla bir nesne olarak iceren ve tum
+  nesneleri tutan bir JSON dizisini /workspace/kargo.json dosyasina yaz.
+
+reference_solution: |
+  cd /workspace
+  f=$(find veri -name 'kargo.ini' -type f)
+  cut -d= -f1 "$f" | grep -v '^$' | tee /tmp/anahtar.txt >/dev/null
+  cut -d= -f2 "$f" | grep -v '^$' | tee /tmp/deger.txt >/dev/null
+  {
+    printf '[\n'
+    awk '
+      /^\[/ { if (kod != "") printf "  {\"kod\": \"%s\", \"sehir\": \"%s\", \"durum\": \"%s\", \"agirlik\": %d},\n", kod, sehir, durum, agirlik; kod=substr($0,2,length($0)-2); sehir=""; durum=""; agirlik=0; next }
+      /^sehir=/ { sehir=substr($0,7) }
+      /^durum=/ { durum=substr($0,7) }
+      /^agirlik=/ { agirlik=substr($0,9)+0 }
+      END { if (kod != "") printf "  {\"kod\": \"%s\", \"sehir\": \"%s\", \"durum\": \"%s\", \"agirlik\": %d}\n", kod, sehir, durum, agirlik }
+    ' "$f"
+    printf ']\n'
+  } > kargo.json
+
+outputs:
+  - {path: kargo.json, kind: json}
+
+checks:
+  - {op: json_eq, path: kargo.json, value: [{kod: K1001, sehir: Ankara, durum: yolda, agirlik: 12}, {kod: K1002, sehir: Izmir, durum: teslim, agirlik: 3}, {kod: K1003, sehir: Bursa, durum: yolda, agirlik: 7}, {kod: K1004, sehir: Antalya, durum: iptal, agirlik: 5}, {kod: K1005, sehir: Ankara, durum: teslim, agirlik: 9}]}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3108
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: kargo-takibi
+    hedef: ayikla
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: json
+    kesif: dosyayi-bul
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

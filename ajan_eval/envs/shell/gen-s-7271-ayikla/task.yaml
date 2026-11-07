@@ -1,0 +1,65 @@
+id: gen-s-7271-ayikla
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) envanter.tsv dosyasını başlık satırı hariç incele.
+  2) Stok değeri 0 olan satır sayısını bul.
+  3) Bu sayıyı sonuc.txt dosyasına yalnızca sayı olarak yaz.
+
+setup: |
+  cat > envanter.tsv <<'TSV'
+  urun	stok	fiyat
+  kalem	12	5
+  defter	7	12
+  silgi	0	3
+  cetvel	25	8
+  TSV
+
+  cat > envanter_eski.tsv <<'TSV'
+  urun	stok	fiyat
+  kalem	99	5
+  defter	99	12
+  TSV
+
+goal_tr: >
+  envanter.tsv dosyasindaki baslik satiri haric stok degeri 0 olan satir
+  sayisini sonuc.txt'ye sadece sayi olarak yaz
+
+reference_solution: |
+  cut -f2 envanter.tsv | tail -n +2 | paste -sd+ | sed 's/+/\n/g' | grep -c '^0$' > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '1'}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7271
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: envanter
+    hedef: ayikla
+    girdi: tsv
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

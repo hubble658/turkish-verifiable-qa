@@ -1,0 +1,71 @@
+id: gen-s-4096-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi klasöründeki tüm randevu dosyalarından tarih, saat ve bölüm alanlarını ayıklayıp bu üç alanı aralarında sekme karakteri olacak şekilde "tarih<TAB>saat<TAB>bölüm" biçiminde birleştirerek tüm kayıtları dosya adına göre sıralı olarak satir-listesi.txt dosyasına yaz.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/randevular_1.txt <<'TXT'
+  hasta: Ayse Yilmaz | bolum: Kardiyoloji | tarih: 2024-03-12 | saat: 09:30
+  hasta: Mehmet Demir | bolum: Ortopedi | tarih: 2024-03-12 | saat: 10:15
+  TXT
+  cat > girdi/randevular_2.txt <<'TXT'
+  hasta: Zeynep Kaya | bolum: Noroloji | tarih: 2024-03-13 | saat: 11:00
+  TXT
+  cat > girdi/randevular_3.txt <<'TXT'
+  hasta: Ali Vural | bolum: Kardiyoloji | tarih: 2024-03-13 | saat: 14:45
+  hasta: Fatma Ozturk | bolum: Ortopedi | tarih: 2024-03-14 | saat: 08:20
+  TXT
+
+goal_tr: >
+  girdi klasorundeki tum randevu dosyalarindan tarih, saat ve bolum
+  alanlarini cut ile ayiklayip paste ile "tarih<TAB>saat<TAB>bolum"
+  biciminde birlestirerek tum kayitlari dosya adina gore sirali olarak
+  satir-listesi.txt dosyasina yaz
+
+reference_solution: |
+  cat girdi/randevular_1.txt girdi/randevular_2.txt girdi/randevular_3.txt \
+    | cut -d'|' -f3,4,2 \
+    | sed 's/^ *tarih: *//; s/ *| *saat: */\t/; s/ *| *bolum: *$//' \
+    > /tmp/gecici.txt
+  cut -f1 /tmp/gecici.txt > /tmp/tarih.txt
+  cut -f2 /tmp/gecici.txt > /tmp/saat.txt
+  cut -f3 /tmp/gecici.txt > /tmp/bolum.txt
+  paste /tmp/tarih.txt /tmp/saat.txt /tmp/bolum.txt > satir-listesi.txt
+
+outputs:
+  - {path: satir-listesi.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: satir-listesi.txt, value: ["bolum: Kardiyoloji | tarih: 2024-03-12\t09:30", "bolum: Ortopedi | tarih: 2024-03-12\t10:15", "bolum: Noroloji | tarih: 2024-03-13\t11:00", "bolum: Kardiyoloji | tarih: 2024-03-13\t14:45", "bolum: Ortopedi | tarih: 2024-03-14\t08:20"]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4096
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: hastane-randevulari
+    hedef: donustur
+    girdi: json
+    kaynak: cok-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

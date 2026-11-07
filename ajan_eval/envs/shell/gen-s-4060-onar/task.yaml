@@ -1,0 +1,100 @@
+id: gen-s-4060-onar
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri dizini ağacındaki .tsv uzantılı tüm dosyalarda sicaklik sütunundaki NA olmayan sayısal değerlerin toplamını hesapla ve sonuc.txt dosyasına sadece bu toplamı yaz. .bak uzantılı dosyalar ve .tsv dışındaki dosyalar dikkate alınmamalıdır.
+
+  Şu şartlar sağlanmalı:
+  - veri dizini ağacındaki .tsv uzantılı dosyalar taranmalı; veri/istasyon_a/olcum.tsv ve veri/istasyon_b/olcum.tsv işleme alınmalı.
+  - veri/yedek/olcum.tsv.bak ve veri/istasyon_a/notlar.txt dikkate alınmamalı.
+  - Her .tsv dosyasında sicaklik sütunundaki NA olmayan sayısal değerler toplanmalı; NA değerleri toplama katılmamalı.
+  - Toplam sonuc.txt dosyasına yazılmalı.
+  - sonuc.txt içinde sadece toplam sayı bulunmalı, başka metin ya da açıklama olmamalı.
+
+setup: |
+  mkdir -p veri/istasyon_a veri/istasyon_b veri/yedek
+  cat > veri/istasyon_a/olcum.tsv <<'TSV'
+  zaman	sicaklik	nem
+  01:00	21	40
+  02:00	22	41
+  03:00	NA	42
+  04:00	24	43
+  TSV
+  cat > veri/istasyon_b/olcum.tsv <<'TSV'
+  zaman	sicaklik	nem
+  01:00	19	50
+  02:00	NA	51
+  03:00	21	52
+  04:00	22	53
+  TSV
+  cat > veri/yedek/olcum.tsv.bak <<'TSV'
+  zaman	sicaklik	nem
+  01:00	99	99
+  02:00	99	99
+  TSV
+  printf '%s\n' 'NA' > veri/istasyon_a/notlar.txt
+
+goal_tr: >
+  veri dizini agacindaki .tsv uzantili tum dosyalarda sicaklik sutunundaki
+  NA olmayan sayisal degerlerin toplamini hesaplayip sonuc.txt dosyasina
+  sadece bu toplami yaz; .bak uzantili dosyalar ve .tsv disindaki dosyalar
+  dikkate alinmamalidir.
+
+reference_solution: |
+  find veri -type f -name '*.tsv' | sort > /tmp/dosyalar.txt
+  python3 -c "
+  import sys
+  toplam = 0
+  for yol in open('/tmp/dosyalar.txt'):
+      yol = yol.strip()
+      if not yol:
+          continue
+      with open(yol) as f:
+          satirlar = f.read().splitlines()
+      if not satirlar:
+          continue
+      baslik = satirlar[0].split('\t')
+      idx = baslik.index('sicaklik')
+      for satir in satirlar[1:]:
+          alanlar = satir.split('\t')
+          if idx < len(alanlar):
+              deger = alanlar[idx].strip()
+              if deger != 'NA' and deger != '':
+                  toplam += int(deger)
+  print(toplam)
+  " > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '129'}
+
+metadata:
+  domain: onar
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4060
+    bundle: python-veri
+    tools:
+    - python3
+    konu: sensor-olcumleri
+    hedef: onar
+    girdi: tsv
+    kaynak: dizin-agaci
+    cikti: tek-sayi
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

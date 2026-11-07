@@ -1,0 +1,137 @@
+id: gen-k-8072-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) depot/spans.py dosyasindaki normalize fonksiyonunu gerçekle; spans_data.txt içindeki dolu araliklari birlestirip (start, end) çiftleri döndürsün.
+
+  2) depot/racks.py dosyasindaki free_gaps fonksiyonunu gerçekle; normalize edilmis dolu araliklari kullanarak [0, 30] araligindaki bosluklari (start, end) çiftleri olarak döndürsün.
+
+  3) depot/layout.py dosyasindaki place fonksiyonunu gerçekle; 3 birim genisligindeki ilk uygun boslugun (start, end) araligini döndürsün, yer yoksa None döndürsün.
+
+setup: |
+  mkdir -p depot
+  cat > depot/spans.py <<'SPANS'
+  def normalize(spans):
+      """Birlestirilebilir araliklari birlestirir; (start, end) ciftleri dondurur."""
+      raise NotImplementedError
+  SPANS
+  cat > depot/racks.py <<'RACKS'
+  from depot.spans import normalize
+
+
+  def free_gaps(spans, width):
+      """Raf yerlesimi icin bosluklari uretir.
+
+      Verilen dolu araliklari normalize eder, [0, width] icinde kalan
+      bosluklari (start, end) olarak dondurur.
+      """
+      raise NotImplementedError
+  RACKS
+  cat > depot/layout.py <<'LAYOUT'
+  from depot.racks import free_gaps
+
+
+  def place(spans, width, size):
+      """size genisligindeki ilk uygun bosluga yerlestirir.
+
+      Yerlestirilen (start, end) araligini dondurur; yer yoksa None.
+      """
+      raise NotImplementedError
+  LAYOUT
+  cat > depot/spans_data.txt <<'DATA'
+  5,9
+  1,4
+  12,15
+  4,6
+  20,22
+  DATA
+
+goal_tr: >
+  depot/spans.py, depot/racks.py ve depot/layout.py icindeki uc fonksiyonu
+  gercekleyerek, spans_data.txt'teki dolu araliklari birlestirip [0, 30]
+  icindeki bosluklari bulan ve 3 birim genisligindeki ilk uygun boslugun
+  (start, end) araligini donduren kodu yaz.
+
+reference_solution: |
+  cat > depot/spans.py <<'SPANS'
+  def normalize(spans):
+      cleaned = sorted((int(s), int(e)) for s, e in spans if int(s) < int(e))
+      merged = []
+      for start, end in cleaned:
+          if merged and start <= merged[-1][1]:
+              last_start, last_end = merged[-1]
+              merged[-1] = (last_start, max(last_end, end))
+          else:
+              merged.append((start, end))
+      return merged
+  SPANS
+  cat > depot/racks.py <<'RACKS'
+  from depot.spans import normalize
+
+
+  def free_gaps(spans, width):
+      merged = normalize(spans)
+      gaps = []
+      cursor = 0
+      for start, end in merged:
+          if start > cursor:
+              gaps.append((cursor, start))
+          cursor = max(cursor, end)
+      if cursor < width:
+          gaps.append((cursor, width))
+      return gaps
+  RACKS
+  cat > depot/layout.py <<'LAYOUT'
+  from depot.racks import free_gaps
+
+
+  def place(spans, width, size):
+      for start, end in free_gaps(spans, width):
+          if end - start >= size:
+              return (start, start + size)
+      return None
+  LAYOUT
+
+outputs:
+  - {path: depot/spans.py, kind: program, run: 'python3 -c ''from depot.spans import normalize; from depot.racks import free_gaps; from depot.layout import place; data=[tuple(int(x) for x in ln.split(",")) for ln in open("depot/spans_data.txt").read().split()]; assert normalize(data)==[(1,9),(12,15),(20,22)], normalize(data); assert free_gaps(data,30)==[(0,1),(9,12),(15,20),(22,30)], free_gaps(data,30); assert place(data,30,3)==(9,12), place(data,30,3); assert place(data,30,5)==(15,20); assert place(data,30,9) is None; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depot.spans import normalize; from depot.racks import free_gaps; from depot.layout import place; data=[tuple(int(x) for x in ln.split(",")) for ln in open("depot/spans_data.txt").read().split()]; assert normalize(data)==[(1,9),(12,15),(20,22)], normalize(data); assert free_gaps(data,30)==[(0,1),(9,12),(15,20),(22,30)], free_gaps(data,30); assert place(data,30,3)==(9,12), place(data,30,3); assert place(data,30,5)==(15,20); assert place(data,30,9) is None; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8072
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: depo-raf-yerlesimi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: aralik-birlestirme
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: cok-dosya-birlestirme
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

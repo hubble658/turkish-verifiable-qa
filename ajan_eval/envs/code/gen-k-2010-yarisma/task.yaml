@@ -1,0 +1,154 @@
+id: gen-k-2010-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) depo/paket/sayac.py dosyasına, depo/veri.txt dosyasındaki her kutu satırını okuyup o kutunun skorlarını çıkaran bir oku_skorlar fonksiyonu ekle.
+
+  2) depo/paket/rapor.py dosyasındaki en_iyi_yerlesim fonksiyonunu, en iyi k kutuyu eksiksiz ve doğru sırada döndürecek şekilde düzelt.
+
+  3) sayaç ve katman modülleri arasındaki mevcut bağımlılığı koru.
+
+setup: |
+  mkdir -p depo/paket
+  cat > depo/paket/sayac.py <<'PY'
+  def say_kutu(box_id, skorlar):
+      # skorlar: {box_id: {raf_id: adet}}
+      return sum(skorlar.get(box_id, {}).values())
+  PY
+  cat > depo/paket/katman.py <<'PY'
+  from depo.paket.sayac import say_kutu
+
+
+  def skor_kolonu(skorlar, box_id):
+      # her raf icin toplam adet * raf indeksi
+      raflar = skorlar.get(box_id, {})
+      toplam = 0
+      for i, (raf_id, adet) in enumerate(sorted(raflar.items())):
+          toplam += adet * i
+      return toplam
+  PY
+  cat > depo/paket/rapor.py <<'PY'
+  from depo.paket.katman import skor_kolonu
+  from depo.paket.sayac import say_kutu
+
+
+  def en_iyi_yerlesim(skorlar, k):
+      # her kutu icin (skor_kolonu + say_kutu) toplamina gore en iyi k
+      puanlar = []
+      for box_id in skorlar:
+          p = skor_kolonu(skorlar, box_id) + say_kutu(box_id, skorlar)
+          puanlar.append((box_id, p))
+      puanlar.sort(key=lambda x: (-x[1], x[0]))
+      return [b for b, _ in puanlar[:k - 1]]
+  PY
+  cat > depo/veri.txt <<'TXT'
+  A:1,3;2,5;3,1
+  B:1,1;2,1;3,1
+  C:1,10;2,0;3,0
+  D:1,2;2,2;3,2;4,2
+  TXT
+
+goal_tr: >
+  depo/veri.txt dosyasindaki her kutu satirini okuyup skorlari cikaran bir
+  oku_skorlar fonksiyonunu depo/paket/sayac.py icine ekle ve
+  depo/paket/rapor.py icindeki en_iyi_yerlesim fonksiyonunun en iyi k kutuyu
+  dogru dondurmesini sagla; sayac ve katman modulleri arasindaki bagimliligi
+  koru.
+
+reference_solution: |
+  cat > depo/paket/sayac.py <<'PY'
+  def say_kutu(box_id, skorlar):
+      return sum(skorlar.get(box_id, {}).values())
+
+
+  def oku_skorlar(yol):
+      skorlar = {}
+      with open(yol) as f:
+          for satir in f:
+              satir = satir.strip()
+              if not satir:
+                  continue
+              box_id, geri = satir.split(':')
+              raflar = {}
+              for parca in geri.split(';'):
+                  raf_id, adet = parca.split(',')
+                  raflar[raf_id] = int(adet)
+              skorlar[box_id] = raflar
+      return skorlar
+  PY
+  cat > depo/paket/rapor.py <<'PY'
+  from depo.paket.katman import skor_kolonu
+  from depo.paket.sayac import say_kutu
+
+
+  def en_iyi_yerlesim(skorlar, k):
+      puanlar = []
+      for box_id in skorlar:
+          p = skor_kolonu(skorlar, box_id) + say_kutu(box_id, skorlar)
+          puanlar.append((box_id, p))
+      puanlar.sort(key=lambda x: (-x[1], x[0]))
+      return [b for b, _ in puanlar[:k]]
+  PY
+
+ara_adim: |
+  cat > depo/paket/rapor.py <<'PY'
+  from depo.paket.katman import skor_kolonu
+  from depo.paket.sayac import say_kutu
+
+
+  def en_iyi_yerlesim(skorlar, k):
+      puanlar = []
+      for box_id in skorlar:
+          p = skor_kolonu(skorlar, box_id) + say_kutu(box_id, skorlar)
+          puanlar.append((box_id, p))
+      puanlar.sort(key=lambda x: (-x[1], x[0]))
+      return [b for b, _ in puanlar[:k]]
+  PY
+
+outputs:
+  - {path: depo/paket/sayac.py, kind: program, run: 'python3 -c ''from depo.paket.sayac import oku_skorlar as f; s=f("depo/veri.txt"); assert s["A"]=={"1":3,"2":5,"3":1}, s["A"]; assert s["D"]=={"1":2,"2":2,"3":2,"4":2}; print("TAMAM")'''}
+  - {path: depo/paket/rapor.py, kind: program, run: 'python3 -c ''from depo.paket.rapor import en_iyi_yerlesim as f; s={"A":{"1":3,"2":5,"3":1},"B":{"1":1,"2":1,"3":1},"C":{"1":10,"2":0,"3":0},"D":{"1":2,"2":2,"3":2,"4":2}}; r=f(s,4); assert r==["D","A","C","B"], r; assert f(s,2)==["D","A"]; print("TAMAM")'''}
+  - {path: depo/paket/sayac.py, kind: program, run: 'python3 -c ''from depo.paket.sayac import say_kutu as f; assert f("A",{"A":{"1":3,"2":5}}) == 8; assert f("X",{}) == 0; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.paket.rapor import en_iyi_yerlesim as f; s={"A":{"1":3,"2":5,"3":1},"B":{"1":1,"2":1,"3":1},"C":{"1":10,"2":0,"3":0},"D":{"1":2,"2":2,"3":2,"4":2}}; r=f(s,4); assert r==["D","A","C","B"], r; assert f(s,2)==["D","A"]; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.paket.sayac import oku_skorlar as f; s=f("depo/veri.txt"); assert s["A"]=={"1":3,"2":5,"3":1}, s["A"]; assert s["D"]=={"1":2,"2":2,"3":2,"4":2}; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.paket.sayac import say_kutu as f; assert f("A",{"A":{"1":3,"2":5}}) == 8; assert f("X",{}) == 0; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-2010
+    bundle: yarisma
+    tools:
+    - python3
+    konu: depo-raf-yerlesimi
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sayma
+      karmasiklik: orta
+      kalip: duz-fonksiyon
+      akis: dosya-okuma
+      topoloji: elmas
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

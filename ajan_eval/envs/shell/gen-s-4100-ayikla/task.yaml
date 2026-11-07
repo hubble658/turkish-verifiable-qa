@@ -1,0 +1,75 @@
+id: gen-s-4100-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  randevular dizinindeki tüm csv dosyalarındaki randevu satırlarını, başlık satırları hariç, tek bir başlık satırıyla birlesik_randevular.csv dosyasına yaz; satırlar hasta adına göre alfabetik olarak sıralı olsun.
+
+setup: |
+  mkdir -p randevular
+  cat > randevular/sabah.csv <<'CSV'
+  hasta,bolum,tarih
+  Ayse,Kardiyoloji,2024-03-01
+  Mehmet,Ortopedi,2024-03-01
+  Zeynep,Kardiyoloji,2024-03-02
+  CSV
+  cat > randevular/ogleden.csv <<'CSV'
+  hasta,bolum,tarih
+  Ali,Ortopedi,2024-03-01
+  Fatma,Noroloji,2024-03-03
+  Hasan,Kardiyoloji,2024-03-02
+  CSV
+  cat > randevular/aksam.csv <<'CSV'
+  hasta,bolum,tarih
+  Ipek,Noroloji,2024-03-03
+  Burak,Ortopedi,2024-03-02
+  CSV
+
+goal_tr: >
+  randevular dizinindeki tum csv dosyalarindaki randevu satirlarini
+  (basliklar haric) birlestirip hasta adina gore alfabetik sirali olarak
+  birlesik_randevular.csv dosyasina tek bir baslik satiri ile yaz
+
+reference_solution: |
+  head -n 1 randevular/sabah.csv > birlesik_randevular.csv
+  tail -n +2 randevular/sabah.csv > /tmp/g1
+  tail -n +2 randevular/ogleden.csv > /tmp/g2
+  tail -n +2 randevular/aksam.csv > /tmp/g3
+  sort /tmp/g1 /tmp/g2 /tmp/g3 > /tmp/hepsi
+  comm -23 /tmp/hepsi /tmp/hepsi >> birlesik_randevular.csv
+  sort /tmp/hepsi >> birlesik_randevular.csv
+
+outputs:
+  - {path: birlesik_randevular.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: birlesik_randevular.csv, value: ['hasta,bolum,tarih', 'Ali,Ortopedi,2024-03-01', 'Ayse,Kardiyoloji,2024-03-01', 'Burak,Ortopedi,2024-03-02', 'Fatma,Noroloji,2024-03-03', 'Hasan,Kardiyoloji,2024-03-02', 'Ipek,Noroloji,2024-03-03', 'Mehmet,Ortopedi,2024-03-01', 'Zeynep,Kardiyoloji,2024-03-02']}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4100
+    bundle: kume-farki
+    tools:
+    - comm
+    - sort
+    konu: hastane-randevulari
+    hedef: ayikla
+    girdi: csv
+    kaynak: cok-dosya
+    cikti: csv
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: olcek
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,118 @@
+id: gen-k-8102-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Ofisimizde toplantı odası sıkıntısı var; insanlar aynı saatlere denk toplantı koyup sonra odaların yetmediğini fark ediyor. Ben de bunu önceden görebilmek için basit bir planlayıcı yazmak istiyorum. Elimde zaten schedule.txt dosyası var ve etkinlikleri okumak için tracker.events.load_events fonksiyonunu kullanıyorum.
+
+  tracker/planner.py dosyasını oluştur: schedule.txt'yi tracker.events.load_events ile okuyup, her etkinlik için o anda kaç etkinliğin aynı anda sürdüğünü hesaplayan ve tüm zaman çizgisindeki en yüksek eşzamanlı etkinlik sayısını (peak) döndüren, durum tutan bir RoomPlanner sınıfı tanımlasın. Sınıfın peak() metodu bu sayıyı, timeline() metodu ise sıralı (zaman, değişim) demetlerinden oluşan listeyi döndürsün.
+
+setup: |
+  mkdir -p tracker
+  cat > tracker/events.py <<'EVENTS'
+  def load_events(path):
+      """Read 'HH:MM,HH:MM' lines from path; return list of (start, end) tuples."""
+      rows = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              start, end = line.split(',')
+              rows.append((start.strip(), end.strip()))
+      return rows
+  EVENTS
+  cat > schedule.txt <<'DATA'
+  09:00,10:30
+  09:45,11:00
+  13:00,14:00
+  13:30,15:30
+  13:45,14:15
+  DATA
+
+goal_tr: >
+  tracker/planner.py dosyasini yaz: schedule.txt'yi
+  tracker.events.load_events ile okuyup, her etkinlik icin o anda kac
+  etkinligin ayni anda surdugunu hesaplayan ve tum zaman cizgisindeki en
+  yuksek eszamanli etkinlik sayisini (peak) donduren, durum tutan bir
+  RoomPlanner sinifi tanimla; sinifin peak() metodu bu sayiyi, timeline()
+  metodu ise sirali (zaman, degisim) demetlerinden olusan listeyi dondursun.
+
+reference_solution: |
+  cat > tracker/planner.py <<'PLANNER'
+  from tracker.events import load_events
+
+
+  class RoomPlanner:
+      def __init__(self, path):
+          self.events = load_events(path)
+          self._timeline = None
+          self._peak = None
+
+      def _build(self):
+          deltas = {}
+          for start, end in self.events:
+              deltas[start] = deltas.get(start, 0) + 1
+              deltas[end] = deltas.get(end, 0) - 1
+          ordered = sorted(deltas.items())
+          timeline = []
+          running = 0
+          for moment, change in ordered:
+              running += change
+              timeline.append((moment, running))
+          self._timeline = timeline
+          self._peak = max((count for _, count in timeline), default=0)
+
+      def timeline(self):
+          if self._timeline is None:
+              self._build()
+          return list(self._timeline)
+
+      def peak(self):
+          if self._peak is None:
+              self._build()
+          return self._peak
+  PLANNER
+
+outputs:
+  - {path: tracker/planner.py, kind: program, run: 'python3 -c ''from tracker.planner import RoomPlanner; p=RoomPlanner("schedule.txt"); assert p.peak()==3, p.peak(); t=p.timeline(); assert t[0]==("09:00",1), t; assert ("09:45",2) in t; assert ("13:45",3) in t; assert t[-1]==("15:30",0), t; assert RoomPlanner("schedule.txt").peak()==3; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from tracker.planner import RoomPlanner; p=RoomPlanner("schedule.txt"); assert p.peak()==3, p.peak(); t=p.timeline(); assert t[0]==("09:00",1), t; assert ("09:45",2) in t; assert ("13:45",3) in t; assert t[-1]==("15:30",0), t; assert RoomPlanner("schedule.txt").peak()==3; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8102
+    bundle: yarisma
+    tools:
+    - python3
+    konu: takvim-etkinlikleri
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: benzetim
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

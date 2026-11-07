@@ -1,0 +1,151 @@
+id: gen-k-9059-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 18
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  planner/schedule.py dosyasındaki build_schedule fonksiyonunu düzelt; fonksiyon her çağrıldığında temiz, boş olmayan bir liste döndürsün ve önceki çağrılardan kalan kayıtları biriktirmesin. planner/report.py dosyasındaki first_title fonksiyonu ise ilk etkinliğin adını döndürsün. planner/events.py dosyasındaki mevcut yapıyı koru.
+
+setup: |
+  mkdir -p planner
+  cat > planner/events.py <<'EVENTS'
+  from abc import ABC, abstractmethod
+
+
+  class EventSource(ABC):
+      @abstractmethod
+      def load(self):
+          raise NotImplementedError
+
+
+  class FileEventSource(EventSource):
+      def __init__(self, path):
+          self.path = path
+
+      def load(self):
+          events = []
+          with open(self.path) as fh:
+              for line in fh:
+                  line = line.strip()
+                  if not line:
+                      continue
+                  title, day, hour = line.split(";")
+                  events.append((title, int(day), int(hour)))
+          return events
+  EVENTS
+  cat > planner/schedule.py <<'SCHEDULE'
+  from planner.events import FileEventSource
+
+
+  def build_schedule(source, bucket=[]):
+      for item in source.load():
+          bucket.append(item)
+      return bucket
+  SCHEDULE
+  cat > planner/report.py <<'REPORT'
+  from planner.schedule import build_schedule
+
+
+  def daily_titles(source):
+      schedule = build_schedule(source)
+      days = {}
+      for title, day, hour in schedule:
+          days.setdefault(day, []).append(title)
+      return days
+
+
+  def first_title(source):
+      schedule = build_schedule(source)
+      return schedule[1][0]
+  REPORT
+  cat > events.txt <<'DATA'
+  standup;1;9
+  review;1;14
+  demo;2;10
+  DATA
+
+goal_tr: >
+  planner/schedule.py icindeki build_schedule fonksiyonunu her cagrida
+  temiz, bos olmayan bir liste dondurecek ve onceki cagrilarin kayitlarini
+  biriktirmeyecek bicimde duzelt; planner/report.py icindeki first_title
+  fonksiyonunun ise ilk etkinlik adini dondurmesini sagla.
+
+reference_solution: |
+  cat > planner/schedule.py <<'SCHEDULE'
+  from planner.events import FileEventSource
+
+
+  def build_schedule(source):
+      return list(source.load())
+  SCHEDULE
+  cat > planner/report.py <<'REPORT'
+  from planner.schedule import build_schedule
+
+
+  def daily_titles(source):
+      schedule = build_schedule(source)
+      days = {}
+      for title, day, hour in schedule:
+          days.setdefault(day, []).append(title)
+      return days
+
+
+  def first_title(source):
+      schedule = build_schedule(source)
+      return schedule[0][0]
+  REPORT
+
+ara_adim: |
+  cat > planner/schedule.py <<'SCHEDULE'
+  from planner.events import FileEventSource
+
+
+  def build_schedule(source):
+      return list(source.load())
+  SCHEDULE
+
+outputs:
+  - {path: planner/report.py, kind: program, run: 'python3 -c ''from planner.events import FileEventSource as S; from planner.report import first_title as f; a=S("events.txt"); b=S("events.txt"); assert f(a)=="standup", f(a); assert f(b)=="standup", f(b); print("ZINCIR-TAMAM")'''}
+  - {path: planner/schedule.py, kind: program, run: 'python3 -c ''from planner.events import FileEventSource as S; from planner.schedule import build_schedule as b; s1=S("events.txt"); s2=S("events.txt"); r1=b(s1); assert [e[0] for e in r1]==["standup","review","demo"], r1; r2=b(s2); assert [e[0] for e in r2]==["standup","review","demo"], r2; assert len(r2)==3, r2; print("ILERLEME-TAMAM")'''}
+  - {path: planner/events.py, kind: program, run: 'python3 -c ''from planner.events import FileEventSource as S, EventSource as E; assert issubclass(S,E); assert S("events.txt").load()==[("standup",1,9),("review",1,14),("demo",2,10)]; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from planner.events import FileEventSource as S; from planner.report import first_title as f; a=S("events.txt"); b=S("events.txt"); assert f(a)=="standup", f(a); assert f(b)=="standup", f(b); print("ZINCIR-TAMAM")''', value: ZINCIR-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from planner.events import FileEventSource as S; from planner.schedule import build_schedule as b; s1=S("events.txt"); s2=S("events.txt"); r1=b(s1); assert [e[0] for e in r1]==["standup","review","demo"], r1; r2=b(s2); assert [e[0] for e in r2]==["standup","review","demo"], r2; assert len(r2)==3, r2; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from planner.events import FileEventSource as S, EventSource as E; assert issubclass(S,E); assert S("events.txt").load()==[("standup",1,9),("review",1,14),("demo",2,10)]; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9059
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: takvim-etkinlikleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 6
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: mutable-varsayilan
+      karmasiklik: orta
+      kalip: abc-protokol
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

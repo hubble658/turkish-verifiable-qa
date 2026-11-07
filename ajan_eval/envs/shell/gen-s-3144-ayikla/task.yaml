@@ -1,0 +1,69 @@
+id: gen-s-3144-ayikla
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  muhasebe klasöründeki bir.csv ve iki.csv dosyalarını karşılaştır; her iki dosyada da bulunan id değerlerinden tutar değerleri eşit olan satırları seç ve bu satırları muhasebe/ortak.csv dosyasına yaz. Başlık satırı hariç tutulsun; ortak.csv dosyasında da id ve tutar başlıkları yer alsın.
+
+setup: |
+  mkdir -p muhasebe
+  cat > muhasebe/bir.csv <<'CSV'
+  id,tutar
+  K001,120
+  K002,75
+  K003,300
+  K004,50
+  CSV
+  cat > muhasebe/iki.csv <<'CSV'
+  id,tutar
+  K001,120
+  K002,90
+  K005,40
+  K004,50
+  CSV
+
+goal_tr: >
+  muhasebe/bir.csv ve muhasebe/iki.csv dosyalarinda ortak olan id
+  satirlarini (ilk satir basliklari haric) tutar degerleri esit olanlari
+  secip muhasebe/ortak.csv dosyasina yaz
+
+reference_solution: |
+  head -1 muhasebe/bir.csv > muhasebe/ortak.csv
+  tail -n +2 muhasebe/bir.csv | sort > /tmp/bir.txt
+  tail -n +2 muhasebe/iki.csv | sort > /tmp/iki.txt
+  comm -12 /tmp/bir.txt /tmp/iki.txt >> muhasebe/ortak.csv
+
+outputs:
+  - {path: muhasebe/ortak.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: muhasebe/ortak.csv, value: ['id,tutar', 'K001,120', 'K004,50']}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3144
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: muhasebe-kalemleri
+    hedef: ayikla
+    girdi: csv
+    kaynak: iki-dosya-capraz
+    cikti: yeniden-adlandirilmis
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: yok
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

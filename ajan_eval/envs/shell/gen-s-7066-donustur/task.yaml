@@ -1,0 +1,83 @@
+id: gen-s-7066-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) vardiya.ini dosyasını oku ve içindeki her personel bölümünü incele.
+  2) Aynı personel birden fazla kez geçtiğinde, o personel için yalnızca son geçen kaydı geçerli say.
+  3) Her personelin adını anahtar yap; değerinde o personelin gün ve vardiya çiftlerinin listesini tut.
+  4) Elde ettiğin yapıyı geçerli bir JSON nesnesi olarak vardiya.json dosyasına yaz.
+
+setup: |
+  cat > vardiya.ini <<'INI'
+  [Ahmet]
+  gun=2024-05-01
+  vardiya=sabah
+  [Mehmet]
+  gun=2024-05-01
+  vardiya=aksam
+  [Ahmet]
+  gun=2024-05-02
+  vardiya=aksam
+  [Zeynep]
+  gun=2024-05-02
+  vardiya=sabah
+  [Mehmet]
+  gun=2024-05-02
+  vardiya=sabah
+  [Zeynep]
+  gun=2024-05-03
+  vardiya=aksam
+  [Ahmet]
+  gun=2024-05-03
+  vardiya=sabah
+  [Mehmet]
+  gun=2024-05-03
+  vardiya=aksam
+  INI
+
+goal_tr: >
+  vardiya.ini dosyasindaki her personel icin, tekrar eden kayitlarda sonuncu
+  vardiya atamasi gecerli olacak sekilde, personel adini anahtar yapan ve
+  degerinde gun ile vardiya ciftlerinin listesini tutan gecerli bir JSON
+  nesnesini vardiya.json dosyasina yaz
+
+reference_solution: |
+  sed -n 's/^\[\(.*\)\]$/\1/p' vardiya.ini | sort -u > /tmp/personel.txt
+  paste -d' ' - - - < <(cut -c2- vardiya.ini) | grep -v '^ *$' > /tmp/atama.txt
+  awk 'NR==FNR{ad[$1]=1; next} $1 in ad {k=$1; g[k]=$2; v[k]=$3; if(!(k in gor)){sira[++n]=k; gor[k]=1}} END{s=""; for(i=1;i<=n;i++){k=sira[i]; s=s sprintf("%s\"%s\":[{\"gun\":\"%s\",\"vardiya\":\"%s\"}]", (i>1?",":""), k, g[k], v[k])} print "{" s "}"}' /tmp/personel.txt /tmp/atama.txt > vardiya.json
+
+outputs:
+  - {path: vardiya.json, kind: json}
+
+checks:
+  - {op: json_eq, path: vardiya.json, value: {}}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7066
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: personel-vardiyalari
+    hedef: donustur
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: json
+    kesif: yok
+    uslup: numarali-emir
+    direnc: tekrar-eden-kayit
+    bukulme: olcek
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

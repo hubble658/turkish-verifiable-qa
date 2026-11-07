@@ -1,0 +1,89 @@
+id: gen-s-7216-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) veri dizini altındaki her istasyon alt dizinini incele.
+  2) Her istasyon alt dizinindeki sicaklik.txt ve nem.txt dosyalarındaki satır sayılarını bul.
+  3) Her istasyon için sicaklik.txt ve nem.txt dosyalarındaki satır sayılarını toplayarak o istasyonun toplam ölçüm sayısını hesapla.
+  4) ozet dizinini oluştur.
+  5) Her istasyonun adını ve toplam ölçüm sayısını, aralarında bir boşluk olacak şekilde "istasyon toplam" biçiminde, her istasyon için tek satır olarak ozet/istasyon_ozet.txt dosyasına yaz.
+
+setup: |
+  mkdir -p veri/istasyon_a veri/istasyon_b veri/istasyon_c
+  cat > veri/istasyon_a/sicaklik.txt <<'T'
+  21.5
+  22.0
+  19.5
+  T
+  cat > veri/istasyon_a/nem.txt <<'T'
+  45
+  50
+  T
+  cat > veri/istasyon_b/sicaklik.txt <<'T'
+  18.0
+  17.5
+  T
+  cat > veri/istasyon_b/nem.txt <<'T'
+  60
+  T
+  cat > veri/istasyon_c/notlar.txt <<'T'
+  bu dosya olcum degil
+  T
+  cat > veri/README.txt <<'T'
+  istasyon dizinleri olcum dosyalari icerir
+  T
+
+goal_tr: >
+  veri dizini agacindaki her istasyon alt dizini icin sicaklik.txt ve
+  nem.txt dosyalarindaki satir sayilarini bulup, her istasyon adini ve
+  toplam olcum sayisini ozet/istasyon_ozet.txt dosyasina "istasyon toplam"
+  biciminde tek satirda yaz
+
+reference_solution: |
+  mkdir -p ozet
+  find veri -mindepth 1 -maxdepth 1 -type d | sort > /tmp/dizinler.txt
+  while read d; do
+    ad=$(basename "$d")
+    s=$(wc -l < "$d/sicaklik.txt" 2>/dev/null || echo 0)
+    n=$(wc -l < "$d/nem.txt" 2>/dev/null || echo 0)
+    echo "$ad $((s + n))"
+  done < /tmp/dizinler.txt > ozet/istasyon_ozet.txt
+  grep -c . ozet/istasyon_ozet.txt > /dev/null
+
+outputs:
+  - {path: ozet/istasyon_ozet.txt, kind: lines}
+  - {path: ozet, kind: dir}
+
+checks:
+  - {op: dir_entries_eq, path: ozet, value: [istasyon_ozet.txt]}
+  - {op: file_lines_eq, path: ozet/istasyon_ozet.txt, value: [istasyon_a 5, istasyon_b 3, istasyon_c 0]}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7216
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: sensor-olcumleri
+    hedef: ozetle
+    girdi: json
+    kaynak: dizin-agaci
+    cikti: dizin-yapisi
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: bom
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

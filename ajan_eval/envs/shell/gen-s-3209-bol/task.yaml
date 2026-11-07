@@ -1,0 +1,63 @@
+id: gen-s-3209-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Dünkü yoğunluktan sonra bugün biraz daha sakin bir gün geçiriyoruz; kafede siparişlerin nasıl gittiğine dair elimizdeki ham kayıtları düzenlemeye karar verdim. Elimde siparişler.txt diye bir dosya var; içinde masa kodu, ürün, adet ve fiyat sütunları olan sabit genişlikli bir tablo duruyor. Bu ham tabloyu okuyup her masanın toplam tutarını çıkarmak ve bunu masa koduna göre artan sırada, masa ile tutar alanlarından oluşan bir JSON nesnesi halinde ozet.json dosyasına yazmak istiyorum. Her masanın tutarı, o masaya ait satırlardaki adet ile fiyatın çarpımlarının toplamı olacak. Çalışma dizininde ozet.json dosyasını oluşturman yeterli, başka bir şeye gerek yok.
+
+setup: |
+  cat > siparisler.txt <<'DATA'
+  MASA  URUN        ADET FIYAT
+  A01   CORBA       2    45
+  A01   KEBAP       1    120
+  A02   SALATA      3    30
+  A02   CORBA       1    45
+  A03   KEBAP       2    120
+  DATA
+
+goal_tr: >
+  siparisler.txt sabit genislikli tablosundaki her masanin toplam tutarini
+  (adet*fiyat toplami) masa koduna gore artan sirada masa ve tutar
+  alanlarindan olusan bir JSON nesnesi olarak ozet.json dosyasina yaz.
+
+reference_solution: |
+  tail -n +2 siparisler.txt | cut -c1-6,19-22 > ara_kayit.txt
+  awk '{toplam[$1]+=$2*$3} END {for (m in toplam) print m, toplam[m]}' ara_kayit.txt | sort > masa_toplam.txt
+  tee ozet.json < /dev/null > /dev/null
+  awk 'BEGIN{printf "{"} {printf "%s\"%s\": %d", (NR>1?", ":""), $1, $2} END{printf "}\n"}' masa_toplam.txt > ozet.json
+  cat ozet.json
+
+outputs:
+  - {path: ozet.json, kind: json}
+
+checks:
+  - {op: json_eq, path: ozet.json, value: {A01: 0, A02: 0, A03: 0}}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3209
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: restoran-siparisleri
+    hedef: bol
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: json
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,112 @@
+id: gen-k-5096-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sessions/summary.py dosyasındaki total_seconds ve per_user_totals fonksiyonları şu an süreleri olduğu gibi topluyor; oysa kayıtlardaki seconds değerleri bazen metin olarak geliyor. Bu iki fonksiyonu, süreleri önce sayısal değerlerine çevirip sonra toplayacak ve doğru toplamları döndürecek biçimde düzelt. sessions/events.py ve records.py dosyalarına dokunma.
+
+setup: |
+  mkdir -p sessions
+  cat > sessions/events.py <<'EVENTS'
+  def iter_events(records):
+      for rec in records:
+          user = rec.get("user")
+          for ev in rec.get("events", []):
+              yield (user, ev.get("kind"), ev.get("seconds", 0))
+  EVENTS
+  cat > sessions/summary.py <<'SUMMARY'
+  from sessions.events import iter_events
+
+
+  def total_seconds(records, user):
+      total = 0
+      for name, kind, seconds in iter_events(records):
+          if name == user and kind == "active":
+              total = total + seconds
+      return total
+
+
+  def per_user_totals(records):
+      result = {}
+      for name, kind, seconds in iter_events(records):
+          if kind == "active":
+              result[name] = result.get(name, 0) + seconds
+      return result
+  SUMMARY
+  cat > records.py <<'DATA'
+  RECORDS = [
+      {"user": "ada", "events": [{"kind": "active", "seconds": "30"},
+                                 {"kind": "idle", "seconds": 40}]},
+      {"user": "bob", "events": [{"kind": "active", "seconds": 5}]},
+      {"user": "ada", "events": [{"kind": "active", "seconds": 12}]},
+  ]
+  DATA
+
+goal_tr: >
+  sessions/summary.py icindeki total_seconds ve per_user_totals
+  fonksiyonlarini, sureleri sayisal degerlerine cevirip dogru toplamlari
+  dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > sessions/summary.py <<'SUMMARY'
+  from sessions.events import iter_events
+
+
+  def total_seconds(records, user):
+      total = 0
+      for name, kind, seconds in iter_events(records):
+          if name == user and kind == "active":
+              total = total + int(seconds)
+      return total
+
+
+  def per_user_totals(records):
+      result = {}
+      for name, kind, seconds in iter_events(records):
+          if kind == "active":
+              result[name] = result.get(name, 0) + int(seconds)
+      return result
+  SUMMARY
+
+outputs:
+  - {path: sessions/summary.py, kind: program, run: 'python3 -c ''import records; from sessions.summary import total_seconds as t, per_user_totals as p; r=records.RECORDS; assert t(r,"ada")==42, t(r,"ada"); assert t(r,"bob")==5, t(r,"bob"); assert p(r)=={"ada":42,"bob":5}, p(r); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import records; from sessions.summary import total_seconds as t, per_user_totals as p; r=records.RECORDS; assert t(r,"ada")==42, t(r,"ada"); assert t(r,"bob")==5, t(r,"bob"); assert p(r)=={"ada":42,"bob":5}, p(r); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5096
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kullanici-oturumlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: zor
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: tip-karismasi
+      karmasiklik: duz
+      kalip: generator
+      akis: ic-ice-yapi
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

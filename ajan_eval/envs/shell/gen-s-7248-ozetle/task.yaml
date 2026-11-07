@@ -1,0 +1,81 @@
+id: gen-s-7248-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  logs/access.log dosyasındaki her satırın ilk alanındaki IP adresini, logs/app.ini dosyasındaki host değerleriyle karşılaştır. Her host için o hosta ait log satırı sayısını ve 500 durum kodu geçen satır sayısını say. Sonucu ozet.json dosyasına geçerli bir JSON nesnesi olarak yaz; anahtarlar host adresleri olsun, her değer "toplam" ve "hata" alanlarını içeren bir nesne olsun.
+
+setup: |
+  mkdir -p logs
+  cat > logs/app.ini <<'INI'
+  [server]
+  host = 10.0.0.5
+  port = 8080
+  level = info
+
+  [cache]
+  host = 10.0.0.5
+  port = 6379
+  level = warn
+
+  [db]
+  host = 10.0.0.9
+  port = 5432
+  level = error
+  INI
+
+  cat > logs/access.log <<'LOG'
+  10.0.0.5 GET /index 200
+  10.0.0.5 GET /index 200
+  10.0.0.5 POST /login 500
+  10.0.0.9 GET /health 200
+  10.0.0.9 GET /missing 404
+  10.0.0.9 POST /login 500
+  LOG
+
+goal_tr: >
+  logs/access.log icindeki her satirin ilk alanindaki IP adresini
+  logs/app.ini dosyasindaki host degerleriyle karsilastirip, her host icin o
+  hosta ait log satiri sayisini ve 500 durum kodu gecen satir sayisini say
+  ve sonucu ozet.json dosyasina gecerli bir JSON nesnesi olarak yaz;
+  anahtarlar host adresleri, degerler ise "toplam" ve "hata" alanlarini
+  iceren nesneler olsun.
+
+reference_solution: |
+  awk -F'= *' '/host/{h[$2]++} END{for(k in h) print k}' logs/app.ini | sort > /tmp/hosts.txt
+  awk '{c[$1]++; if($NF==500) e[$1]++} END{for(k in c) print k, c[k], e[k]+0}' logs/access.log | sort > /tmp/counts.txt
+  awk 'BEGIN{printf "{"} FNR==NR{h[$1]=1; next} {if($1 in h){if(n++)printf ","; printf "\"%s\":{\"toplam\":%d,\"hata\":%d}", $1, $2, $3}} END{printf "}\n"}' /tmp/hosts.txt /tmp/counts.txt > ozet.json
+
+outputs:
+  - {path: ozet.json, kind: json}
+
+checks:
+  - {op: json_eq, path: ozet.json, value: {10.0.0.5: {toplam: 3, hata: 1}, 10.0.0.9: {toplam: 3, hata: 1}}}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7248
+    bundle: awk
+    tools:
+    - awk
+    konu: sunucu-loglari
+    hedef: ozetle
+    girdi: ini
+    kaynak: iki-dosya-capraz
+    cikti: json
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,94 @@
+id: gen-s-4108-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  vardiya-girdi dizinindeki her json dosyasını oku. Her satırdaki ekip ve gün alanlarını birleştirerek "ekip-gun" biçiminde bir alt dizin adı oluştur ve bu dizinleri vardiya-cikti dizini altında oluştur. Her satırdaki vardiya ve kişi değerlerini "vardiya:kisi" biçiminde, ilgili ekip-gun dizinindeki kisiler.txt dosyasına yaz. Böylece vardiya-cikti altında her ekip-gun için bir alt dizin ve içinde kisiler.txt oluşsun. Ayrıca her kisiler.txt satırındaki kişi adı ters çevrilmiş biçimde de yazılsın.
+
+  Şu şartlar sağlanmalı:
+  - vardiya-cikti dizini oluşturulmalı.
+  - vardiya-cikti altında kuzey-pazartesi, kuzey-sali, guney-pazartesi ve guney-sali alt dizinleri oluşturulmalı.
+  - vardiya-cikti/kuzey-pazartesi/kisiler.txt, vardiya-cikti/kuzey-sali/kisiler.txt, vardiya-cikti/guney-pazartesi/kisiler.txt ve vardiya-cikti/guney-sali/kisiler.txt dosyaları oluşturulmalı.
+  - Her kisiler.txt satırında ilgili kaydın vardiya ve kişi değeri "vardiya:kisi" biçiminde yer almalı.
+  - Her satırda kişi adı ters çevrilmiş biçimde de yazılmalı.
+
+setup: |
+  mkdir -p vardiya-girdi
+  cat > "vardiya-girdi/kuzey ekibi.json" <<'JSON'
+  {"ekip":"kuzey","gun":"pazartesi","vardiya":"sabah","kisi":"ali"}
+  {"ekip":"kuzey","gun":"pazartesi","vardiya":"gece","kisi":"ayse"}
+  {"ekip":"kuzey","gun":"sali","vardiya":"sabah","kisi":"ali"}
+  JSON
+  cat > "vardiya-girdi/guney ekibi.json" <<'JSON'
+  {"ekip":"guney","gun":"pazartesi","vardiya":"sabah","kisi":"mehmet"}
+  {"ekip":"guney","gun":"sali","vardiya":"gece","kisi":"zeynep"}
+  {"ekip":"guney","gun":"sali","vardiya":"gece","kisi":"mehmet"}
+  JSON
+
+goal_tr: >
+  vardiya-girdi dizinindeki her json dosyasi icin, dosyadaki her satirdaki
+  ekip ve gun alanlarini birlestirip "ekip-gun" adli bir alt dizin olustur
+  ve o gun icin vardiya ile kisi degerlerini "vardiya:kisi" biciminde bu
+  dizindeki kisiler.txt dosyasina yaz; boylece vardiya-cikti dizini altinda
+  her ekip-gun icin bir alt dizin ve icinde kisiler.txt olussun, ayrica her
+  kisiler.txt satirindaki kisi adi ters cevrilmis bicimde de yazilsin
+
+reference_solution: |
+  mkdir -p vardiya-cikti
+  for f in vardiya-girdi/*.json; do
+    while IFS= read -r satir; do
+      ekip=$(printf '%s' "$satir" | cut -d'"' -f4)
+      gun=$(printf '%s' "$satir" | cut -d'"' -f8)
+      vardiya=$(printf '%s' "$satir" | cut -d'"' -f12)
+      kisi=$(printf '%s' "$satir" | cut -d'"' -f16)
+      ters=$(printf '%s' "$kisi" | rev)
+      mkdir -p "vardiya-cikti/$ekip-$gun"
+      printf '%s:%s:%s\n' "$vardiya" "$kisi" "$ters" >> "vardiya-cikti/$ekip-$gun/kisiler.txt"
+    done < "$f"
+  done
+  for d in vardiya-cikti/*/; do
+    sort -o "$d/kisiler.txt" "$d/kisiler.txt"
+  done
+
+outputs:
+  - {path: vardiya-cikti, kind: dir}
+  - {path: vardiya-cikti/kuzey-pazartesi/kisiler.txt, kind: file}
+  - {path: vardiya-cikti/kuzey-sali/kisiler.txt, kind: file}
+  - {path: vardiya-cikti/guney-pazartesi/kisiler.txt, kind: file}
+  - {path: vardiya-cikti/guney-sali/kisiler.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: vardiya-cikti, value: [guney-pazartesi, guney-sali, kuzey-pazartesi, kuzey-sali]}
+  - {op: file_content_eq, path: vardiya-cikti/guney-pazartesi/kisiler.txt, value: 'sabah:mehmet:temhem'}
+  - {op: file_lines_eq, path: vardiya-cikti/guney-sali/kisiler.txt, value: ['gece:mehmet:temhem', 'gece:zeynep:penyez']}
+  - {op: file_lines_eq, path: vardiya-cikti/kuzey-pazartesi/kisiler.txt, value: ['gece:ayse:esya', 'sabah:ali:ila']}
+  - {op: file_content_eq, path: vardiya-cikti/kuzey-sali/kisiler.txt, value: 'sabah:ali:ila'}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4108
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: personel-vardiyalari
+    hedef: ayikla
+    girdi: json
+    kaynak: cok-dosya
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: bosluklu-ad
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

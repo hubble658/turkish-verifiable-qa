@@ -1,0 +1,105 @@
+id: gen-k-5026-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sensors/aggregate.py dosyasındaki Aggregator soyut sınıfını temel alan somut bir alt sınıf yaz: adı DistinctCount olsun ve combine metodu kendisine verilen değer listesindeki farklı değerlerin kümesini döndürsün. Böylece apply çağrısı her sensör için ayrı değer sayısını verecek.
+
+setup: |
+  mkdir -p sensors
+  cat > sensors/readings.py <<'READINGS'
+  def load_series(text):
+      series = {}
+      for line in text.strip().splitlines():
+          sid, value = line.split(',')
+          series.setdefault(sid, []).append(float(value))
+      return series
+  READINGS
+  cat > sensors/aggregate.py <<'AGG'
+  from abc import ABC, abstractmethod
+
+
+  class Aggregator(ABC):
+      @abstractmethod
+      def combine(self, values):
+          ...
+
+      def apply(self, series):
+          return {sid: self.combine(vals) for sid, vals in series.items()}
+  AGG
+  cat > data.txt <<'DATA'
+  s1,10
+  s2,5
+  s1,20
+  s3,7
+  s2,15
+  s1,30
+  DATA
+
+goal_tr: >
+  sensors/aggregate.py icindeki Aggregator soyut sinifini temel alan,
+  combine metodu verilen bir deger listesindeki FARKLI degerlerin kumesini
+  donduren DistinctCount adli somut bir alt sinif yaz; boylece apply cagrisi
+  her sensor icin ayri deger sayisini verir.
+
+reference_solution: |
+  cat > sensors/aggregate.py <<'AGG'
+  from abc import ABC, abstractmethod
+
+
+  class Aggregator(ABC):
+      @abstractmethod
+      def combine(self, values):
+          ...
+
+      def apply(self, series):
+          return {sid: self.combine(vals) for sid, vals in series.items()}
+
+
+  class DistinctCount(Aggregator):
+      def combine(self, values):
+          return len(set(values))
+  AGG
+
+outputs:
+  - {path: sensors/aggregate.py, kind: program, run: 'python3 -c ''from sensors.readings import load_series; from sensors.aggregate import Aggregator, DistinctCount; s=load_series(open("data.txt").read()); a=DistinctCount(); assert isinstance(a, Aggregator); r=a.apply(s); assert r=={"s1":3,"s2":2,"s3":1}, r; assert Aggregator.__abstractmethods__==frozenset({"combine"}); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensors.readings import load_series; from sensors.aggregate import Aggregator, DistinctCount; s=load_series(open("data.txt").read()); a=DistinctCount(); assert isinstance(a, Aggregator); r=a.apply(s); assert r=={"s1":3,"s2":2,"s3":1}, r; assert Aggregator.__abstractmethods__==frozenset({"combine"}); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5026
+    bundle: yarisma
+    tools:
+    - python3
+    konu: sensor-serisi
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kume-islemleri
+      karmasiklik: duz
+      kalip: abc-protokol
+      akis: cok-dosya-birlestirme
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,138 @@
+id: gen-k-8130-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  depot/core/birlestir.py içindeki Birlestirici sınıfını, ozyinelemeli yol sıkıştırmalı birleşim-bulma yapısıyla gerçekleştir. Sınıfın kok, birlestir ve gruplar metotları beklendiği gibi çalışsın; kok verilen bir öğenin kökünü döndürsün, birlestir iki öğeyi aynı kümede birleştirsin ve gruplar her kökü o kümedeki üye indekslerine eşleyen bir yapı döndürsün. Bu sayede depot/rapor/envanter.py içindeki raf_gruplari fonksiyonu, aynı raftaki ürün adlarını alfabetik olarak sıralı ve raf adına göre sıralanmış gruplar halinde döndürebilsin.
+
+setup: |
+  mkdir -p depot/core depot/rapor
+  : > depot/__init__.py
+  : > depot/core/__init__.py
+  : > depot/rapor/__init__.py
+  cat > depot/core/birlestir.py <<'PY'
+  class Birlestirici:
+      def __init__(self, n):
+          raise NotImplementedError
+
+      def kok(self, x):
+          raise NotImplementedError
+
+      def birlestir(self, a, b):
+          raise NotImplementedError
+
+      def gruplar(self):
+          raise NotImplementedError
+  PY
+  cat > depot/rapor/envanter.py <<'PY'
+  from depot.core.birlestir import Birlestirici
+
+
+  def raf_gruplari(lines):
+      kayitlar = []
+      for line in lines:
+          line = line.strip()
+          if not line:
+              continue
+          urun, raf = line.split(':')
+          kayitlar.append((urun, raf))
+      b = Birlestirici(len(kayitlar))
+      ilk = {}
+      for i, (urun, raf) in enumerate(kayitlar):
+          if raf in ilk:
+              b.birlestir(i, ilk[raf])
+          else:
+              ilk[raf] = i
+      gruplar = {}
+      for kok, uyeler in b.gruplar().items():
+          adlar = sorted(kayitlar[i][0] for i in uyeler)
+          gruplar[kayitlar[kok][1]] = adlar
+      return [gruplar[raf] for raf in sorted(gruplar)]
+  PY
+  cat > envanter.txt <<'TXT'
+  civata:A1
+  somun:A1
+  pul:B2
+  anahtar:B2
+  vida:A1
+  TXT
+
+goal_tr: >
+  depot/core/birlestir.py icindeki Birlestirici sinifini ozyinelemeli yol
+  sikistirmali birlesim-bulma ile gerceklestir; kok, birlestir ve gruplar
+  metotlari calissin ki depot/rapor/envanter.py icindeki raf_gruplari ayni
+  raftaki urun adlarini alfabetik sirali ve raf adina gore sirali gruplar
+  halinde dondursun.
+
+reference_solution: |
+  cat > depot/core/birlestir.py <<'PY'
+  class Birlestirici:
+      def __init__(self, n):
+          self.n = n
+          self.ebeveyn = list(range(n))
+          self.boyut = [1] * n
+
+      def kok(self, x):
+          if self.ebeveyn[x] != x:
+              self.ebeveyn[x] = self.kok(self.ebeveyn[x])
+          return self.ebeveyn[x]
+
+      def birlestir(self, a, b):
+          ra, rb = self.kok(a), self.kok(b)
+          if ra == rb:
+              return False
+          if self.boyut[ra] < self.boyut[rb]:
+              ra, rb = rb, ra
+          self.ebeveyn[rb] = ra
+          self.boyut[ra] += self.boyut[rb]
+          return True
+
+      def gruplar(self):
+          sonuc = {}
+          for i in range(self.n):
+              sonuc.setdefault(self.kok(i), []).append(i)
+          return sonuc
+  PY
+
+outputs:
+  - {path: depot/core/birlestir.py, kind: program, run: 'python3 -c ''from depot.rapor.envanter import raf_gruplari as f; lines=open("envanter.txt").read().splitlines(); r=f(lines); assert r==[["civata","somun","vida"],["anahtar","pul"]], r; assert f(["x:Z","y:Z"])==[["x","y"]], f(["x:Z","y:Z"]); assert f([])==[], f([]); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depot.rapor.envanter import raf_gruplari as f; lines=open("envanter.txt").read().splitlines(); r=f(lines); assert r==[["civata","somun","vida"],["anahtar","pul"]], r; assert f(["x:Z","y:Z"])==[["x","y"]], f(["x:Z","y:Z"]); assert f([])==[], f([]); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8130
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: depo-envanteri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: birlesim-bulma
+      karmasiklik: duz
+      kalip: ozyineleme
+      akis: dosya-okuma
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,67 @@
+id: gen-s-3010-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  envanter altındaki tüm .tsv dosyalarındaki başlık satırlarını atlayıp kimlik ve adet sütunlarını birleştirerek satir-listesi.txt oluştur. Her satır "kimlik adet" biçiminde olsun, dosya sonunda newline olmasın.
+
+setup: |
+  mkdir -p envanter/raf_a envanter/raf_b
+  cat > envanter/raf_a/malzeme.tsv <<'TSV'
+  kimlik	ad	adet
+  A01	civata	120
+  A02	somun	80
+  TSV
+  cat > envanter/raf_b/malzeme.tsv <<'TSV'
+  kimlik	ad	adet
+  B01	pul	250
+  B02	anahtar	15
+  TSV
+  printf 'kimlik\tad\tadet\nC01\tvida\t40' > envanter/raf_c.tsv
+  rm -rf envanter/raf_c.tsv.d 2>/dev/null
+
+goal_tr: >
+  envanter dizini agacindaki tum .tsv dosyalarindan baslik satirlarini
+  atlayip kimlik, ad ve adet sutunlarini birlestirerek satir-listesi.txt
+  dosyasina yaz; her satir "kimlik adet" biciminde olsun, dosya sonunda
+  newline olmasin.
+
+reference_solution: |
+  grep -h -v '^kimlik' envanter/raf_a/malzeme.tsv envanter/raf_b/malzeme.tsv envanter/raf_c.tsv | cut -f1,3 | tr '\t' ' ' > satir-listesi.txt
+  wc -l < satir-listesi.txt > /dev/null
+  printf '%s' "$(cat satir-listesi.txt)" > satir-listesi.txt
+
+outputs:
+  - {path: satir-listesi.txt, kind: lines, note: 'her satir "kimlik adet", dosya sonunda newline yok'}
+
+checks:
+  - {op: file_lines_eq, path: satir-listesi.txt, value: [A01 120, A02 80, B01 250, B02 15, C01 40]}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3010
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: envanter
+    hedef: ozetle
+    girdi: tsv
+    kaynak: dizin-agaci
+    cikti: satir-listesi
+    kesif: yok
+    uslup: terse
+    direnc: son-newline-yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

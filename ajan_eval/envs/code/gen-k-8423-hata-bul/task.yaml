@@ -1,0 +1,109 @@
+id: gen-k-8423-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) lib/money.py dosyasındaki Money sınıfını, küçük tutarlı kayıtlar listenin başına gelecek biçimde doğru sıralama yapacak şekilde düzelt.
+
+setup: |
+  mkdir -p lib
+  cat > lib/money.py <<'MONEY'
+  class Money:
+      def __init__(self, amount):
+          self.amount = amount
+
+      def __eq__(self, other):
+          return self.amount == other.amount
+
+      def __lt__(self, other):
+          return self.amount > other.amount
+
+      def __repr__(self):
+          return "Money(%d)" % self.amount
+  MONEY
+  cat > lib/ledger.py <<'LEDGER'
+  from lib.money import Money
+
+
+  def parse_ledger(text):
+      entries = []
+      for line in text.strip().splitlines():
+          name, amount = line.split(",")
+          entries.append((name, Money(int(amount))))
+      return entries
+
+
+  def sorted_entries(text):
+      entries = parse_ledger(text)
+      entries.sort(key=lambda e: e[1])
+      return entries
+  LEDGER
+  cat > data.csv <<'CSV'
+  rent,1200
+  coffee,15
+  salary,3000
+  books,80
+  CSV
+
+goal_tr: >
+  lib/money.py icindeki Money sinifini, kucuk tutarli kayitlar listenin
+  basina gelecek bicimde dogru siralama yapacak sekilde duzelt.
+
+reference_solution: |
+  cat > lib/money.py <<'MONEY'
+  class Money:
+      def __init__(self, amount):
+          self.amount = amount
+
+      def __eq__(self, other):
+          return self.amount == other.amount
+
+      def __lt__(self, other):
+          return self.amount < other.amount
+
+      def __repr__(self):
+          return "Money(%d)" % self.amount
+  MONEY
+
+outputs:
+  - {path: lib/money.py, kind: program, run: 'python3 -c ''from lib.ledger import sorted_entries as f; t=open("data.csv").read(); r=[n for n,_ in f(t)]; assert r==["coffee","books","rent","salary"], r; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from lib.ledger import sorted_entries as f; t=open("data.csv").read(); r=[n for n,_ in f(t)]; assert r==["coffee","books","rent","salary"], r; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8423
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kutuphane-oduncleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-karsilastirma
+      karmasiklik: duz
+      kalip: operator-asiri-yukleme
+      akis: dosya-okuma
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

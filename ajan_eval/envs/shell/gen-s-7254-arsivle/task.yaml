@@ -1,0 +1,112 @@
+id: gen-s-7254-arsivle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Kütüphanedeki üye ve ödünç kayıtlarını düzenli bir arşive dönüştürmemiz gerekiyor; dönem sonu yaklaşırken her üyenin elindeki kitabı tek tek kontrol etmek yerine, düzenli bir klasör yapısı oluşturmak istiyoruz. Bu yüzden kutuphane dizinindeki uyeler.ini ve odunc.ini dosyalarını karşılaştırıp, kayıtlı her üye için arsiv dizini altında U<üye-kodu> adlı bir alt dizin oluştur. Yalnızca odunc.ini dosyasında karşılığı bulunan üyeleri arşivle; her üye dizinine, o üyenin bilgilerini içeren uye.txt ile ödünç aldığı kitabı içeren odunc.txt dosyalarını yaz. Kutuphane dizinindeki bos.ini dosyasını ise yok say. Son olarak tüm bu arsiv dizinini arsiv.tar olarak paketle.
+
+setup: |
+  mkdir -p kutuphane
+  cat > kutuphane/uyeler.ini <<'INI'
+  [U001]
+  ad=Selin
+  tur=ogrenci
+  [U002]
+  ad=Mert
+  tur=ogretim
+  [U003]
+  ad=Ayse
+  tur=ogrenci
+  INI
+  cat > kutuphane/odunc.ini <<'INI'
+  [U001]
+  kitap=K001
+  [U002]
+  kitap=K002
+  [U003]
+  kitap=K003
+  INI
+  : > kutuphane/bos.ini
+
+goal_tr: >
+  kutuphane dizinindeki uyeler.ini ve odunc.ini dosyalarini karsilastirip
+  kayitli her uye icin arsiv/U<uye-kodu> adli alt dizin olustur; yalnizca
+  odunc.ini dosyasinda karsiligi bulunan uyeleri arsivle ve her uye dizinine
+  uye bilgilerini iceren uye.txt ile odunc kitabini iceren odunc.txt
+  dosyalarini yaz, bos.ini dosyasini yok say.
+
+reference_solution: |
+  find kutuphane -name '*.ini' -size +0c | sort > /tmp/dosyalar.txt
+  mkdir -p arsiv
+  while IFS= read -r dosya; do
+    case "$dosya" in
+      *uyeler.ini)
+        awk -F= '/^\[/{k=$0; gsub(/[\[\]]/,"",k); next} {print k" "$0}' "$dosya" >> /tmp/uye_kayit.txt
+        ;;
+      *odunc.ini)
+        awk -F= '/^\[/{k=$0; gsub(/[\[\]]/,"",k); next} {print k" "$0}' "$dosya" >> /tmp/odunc_kayit.txt
+        ;;
+    esac
+  done < /tmp/dosyalar.txt
+  awk '{print $1}' /tmp/odunc_kayit.txt | sort -u > /tmp/odunc_uyeler.txt
+  while IFS= read -r uye; do
+    mkdir -p "arsiv/$uye"
+    grep "^$uye " /tmp/uye_kayit.txt | cut -d' ' -f2- > "arsiv/$uye/uye.txt"
+    grep "^$uye " /tmp/odunc_kayit.txt | cut -d' ' -f2- > "arsiv/$uye/odunc.txt"
+  done < /tmp/odunc_uyeler.txt
+  tar -cf arsiv.tar arsiv
+
+outputs:
+  - {path: arsiv, kind: dir}
+  - {path: arsiv.tar, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: arsiv, value: [U001, U002, U003]}
+  - {op: run_stdout_eq, cmd: tar -tf arsiv.tar | sort, value: 'arsiv/
+
+    arsiv/U001/
+
+    arsiv/U001/odunc.txt
+
+    arsiv/U001/uye.txt
+
+    arsiv/U002/
+
+    arsiv/U002/odunc.txt
+
+    arsiv/U002/uye.txt
+
+    arsiv/U003/
+
+    arsiv/U003/odunc.txt
+
+    arsiv/U003/uye.txt'}
+
+metadata:
+  domain: arsivle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7254
+    bundle: secerek-arsivle
+    tools:
+    - tar
+    - find
+    konu: kutuphane-kayitlari
+    hedef: arsivle
+    girdi: ini
+    kaynak: iki-dosya-capraz
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: bos-dosya
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

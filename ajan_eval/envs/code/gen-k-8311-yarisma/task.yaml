@@ -1,0 +1,125 @@
+id: gen-k-8311-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  plans dizinindeki parse.py ve limits.py dosyalarını kullanarak plans/summary.py dosyasını oluştur. Bu dosyada, plans/plans.txt gibi bir abonelik planları dosyasını okuyup her plan için fiyat ve kullanıcı limitini döndüren load_plans(path) adlı bir fonksiyon tanımla. Ayrıca bu fonksiyonu saran report adlı bir dekoratör tanımla; dekoratör, load_plans fonksiyonunun döndürdüğü plan sözlüğünü alıp her planın adını ve limitini yazdırsın.
+
+setup: |
+  mkdir -p plans
+  cat > plans/parse.py <<'PARSE'
+  def parse_plan(text):
+      plan = {}
+      for line in text.strip().splitlines():
+          line = line.strip()
+          if not line or line.startswith('#'):
+              continue
+          if line.endswith(':'):
+              current = line[:-1].strip()
+              plan[current] = {}
+          elif '=' in line:
+              key, val = line.split('=', 1)
+              plan[current][key.strip()] = val.strip()
+      return plan
+  PARSE
+  cat > plans/limits.py <<'LIMITS'
+  def parse_limit(value):
+      value = value.strip().lower()
+      if value.endswith('k'):
+          return int(value[:-1]) * 1000
+      return int(value)
+  LIMITS
+  cat > plans/plans.txt <<'TXT'
+  # subscription plans
+  basic:
+    price = 5
+    users = 10
+  pro:
+    price = 20
+    users = 100k
+  TXT
+
+goal_tr: >
+  plans/parse.py ve plans/limits.py dosyalarini kullanan plans/summary.py
+  dosyasini yaz; abonelik planlarini okuyup her plan icin fiyat ve kullanici
+  limitini donduren bir `load_plans(path)` fonksiyonu ile bu fonksiyonu
+  saran bir `report` dekoratoru tanimla; dekorator plan sozlugunu alip her
+  planin adini ve limitini yazdirsin.
+
+reference_solution: |
+  cat > plans/summary.py <<'SUMMARY'
+  from functools import wraps
+
+  from plans.limits import parse_limit
+  from plans.parse import parse_plan
+
+
+  def report(func):
+      @wraps(func)
+      def wrapper(path):
+          plans = func(path)
+          for name in sorted(plans):
+              print(name, plans[name]['users'])
+          return plans
+      return wrapper
+
+
+  @report
+  def load_plans(path):
+      with open(path) as fh:
+          raw = parse_plan(fh.read())
+      result = {}
+      for name, fields in raw.items():
+          result[name] = {
+              'price': int(fields['price']),
+              'users': parse_limit(fields['users']),
+          }
+      return result
+  SUMMARY
+
+outputs:
+  - {path: plans/summary.py, kind: program, run: 'python3 -c ''from plans.summary import load_plans; p=load_plans("plans/plans.txt"); assert p=={"basic":{"price":5,"users":10},"pro":{"price":20,"users":100000}}, p; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from plans.summary import load_plans; p=load_plans("plans/plans.txt"); assert p=={"basic":{"price":5,"users":10},"pro":{"price":20,"users":100000}}, p; print("TAMAM")''', value: 'basic 10
+
+    pro 100000
+
+    TAMAM'}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8311
+    bundle: yarisma
+    tools:
+    - python3
+    konu: abonelik-planlari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: metin-ayristirma
+      karmasiklik: duz
+      kalip: dekorator
+      akis: ic-ice-yapi
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

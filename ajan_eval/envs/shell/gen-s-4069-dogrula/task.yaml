@@ -1,0 +1,56 @@
+id: gen-s-4069-dogrula
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi klasöründeki her .ini dosyasından puan değerini oku ve puanı 3'ten küçük olan dosyaların adlarını sıralı olarak gecersiz.txt dosyasına yaz.
+
+setup: |
+  mkdir -p girdi
+  printf 'urun=yorum1\npuan=5\nmetin=harika urun\n' > girdi/a.ini
+  printf 'urun=yorum2\npuan=4\nmetin=cok iyi\n' > girdi/b.ini
+  printf 'urun=yorum3\npuan=3\nmetin=idare eder\n' > girdi/c.ini
+  printf 'urun=yorum4\npuan=2\nmetin=kotu\n' > girdi/d.ini
+  printf 'urun=yorum5\npuan=1\nmetin=berbat\n' > girdi/e.ini
+
+goal_tr: >
+  girdi klasorundeki her .ini dosyasindan puan degerini okuyup puan 3'ten
+  kucuk olan dosyalarin adlarini sirali olarak gecersiz.txt dosyasina yaz
+
+reference_solution: |
+  for f in $(ls girdi/*.ini | sort); do puan=$(sed -n 's/^puan=//p' "$f" | tr -d '\r'); if [ "$puan" -lt 3 ]; then basename "$f"; fi; done > gecersiz.txt
+
+outputs:
+  - {path: gecersiz.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: gecersiz.txt, value: [d.ini, e.ini]}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4069
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: urun-yorumlari
+    hedef: dogrula
+    girdi: ini
+    kaynak: cok-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

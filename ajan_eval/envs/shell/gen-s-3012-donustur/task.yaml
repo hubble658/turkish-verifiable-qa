@@ -1,0 +1,63 @@
+id: gen-s-3012-donustur
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) randevular.txt dosyasındaki sabit genişlikli kayıtları oku ve her doktorun kaç randevusu olduğunu hesapla.
+  2) Hesaplanan randevu sayılarını doktor adına göre artan sırada düzenle.
+  3) Sonucu geçerli bir JSON nesnesi olarak ozet.json dosyasına yaz.
+
+setup: |
+  cat > randevular.txt <<'DATA'
+  1001  DrAyse     Kardiyoloji 2024-05-01 09:30
+  1002  DrMehmet   Noroloji    2024-05-01 10:15
+  1003  DrAyse     Kardiyoloji 2024-05-02 11:00
+  1004  DrZeynep   Ortopedi    2024-05-02 13:45
+  1005  DrMehmet   Noroloji    2024-05-03 08:20
+  1006  DrZeynep   Ortopedi    2024-05-03 14:10
+  1007  DrAyse     Kardiyoloji 2024-05-04 09:00
+  1008  DrMehmet   Noroloji    2024-05-04 15:30
+  DATA
+
+goal_tr: >
+  randevular.txt dosyasindaki sabit genislikli kayitlardan her doktorun kac
+  randevusu oldugunu hesaplayip doktor adina gore artan sirada gecerli bir
+  JSON nesnesi olarak ozet.json dosyasina yaz.
+
+reference_solution: |
+  awk '{print $2}' randevular.txt | sort | uniq -c | awk '{printf "\"%s\": %s\n", $2, $1}' | awk 'BEGIN{print "{"} {print (NR>1?",":"") $0} END{print "}"}' > ozet.json
+
+outputs:
+  - {path: ozet.json, kind: json}
+
+checks:
+  - {op: json_eq, path: ozet.json, value: {DrAyse: 3, DrMehmet: 3, DrZeynep: 2}}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3012
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: hastane-randevulari
+    hedef: donustur
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: json
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

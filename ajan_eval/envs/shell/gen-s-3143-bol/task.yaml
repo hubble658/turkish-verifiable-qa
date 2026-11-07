@@ -1,0 +1,59 @@
+id: gen-s-3143-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  randevular.txt'deki her satırın ilk 8 karakterini at, kalanını bolum.txt'ye yaz.
+
+setup: |
+  cat > randevular.txt <<'DATA'
+  AHMET   KARDIYOLOJI 2024-03-01
+  AYSE    NOROLOJI    2024-03-02
+  MEHMET  ORTOPEDI    2024-03-03
+  FATMA   KARDIYOLOJI 2024-03-04
+  ALI     NOROLOJI    2024-03-05
+  ZEYNEP  ORTOPEDI    2024-03-06
+  DATA
+  echo "BOZUK SATIR" > notlar.txt
+
+goal_tr: >
+  randevular.txt dosyasindaki her satirin ilk 8 karakterini atip kalan
+  kismini bolum.txt dosyasina yaz.
+
+reference_solution: |
+  tee bolum.txt < randevular.txt | cut -c9- > /dev/null
+
+outputs:
+  - {path: bolum.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: bolum.txt, value: [AHMET   KARDIYOLOJI 2024-03-01, AYSE    NOROLOJI    2024-03-02, MEHMET  ORTOPEDI    2024-03-03, FATMA   KARDIYOLOJI 2024-03-04, ALI     NOROLOJI    2024-03-05, ZEYNEP  ORTOPEDI    2024-03-06]}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3143
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: hastane-randevulari
+    hedef: bol
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

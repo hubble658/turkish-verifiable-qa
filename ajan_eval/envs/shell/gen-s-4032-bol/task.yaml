@@ -1,0 +1,86 @@
+id: gen-s-4032-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  siparisler klasöründeki sube_a.txt ve sube_b.txt dosyalarındaki her siparişi yemek adı ve adet ikilisi olarak ayrıştırıp yemek adına göre grupla. Her yemek için adetleri topla ve cikti klasörü altında, dosya adı yemek adı olacak şekilde ayrı birer dosya oluştur; her dosyada o yemeğin adı ve toplam adedi tek satırda yazılı olsun. Çıktı olarak cikti/pide.txt, cikti/lahmacun.txt, cikti/kebap.txt ve cikti/corba.txt dosyalarını üret.
+
+  Su sartlar saglanmali:
+  - cikti adinda bir klasör oluşturulmalı.
+  - cikti klasörü altında pide.txt, lahmacun.txt, kebap.txt ve corba.txt dosyaları bulunmalı.
+  - Her dosyada yalnızca ilgili yemek adı ve o yemeğin toplam adedi tek satırda yer almalı.
+  - Toplam adetler sube_a.txt ve sube_b.txt dosyalarındaki tüm siparişler üzerinden doğru hesaplanmalı.
+
+setup: |
+  mkdir -p siparisler
+  cat > siparisler/sube_a.txt <<'TXT'
+  A101 pide     2
+  A102 lahmacun 1
+  A103 kebap    3
+  A104 pide     1
+  A105 corba    2
+  TXT
+  cat > siparisler/sube_b.txt <<'TXT'
+  B201 kebap    2
+  B202 lahmacun 2
+  B203 corba    1
+  B204 pide     3
+  B205 kebap    1
+  TXT
+
+goal_tr: >
+  siparisler klasorundeki sube_a.txt ve sube_b.txt dosyalarindaki her
+  siparisi (yemek adi, adet) ikilisi olarak ayristirip yemek adina gore
+  grupla; her yemek icin adetleri toplayip yemek adi ve toplam adedi tek
+  satirda yazacak sekilde cikti/ altinda ayri bir dosya olustur (dosya adi
+  yemek adi.txt olsun).
+
+reference_solution: |
+  mkdir -p cikti
+  head -n 5 siparisler/sube_a.txt > /tmp/birlesik.txt
+  tail -n 5 siparisler/sube_b.txt >> /tmp/birlesik.txt
+  awk '{print $2, $3}' /tmp/birlesik.txt | sort | awk '{toplam[$1]+=$2} END {for (y in toplam) print y, toplam[y]}' | sort > /tmp/ozet.txt
+  while read -r yemek adet; do printf '%s\n' "$adet" > "cikti/${yemek}.txt"; done < /tmp/ozet.txt
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/pide.txt, kind: file}
+  - {path: cikti/lahmacun.txt, kind: file}
+  - {path: cikti/kebap.txt, kind: file}
+  - {path: cikti/corba.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [corba.txt, kebap.txt, lahmacun.txt, pide.txt]}
+  - {op: file_content_eq, path: cikti/corba.txt, value: '3'}
+  - {op: file_content_eq, path: cikti/kebap.txt, value: '6'}
+  - {op: file_content_eq, path: cikti/lahmacun.txt, value: '3'}
+  - {op: file_content_eq, path: cikti/pide.txt, value: '6'}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4032
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: restoran-siparisleri
+    hedef: bol
+    girdi: sabit-genislik
+    kaynak: iki-dosya-capraz
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

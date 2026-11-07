@@ -1,0 +1,124 @@
+id: gen-k-8042-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  stockkit/ledger.py dosyasını oluştur. Bu dosyada bir StockLedger sınıfı tanımla; sınıf bir context manager olarak çalışsın, yani __enter__ ve __exit__ metotları tanımlı olsun. StockLedger nesnesi __init__ ile aldığı csv yollarını stockkit.io.reader üzerinden okusun ve sku bazında net hareketleri toplasın. Sınıfın apply(target) metodu, verilen hedef sözlüğü bu net hareketlerle güncellesin ve toplam net değişimi döndürsün.
+
+  Şu şartlar sağlanmalı:
+  - stockkit/ledger.py dosyası oluşturulmuş olmalı.
+  - Dosyada StockLedger sınıfı tanımlı olmalı.
+  - StockLedger sınıfı __enter__ ve __exit__ metotlarını içermeli.
+  - __init__ metodu csv yollarını almalı ve bu yolları stockkit.io.reader üzerinden okumalı.
+  - Okunan hareketler sku bazında net hareketlere indirgenmeli.
+  - apply(target) metodu hedef sözlüğü net hareketlerle güncellemeli.
+  - apply(target) metodu toplam net değişimi döndürmeli.
+
+setup: |
+  mkdir -p stockkit/io
+  cat > stockkit/io/reader.py <<'READER'
+  def read_moves(path):
+      rows = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              sku, delta = line.split(',')
+              rows.append((sku, int(delta)))
+      return rows
+  READER
+  cat > stockkit/io/__init__.py <<'INIT'
+  INIT
+  cat > stockkit/__init__.py <<'INIT'
+  INIT
+  cat > moves_a.csv <<'CSV'
+  bolt,5
+  nut,-2
+  bolt,3
+  CSV
+  cat > moves_b.csv <<'CSV'
+  nut,7
+  washer,4
+  bolt,-1
+  CSV
+
+goal_tr: >
+  stockkit/ledger.py dosyasini yaz: StockLedger sinifi bir context manager
+  olacak (__enter__ ve __exit__ tanimli), __init__ ile verilen csv yollarini
+  stockkit.io.reader uzerinden okuyup sku bazinda net hareketleri toplayacak
+  ve apply(target) metodu hedef sozlugu bu net hareketlerle guncelleyip net
+  degisimi dondurecek.
+
+reference_solution: |
+  cat > stockkit/ledger.py <<'LEDGER'
+  from stockkit.io.reader import read_moves
+
+
+  class StockLedger:
+      def __init__(self, paths):
+          self.paths = list(paths)
+          self.net = {}
+          self.closed = False
+
+      def __enter__(self):
+          for path in self.paths:
+              for sku, delta in read_moves(path):
+                  self.net[sku] = self.net.get(sku, 0) + delta
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self.closed = True
+          return False
+
+      def apply(self, target):
+          changes = {}
+          for sku, delta in self.net.items():
+              if delta != 0:
+                  changes[sku] = delta
+                  target[sku] = target.get(sku, 0) + delta
+          return changes
+  LEDGER
+
+outputs:
+  - {path: stockkit/ledger.py, kind: program, run: 'python3 -c ''from stockkit.ledger import StockLedger as L; t={"nut":10,"screw":1}; cm=L(["moves_a.csv","moves_b.csv"]); assert hasattr(cm,"__enter__") and hasattr(cm,"__exit__"); s=cm.__enter__(); assert s is cm; ch=s.apply(t); assert ch=={"bolt":7,"nut":5,"washer":4}, ch; assert t=={"nut":15,"screw":1,"bolt":7,"washer":4}, t; s.__exit__(None,None,None); assert s.closed is True; t2={}; assert L(["moves_a.csv"]).__enter__().apply(t2)=={"bolt":8,"nut":-2}, t2; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from stockkit.ledger import StockLedger as L; t={"nut":10,"screw":1}; cm=L(["moves_a.csv","moves_b.csv"]); assert hasattr(cm,"__enter__") and hasattr(cm,"__exit__"); s=cm.__enter__(); assert s is cm; ch=s.apply(t); assert ch=={"bolt":7,"nut":5,"washer":4}, ch; assert t=={"nut":15,"screw":1,"bolt":7,"washer":4}, t; s.__exit__(None,None,None); assert s.closed is True; t2={}; assert L(["moves_a.csv"]).__enter__().apply(t2)=={"bolt":8,"nut":-2}, t2; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8042
+    bundle: yarisma
+    tools:
+    - python3
+    konu: stok-hareketleri
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kolay
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kume-islemleri
+      karmasiklik: duz
+      kalip: context-manager
+      akis: cok-dosya-birlestirme
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

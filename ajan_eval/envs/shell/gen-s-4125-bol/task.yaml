@@ -1,0 +1,64 @@
+id: gen-s-4125-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) arsiv.tar.gz arşivini aç.
+  2) arsiv/ altındaki tüm json dosyalarındaki adet alanlarının toplamını hesapla.
+  3) Bu toplamı sonuc.txt dosyasına sadece sayı olarak yaz.
+
+setup: |
+  mkdir -p arsiv
+  printf '%s' '{"id":1,"kitap":"Kirmizi","adet":3}
+  {"id":2,"kitap":"Mavi","adet":5}
+  {"id":3,"kitap":"Yesil","adet":2}' > arsiv/kayit_a.json
+  printf '%s' '{"id":4,"kitap":"Sari","adet":7}
+  {"id":5,"kitap":"Mor","adet":1}' > arsiv/kayit_b.json
+  printf '%s' '{"id":6,"kitap":"Turuncu","adet":4}
+  {"id":7,"kitap":"Pembe","adet":6}
+  {"id":8,"kitap":"Gri","adet":8}' > arsiv/kayit_c.json
+  tar -czf arsiv.tar.gz arsiv
+  rm -rf arsiv
+
+goal_tr: >
+  arsiv.tar.gz icindeki arsiv/ altindaki tum json dosyalarindaki adet
+  alanlarinin toplamini sonuc.txt dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  gzip -dc arsiv.tar.gz | tar -xf -
+  cat arsiv/*.json | grep -o '"adet":[0-9]*' | cut -d: -f2 | awk '{t+=$1} END {printf "%d\n", t}' > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '36'}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4125
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: kutuphane-kayitlari
+    hedef: bol
+    girdi: json
+    kaynak: cok-dosya
+    cikti: tek-sayi
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: son-newline-yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

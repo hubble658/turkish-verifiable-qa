@@ -1,0 +1,149 @@
+id: gen-k-9074-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) bank/stream.py dosyasındaki hatayı gider; running_balance fonksiyonu her hesap için kendi bakiyesini ayrı ayrı takip etsin ve hesap adlarını bakiye değerlerine eşleyen doğru bir sözlük döndürsün.
+
+  2) bank/report.py dosyasındaki hatayı gider; final_balances fonksiyonu verilen hesap adının bakiye değerini döndürsün.
+
+  3) bank/ledger.py dosyasını, bu iki dosyanın ihtiyaç duyduğu yardımcı işlevi sağlayacak şekilde düzelt.
+
+setup: |
+  mkdir -p bank
+  cat > bank/ledger.py <<'LEDGER'
+  def make_counter(start=0):
+      state = {"value": start}
+
+      def bump(amount):
+          state["value"] += amount
+          return state["value"]
+
+      return bump
+  LEDGER
+  cat > bank/stream.py <<'STREAM'
+  from bank.ledger import make_counter
+
+
+  def running_balance(chunks):
+      bump = make_counter(0)
+      totals = {}
+      for chunk in chunks:
+          for line in chunk.splitlines():
+              if not line.strip():
+                  continue
+              account, amount = line.split(",")
+              totals[account] = bump(int(amount))
+      return totals
+  STREAM
+  cat > bank/report.py <<'REPORT'
+  from bank.stream import running_balance
+
+
+  def final_balances(chunks, account):
+      totals = running_balance(chunks)
+      return totals["account"]
+  REPORT
+  cat > chunks.txt <<'CHUNKS'
+  alice,100
+  bob,50
+  alice,-30
+  bob,20
+  alice,10
+  CHUNKS
+
+goal_tr: >
+  bank/stream.py ve bank/report.py icindeki hatalari gider; running_balance
+  her hesap icin kendi bakiyesini ayri takip edip dogru sozluk dondursun ve
+  final_balances verilen hesap adinin bakiye degerini dondursun.
+
+reference_solution: |
+  cat > bank/stream.py <<'STREAM'
+  from bank.ledger import make_counter
+
+
+  def running_balance(chunks):
+      counters = {}
+      for chunk in chunks:
+          for line in chunk.splitlines():
+              if not line.strip():
+                  continue
+              account, amount = line.split(",")
+              if account not in counters:
+                  counters[account] = make_counter(0)
+              counters[account](int(amount))
+      return {account: counter(0) for account, counter in counters.items()}
+  STREAM
+  cat > bank/report.py <<'REPORT'
+  from bank.stream import running_balance
+
+
+  def final_balances(chunks, account):
+      totals = running_balance(chunks)
+      return totals[account]
+  REPORT
+
+ara_adim: |
+  cat > bank/stream.py <<'STREAM'
+  from bank.ledger import make_counter
+
+
+  def running_balance(chunks):
+      counters = {}
+      for chunk in chunks:
+          for line in chunk.splitlines():
+              if not line.strip():
+                  continue
+              account, amount = line.split(",")
+              if account not in counters:
+                  counters[account] = make_counter(0)
+              counters[account](int(amount))
+      return {account: counter(0) for account, counter in counters.items()}
+  STREAM
+
+outputs:
+  - {path: bank/report.py, kind: program, run: 'python3 -c ''from bank.report import final_balances as f; data=open("chunks.txt").read().split("\n\n"); assert f(data,"alice")==80, f(data,"alice"); assert f(data,"bob")==70, f(data,"bob"); print("TAMAM")'''}
+  - {path: bank/stream.py, kind: program, run: 'python3 -c ''from bank.stream import running_balance as f; data=open("chunks.txt").read().split("\n\n"); r=f(data); assert r=={"alice":80,"bob":70}, r; print("ILERLEME-TAMAM")'''}
+  - {path: bank/ledger.py, kind: program, run: python3 -c 'from bank.ledger import make_counter as f; c=f(5); assert c(3)==8; assert c(-1)==7; print("REGRESYON-TAMAM")'}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from bank.report import final_balances as f; data=open("chunks.txt").read().split("\n\n"); assert f(data,"alice")==80, f(data,"alice"); assert f(data,"bob")==70, f(data,"bob"); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from bank.stream import running_balance as f; data=open("chunks.txt").read().split("\n\n"); r=f(data); assert r=={"alice":80,"bob":70}, r; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: python3 -c 'from bank.ledger import make_counter as f; c=f(5); assert c(3)==8; assert c(-1)==7; print("REGRESYON-TAMAM")', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9074
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: banka-hareketleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sozluk-anahtar-hatasi
+      karmasiklik: orta
+      kalip: closure-fabrika
+      akis: parcali-akis
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

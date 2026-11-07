@@ -1,0 +1,148 @@
+id: gen-k-8377-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  farm/tree.py içindeki YieldTree sınıfını, anahtar ikili arama ağacına göre artan sırada tutacak ve query(low, high) kapalı aralıktaki [low, high] anahtarlara karşılık gelen değerleri artan anahtar sırasında döndürecek biçimde gerçekleştir. farm/summary.py ve farm/streams.py değişmeden çalışmalı.
+
+setup: |
+  mkdir -p farm
+  cat > farm/streams.py <<'PY'
+  def read_records(handle):
+      records = []
+      for line in handle:
+          line = line.strip()
+          if not line:
+              continue
+          plot, crop, yield_kg = line.split(",")
+          records.append((plot, crop, int(yield_kg)))
+      return records
+  PY
+  cat > farm/tree.py <<'PY'
+  class YieldTree:
+      def __init__(self):
+          raise NotImplementedError
+
+      def insert(self, key, value):
+          raise NotImplementedError
+
+      def query(self, low, high):
+          raise NotImplementedError
+  PY
+  cat > farm/summary.py <<'PY'
+  from farm.streams import read_records
+  from farm.tree import YieldTree
+
+
+  def build_tree(handle):
+      tree = YieldTree()
+      for plot, crop, yield_kg in read_records(handle):
+          tree.insert(yield_kg, (plot, crop))
+      return tree
+
+
+  def make_range_report(handle):
+      tree = build_tree(handle)
+
+      def report(low, high):
+          return tree.query(low, high)
+
+      return report
+  PY
+  cat > sample.csv <<'CSV'
+  north,wheat,420
+  south,barley,310
+  east,wheat,555
+  west,maize,275
+  hill,barley,480
+  CSV
+
+goal_tr: >
+  farm/tree.py icindeki YieldTree sinifini, anahtar ikili arama agacina gore
+  artan sirada tutulacak ve query(low, high) kapali aralikta [low, high]
+  anahtarlarina karsilik gelen degerleri artan anahtar sirasinda dondurecek
+  bicimde gerceklestir; farm/summary.py ve farm/streams.py degismeden
+  calismali.
+
+reference_solution: |
+  cat > farm/tree.py <<'PY'
+  class YieldTree:
+      def __init__(self):
+          self._root = None
+
+      def insert(self, key, value):
+          if self._root is None:
+              self._root = [key, value, None, None]
+              return
+          node = self._root
+          while True:
+              if key < node[0]:
+                  if node[2] is None:
+                      node[2] = [key, value, None, None]
+                      return
+                  node = node[2]
+              else:
+                  if node[3] is None:
+                      node[3] = [key, value, None, None]
+                      return
+                  node = node[3]
+
+      def query(self, low, high):
+          out = []
+          stack = []
+          node = self._root
+          while stack or node is not None:
+              while node is not None:
+                  stack.append(node)
+                  node = node[2] if node[0] >= low else node[3]
+              node = stack.pop()
+              if node[0] > high:
+                  break
+              if node[0] >= low:
+                  out.append(node[1])
+              node = node[3]
+          return out
+  PY
+
+outputs:
+  - {path: farm/tree.py, kind: program, run: 'python3 -c ''import io; from farm.summary import make_range_report; rep=make_range_report(io.StringIO("north,wheat,420\nsouth,barley,310\neast,wheat,555\nwest,maize,275\nhill,barley,480\n")); assert rep(300,500)==[("south","barley"),("north","wheat"),("hill","barley")], rep(300,500); assert rep(0,1000)==[("west","maize"),("south","barley"),("north","wheat"),("hill","barley"),("east","wheat")]; assert rep(600,900)==[]; assert rep(420,420)==[("north","wheat")]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import io; from farm.summary import make_range_report; rep=make_range_report(io.StringIO("north,wheat,420\nsouth,barley,310\neast,wheat,555\nwest,maize,275\nhill,barley,480\n")); assert rep(300,500)==[("south","barley"),("north","wheat"),("hill","barley")], rep(300,500); assert rep(0,1000)==[("west","maize"),("south","barley"),("north","wheat"),("hill","barley"),("east","wheat")]; assert rep(600,900)==[]; assert rep(420,420)==[("north","wheat")]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8377
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: tarim-verim-olcumleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: ikili-arama-agaci
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: stdin-boru
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

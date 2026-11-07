@@ -1,0 +1,177 @@
+id: gen-k-8043-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  nav/route.py içindeki Route ve Router sınıflarını gerçekleştir; Router.shortest verilen grafta start'tan goal'a en düşük maliyetli yolu bulsun, yol yoksa None döndürsün, Route.render ise "a->b->c (12)" biçiminde metin üretsin.
+
+setup: |
+  mkdir -p nav
+  cat > nav/edges.py <<'PY'
+  from dataclasses import dataclass, field
+
+
+  @dataclass(frozen=True)
+  class Edge:
+      src: str
+      dst: str
+      cost: int
+
+
+  @dataclass
+  class Graph:
+      edges: list = field(default_factory=list)
+
+      def add(self, src, dst, cost):
+          self.edges.append(Edge(src, dst, cost))
+          return self
+
+      def neighbors(self, node):
+          return [(e.dst, e.cost) for e in self.edges if e.src == node]
+
+      def nodes(self):
+          seen = []
+          for e in self.edges:
+              for n in (e.src, e.dst):
+                  if n not in seen:
+                      seen.append(n)
+          return seen
+  PY
+  cat > nav/parser.py <<'PY'
+  from nav.edges import Graph
+
+
+  def parse(text):
+      g = Graph()
+      for line in text.strip().splitlines():
+          if not line.strip():
+              continue
+          src, dst, cost = line.split()
+          g.add(src, dst, int(cost))
+      return g
+  PY
+  cat > nav/route.py <<'PY'
+  from dataclasses import dataclass
+
+
+  @dataclass
+  class Route:
+      path: list
+      total: int
+
+      def __post_init__(self):
+          raise NotImplementedError
+
+      def render(self):
+          raise NotImplementedError
+
+
+  class Router:
+      def __init__(self, graph):
+          raise NotImplementedError
+
+      def shortest(self, start, goal):
+          raise NotImplementedError
+  PY
+
+goal_tr: >
+  nav/route.py icindeki Route ve Router siniflarini, verilen grafta
+  start'tan goal'a en dusuk maliyetli yolu bulan ve Route.render ile
+  "a->b->c (12)" biciminde metin ureten sekilde gerceklestir; yol yoksa
+  shortest None dondursun.
+
+reference_solution: |
+  cat > nav/route.py <<'PY'
+  from dataclasses import dataclass
+
+
+  @dataclass
+  class Route:
+      path: list
+      total: int
+
+      def __post_init__(self):
+          if not self.path:
+              raise ValueError("empty path")
+          if self.total < 0:
+              raise ValueError("negative total")
+
+      def render(self):
+          return "{} ({})".format("->".join(self.path), self.total)
+
+
+  class Router:
+      def __init__(self, graph):
+          self.graph = graph
+
+      def shortest(self, start, goal):
+          if start == goal:
+              return Route([start], 0)
+          best = {start: 0}
+          prev = {}
+          pending = [start]
+          done = set()
+          while pending:
+              pending.sort(key=lambda n: (best[n], n))
+              node = pending.pop(0)
+              if node in done:
+                  continue
+              done.add(node)
+              for nxt, cost in self.graph.neighbors(node):
+                  cand = best[node] + cost
+                  if nxt not in best or cand < best[nxt]:
+                      best[nxt] = cand
+                      prev[nxt] = node
+                      if nxt not in done:
+                          pending.append(nxt)
+          if goal not in best:
+              return None
+          path = [goal]
+          while path[-1] != start:
+              path.append(prev[path[-1]])
+          path.reverse()
+          return Route(path, best[goal])
+  PY
+
+outputs:
+  - {path: nav/route.py, kind: program, run: 'python3 -c ''import io,sys; from nav.parser import parse; from nav.route import Router, Route; data=sys.stdin.read() if False else "a b 4\na c 1\nb d 2\nc b 1\nc d 7\nd e 3\n"; g=parse(data); r=Router(g); s=r.shortest("a","e"); assert s is not None; assert s.path==["a","c","b","d","e"], s.path; assert s.total==7, s.total; assert s.render()=="a->c->b->d->e (7)", s.render(); assert r.shortest("e","a") is None; assert r.shortest("a","a").render()=="a (0)"; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import io,sys; from nav.parser import parse; from nav.route import Router, Route; data=sys.stdin.read() if False else "a b 4\na c 1\nb d 2\nc b 1\nc d 7\nd e 3\n"; g=parse(data); r=Router(g); s=r.shortest("a","e"); assert s is not None; assert s.path==["a","c","b","d","e"], s.path; assert s.total==7, s.total; assert s.render()=="a->c->b->d->e (7)", s.render(); assert r.shortest("e","a") is None; assert r.shortest("a","a").render()=="a (0)"; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8043
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: yol-tarifi-agi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: graf-gezinme
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: stdin-boru
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

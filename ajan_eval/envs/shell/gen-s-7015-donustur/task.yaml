@@ -1,0 +1,80 @@
+id: gen-s-7015-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Bugün yoğun bir gündü, sipariş defterlerini karıştırırken eski kayıtları düzenleme ihtiyacı doğdu. Kafede masalardan ve paket servisten gelen siparişleri tek tek gözden geçirdim, ama dağınık halleriyle kim ne istemiş anlamak zorlaşıyor. Bu yüzden siparisler klasöründeki kayıtları derli toplu hale getirmek istiyorum.
+
+  Elimde siparisler/masalar.txt ve siparisler/paketler.txt dosyaları var. Buralardaki her satırı "adet x urun" biçimine çevirip, satırın ilk alanındaki kodla aynı ada sahip bir dosyaya yazmanı istiyorum. Yani masa kayıtları için siparisler/M1.txt, siparisler/M2.txt ve siparisler/M3.txt; paket kayıtları için de siparisler/P1.txt ve siparisler/P2.txt oluşsun. Satır sırası korunsun ve tüm çıktı dosyaları siparisler klasöründe yer alsın.
+
+setup: |
+  mkdir -p siparisler
+  cat > siparisler/masalar.txt <<'TXT'
+  M1|kirmizi|mercimek|2|45
+  M1|kirmizi|ayran|1|10
+  M2|mavi|kofte|3|60
+  M2|mavi|salata|1|25
+  M3|yesil|cay|4|8
+  TXT
+  cat > siparisler/paketler.txt <<'TXT'
+  P1|sari|pizza|1|90
+  P1|sari|kola|2|15
+  P2|turuncu|corba|2|30
+  TXT
+
+goal_tr: >
+  siparisler klasorundeki masalar.txt ve paketler.txt dosyalarindaki her
+  satiri "adet x urun" bicimine cevirip, satirin ilk alani (masa/paket kodu)
+  ile ayni adli bir dosyaya satir sirasini koruyarak yaz; cikti dosyalari
+  siparisler klasorunde olussun.
+
+reference_solution: |
+  cut -d'|' -f1 siparisler/masalar.txt | uniq > /tmp/kodlar.txt
+  cut -d'|' -f1 siparisler/paketler.txt | uniq >> /tmp/kodlar.txt
+  while read -r kod; do
+    grep "^$kod|" siparisler/masalar.txt siparisler/paketler.txt 2>/dev/null | cut -d: -f2- |
+      rev | cut -d'|' -f1-3 | rev > "siparisler/$kod.txt"
+  done < /tmp/kodlar.txt
+
+outputs:
+  - {path: siparisler/M1.txt, kind: file}
+  - {path: siparisler/M2.txt, kind: file}
+  - {path: siparisler/M3.txt, kind: file}
+  - {path: siparisler/P1.txt, kind: file}
+  - {path: siparisler/P2.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: siparisler/M1.txt, value: [mercimek|2|45, ayran|1|10]}
+  - {op: file_lines_eq, path: siparisler/M2.txt, value: [kofte|3|60, salata|1|25]}
+  - {op: file_content_eq, path: siparisler/M3.txt, value: cay|4|8}
+  - {op: file_lines_eq, path: siparisler/P1.txt, value: [pizza|1|90, kola|2|15]}
+  - {op: file_content_eq, path: siparisler/P2.txt, value: corba|2|30}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7015
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: restoran-siparisleri
+    hedef: donustur
+    girdi: log-satiri
+    kaynak: cok-dosya
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

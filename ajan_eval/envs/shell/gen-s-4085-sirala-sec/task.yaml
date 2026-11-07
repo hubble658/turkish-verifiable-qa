@@ -1,0 +1,78 @@
+id: gen-s-4085-sirala-sec
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) yorumlar klasöründeki NNNN|urun|puan|metin biçimindeki yorum satırlarını puan alanına göre büyükten küçüğe sırala.
+
+  2) Puanları eşit olan satırları NNNN alanına göre küçükten büyüğe sırala.
+
+  3) Yorum biçimine uymayan satırları ve yorumlar klasöründeki yorum biçimine uymayan dosyaları dışarıda bırak.
+
+  4) Sıralanmış satırlardan en yüksek 3 puana sahip olanları, her satırda bir yorum olacak şekilde en_iyi.txt dosyasına yaz.
+
+setup: |
+  mkdir -p yorumlar
+  cat > yorumlar/a.txt <<'TXT'
+  0007|urun3|5|harika urun
+  0002|urun1|3|idare eder
+  0009|urun2|4|guzel
+  TXT
+  cat > yorumlar/b.txt <<'TXT'
+  0001|urun2|5|cok iyi
+  0005|urun1|2|beklentimi karsilamadi
+  0004|urun3|4|tavsiye ederim
+  TXT
+  cat > yorumlar/notlar.txt <<'TXT'
+  bu dosya yorum degil
+  sadece not
+  TXT
+
+goal_tr: >
+  yorumlar klasorundeki NNNN|urun|puan|metin bicimindeki yorum satirlarini
+  puan alanina gore buyukten kucuge sirala ve en yuksek 3 puana sahip
+  satirlari, puanlari esitse NNNN alanina gore kucukten buyuge, sirali
+  olarak en_iyi.txt dosyasina yaz; yorum bicimine uymayan satirlar ve
+  dosyalar disarida kalsin.
+
+reference_solution: |
+  cat yorumlar/*.txt | grep -E '^[0-9]{4}\|[^|]+\|[0-9]+\|[^|]+$' | sort -u > /tmp/gecerli.txt
+  sort -t'|' -k3,3nr -k1,1n /tmp/gecerli.txt > /tmp/sirali.txt
+  head -n 3 /tmp/sirali.txt > en_iyi.txt
+  uniq en_iyi.txt > /tmp/kontrol.txt
+  wc -l < /tmp/kontrol.txt
+
+outputs:
+  - {path: en_iyi.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: en_iyi.txt, value: [0001|urun2|5|cok iyi, 0007|urun3|5|harika urun, 0004|urun3|4|tavsiye ederim]}
+
+metadata:
+  domain: sirala-sec
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4085
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: urun-yorumlari
+    hedef: sirala-sec
+    girdi: sabit-genislik
+    kaynak: cok-dosya
+    cikti: satir-listesi
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

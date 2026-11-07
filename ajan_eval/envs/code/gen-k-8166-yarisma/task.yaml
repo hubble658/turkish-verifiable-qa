@@ -1,0 +1,89 @@
+id: gen-k-8166-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  textkit/frequencies.py dosyasındaki word_counts fonksiyonu şu an her kelimenin kaç kez geçtiğini yanlış sayıyor; bir kelime birden fazla kez görünse de sözlükte hep 1 olarak kalıyor. Bu fonksiyonu, verilen metindeki her kelimenin gerçek geçiş sayısını tutan bir sözlük döndürecek şekilde düzelt. Kelimeler textkit/tokenizer.py içindeki tokenize üzerinden gelmeye devam etsin; her kelime için doğru sayım değeri hesaplansın.
+
+setup: |
+  mkdir -p textkit
+  cat > textkit/tokenizer.py <<'TOKENIZER'
+  def tokenize(text):
+      return [w.strip(".,!?;:").lower() for w in text.split() if w.strip(".,!?;:")]
+  TOKENIZER
+  cat > textkit/frequencies.py <<'FREQ'
+  from textkit.tokenizer import tokenize
+
+
+  def word_counts(text):
+      counts = {}
+      for token in tokenize(text):
+          if token not in counts:
+              counts[token] = 1
+      return counts
+  FREQ
+  cat > corpus.txt <<'CORPUS'
+  the quick brown fox jumps over the lazy dog
+  the dog barks and the fox runs
+  the fox and the dog
+  CORPUS
+
+goal_tr: >
+  textkit/frequencies.py icindeki word_counts fonksiyonunu, verilen
+  metindeki her kelimenin kac kez gectigini dogru sayan bir sozluk
+  dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > textkit/frequencies.py <<'FREQ'
+  from textkit.tokenizer import tokenize
+
+
+  def word_counts(text):
+      counts = {}
+      for token in tokenize(text):
+          counts[token] = counts.get(token, 0) + 1
+      return counts
+  FREQ
+
+outputs:
+  - {path: textkit/frequencies.py, kind: program, run: 'python3 -c ''from textkit.frequencies import word_counts as f; c=f("the fox the dog the"); assert c.get("the")==3, c; assert c.get("fox")==1, c; assert c.get("dog")==1, c; assert f("a a a a")=={"a":4}, f("a a a a"); assert f("")=={}, f(""); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from textkit.frequencies import word_counts as f; c=f("the fox the dog the"); assert c.get("the")==3, c; assert c.get("fox")==1, c; assert c.get("dog")==1, c; assert f("a a a a")=={"a":4}, f("a a a a"); assert f("")=={}, f(""); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8166
+    bundle: yarisma
+    tools:
+    - python3
+    konu: metin-belgeleri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sayma
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: bellek-ici
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

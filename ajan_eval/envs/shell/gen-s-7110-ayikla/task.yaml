@@ -1,0 +1,61 @@
+id: gen-s-7110-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Öğrenci işlerindeki not girişleri bu dönem yine karıştı; birkaç farklı listeden alınan puanları tek tek gözden geçirmem gerekti. Elimde notlar.tsv dosyası var, içinde öğrenci adları ve notları bir tablo halinde duruyor, ilk satır da sütun başlıkları için ayrılmış. Ben sadece yüksek başarı gösterenleri ayırıp ilgili hocaya göndermek istiyorum.
+
+  Bu yüzden notlar.tsv dosyasındaki ilk satırdan sonraki satırlardan öğrenci adlarını ve notlarını alıp, notu 90 ve üzeri olan öğrencilerin adlarını her satırda bir ad olacak şekilde yuksek.tsv dosyasına yazmanı istiyorum.
+
+setup: |
+  cat > notlar.tsv <<'EOF'
+  Ali	85
+  Ayse	92
+  Mehmet	78
+  Zeynep	95
+  Can	88
+  EOF
+
+goal_tr: >
+  notlar.tsv dosyasindaki ogrenci adlarini ve notlarini ilk satirdan sonraki
+  satirlardan alip, notu 90 ve uzeri olan ogrencilerin adlarini her satirda
+  bir ad olacak sekilde yuksek.tsv dosyasina yaz
+
+reference_solution: |
+  head -n 1 notlar.tsv > /dev/null
+  tail -n +2 notlar.tsv | awk -F'\t' '$2 >= 90 {print $1}' > yuksek.tsv
+
+outputs:
+  - {path: yuksek.tsv, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: yuksek.tsv, value: [Ayse, Zeynep]}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7110
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: ogrenci-notlari
+    hedef: ayikla
+    girdi: tsv
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: dolayli-hedef
+    uslup: baglam-gomulu
+    direnc: bom
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

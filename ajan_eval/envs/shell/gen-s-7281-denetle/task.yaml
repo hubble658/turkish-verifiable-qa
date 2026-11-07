@@ -1,0 +1,82 @@
+id: gen-s-7281-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sinif/notlar_a.csv ve sinif/notlar_b.csv dosyalarını id alanına göre karşılaştır. Her iki dosyada da aynı id ile aynı not değerine sahip satırları bul ve bu satırları id,ad,not başlığıyla sinif/ortak.csv dosyasına CSV olarak yaz.
+
+  Şu şartlar sağlanmalı:
+  - sinif/notlar_a.csv ve sinif/notlar_b.csv dosyaları okunmalı.
+  - Karşılaştırma id alanına göre yapılmalı.
+  - Yalnızca her iki dosyada da aynı id ile aynı not değerine sahip satırlar seçilmeli.
+  - Sonuç sinif/ortak.csv dosyasına yazılmalı.
+  - sinif/ortak.csv dosyasının başlık satırı id,ad,not olmalı.
+  - sinif/ortak.csv dosyası CSV biçiminde olmalı.
+
+setup: |
+  mkdir -p sinif
+  cat > sinif/notlar_a.csv <<'CSV'
+  id,ad,not
+  101,Ali,85
+  102,Ayse,90
+  103,Can,70
+  104,Deniz,60
+  105,Ece,95
+  CSV
+  cat > sinif/notlar_b.csv <<'CSV'
+  id,ad,not
+  101,Ali,85
+  102,Ayse,88
+  103,Can,70
+  106,Fatma,75
+  107,Gizem,100
+  CSV
+
+goal_tr: >
+  sinif/notlar_a.csv ile sinif/notlar_b.csv dosyalarini id alanina gore
+  karsilastirip iki dosyada da ayni id ile ayni not degerine sahip satirlari
+  sinif/ortak.csv dosyasina id,ad,not basligiyla CSV olarak yaz
+
+reference_solution: |
+  head -n 1 sinif/notlar_a.csv > sinif/ortak.csv
+  tail -n +2 sinif/notlar_a.csv | sort -t, -k1,1 > /tmp/a.srt
+  tail -n +2 sinif/notlar_b.csv | sort -t, -k1,1 > /tmp/b.srt
+  comm -12 /tmp/a.srt /tmp/b.srt > /tmp/ortak.srt
+  diff /tmp/a.srt /tmp/ortak.srt | grep '^<' | sed 's/^< //' > /tmp/fark.srt
+  sort -t, -k1,1 /tmp/fark.srt > /tmp/fark_sirali.srt
+  comm -23 /tmp/a.srt /tmp/fark_sirali.srt >> sinif/ortak.csv
+
+outputs:
+  - {path: sinif/ortak.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: sinif/ortak.csv, value: ['id,ad,not', '101,Ali,85', '103,Can,70']}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7281
+    bundle: karsilastir
+    tools:
+    - diff
+    - comm
+    konu: ogrenci-notlari
+    hedef: denetle
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: csv
+    kesif: veriye-bak
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

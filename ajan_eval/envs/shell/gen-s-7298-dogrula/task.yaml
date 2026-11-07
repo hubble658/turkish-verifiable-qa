@@ -1,0 +1,78 @@
+id: gen-s-7298-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Kütüphanenin eski yıl kayıtlarını düzenlemeye çalışıyorum, arşivdeki dosyalar birikti ve düzenli bir yapı kurmam gerekiyor. Bugün bütün gün bu dosyalarla uğraştım, artık bir düzen oturtmak istiyorum. kayitlar dizin ağacındaki .ini uzantılı dosyaların her birini, aynı göreli yolu koruyarak duzgun/ altına kopyala ve dosya adlarındaki büyük harfleri küçük harfe çevir; böylece duzgun/kayitlar/ayarlar.ini, duzgun/kayitlar/arsiv/2019.ini, duzgun/kayitlar/arsiv/2020.ini ve duzgun/kayitlar/aktif/odunc.ini dosyaları ortaya çıksın.
+
+setup: |
+  mkdir -p kayitlar/arsiv kayitlar/aktif
+  cat > kayitlar/ayarlar.ini <<'INI'
+  [genel]
+  ad=Kutuphane
+  sehir=Ankara
+  INI
+  cat > kayitlar/arsiv/2019.ini <<'INI'
+  [yil]
+  deger=2019
+  INI
+  cat > kayitlar/arsiv/2020.ini <<'INI'
+  [yil]
+  deger=2020
+  INI
+  cat > kayitlar/aktif/odunc.ini <<'INI'
+  [kitap]
+  ad=Simyaci
+  INI
+  printf 'sadece not\n' > kayitlar/notlar.txt
+
+goal_tr: >
+  kayitlar dizin agacindaki .ini uzantili dosyalarin her birini, ayni goreli
+  yolu koruyarak duzgun/ altina kopyala ve dosya adlarindaki buyuk harfleri
+  kucuk harfe cevir
+
+reference_solution: |
+  find kayitlar -type f -name '*.ini' | while read -r f; do d=$(dirname "$f"); b=$(basename "$f" | tr 'A-Z' 'a-z'); mkdir -p "duzgun/$d"; sed 's/[[:space:]]*$//' "$f" > "duzgun/$d/$b"; done
+
+outputs:
+  - {path: duzgun, kind: dir}
+  - {path: duzgun/kayitlar/ayarlar.ini, kind: file}
+  - {path: duzgun/kayitlar/arsiv/2019.ini, kind: file}
+  - {path: duzgun/kayitlar/arsiv/2020.ini, kind: file}
+  - {path: duzgun/kayitlar/aktif/odunc.ini, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: duzgun, value: [kayitlar]}
+  - {op: file_lines_eq, path: duzgun/kayitlar/aktif/odunc.ini, value: ['[kitap]', ad=Simyaci]}
+  - {op: file_lines_eq, path: duzgun/kayitlar/arsiv/2019.ini, value: ['[yil]', deger=2019]}
+  - {op: file_lines_eq, path: duzgun/kayitlar/arsiv/2020.ini, value: ['[yil]', deger=2020]}
+  - {op: file_lines_eq, path: duzgun/kayitlar/ayarlar.ini, value: ['[genel]', ad=Kutuphane, sehir=Ankara]}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7298
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: kutuphane-kayitlari
+    hedef: dogrula
+    girdi: ini
+    kaynak: dizin-agaci
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

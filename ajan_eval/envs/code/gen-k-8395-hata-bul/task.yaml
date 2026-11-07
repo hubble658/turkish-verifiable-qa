@@ -1,0 +1,88 @@
+id: gen-k-8395-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+prompt: '1) arena/board/scoreboard.py dosyasındaki Scoreboard.top metodunu, k değeri oyuncu sayısından büyük olduğunda da
+  tüm oyuncuları puan azalan sırada, eşit puanda ad alfabetik artan sırada döndürecek şekilde düzelt.
+
+
+  2) Aynı metotta k değeri negatif olduğunda da doğru davranışı sağla.
+
+
+  k negatifse boş liste döndürsün.
+
+  '
+setup: "mkdir -p arena/core arena/board\ncat > arena/__init__.py <<'PY'\nPY\ncat > arena/core/__init__.py <<'PY'\nPY\ncat\
+  \ > arena/board/__init__.py <<'PY'\nPY\ncat > arena/core/roster.py <<'PY'\nclass RosterError(Exception):\n    pass\n\n\n\
+  class DuplicatePlayer(RosterError):\n    pass\n\n\nclass UnknownPlayer(RosterError):\n    pass\n\n\nclass Roster:\n    def\
+  \ __init__(self):\n        self._names = []\n\n    def add(self, name):\n        if name in self._names:\n            raise\
+  \ DuplicatePlayer(name)\n        self._names.append(name)\n\n    def has(self, name):\n        return name in self._names\n\
+  \n    def names(self):\n        return list(self._names)\nPY\ncat > arena/board/scoreboard.py <<'PY'\nfrom arena.core.roster\
+  \ import Roster, UnknownPlayer\n\n\nclass Scoreboard:\n    def __init__(self, roster=None):\n        self.roster = roster\
+  \ if roster is not None else Roster()\n        self._points = {}\n\n    def register(self, name):\n        self.roster.add(name)\n\
+  \        self._points[name] = 0\n\n    def award(self, name, points):\n        if not self.roster.has(name):\n         \
+  \   raise UnknownPlayer(name)\n        self._points[name] += points\n\n    def top(self, k):\n        ranked = sorted(self._points.items(),\
+  \ key=lambda kv: (-kv[1], kv[0]))\n        return [name for name, _ in ranked[:k]]\nPY\ncat > arena/board/__main__.py <<'PY'\n\
+  from arena.board.scoreboard import Scoreboard\n\n\ndef build():\n    board = Scoreboard()\n    for name in [\"ada\", \"\
+  bora\", \"cem\"]:\n        board.register(name)\n    board.award(\"ada\", 5)\n    board.award(\"bora\", 5)\n    board.award(\"\
+  cem\", 1)\n    return board\n\n\nif __name__ == \"__main__\":\n    print(build().top(2))\nPY\n"
+goal_tr: 'arena/board/scoreboard.py icindeki Scoreboard.top metodunu, k oyuncu sayisindan buyuk oldugunda da tum oyunculari
+  puan azalan, esitlikte ad alfabetik artan sirada dondurecek sekilde duzelt; ayrica negatif k icin de dogru davranmasi gerekiyor.
+
+  '
+reference_solution: "cat > arena/board/scoreboard.py <<'PY'\nfrom arena.core.roster import Roster, UnknownPlayer\n\n\nclass\
+  \ Scoreboard:\n    def __init__(self, roster=None):\n        self.roster = roster if roster is not None else Roster()\n\
+  \        self._points = {}\n\n    def register(self, name):\n        self.roster.add(name)\n        self._points[name] =\
+  \ 0\n\n    def award(self, name, points):\n        if not self.roster.has(name):\n            raise UnknownPlayer(name)\n\
+  \        self._points[name] += points\n\n    def top(self, k):\n        ranked = sorted(self._points.items(), key=lambda\
+  \ kv: (-kv[1], kv[0]))\n        if k <= 0:\n            return []\n        return [name for name, _ in ranked[:k]]\nPY\n"
+outputs:
+- path: arena/board/scoreboard.py
+  kind: program
+  run: python3 -c 'from arena.board.scoreboard import Scoreboard; b=Scoreboard(); [b.register(n) for n in ["ada","bora","cem","deniz"]];
+    b.award("ada",5); b.award("bora",5); b.award("cem",1); b.award("deniz",9); assert b.top(2)==["deniz","ada"], b.top(2);
+    assert b.top(10)==["deniz","ada","bora","cem"], b.top(10); assert b.top(4)==["deniz","ada","bora","cem"]; assert b.top(0)==[],
+    b.top(0); assert b.top(-3)==[], b.top(-3); print("TAMAM")'
+checks:
+- op: run_stdout_eq
+  cmd: python3 -c 'from arena.board.scoreboard import Scoreboard; b=Scoreboard(); [b.register(n) for n in ["ada","bora","cem","deniz"]];
+    b.award("ada",5); b.award("bora",5); b.award("cem",1); b.award("deniz",9); assert b.top(2)==["deniz","ada"], b.top(2);
+    assert b.top(10)==["deniz","ada","bora","cem"], b.top(10); assert b.top(4)==["deniz","ada","bora","cem"]; assert b.top(0)==[],
+    b.top(0); assert b.top(-3)==[], b.top(-3); print("TAMAM")'
+  value: TAMAM
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8395
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: oyun-skor-tablosu
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kenar-durum
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: bellek-ici
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false
+  duzeltme:
+    neden: gizli_sart
+    not: Negatif k davranışı belirsizdi.

@@ -1,0 +1,61 @@
+id: gen-s-7276-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  urunler.txt'teki her satırda iki nokta ile ayrılmış ikinci alanı boşluklarını temizleyip ters çevir, üçüncü alanla birleştir; tüm satırlar için bu değerlerin toplam karakter sayısını sonuc.txt'ye sadece sayı olarak yaz. tuzak.txt'yi işleme katma.
+
+setup: |
+  cat > urunler.txt <<'DATA'
+  TV    :34   :kaliteli
+  BUZDOLABI:12:gurultulu
+  FIRIN :7    :yavas
+  CAMASIR:99   :mukemmel
+  DATA
+  cat > tuzak.txt <<'DATA'
+  TELEFON:5:iyi
+  DATA
+
+goal_tr: >
+  urunler.txt icindeki her satirda iki nokta ile ayrilmis alanlarin
+  ikincisini (bosluklarini temizleyerek) ters cevirip ucuncu alanla
+  birlestir, sonra tum satirlar icin bu degerlerin toplam karakter sayisini
+  sonuc.txt'ye sadece sayi olarak yaz; tuzak.txt dosyasini isleme katma.
+
+reference_solution: |
+  cut -d: -f2,3 urunler.txt | rev | tr -d ' \n' | wc -c > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '41'}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7276
+    bundle: ters-cevir
+    tools:
+    - rev
+    - cut
+    konu: urun-yorumlari
+    hedef: donustur
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

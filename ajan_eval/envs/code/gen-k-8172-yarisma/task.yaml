@@ -1,0 +1,112 @@
+id: gen-k-8172-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Atölyedeki sensör kutularının kablolarını dün akşam yeniden etiketledik, bugün de sabahki vardiyada panodaki değerlerin bir türlü tutmadığını görünce epey uğraştık. Sorun kablolarda değil, ham veriyi olduğu gibi ekrana basan geçici betikteymiş; ama artık düzenli bir toplama katmanına geçmemiz lazım. Bu yüzden sensor/aggregator.py dosyasını oluşturmanı istiyorum.
+
+  Bu dosyanın içinde durumlu bir SensorAggregator sınıfı olsun. Sınıf, sensor/stream.py üzerinden okunan ham ölçümleri sensor/config.py içindeki kalibrasyon ofsetleriyle düzeltsin ve her sensör için ortalama değeri hesaplasın. Sınıfın feed_all ve averages metotları bulunsun; feed_all ham ölçümleri alıp işlesin, averages ise her sensör için hesaplanan ortalama değerleri versin.
+
+setup: |
+  mkdir -p sensor
+  cat > sensor/config.py <<'CFG'
+  SENSOR_IDS = ["s1", "s2", "s3"]
+  CALIBRATION_OFFSET = {"s1": 0.0, "s2": 0.5, "s3": -0.5}
+  CFG
+  cat > sensor/stream.py <<'STREAM'
+  from sensor.config import SENSOR_IDS
+
+
+  def read_stream(path):
+      rows = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              sid, raw = line.split(",")
+              rows.append((sid, float(raw)))
+      return rows
+  STREAM
+  cat > data.csv <<'CSV'
+  s1,10.0
+  s2,20.0
+  s1,11.0
+  s3,30.0
+  s2,21.0
+  s1,12.0
+  CSV
+
+goal_tr: >
+  sensor/aggregator.py icinde, sensor/stream.py'den okunan ham olcumleri
+  sensor/config.py'deki kalibrasyon ofsetleriyle duzelten ve her sensor icin
+  ortalama degeri hesaplayan durumlu bir SensorAggregator sinifi yaz;
+  sinifin feed_all ve averages metotlari olsun.
+
+reference_solution: |
+  cat > sensor/aggregator.py <<'AGG'
+  from sensor.config import CALIBRATION_OFFSET
+  from sensor.stream import read_stream
+
+
+  class SensorAggregator:
+      def __init__(self):
+          self._counts = {}
+          self._sums = {}
+
+      def feed_all(self, path):
+          for sid, raw in read_stream(path):
+              self._add(sid, raw)
+          return self
+
+      def _add(self, sid, raw):
+          value = raw + CALIBRATION_OFFSET.get(sid, 0.0)
+          self._counts[sid] = self._counts.get(sid, 0) + 1
+          self._sums[sid] = self._sums.get(sid, 0.0) + value
+
+      def averages(self):
+          return {sid: self._sums[sid] / self._counts[sid] for sid in self._sums}
+  AGG
+
+outputs:
+  - {path: sensor/aggregator.py, kind: program, run: 'python3 -c ''from sensor.aggregator import SensorAggregator as A; a=A().feed_all("data.csv"); r=a.averages(); assert r=={"s1":11.0,"s2":21.0,"s3":29.5}, r; b=A(); b.feed_all("data.csv"); b.feed_all("data.csv"); r2=b.averages(); assert r2=={"s1":11.0,"s2":21.0,"s3":29.5}, r2; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensor.aggregator import SensorAggregator as A; a=A().feed_all("data.csv"); r=a.averages(); assert r=={"s1":11.0,"s2":21.0,"s3":29.5}, r; b=A(); b.feed_all("data.csv"); b.feed_all("data.csv"); r2=b.averages(); assert r2=={"s1":11.0,"s2":21.0,"s3":29.5}, r2; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8172
+    bundle: yarisma
+    tools:
+    - python3
+    konu: sensor-serisi
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kolay
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: benzetim
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: cok-dosya-birlestirme
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,75 @@
+id: gen-s-7095-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri/kargolar.txt ve veri/teslimatlar.txt dosyalarındaki kayıtları kargo numarasına göre eşleştir. Teslim durumu "teslim" olan kayıtların ağırlık değerlerini topla ve bu toplamı sonuc.txt dosyasına yalnızca sayı olarak yaz.
+
+setup: |
+  mkdir -p veri
+  cat > veri/kargolar.txt <<'K'
+  K001|ANKARA|2024-03-01|500
+  K002|IZMIR|2024-03-02|750
+  K003|ANKARA|2024-03-03|300
+  K004|BURSA|2024-03-04|900
+  K005|IZMIR|2024-03-05|450
+  K
+  cat > veri/teslimatlar.txt <<'T'
+  K001|teslim
+  K002|beklemede
+  K003|teslim
+  K004|teslim
+  K005|beklemede
+  T
+  : > veri/bos.txt
+
+goal_tr: >
+  veri/kargolar.txt ve veri/teslimatlar.txt dosyalarini kargo numarasina
+  gore eslestirip teslim durumu "teslim" olan kayitlardaki agirlik
+  degerlerinin toplamini sonuc.txt dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  join -t'|' -1 1 -2 1 <(sort -t'|' -k1,1 veri/kargolar.txt) <(sort -t'|' -k1,1 veri/teslimatlar.txt) \
+    | grep 'teslim$' \
+    | cut -d'|' -f4 \
+    | paste -sd+ - \
+    | bc 2>/dev/null || true
+  join -t'|' -1 1 -2 1 <(sort -t'|' -k1,1 veri/kargolar.txt) <(sort -t'|' -k1,1 veri/teslimatlar.txt) \
+    | grep 'teslim$' \
+    | awk -F'|' '{s+=$4} END{print s}' > sonuc.txt
+  wc -l sonuc.txt > /dev/null
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '1700'}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7095
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: kargo-takibi
+    hedef: denetle
+    girdi: sabit-genislik
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: bos-dosya
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

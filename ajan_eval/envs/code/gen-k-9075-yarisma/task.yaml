@@ -1,0 +1,155 @@
+id: gen-k-9075-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 18
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) plans/picker.py dosyasındaki pick_plans fonksiyonunu, her adımda bütçeye sığan tüm seçenekler arasından aylık ücreti en yüksek olanı seçerek açgözlü biçimde planları döndürecek şekilde düzelt.
+
+  2) plans/summary.py dosyasındaki budget_report fonksiyonunu, seçilen planların özellik (features) toplamını döndürecek şekilde düzelt.
+
+  3) plans/catalog.py dosyasındaki plan_catalog fonksiyonunu değiştirmeden koru.
+
+setup: |
+  mkdir -p plans
+  cat > plans/catalog.py <<'CAT'
+  def plan_catalog():
+      return {
+          "basic": {"monthly": 10, "features": 5},
+          "plus": {"monthly": 18, "features": 12},
+          "pro": {"monthly": 30, "features": 25},
+          "team": {"monthly": 25, "features": 20},
+      }
+  CAT
+  cat > plans/picker.py <<'PICK'
+  from plans.catalog import plan_catalog
+
+
+  def pick_plans(budget):
+      catalog = plan_catalog()
+      chosen = []
+      spent = 0
+      for name in catalog:
+          price = catalog[name]["monthly"]
+          if spent + price <= budget:
+              chosen.append(name)
+              spent += price
+      return chosen
+  PICK
+  cat > plans/summary.py <<'SUM'
+  from plans.picker import pick_plans
+
+
+  def budget_report(budget):
+      names = pick_plans(budget)
+      return len(names)
+  SUM
+
+goal_tr: >
+  plans/picker.py icindeki pick_plans fonksiyonunu, her adimda butceye
+  sigani degil butceye sigan secenekler icinden aylik ucreti en yuksek olani
+  secerek acgozlu bicimde planlari dondurecek sekilde duzelt;
+  plans/summary.py icindeki budget_report ise secilen planlarin ozellik
+  (features) toplamini dondursun.
+
+reference_solution: |
+  cat > plans/picker.py <<'PICK'
+  from plans.catalog import plan_catalog
+
+
+  def pick_plans(budget):
+      catalog = plan_catalog()
+      chosen = []
+      spent = 0
+      while True:
+          affordable = [
+              name
+              for name in catalog
+              if name not in chosen and spent + catalog[name]["monthly"] <= budget
+          ]
+          if not affordable:
+              break
+          best = max(affordable, key=lambda n: (catalog[n]["monthly"], n))
+          chosen.append(best)
+          spent += catalog[best]["monthly"]
+      return chosen
+  PICK
+  cat > plans/summary.py <<'SUM'
+  from plans.catalog import plan_catalog
+  from plans.picker import pick_plans
+
+
+  def budget_report(budget):
+      catalog = plan_catalog()
+      names = pick_plans(budget)
+      return sum(catalog[name]["features"] for name in names)
+  SUM
+
+ara_adim: |
+  cat > plans/picker.py <<'PICK'
+  from plans.catalog import plan_catalog
+
+
+  def pick_plans(budget):
+      catalog = plan_catalog()
+      chosen = []
+      spent = 0
+      while True:
+          affordable = [
+              name
+              for name in catalog
+              if name not in chosen and spent + catalog[name]["monthly"] <= budget
+          ]
+          if not affordable:
+              break
+          best = max(affordable, key=lambda n: (catalog[n]["monthly"], n))
+          chosen.append(best)
+          spent += catalog[best]["monthly"]
+      return chosen
+  PICK
+
+outputs:
+  - {path: plans/summary.py, kind: program, run: 'python3 -c ''from plans.summary import budget_report as f; assert f(28)==20, f(28); assert f(45)==30, f(45); assert f(0)==0; print("TAMAM")'''}
+  - {path: plans/picker.py, kind: program, run: 'python3 -c ''from plans.picker import pick_plans as f; assert f(28)==["team"], f(28); assert f(45)==["pro","basic"], f(45); print("ILERLEME-TAMAM")'''}
+  - {path: plans/catalog.py, kind: program, run: 'python3 -c ''from plans.catalog import plan_catalog as f; c=f(); assert len(c)==4; assert c["pro"]["monthly"]==30; assert c["plus"]["features"]==12; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from plans.picker import pick_plans as f; assert f(28)==["team"], f(28); assert f(45)==["pro","basic"], f(45); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from plans.summary import budget_report as f; assert f(28)==20, f(28); assert f(45)==30, f(45); assert f(0)==0; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from plans.catalog import plan_catalog as f; c=f(); assert len(c)==4; assert c["pro"]["monthly"]==30; assert c["plus"]["features"]==12; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9075
+    bundle: yarisma
+    tools:
+    - python3
+    konu: abonelik-planlari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 6
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: acgozlu
+      karmasiklik: orta
+      kalip: duz-fonksiyon
+      akis: bellek-ici
+      topoloji: yildiz
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

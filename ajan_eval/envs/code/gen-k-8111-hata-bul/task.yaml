@@ -1,0 +1,134 @@
+id: gen-k-8111-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  depot/inventory.py dosyasındaki low_stock fonksiyonunu, stok miktarı eşik değerinin altında veya eşitinde olan ürünlerin listesini doğru döndürecek biçimde düzelt.
+
+  Şu şartlar sağlanmalı:
+  - depot/inventory.py dosyasındaki low_stock fonksiyonu, stok miktarı eşik değerinin altında veya eşitinde olan ürünlerin listesini döndürmeli.
+  - Fonksiyon, stok miktarı eşik değerinin üstünde olan ürünleri listeye dahil etmemeli.
+  - depot/inventory.py içindeki diğer fonksiyonlar (total_units) ve depot/io_reader.py dosyası çalışır durumda kalmalı.
+  - stock.txt dosyasındaki verilerle low_stock fonksiyonu çağrıldığında, eşik değerinin altında veya eşitinde olan ürünlerin listesi dönmeli.
+
+setup: |
+  mkdir -p depot
+  cat > depot/io_reader.py <<'IO'
+  class InventoryReader:
+      def __init__(self, path):
+          self.path = path
+
+      def __enter__(self):
+          self.handle = open(self.path, "r", encoding="utf-8")
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self.handle.close()
+          return False
+
+      def rows(self):
+          out = []
+          for line in self.handle:
+              line = line.strip()
+              if not line:
+                  continue
+              sku, qty, threshold = line.split(",")
+              out.append((sku, int(qty), int(threshold)))
+          return out
+  IO
+  cat > depot/inventory.py <<'INV'
+  from depot.io_reader import InventoryReader
+
+
+  def low_stock(path):
+      with InventoryReader(path) as reader:
+          result = []
+          for sku, qty, threshold in reader.rows():
+              if qty < threshold:
+                  result.append(sku)
+          return result
+
+
+  def total_units(path):
+      with InventoryReader(path) as reader:
+          total = 0
+          for sku, qty, threshold in reader.rows():
+              total += qty
+          return total
+  INV
+  cat > stock.txt <<'TXT'
+  bolt,4,10
+  nut,12,5
+  washer,0,3
+  screw,7,7
+  TXT
+
+goal_tr: >
+  depot/inventory.py icindeki low_stock fonksiyonunu, stok miktari esik
+  degerinin altinda veya esitinde olan urunlerin listesini dogru dondurecek
+  bicimde duzelt
+
+reference_solution: |
+  cat > depot/inventory.py <<'INV'
+  from depot.io_reader import InventoryReader
+
+
+  def low_stock(path):
+      with InventoryReader(path) as reader:
+          result = []
+          for sku, qty, threshold in reader.rows():
+              if qty <= threshold:
+                  result.append(sku)
+          return result
+
+
+  def total_units(path):
+      with InventoryReader(path) as reader:
+          total = 0
+          for sku, qty, threshold in reader.rows():
+              total += qty
+          return total
+  INV
+
+outputs:
+  - {path: depot/inventory.py, kind: program, run: 'python3 -c ''from depot.inventory import low_stock as f, total_units as g; assert f("stock.txt")==["bolt","washer","screw"], f("stock.txt"); assert g("stock.txt")==23, g("stock.txt"); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depot.inventory import low_stock as f, total_units as g; assert f("stock.txt")==["bolt","washer","screw"], f("stock.txt"); assert g("stock.txt")==23, g("stock.txt"); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8111
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: depo-envanteri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: off-by-one
+      karmasiklik: duz
+      kalip: context-manager
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

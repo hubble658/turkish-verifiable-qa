@@ -1,0 +1,138 @@
+id: gen-k-8107-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  docs/query.py içindeki search fonksiyonunu, docs/corpus.txt'yi okuyup her satırı "id: metin" diye ayrıştıracak ve TokenStream ile kurulan ters indeksten, sorgudaki tüm sözcükleri içeren belge kimliklerini artan sırada döndürecek şekilde yaz.
+
+setup: |
+  mkdir -p docs
+  cat > docs/tokens.py <<'TOKENS'
+  class TokenStream:
+      def __init__(self, text):
+          self._tokens = [t for t in text.replace(".", " .").split() if t]
+          self._pos = 0
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          if self._pos >= len(self._tokens):
+              raise StopIteration
+          tok = self._tokens[self._pos]
+          self._pos += 1
+          return tok
+  TOKENS
+  cat > docs/index.py <<'INDEX'
+  from docs.tokens import TokenStream
+
+
+  def build_index(docs):
+      index = {}
+      for doc_id, text in docs.items():
+          for tok in TokenStream(text):
+              index.setdefault(tok, []).append(doc_id)
+      return index
+  INDEX
+  cat > docs/query.py <<'QUERY'
+  from docs.index import build_index
+
+
+  def search(docs, query):
+      index = build_index(docs)
+      result = None
+      for tok in query.split():
+          ids = set(index.get(tok, []))
+          if result is None:
+              result = ids
+          else:
+              result &= ids
+      return sorted(result) if result else []
+  QUERY
+  cat > docs/corpus.txt <<'CORPUS'
+  d1: the quick brown fox jumps
+  d2: the lazy dog sleeps
+  d3: quick brown dog runs
+  CORPUS
+
+goal_tr: >
+  docs/query.py icindeki search fonksiyonunu, docs/corpus.txt dosyasini
+  okuyup her satiri "id: metin" biciminde ayristirarak ve TokenStream
+  uzerinden kurulan ters indeksi kullanarak, verilen sorgudaki tum
+  sozcukleri iceren belge kimliklerini artan sirada dondurecek sekilde yaz.
+
+reference_solution: |
+  cat > docs/query.py <<'QUERY'
+  from docs.index import build_index
+
+
+  def load_corpus(path):
+      docs = {}
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              doc_id, text = line.split(":", 1)
+              docs[doc_id.strip()] = text.strip()
+      return docs
+
+
+  def search(docs, query):
+      index = build_index(docs)
+      result = None
+      for tok in query.split():
+          ids = set(index.get(tok, []))
+          if result is None:
+              result = ids
+          else:
+              result &= ids
+      return sorted(result) if result else []
+
+
+  def search_file(path, query):
+      return search(load_corpus(path), query)
+  QUERY
+
+outputs:
+  - {path: docs/query.py, kind: program, run: 'python3 -c ''from docs.query import search, search_file; d={"d1":"the quick brown fox jumps","d2":"the lazy dog sleeps","d3":"quick brown dog runs"}; assert search(d,"quick brown")==["d1","d3"], search(d,"quick brown"); assert search(d,"the dog")==["d2"], search(d,"the dog"); assert search(d,"zzz")==[]; assert search_file("docs/corpus.txt","quick brown")==["d1","d3"], search_file("docs/corpus.txt","quick brown"); assert search_file("docs/corpus.txt","dog")==["d2","d3"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from docs.query import search, search_file; d={"d1":"the quick brown fox jumps","d2":"the lazy dog sleeps","d3":"quick brown dog runs"}; assert search(d,"quick brown")==["d1","d3"], search(d,"quick brown"); assert search(d,"the dog")==["d2"], search(d,"the dog"); assert search(d,"zzz")==[]; assert search_file("docs/corpus.txt","quick brown")==["d1","d3"], search_file("docs/corpus.txt","quick brown"); assert search_file("docs/corpus.txt","dog")==["d2","d3"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8107
+    bundle: yarisma
+    tools:
+    - python3
+    konu: metin-belgeleri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: terse
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: benzetim
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: cok-dosya-birlestirme
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

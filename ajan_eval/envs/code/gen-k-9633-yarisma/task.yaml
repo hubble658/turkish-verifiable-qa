@@ -1,0 +1,147 @@
+id: gen-k-9633-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 28
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  fleet paketindeki araçların kümülatif mesafe raporunu tamamla. data.txt dosyasındaki kayıtları fleet/records.py ile okuyup fleet/prefix.py içindeki kümülatif mesafe hesabını düzelt ve fleet/report.py içinde, her araç için kendisi dahil olmak üzere önce gelen tüm araçların mesafe toplamını ve kendi mesafesini taşıyan bir FleetReport nesnesi üretecek biçimde raporu oluştur. Rapordaki toplamlar ve kümülatif değerler birbiriyle tutarlı olmalı.
+
+setup: |
+  mkdir -p fleet
+  cat > fleet/records.py <<'RECORDS'
+  def load_records(path):
+      out = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              plate, dist, fuel = line.split(';')
+              out.append((plate, int(dist), int(fuel)))
+      return out
+  RECORDS
+  cat > fleet/prefix.py <<'PREFIX'
+  def running_distance(records):
+      total = 0
+      out = []
+      for plate, dist, fuel in records:
+          total = dist
+          out.append((plate, total))
+      return out
+  PREFIX
+  cat > fleet/__init__.py <<'INIT'
+  INIT
+  cat > data.txt <<'DATA'
+  AR01;120;30
+  AR02;80;20
+  AR03;200;50
+  AR04;50;10
+  DATA
+
+goal_tr: >
+  fleet paketindeki araclarin kumulatif mesafe raporunu, her arac icin
+  kendisi dahil olmak uzere once gelen tum araclarin mesafe toplamini ve
+  kendi mesafesini tasiyan bir FleetReport nesnesi uretecek bicimde tamamla;
+  rapor toplamlari ve kumulatif degerler tutarli olmali.
+
+reference_solution: |
+  cat > fleet/prefix.py <<'PREFIX'
+  def running_distance(records):
+      total = 0
+      out = []
+      for plate, dist, fuel in records:
+          total += dist
+          out.append((plate, total))
+      return out
+  PREFIX
+  cat > fleet/report.py <<'REPORT'
+  from fleet.records import load_records
+  from fleet.prefix import running_distance
+
+
+  class FleetReport:
+      def __init__(self, path):
+          self.records = load_records(path)
+          self.cumulative = running_distance(self.records)
+
+      def total_distance(self):
+          return self.cumulative[-1][1] if self.cumulative else 0
+
+      def total_fuel(self):
+          return sum(fuel for _, _, fuel in self.records)
+
+      def share(self, plate):
+          for (p, cum), (_, dist, _) in zip(self.cumulative, self.records):
+              if p == plate:
+                  return cum / self.total_distance()
+          raise KeyError(plate)
+
+      def __add__(self, other):
+          merged = FleetReport.__new__(FleetReport)
+          merged.records = self.records + other.records
+          merged.cumulative = running_distance(merged.records)
+          return merged
+
+      def __len__(self):
+          return len(self.records)
+
+      def __getitem__(self, index):
+          return self.cumulative[index]
+  REPORT
+
+ara_adim: |
+  cat > fleet/prefix.py <<'PREFIX'
+  def running_distance(records):
+      total = 0
+      out = []
+      for plate, dist, fuel in records:
+          total += dist
+          out.append((plate, total))
+      return out
+  PREFIX
+
+outputs:
+  - {path: fleet/report.py, kind: program, run: 'python3 -c ''from fleet.report import FleetReport as R; r=R("data.txt"); assert r.total_distance()==450, r.total_distance(); assert r[0]==("AR01",120), r[0]; assert r[-1]==("AR04",450), r[-1]; assert len(r)==4; assert abs(r.share("AR03")-400/450)<1e-9; assert r.total_fuel()==110; print("ZINCIR-SONU-TAMAM")'''}
+  - {path: fleet/prefix.py, kind: program, run: 'python3 -c ''from fleet.prefix import running_distance as f; assert f([("a",10,1),("b",5,1)])==[("a",10),("b",15)], f([("a",10,1),("b",5,1)]); print("ILERLEME-TAMAM")'''}
+  - {path: fleet/records.py, kind: program, run: 'python3 -c ''from fleet.records import load_records as f; assert f("data.txt")==[("AR01",120,30),("AR02",80,20),("AR03",200,50),("AR04",50,10)], f("data.txt"); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.report import FleetReport as R; r=R("data.txt"); assert r.total_distance()==450, r.total_distance(); assert r[0]==("AR01",120), r[0]; assert r[-1]==("AR04",450), r[-1]; assert len(r)==4; assert abs(r.share("AR03")-400/450)<1e-9; assert r.total_fuel()==110; print("ZINCIR-SONU-TAMAM")''', value: ZINCIR-SONU-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.prefix import running_distance as f; assert f([("a",10,1),("b",5,1)])==[("a",10),("b",15)], f([("a",10,1),("b",5,1)]); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.records import load_records as f; assert f("data.txt")==[("AR01",120,30),("AR02",80,20),("AR03",200,50),("AR04",50,10)], f("data.txt"); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9633
+    bundle: yarisma
+    tools:
+    - python3
+    konu: arac-filosu
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 11
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: onek-toplam
+      karmasiklik: derin
+      kalip: operator-asiri-yukleme
+      akis: cok-dosya-birlestirme
+      topoloji: iki-modul-zincir
+      zincir: 3
+      regresyon: true
+      bagimli: true
+      kesif_zor: true

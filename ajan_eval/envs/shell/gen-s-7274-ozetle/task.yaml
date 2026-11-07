@@ -1,0 +1,83 @@
+id: gen-s-7274-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) yorumlar dizin ağacındaki tüm .ini dosyalarını tara.
+  2) Bu dosyalardaki urun ve puan alanlarını birleştir.
+  3) Her ürün için kaç yorum olduğunu ve puanların ortalamasını hesapla.
+  4) Sonucu urun,puan_sayisi,ortalama başlıklarıyla, ortalama iki ondalıklı olacak şekilde ozet.csv dosyasına yaz.
+  5) ozet.csv dosyasındaki satırları ürün adına göre artan sırada diz.
+
+setup: |
+  mkdir -p yorumlar/2024
+  cat > yorumlar/2024/a.ini <<'INI'
+  urun=kalem
+  puan=5
+  yorum=cok iyi
+  INI
+  cat > yorumlar/2024/b.ini <<'INI'
+  urun=defter
+  puan=3
+  yorum=fena degil
+  INI
+  cat > yorumlar/2024/c.ini <<'INI'
+  urun=kalem
+  puan=4
+  yorum=guze
+  INI
+  cat > yorumlar/2024/d.ini <<'INI'
+  urun=silgi
+  puan=2
+  yorum=kotu
+  INI
+
+goal_tr: >
+  yorumlar dizin agacindaki tum .ini dosyalarini urun ve puan alanlarina
+  gore birlestirip, her urun icin kac yorum oldugunu ve puanlarin
+  ortalamasini urun,puan_sayisi,ortalama basliklariyla iki ondalikli olarak
+  ozet.csv dosyasina urun adina gore artan sirada yaz.
+
+reference_solution: |
+  find yorumlar -name '*.ini' -exec awk -F= '
+  $1=="urun"{u=$2}
+  $1=="puan"{p=$2}
+  END{print u","p}
+  ' {} + | awk -F, '
+  {u[$1]++; s[$1]+=$2}
+  END{for(k in u) printf "%s,%d,%.2f\n", k, u[k], s[k]/u[k]}
+  ' | sort > ozet.csv
+
+outputs:
+  - {path: ozet.csv, kind: csv, run: cat ozet.csv}
+
+checks:
+  - {op: file_content_eq, path: ozet.csv, value: 'silgi,1,2.00'}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7274
+    bundle: awk
+    tools:
+    - awk
+    konu: urun-yorumlari
+    hedef: ozetle
+    girdi: ini
+    kaynak: dizin-agaci
+    cikti: csv
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

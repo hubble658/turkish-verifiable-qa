@@ -1,0 +1,152 @@
+id: gen-k-9103-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 20
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sensor/report.py ve sensor/stats.py dosyalarındaki iki fonksiyonu düzeltmen gerekiyor. sensor/report.py içindeki summarize fonksiyonu, stdin'den gelen sensör satırlarından en yüksek değerli ölçümü "ad değer" biçiminde doğru döndürmeli; boş girdi verildiğinde ise "none 0.0" dönmeli. sensor/stats.py içindeki peak fonksiyonu ise eşit değerli ölçümlerde sonuncu ölçümü seçmeli. sensor/readings.py dosyasındaki iter_samples fonksiyonu satırları ayrıştırmak için kullanılıyor, onun davranışını değiştirmene gerek yok.
+
+setup: |
+  mkdir -p sensor
+  cat > sensor/readings.py <<'READINGS'
+  def iter_samples(lines):
+      for line in lines:
+          line = line.strip()
+          if not line:
+              continue
+          parts = line.split()
+          if len(parts) != 2:
+              continue
+          name, value = parts
+          yield name, float(value)
+  READINGS
+  cat > sensor/stats.py <<'STATS'
+  from sensor.readings import iter_samples
+
+
+  def peak(samples):
+      best_name = None
+      best_value = None
+      for name, value in samples:
+          if best_value is None or value > best_value:
+              best_name = name
+              best_value = value
+      return best_name, best_value
+  STATS
+  cat > sensor/report.py <<'REPORT'
+  from sensor.readings import iter_samples
+  from sensor.stats import peak
+
+
+  def summarize(lines):
+      samples = iter_samples(lines)
+      name, value = peak(samples)
+      return "%s %.1f" % (name, value)
+  REPORT
+
+goal_tr: >
+  sensor/report.py icindeki summarize fonksiyonunu, stdin'den gelen sensor
+  satirlarindan en yuksek degerli olcumu "ad deger" biciminde dogru
+  dondurecek ve bos girdide "none 0.0" donecek bicimde duzelt;
+  sensor/stats.py icindeki peak fonksiyonu esit degerlerde sonuncu olcumu
+  secmeli.
+
+reference_solution: |
+  cat > sensor/readings.py <<'READINGS'
+  def iter_samples(lines):
+      for line in lines:
+          line = line.strip()
+          if not line:
+              continue
+          parts = line.split()
+          if len(parts) != 2:
+              continue
+          name, value = parts
+          yield name, float(value)
+  READINGS
+  cat > sensor/stats.py <<'STATS'
+  from sensor.readings import iter_samples
+
+
+  def peak(samples):
+      best_name = None
+      best_value = None
+      for name, value in samples:
+          if best_value is None or value >= best_value:
+              best_name = name
+              best_value = value
+      return best_name, best_value
+  STATS
+  cat > sensor/report.py <<'REPORT'
+  from sensor.readings import iter_samples
+  from sensor.stats import peak
+
+
+  def summarize(lines):
+      samples = iter_samples(lines)
+      name, value = peak(samples)
+      if name is None:
+          return "none 0.0"
+      return "%s %.1f" % (name, value)
+  REPORT
+
+ara_adim: |
+  cat > sensor/stats.py <<'STATS'
+  from sensor.readings import iter_samples
+
+
+  def peak(samples):
+      best_name = None
+      best_value = None
+      for name, value in samples:
+          if best_value is None or value >= best_value:
+              best_name = name
+              best_value = value
+      return best_name, best_value
+  STATS
+
+outputs:
+  - {path: sensor/stats.py, kind: program, run: 'python3 -c ''from sensor.stats import peak as f; r=f(iter([("a",1.0),("b",3.0),("c",3.0)])); assert r==("c",3.0), r; print("ILERLEME-TAMAM")'''}
+  - {path: sensor/report.py, kind: program, run: 'python3 -c ''import sys; sys.stdin=iter([]); from sensor.report import summarize as f; assert f(sys.stdin)=="none 0.0", f(sys.stdin); print("TAMAM")'''}
+  - {path: sensor/readings.py, kind: program, run: 'python3 -c ''from sensor.readings import iter_samples as f; r=list(f(["x 1.5","y 2.0","","z 3.0","w 4.0"])); assert r==[("x",1.5),("y",2.0),("z",3.0),("w",4.0)], r; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import sys; sys.stdin=iter([]); from sensor.report import summarize as f; assert f(sys.stdin)=="none 0.0", f(sys.stdin); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensor.stats import peak as f; r=f(iter([("a",1.0),("b",3.0),("c",3.0)])); assert r==("c",3.0), r; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensor.readings import iter_samples as f; r=list(f(["x 1.5","y 2.0","","z 3.0","w 4.0"])); assert r==[("x",1.5),("y",2.0),("z",3.0),("w",4.0)], r; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9103
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: sensor-serisi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 7
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-karsilastirma
+      karmasiklik: orta
+      kalip: generator
+      akis: stdin-boru
+      topoloji: yildiz
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

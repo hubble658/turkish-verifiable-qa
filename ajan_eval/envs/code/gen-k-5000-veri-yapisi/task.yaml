@@ -1,0 +1,213 @@
+id: gen-k-5000-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) readings.py dosyasındaki SENSOR_ROWS listesini kullanan trie.py dosyasını oluştur.
+
+  2) trie.py içinde SensorTrie adında sözlük benzeri bir sınıf tanımla; bu sınıfa eklenen her (sensor, değer) çifti için ilgili sensörün okumalarını sıralı bir şekilde sakla.
+
+  3) SensorTrie sınıfında __setitem__ metodu ile eklenen okumaların sıralı kalmasını sağla.
+
+  4) SensorTrie sınıfında __getitem__ metodu sensör adına karşılık gelen okuma listesini döndürsün.
+
+  5) SensorTrie sınıfında __len__ metodu farklı sensör sayısını döndürsün.
+
+  6) SensorTrie sınıfında __iter__ metodu sensör adlarını alfabetik sırada üretsin.
+
+  7) SensorTrie sınıfında __contains__ metodu verilen sensörün var olup olmadığını kontrol etsin.
+
+  8) SensorTrie sınıfında prefix(önek) metodu verilen önekle başlayan sensör adlarını alfabetik sırada döndürsün.
+
+  9) SensorTrie sınıfında stats() metodu her sensör için (adet, min, max, ortalama) demetini sensör adına göre alfabetik sıralı bir liste olarak döndürsün.
+
+  10) SensorTrie nesnelerinin + operatörü ile birleştirilebilmesini sağla; iki trie'nin tüm okumaları yeni bir trie'de toplansın ve sol taraf korunsun.
+
+  11) SensorTrie nesnelerinin == operatörü, iki trie aynı sensörleri ve aynı okuma listelerini taşıdığında True döndürsün.
+
+  12) repr(trie) çağrısı SensorTrie(<adet> sensors) biçiminde bir metin döndürsün.
+
+setup: |
+  cat > readings.py <<'PY'
+  SENSOR_ROWS = [
+      ("a1", 10),
+      ("a1", 12),
+      ("a1", 11),
+      ("b2", 5),
+      ("b2", 7),
+      ("c3", 100),
+  ]
+  PY
+
+goal_tr: >
+  readings.py icindeki SENSOR_ROWS listesini kullanan trie.py dosyasini yaz:
+  SensorTrie sinifi sozluk benzeri bir kapsayici olsun ve __setitem__ ile
+  eklenen her (sensor, deger) cifti icin sensorun okumalarini sirali tutsun,
+  __getitem__ sensor adina karsilik gelen okuma listesini dondursun, __len__
+  farkli sensor sayisini, __iter__ sensor adlarini alfabetik sirada uretsin,
+  __contains__ sensor var mi diye baksin, prefix(onek) metodu verilen onekle
+  baslayan sensor adlarini alfabetik dondursun, stats() metodu ise her
+  sensor icin (adet, min, max, ortalama) demetini sensor adina gore
+  alfabetik sirali bir liste olarak versin; ayrica SensorTrie nesneleri +
+  operatoru ile birlestirilebilsin (iki trie'nin tum okumalari yeni bir
+  trie'de toplanir, sol taraf korunur), == operatoru iki trie'nin ayni
+  sensorleri ve ayni okuma listelerini tasidiginda True dondursun,
+  repr(trie) ise SensorTrie(<adet> sensors) biciminde olsun.
+
+reference_solution: |
+  cat > trie.py <<'PY'
+  from readings import SENSOR_ROWS
+
+
+  class _Node:
+      __slots__ = ("children", "values")
+
+      def __init__(self):
+          self.children = {}
+          self.values = []
+
+
+  class SensorTrie:
+      def __init__(self):
+          self._root = _Node()
+          self._count = 0
+
+      def __setitem__(self, key, value):
+          node = self._root
+          for ch in key:
+              nxt = node.children.get(ch)
+              if nxt is None:
+                  nxt = _Node()
+                  node.children[ch] = nxt
+              node = nxt
+          if not node.values:
+              self._count += 1
+          node.values.append(value)
+          node.values.sort()
+
+      def __getitem__(self, key):
+          node = self._root
+          for ch in key:
+              node = node.children.get(ch)
+              if node is None:
+                  raise KeyError(key)
+          if not node.values:
+              raise KeyError(key)
+          return list(node.values)
+
+      def __contains__(self, key):
+          node = self._root
+          for ch in key:
+              node = node.children.get(ch)
+              if node is None:
+                  return False
+          return bool(node.values)
+
+      def __len__(self):
+          return self._count
+
+      def __iter__(self):
+          yield from self._walk(self._root, "")
+
+      def _walk(self, node, prefix):
+          if node.values:
+              yield prefix
+          for ch in sorted(node.children):
+              yield from self._walk(node.children[ch], prefix + ch)
+
+      def prefix(self, pre):
+          node = self._root
+          for ch in pre:
+              node = node.children.get(ch)
+              if node is None:
+                  return []
+          return list(self._walk(node, pre))
+
+      def stats(self):
+          out = []
+          for name in self:
+              vals = self[name]
+              total = 0
+              lo = vals[0]
+              hi = vals[0]
+              for v in vals:
+                  total += v
+                  if v < lo:
+                      lo = v
+                  if v > hi:
+                      hi = v
+              out.append((name, len(vals), lo, hi, total / len(vals)))
+          return out
+
+      def __add__(self, other):
+          merged = SensorTrie()
+          for name in self:
+              for value in self[name]:
+                  merged[name] = value
+          for name in other:
+              for value in other[name]:
+                  merged[name] = value
+          return merged
+
+      def __eq__(self, other):
+          if not isinstance(other, SensorTrie):
+              return NotImplemented
+          return self.stats() == other.stats() and list(self) == list(other)
+
+      def __repr__(self):
+          return "SensorTrie(%d sensors)" % self._count
+
+
+  def build_from_rows(rows):
+      trie = SensorTrie()
+      for name, value in rows:
+          trie[name] = value
+      return trie
+
+
+  def load_default():
+      return build_from_rows(SENSOR_ROWS)
+  PY
+
+outputs:
+  - {path: trie.py, kind: program, run: 'python3 -c ''from trie import SensorTrie, build_from_rows, load_default; t=build_from_rows([("a1",10),("a1",12),("a1",11),("b2",5),("b2",7),("c3",100)]); assert len(t)==3, len(t); assert t["a1"]==[10,11,12], t["a1"]; assert "b2" in t and "z9" not in t; assert list(t)==["a1","b2","c3"], list(t); assert t.prefix("a")==["a1"], t.prefix("a"); assert t.prefix("")==["a1","b2","c3"]; assert t.stats()==[("a1",3,10,12,11.0),("b2",2,5,7,6.0),("c3",1,100,100,100.0)], t.stats(); assert repr(t)=="SensorTrie(3 sensors)", repr(t); u=build_from_rows([("a1",11),("d4",2)]); m=t+u; assert len(m)==4, len(m); assert m["a1"]==[10,11,11,12], m["a1"]; assert m["d4"]==[2]; assert len(t)==3; assert (t==t) and not (t==u); assert load_default()==t; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from trie import SensorTrie, build_from_rows, load_default; t=build_from_rows([("a1",10),("a1",12),("a1",11),("b2",5),("b2",7),("c3",100)]); assert len(t)==3, len(t); assert t["a1"]==[10,11,12], t["a1"]; assert "b2" in t and "z9" not in t; assert list(t)==["a1","b2","c3"], list(t); assert t.prefix("a")==["a1"], t.prefix("a"); assert t.prefix("")==["a1","b2","c3"]; assert t.stats()==[("a1",3,10,12,11.0),("b2",2,5,7,6.0),("c3",1,100,100,100.0)], t.stats(); assert repr(t)=="SensorTrie(3 sensors)", repr(t); u=build_from_rows([("a1",11),("d4",2)]); m=t+u; assert len(m)==4, len(m); assert m["a1"]==[10,11,11,12], m["a1"]; assert m["d4"]==[2]; assert len(t)==3; assert (t==t) and not (t==u); assert load_default()==t; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5000
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: sensor-serisi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: trie
+      karmasiklik: duz
+      kalip: operator-asiri-yukleme
+      akis: bellek-ici
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

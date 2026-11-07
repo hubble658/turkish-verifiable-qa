@@ -1,0 +1,107 @@
+id: gen-s-4156-toplu-yeniden-adlandir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi dizinindeki .ini uzantılı dosyaları içeriklerindeki sensör adına göre artan sırada sırala; bu dosyaları sırasıyla 001.ini, 002.ini, 003.ini ve 004.ini olacak şekilde girdi dizini içinde yeniden adlandır. Her eski ad ile yeni ad eşleşmesini içeren geçerli bir JSON nesnesini cikti.json dosyasına yaz. arsiv dizinine ve içeriğine dokunma.
+
+setup: |
+  mkdir -p girdi arsiv
+  cat > girdi/sensor_a.ini <<'INI'
+  sensor=sicaklik
+  deger=21
+  birim=C
+  INI
+  cat > girdi/sensor_b.ini <<'INI'
+  sensor=nem
+  deger=55
+  birim=%
+  INI
+  cat > girdi/sensor_c.ini <<'INI'
+  sensor=basinc
+  deger=1013
+  birim=hPa
+  INI
+  cat > girdi/notlar.txt <<'TXT'
+  bu dosya ini degil
+  TXT
+  cat > girdi/sensor_d.bak <<'BAK'
+  sensor=isik
+  deger=300
+  birim=lux
+  BAK
+  cat > girdi/sensor_e.ini <<'INI'
+  sensor=ruzgar
+  deger=12
+  birim=m/s
+  INI
+  mkdir -p arsiv/eski
+  cat > arsiv/eski/sensor_z.ini <<'INI'
+  sensor=eski
+  deger=0
+  birim=x
+  INI
+
+goal_tr: >
+  girdi dizinindeki .ini uzantili dosyalari sensor adina gore artan sirada
+  siralayip sirasiyla 001.ini, 002.ini diye yeniden adlandir ve her
+  eski-yeni ad ciftini iceren gecerli bir JSON nesnesini cikti.json
+  dosyasina yaz; arsiv dizinine dokunma
+
+reference_solution: |
+  mkdir -p gecici
+  find girdi -maxdepth 1 -type f -name '*.ini' | sort > gecici/liste.txt
+  awk -F/ '{print $2}' gecici/liste.txt | sort > gecici/adlar.txt
+  awk '{printf "%03d.ini %s\n", NR, $0}' gecici/adlar.txt > gecici/eslesme.txt
+  printf '{\n' > cikti.json
+  awk '{printf "  \"%s\": \"%s\"%s\n", $2, $1, (NR==n?"":",")}' n=$(wc -l < gecici/eslesme.txt) gecici/eslesme.txt >> cikti.json
+  printf '}\n' >> cikti.json
+  while read -r yeni eski; do mv "girdi/$eski" "girdi/$yeni"; done < gecici/eslesme.txt
+  rm -rf gecici
+
+outputs:
+  - {path: cikti.json, kind: json}
+  - {path: girdi/001.ini, kind: file}
+  - {path: girdi/002.ini, kind: file}
+  - {path: girdi/003.ini, kind: file}
+  - {path: girdi/004.ini, kind: file}
+
+checks:
+  - {op: json_eq, path: cikti.json, value: {sensor_a.ini: 001.ini, sensor_b.ini: 002.ini, sensor_c.ini: 003.ini, sensor_e.ini: 004.ini}}
+  - {op: file_lines_eq, path: girdi/001.ini, value: [sensor=sicaklik, deger=21, birim=C]}
+  - {op: file_lines_eq, path: girdi/002.ini, value: [sensor=nem, deger=55, birim=%]}
+  - {op: file_lines_eq, path: girdi/003.ini, value: [sensor=basinc, deger=1013, birim=hPa]}
+  - {op: file_lines_eq, path: girdi/004.ini, value: [sensor=ruzgar, deger=12, birim=m/s]}
+  - {op: not_exists, path: girdi/sensor_a.ini}
+  - {op: not_exists, path: girdi/sensor_b.ini}
+  - {op: not_exists, path: girdi/sensor_c.ini}
+  - {op: not_exists, path: girdi/sensor_e.ini}
+
+metadata:
+  domain: toplu-yeniden-adlandir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4156
+    bundle: dosya-duzen
+    tools:
+    - mkdir
+    - mv
+    konu: sensor-olcumleri
+    hedef: toplu-yeniden-adlandir
+    girdi: ini
+    kaynak: cok-dosya
+    cikti: json
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

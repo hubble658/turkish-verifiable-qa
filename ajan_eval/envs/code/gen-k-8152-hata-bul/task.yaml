@@ -1,0 +1,117 @@
+id: gen-k-8152-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sessions/report.py dosyasındaki active_users fonksiyonunu gözden geçir; eşiği aşan tüm kullanıcıları döndürmeli, bunu yaparken aktif olmayan bir oturumla karşılaştığında erken dönüş yapıp kalanları atlamamalı. sessions/records.py dosyasına dokunma, yalnızca report.py üzerinde çalış.
+
+setup: |
+  mkdir -p sessions
+  cat > sessions/records.py <<'RECORDS'
+  from dataclasses import dataclass, field
+
+
+  @dataclass
+  class Session:
+      user: str
+      events: list = field(default_factory=list)
+
+      def active_minutes(self):
+          total = 0
+          for kind, minutes in self.events:
+              if kind == "login":
+                  total = minutes
+              elif kind == "tick":
+                  total += minutes
+          return total
+
+      def is_active(self, threshold):
+          return self.active_minutes() >= threshold
+  RECORDS
+  cat > sessions/report.py <<'REPORT'
+  from sessions.records import Session
+
+
+  def build_sessions(rows):
+      sessions = []
+      for user, events in rows:
+          sessions.append(Session(user=user, events=list(events)))
+      return sessions
+
+
+  def active_users(rows, threshold):
+      result = []
+      for session in build_sessions(rows):
+          if session.is_active(threshold):
+              result.append(session.user)
+          else:
+              return result
+      return result
+  REPORT
+
+goal_tr: >
+  sessions/report.py icindeki active_users fonksiyonunu, esigi asan tum
+  kullanicilari sirasiyla dondurecek bicimde duzelt; erken donus yapmamali.
+
+reference_solution: |
+  cat > sessions/report.py <<'REPORT'
+  from sessions.records import Session
+
+
+  def build_sessions(rows):
+      sessions = []
+      for user, events in rows:
+          sessions.append(Session(user=user, events=list(events)))
+      return sessions
+
+
+  def active_users(rows, threshold):
+      result = []
+      for session in build_sessions(rows):
+          if session.is_active(threshold):
+              result.append(session.user)
+      return result
+  REPORT
+
+outputs:
+  - {path: sessions/report.py, kind: program, run: 'python3 -c ''from sessions.report import active_users as f; rows=[("a",[("login",5),("tick",20)]),("b",[("login",1),("tick",2)]),("c",[("login",10),("tick",40)]),("d",[("login",0),("tick",3)])]; assert f(rows,10)==["a","c"], f(rows,10); assert f(rows,100)==[], f(rows,100); assert f(rows,0)==["a","b","c","d"], f(rows,0); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sessions.report import active_users as f; rows=[("a",[("login",5),("tick",20)]),("b",[("login",1),("tick",2)]),("c",[("login",10),("tick",40)]),("d",[("login",0),("tick",3)])]; assert f(rows,10)==["a","c"], f(rows,10); assert f(rows,100)==[], f(rows,100); assert f(rows,0)==["a","b","c","d"], f(rows,0); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8152
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kullanici-oturumlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: zor
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: erken-donus
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: bellek-ici
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

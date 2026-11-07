@@ -1,0 +1,102 @@
+id: gen-k-5058-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  flights/board.py içindeki cheapest_route üretecini düzelt: n en ucuz rotayı döndürsün, fiyatlar eşitse dosyadaki sıra korusun.
+
+setup: |
+  mkdir -p flights
+  cat > flights/loader.py <<'LOADER'
+  def read_rows(path):
+      rows = []
+      with open(path, encoding="ascii") as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              code, route, seats, price = line.split(",")
+              rows.append((code, route, int(seats), float(price)))
+      return rows
+  LOADER
+  cat > flights/ranker.py <<'RANKER'
+  def rank_rows(rows):
+      return sorted(rows, key=lambda r: r[3], reverse=True)
+  RANKER
+  cat > flights/board.py <<'BOARD'
+  from flights.loader import read_rows
+  from flights.ranker import rank_rows
+
+
+  def cheapest_route(path, n):
+      for row in rank_rows(read_rows(path))[:n]:
+          yield row[1]
+  BOARD
+  cat > data.txt <<'DATA'
+  TK1,IST-ANK,120,300.0
+  TK2,IST-IZM,90,300.0
+  TK3,ANK-IZM,60,150.0
+  TK4,IST-ADB,200,150.0
+  DATA
+
+goal_tr: >
+  flights/board.py icindeki cheapest_route uretecini, en ucuz n rotayi fiyat
+  esitliginde dosyadaki sirayi koruyarak dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > flights/ranker.py <<'RANKER'
+  def rank_rows(rows):
+      return sorted(rows, key=lambda r: r[3])
+  RANKER
+  cat > flights/board.py <<'BOARD'
+  from flights.loader import read_rows
+  from flights.ranker import rank_rows
+
+
+  def cheapest_route(path, n):
+      for row in rank_rows(read_rows(path))[:n]:
+          yield row[1]
+  BOARD
+
+outputs:
+  - {path: flights/board.py, kind: program, run: 'python3 -c ''from flights.board import cheapest_route as f; a=list(f("data.txt",2)); assert a==["ANK-IZM","IST-ADB"], a; b=list(f("data.txt",3)); assert b==["ANK-IZM","IST-ADB","IST-ANK"], b; c=list(f("data.txt",4)); assert c==["ANK-IZM","IST-ADB","IST-ANK","IST-IZM"], c; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from flights.board import cheapest_route as f; a=list(f("data.txt",2)); assert a==["ANK-IZM","IST-ADB"], a; b=list(f("data.txt",3)); assert b==["ANK-IZM","IST-ADB","IST-ANK"], b; c=list(f("data.txt",4)); assert c==["ANK-IZM","IST-ADB","IST-ANK","IST-IZM"], c; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5058
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: ucus-rezervasyonlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-kararsizligi
+      karmasiklik: duz
+      kalip: generator
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

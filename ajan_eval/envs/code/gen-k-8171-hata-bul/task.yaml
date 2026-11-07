@@ -1,0 +1,118 @@
+id: gen-k-8171-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  depo/summary.py içindeki total_value fonksiyonunu, yalnızca stok miktarı sıfırdan büyük olan satırların tutarını toplayacak biçimde düzelt. Şu anda fonksiyon yanlış koşulu kullandığı için sıfır ve negatif miktarlı satırları hesaba katıyor; bunun yerine miktarı sıfırdan büyük olan satırların miktar ile fiyat çarpımını toplaması gerekiyor. depo/reader.py, depo/parser.py ve depo/app.py dosyalarındaki mevcut yapıyı ve fonksiyon imzasını koru; sadece depo/summary.py içindeki total_value fonksiyonunu istenen davranışa göre güncelle.
+
+setup: |
+  mkdir -p depo
+  cat > depo/reader.py <<'READER'
+  class InventoryReader:
+      def __init__(self, path):
+          self.path = path
+          self._fh = None
+
+      def __enter__(self):
+          self._fh = open(self.path)
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self._fh.close()
+          return False
+
+      def lines(self):
+          return [ln.strip() for ln in self._fh if ln.strip()]
+  READER
+  cat > depo/parser.py <<'PARSER'
+  def parse_line(line):
+      name, qty, price = line.split(',')
+      return (name, int(qty), float(price))
+  PARSER
+  cat > depo/summary.py <<'SUMMARY'
+  from depo.parser import parse_line
+
+
+  def total_value(rows):
+      total = 0.0
+      for name, qty, price in rows:
+          if qty < 0:
+              total = total + qty * price
+      return total
+  SUMMARY
+  cat > depo/app.py <<'APP'
+  from depo.reader import InventoryReader
+  from depo.parser import parse_line
+  from depo.summary import total_value
+
+
+  def run(path):
+      with InventoryReader(path) as reader:
+          rows = [parse_line(ln) for ln in reader.lines()]
+      return total_value(rows)
+  APP
+  cat > envanter.csv <<'CSV'
+  civi,100,0.5
+  vida,50,1.2
+  somun,0,3.0
+  CSV
+
+goal_tr: >
+  depo/summary.py icindeki total_value fonksiyonunu, stok miktari sifirdan
+  buyuk olan satirlarin tutarini toplayacak sekilde duzelt.
+
+reference_solution: |
+  cat > depo/summary.py <<'SUMMARY'
+  from depo.parser import parse_line
+
+
+  def total_value(rows):
+      total = 0.0
+      for name, qty, price in rows:
+          if qty > 0:
+              total = total + qty * price
+      return total
+  SUMMARY
+
+outputs:
+  - {path: depo/summary.py, kind: program, run: 'python3 -c ''from depo.parser import parse_line; from depo.summary import total_value; rows=[parse_line("civi,100,0.5"),parse_line("vida,50,1.2"),parse_line("somun,0,3.0")]; v=total_value(rows); assert abs(v-110.0)<1e-9, v; rows2=[parse_line("a,0,9.0")]; assert abs(total_value(rows2)-0.0)<1e-9, total_value(rows2); rows3=[parse_line("b,2,3.0"),parse_line("c,-5,1.0")]; assert abs(total_value(rows3)-6.0)<1e-9, total_value(rows3); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.parser import parse_line; from depo.summary import total_value; rows=[parse_line("civi,100,0.5"),parse_line("vida,50,1.2"),parse_line("somun,0,3.0")]; v=total_value(rows); assert abs(v-110.0)<1e-9, v; rows2=[parse_line("a,0,9.0")]; assert abs(total_value(rows2)-0.0)<1e-9, total_value(rows2); rows3=[parse_line("b,2,3.0"),parse_line("c,-5,1.0")]; assert abs(total_value(rows3)-6.0)<1e-9, total_value(rows3); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8171
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: depo-envanteri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-karsilastirma
+      karmasiklik: duz
+      kalip: context-manager
+      akis: cok-dosya-birlestirme
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

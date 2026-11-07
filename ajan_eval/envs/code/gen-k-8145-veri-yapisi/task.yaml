@@ -1,0 +1,168 @@
+id: gen-k-8145-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) bank/cache.py dosyasındaki LRUCache sınıfını, kapasite sınırlı bir en-son-kullanılan (LRU) önbellek olarak gerçekleştir; get, put ve __len__ metotları çalışsın.
+
+  2) Önbelleğe eklenen anahtar sayısı kapasiteyi aştığında, en eski kullanılan anahtar önbellekten atılsın.
+
+  3) bank/summary.py içindeki running_balance fonksiyonu, ledger üzerinde yürütülen bakiye değerlerini anahtar "adım:index" biçimiyle önbelleğe yazsın ve aynı adım tekrar istendiğinde değeri önbellekten okusun.
+
+setup: |
+  mkdir -p bank
+  cat > bank/ledger.py <<'LEDGER'
+  class Ledger:
+      def __init__(self, entries):
+          self._entries = list(entries)
+
+      def __iter__(self):
+          return iter(self._entries)
+
+
+  def load_ledger(path):
+      entries = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              kind, amount = line.split(',')
+              entries.append((kind, int(amount)))
+      return Ledger(entries)
+  LEDGER
+  cat > bank/cache.py <<'CACHE'
+  class LRUCache:
+      def __init__(self, capacity):
+          raise NotImplementedError
+
+      def get(self, key):
+          raise NotImplementedError
+
+      def put(self, key, value):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+  CACHE
+  cat > bank/summary.py <<'SUMMARY'
+  from bank.cache import LRUCache
+
+
+  def running_balance(path, cache):
+      raise NotImplementedError
+  SUMMARY
+  cat > data.txt <<'DATA'
+  deposit,100
+  withdraw,30
+  deposit,20
+  withdraw,50
+  deposit,10
+  DATA
+
+goal_tr: >
+  bank/cache.py icindeki LRUCache sinifini kapasite sinirli
+  en-son-kullanilan (LRU) onbellek olarak gerceklestir; get/put/__len__
+  calissin ve kapasite asildiginda en eski kullanilan anahtar atilsin;
+  boylece bank/summary.py icindeki running_balance, ledger uzerinde
+  yurutulen bakiye degerlerini anahtar "adim:index" ile onbellege yazip
+  tekrar istenen adimda onbellekten okusun.
+
+reference_solution: |
+  cat > bank/cache.py <<'CACHE'
+  class LRUCache:
+      def __init__(self, capacity):
+          self._capacity = capacity
+          self._data = {}
+          self._order = []
+
+      def _touch(self, key):
+          self._order.remove(key)
+          self._order.append(key)
+
+      def get(self, key):
+          if key not in self._data:
+              return None
+          self._touch(key)
+          return self._data[key]
+
+      def put(self, key, value):
+          if key in self._data:
+              self._data[key] = value
+              self._touch(key)
+              return
+          if len(self._data) >= self._capacity:
+              oldest = self._order.pop(0)
+              del self._data[oldest]
+          self._data[key] = value
+          self._order.append(key)
+
+      def __len__(self):
+          return len(self._data)
+  CACHE
+  cat > bank/summary.py <<'SUMMARY'
+  from bank.cache import LRUCache
+
+
+  def running_balance(path, cache):
+      from bank.ledger import load_ledger
+      ledger = load_ledger(path)
+      balance = 0
+      result = []
+      for index, (kind, amount) in enumerate(ledger):
+          key = "step:%d" % index
+          cached = cache.get(key)
+          if cached is None:
+              if kind == "deposit":
+                  balance += amount
+              else:
+                  balance -= amount
+              cache.put(key, balance)
+          else:
+              balance = cached
+          result.append(balance)
+      return result
+  SUMMARY
+
+outputs:
+  - {path: bank/cache.py, kind: program, run: 'python3 -c ''from bank.cache import LRUCache; from bank.summary import running_balance; c=LRUCache(2); c.put("a",1); c.put("b",2); assert c.get("a")==1; c.put("c",3); assert c.get("b") is None; assert c.get("a")==1; assert c.get("c")==3; assert len(c)==2; assert running_balance("data.txt", LRUCache(10))==[100,70,90,40,50]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from bank.cache import LRUCache; from bank.summary import running_balance; c=LRUCache(2); c.put("a",1); c.put("b",2); assert c.get("a")==1; c.put("c",3); assert c.get("b") is None; assert c.get("a")==1; assert c.get("c")==3; assert len(c)==2; assert running_balance("data.txt", LRUCache(10))==[100,70,90,40,50]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8145
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: banka-hareketleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: lru-onbellek
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: cok-dosya-birlestirme
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

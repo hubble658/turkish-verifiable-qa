@@ -1,0 +1,116 @@
+id: gen-k-5047-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  docs/reader.py içindeki read_document ve count_words fonksiyonları, şu anda modül düzeyinde paylaşılan tek bir TokenStream nesnesini kullanıyor. Bu iki fonksiyonu, paylaşılan bir akış yerine her çağrıldıklarında belgeyi baştan okuyacak şekilde düzelt. Yani read_document ve count_words aynı metinle art arda çağrıldığında birbirlerinin akış durumunu etkilememeli; her biri kendi okumasını sıfırdan yapmalı. Sonuç olarak docs/reader.py dosyasını bu davranışı sağlayacak biçimde güncelle; dosyanın adı docs/reader.py olarak kalsın.
+
+setup: |
+  mkdir -p docs
+  cat > docs/tokens.py <<'TOKENS'
+  class TokenStream:
+      def __init__(self, text):
+          self._tokens = text.split()
+          self._pos = 0
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          if self._pos >= len(self._tokens):
+              raise StopIteration
+          tok = self._tokens[self._pos]
+          self._pos += 1
+          return tok
+  TOKENS
+  cat > docs/reader.py <<'READER'
+  from docs.tokens import TokenStream
+
+  _SHARED = None
+
+
+  def _stream(text):
+      global _SHARED
+      if _SHARED is None:
+          _SHARED = TokenStream(text)
+      return _SHARED
+
+
+  def read_document(text):
+      return " ".join(_stream(text))
+
+
+  def count_words(text):
+      return sum(1 for _ in _stream(text))
+  READER
+  cat > sample.txt <<'TXT'
+  alpha beta gamma
+  delta epsilon
+  TXT
+
+goal_tr: >
+  docs/reader.py icindeki read_document ve count_words fonksiyonlarini,
+  modul seviyesinde paylasilan tek bir TokenStream kullanmayi birakip her
+  cagride belgeyi bastan okuyacak bicimde duzelt.
+
+reference_solution: |
+  cat > docs/reader.py <<'REF'
+  from docs.tokens import TokenStream
+
+
+  def read_document(text):
+      words = []
+      for tok in TokenStream(text):
+          words.append(tok)
+      return " ".join(words)
+
+
+  def count_words(text):
+      n = 0
+      for tok in TokenStream(text):
+          n = n + 1
+      return n
+  REF
+
+outputs:
+  - {path: docs/reader.py, kind: program, run: 'python3 -c ''from docs.reader import read_document as r, count_words as c; t=open("sample.txt").read(); a=r(t); assert a=="alpha beta gamma delta epsilon", repr(a); b=c(t); assert b==5, b; assert r(t)==a; assert c(t)==5; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from docs.reader import read_document as r, count_words as c; t=open("sample.txt").read(); a=r(t); assert a=="alpha beta gamma delta epsilon", repr(a); b=c(t); assert b==5, b; assert r(t)==a; assert c(t)==5; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5047
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: metin-belgeleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: tip-karismasi
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: parcali-akis
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

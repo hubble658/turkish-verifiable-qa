@@ -1,0 +1,68 @@
+id: gen-s-3224-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi klasöründeki tüm json dosyalarında ürün yorumları var. Yorumları ürün adına göre gruplayıp her satırda "urun: yorum" biçiminde, önce ürün adına sonra yorum metnine göre alfabetik sıralı olacak şekilde cikti/yorumlar.txt dosyasına yazmanı istiyorum.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/yorum_a.json <<'J'
+  {"urun":"kalem","yorum":"cok iyi"}
+  {"urun":"defter","yorum":"fiyat yuksek"}
+  J
+  cat > girdi/yorum_b.json <<'J'
+  {"urun":"silgi","yorum":"berbat"}
+  {"urun":"kalem","yorum":"tavsiye ederim"}
+  {"urun":"defter","yorum":"idare eder"}
+  J
+  cat > girdi/yorum_c.json <<'J'
+  {"urun":"silgi","yorum":"fena degil"}
+  {"urun":"kalem","yorum":"kargo hizli"}
+  J
+
+goal_tr: >
+  girdi klasorundeki tum json dosyalarindaki yorumlari urun adina gore
+  gruplayip her satirda "urun: yorum" biciminde, once urun adina sonra yorum
+  metnine gore alfabetik sirali olacak sekilde cikti/yorumlar.txt dosyasina
+  yaz
+
+reference_solution: |
+  mkdir -p cikti
+  cat girdi/*.json | sed -E 's/.*"urun":"([^"]*)".*"yorum":"([^"]*)".*/\1: \2/' | sort > cikti/gecici.txt
+  mv cikti/gecici.txt cikti/yorumlar.txt
+
+outputs:
+  - {path: cikti/yorumlar.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: cikti/yorumlar.txt, value: ['defter: fiyat yuksek', 'defter: idare eder', 'kalem: cok iyi', 'kalem: kargo hizli', 'kalem: tavsiye ederim', 'silgi: berbat', 'silgi: fena degil']}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3224
+    bundle: dosya-duzen
+    tools:
+    - mkdir
+    - mv
+    konu: urun-yorumlari
+    hedef: yeniden-duzenle
+    girdi: json
+    kaynak: cok-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

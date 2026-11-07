@@ -1,0 +1,87 @@
+id: gen-k-8138-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+prompt: 'bank/prefix.py içindeki make_prefix''i günlük bakiye toplamlarından önek-toplam dizisi kurup her [i,j] aralığını
+  O(1)''de yanıtlayan closure döndürecek şekilde yeniden yaz; bank/report.py''yi de load_rows ile make_prefix''i zincirleyip
+  (i,j) aralık bakiyesi döndüren range_balance ile sıfırdan oluştur.
+
+
+  make_prefix içindeki iç fonksiyonun adı query olsun; range_balance(yol, i, j) imzasını kullan; içe aktarmalar çalışma dizininden
+  bank paketiyle çalışsın.
+
+  '
+setup: "mkdir -p bank\ncat > bank/ledger.py <<'LEDGER'\ndef load_rows(path):\n    rows = []\n    with open(path) as fh:\n\
+  \        for line in fh:\n            line = line.strip()\n            if not line:\n                continue\n        \
+  \    parts = line.split(\",\")\n            rows.append((parts[0], int(parts[1])))\n    return rows\nLEDGER\ncat > bank/prefix.py\
+  \ <<'PREFIX'\ndef make_prefix(rows):\n    totals = []\n    running = 0\n    for _day, delta in rows:\n        running +=\
+  \ delta\n        totals.append(running)\n    return totals\nPREFIX\ncat > data.txt <<'DATA'\nd1,100\nd2,-30\nd3,50\nd4,-120\n\
+  d5,40\nDATA\n"
+goal_tr: 'bank/prefix.py icindeki make_prefix''i, gunluk bakiye toplamlarindan bir onek-toplam dizisi kurup herhangi bir [i,j]
+  aralik bakiyesini O(1) yanitlayan bir closure dondurecek bicimde yeniden yaz; bank/report.py dosyasini da load_rows ile
+  make_prefix''i zincirleyerek (i,j) aralik bakiyesi donduren range_balance fonksiyonuyla sifirdan olustur.
+
+  '
+reference_solution: "cat > bank/prefix.py <<'PREFIX'\ndef make_prefix(rows):\n    prefix = [0]\n    running = 0\n    for _day,\
+  \ delta in rows:\n        running += delta\n        prefix.append(running)\n\n    def query(i, j):\n        return prefix[j\
+  \ + 1] - prefix[i]\n\n    return query\nPREFIX\ncat > bank/report.py <<'REPORT'\nfrom bank.ledger import load_rows\nfrom\
+  \ bank.prefix import make_prefix\n\n\ndef range_balance(path, i, j):\n    rows = load_rows(path)\n    query = make_prefix(rows)\n\
+  \    return query(i, j)\nREPORT\n"
+outputs:
+- path: bank/prefix.py
+  kind: program
+  run: python3 -c 'from bank.prefix import make_prefix as mp; q=mp([("a",10),("b",-4),("c",7)]); assert q(0,0)==10; assert
+    q(0,2)==13; assert q(1,2)==3; assert q(2,2)==7; assert callable(q); import inspect; src=inspect.getsource(mp); assert
+    "def query" in src, "must return closure"; print("TAMAM")'
+- path: bank/report.py
+  kind: program
+  run: python3 -c 'from bank.report import range_balance as rb; assert rb("data.txt",0,0)==100; assert rb("data.txt",0,2)==120;
+    assert rb("data.txt",1,3)==-100; assert rb("data.txt",2,4)==-30; assert rb("data.txt",4,4)==40; assert rb("data.txt",0,4)==40;
+    assert rb("data.txt",3,3)==-120; print("TAMAM")'
+checks:
+- op: run_stdout_eq
+  cmd: python3 -c 'from bank.report import range_balance as rb; assert rb("data.txt",0,0)==100; assert rb("data.txt",0,2)==120;
+    assert rb("data.txt",1,3)==-100; assert rb("data.txt",2,4)==-30; assert rb("data.txt",4,4)==40; assert rb("data.txt",0,4)==40;
+    assert rb("data.txt",3,3)==-120; print("TAMAM")'
+  value: TAMAM
+- op: run_stdout_eq
+  cmd: python3 -c 'from bank.prefix import make_prefix as mp; q=mp([("a",10),("b",-4),("c",7)]); assert q(0,0)==10; assert
+    q(0,2)==13; assert q(1,2)==3; assert q(2,2)==7; assert callable(q); import inspect; src=inspect.getsource(mp); assert
+    "def query" in src, "must return closure"; print("TAMAM")'
+  value: TAMAM
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8138
+    bundle: yarisma
+    tools:
+    - python3
+    konu: banka-hareketleri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: onek-toplam
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: cok-dosya-birlestirme
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false
+  duzeltme:
+    neden: gizli_sart
+    not: Closure adı ve imza yazmıyordu.

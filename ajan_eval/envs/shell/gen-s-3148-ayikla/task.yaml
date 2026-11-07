@@ -1,0 +1,61 @@
+id: gen-s-3148-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  olcumler.txt içindeki tekrar eden satırları bir kez say, geriye kalan tekil ölçüm satırı sayısını sonuc.txt'ye sadece sayı olarak yaz.
+
+setup: |
+  cat > olcumler.txt <<'DATA'
+  S01 023.5 1013
+  S02 024.1 1011
+  S03 019.8 1015
+  S01 023.5 1013
+  S04 021.2 1009
+  S02 024.1 1011
+  S05 020.0 1012
+  DATA
+
+goal_tr: >
+  olcumler.txt dosyasindaki tekrar eden satirlari bir kez sayarak, geriye
+  kalan tekil olcum satirlarinin sayisini sonuc.txt dosyasina sadece sayi
+  olarak yaz.
+
+reference_solution: |
+  tail -n +1 olcumler.txt | sort | uniq | wc -l > sonuc.txt
+  head -n 1 sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '5'}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3148
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: sensor-olcumleri
+    hedef: ayikla
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: terse
+    direnc: tekrar-eden-kayit
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

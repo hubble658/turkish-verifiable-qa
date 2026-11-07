@@ -1,0 +1,127 @@
+id: gen-k-8026-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sensors/stream.py içindeki Stream.total metodunu düzelt. Boş bir akışta da doğru sonuç vermeli; tek sensörlü bir akışta o sensörün toplamını döndürmeli. Karışık sensör kimlikleri bulunan bir akışta ise ilk okumanın sensör kimliği kullanılmalı; bu davranış korunmalı.
+
+setup: |
+  mkdir -p sensors
+  cat > sensors/reading.py <<'READING'
+  class Reading:
+      def __init__(self, sensor_id, value):
+          self.sensor_id = sensor_id
+          self.value = value
+
+      def __add__(self, other):
+          return Reading(self.sensor_id, self.value + other.value)
+
+      def __eq__(self, other):
+          return self.sensor_id == other.sensor_id and self.value == other.value
+
+      def __repr__(self):
+          return "Reading(%r, %r)" % (self.sensor_id, self.value)
+  READING
+  cat > sensors/stream.py <<'STREAM'
+  from sensors.reading import Reading
+
+
+  class Stream:
+      def __init__(self):
+          self._readings = []
+
+      def add(self, sensor_id, value):
+          self._readings.append(Reading(sensor_id, value))
+
+      def total(self):
+          acc = Reading(self._readings[0].sensor_id, 0)
+          for r in self._readings:
+              acc = acc + r
+          return acc
+  STREAM
+  cat > sensors/summary.py <<'SUMMARY'
+  from sensors.stream import Stream
+
+
+  def summarize(rows):
+      s = Stream()
+      for sensor_id, value in rows:
+          s.add(sensor_id, value)
+      return s.total()
+  SUMMARY
+  cat > run_summary.py <<'RUN'
+  from sensors.summary import summarize
+
+  rows = [("t1", 5), ("t2", 7), ("t1", 3)]
+  print(summarize(rows))
+  RUN
+
+goal_tr: >
+  sensors/stream.py icindeki Stream.total metodunu, bos bir akis icin de
+  dogru calisacak ve tek sensorlu akista o sensorun toplamini dondurecek
+  bicimde duzelt; karisik sensor kimliklerinde ilk okumanin kimligini
+  kullan.
+
+reference_solution: |
+  cat > sensors/stream.py <<'STREAM'
+  from sensors.reading import Reading
+
+
+  class Stream:
+      def __init__(self):
+          self._readings = []
+
+      def add(self, sensor_id, value):
+          self._readings.append(Reading(sensor_id, value))
+
+      def total(self):
+          if not self._readings:
+              return Reading(None, 0)
+          acc = Reading(self._readings[0].sensor_id, 0)
+          for r in self._readings:
+              acc = acc + r
+          return acc
+  STREAM
+
+outputs:
+  - {path: sensors/stream.py, kind: program, run: 'python3 -c ''from sensors.stream import Stream; s=Stream(); assert s.total()==__import__("sensors.reading",fromlist=["Reading"]).Reading(None,0); s.add("a",4); assert s.total()==__import__("sensors.reading",fromlist=["Reading"]).Reading("a",4); s.add("b",6); assert s.total()==__import__("sensors.reading",fromlist=["Reading"]).Reading("a",10); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensors.stream import Stream; s=Stream(); assert s.total()==__import__("sensors.reading",fromlist=["Reading"]).Reading(None,0); s.add("a",4); assert s.total()==__import__("sensors.reading",fromlist=["Reading"]).Reading("a",4); s.add("b",6); assert s.total()==__import__("sensors.reading",fromlist=["Reading"]).Reading("a",10); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8026
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: sensor-serisi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: zor
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kenar-durum
+      karmasiklik: duz
+      kalip: operator-asiri-yukleme
+      akis: bellek-ici
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

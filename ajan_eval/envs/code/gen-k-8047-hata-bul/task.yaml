@@ -1,0 +1,151 @@
+id: gen-k-8047-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  lib/desk.py içindeki Desk.checkout metodunu, başarılı bir ödünç işleminde ödünç alan kişinin adını değil, ödünç verilen kitabın başlığını döndürecek şekilde düzelt. Başarısız durumlardaki mevcut davranış aynı kalsın; yalnızca başarılı ödünçte dönen değer kitabın başlığı olsun.
+
+setup: |
+  mkdir -p lib
+  cat > lib/borrowers.py <<'BORROWERS'
+  from abc import ABC, abstractmethod
+
+
+  class BorrowerBase(ABC):
+      @abstractmethod
+      def can_borrow(self, count=1):
+          raise NotImplementedError
+
+      @abstractmethod
+      def record(self, book_id):
+          raise NotImplementedError
+
+
+  class Borrower(BorrowerBase):
+      def __init__(self, name, limit):
+          self.name = name
+          self.limit = limit
+          self.loans = []
+
+      def can_borrow(self, count=1):
+          return len(self.loans) + count <= self.limit
+
+      def record(self, book_id):
+          self.loans.append(book_id)
+
+
+  def make_borrower(name, limit):
+      return Borrower(name, limit)
+  BORROWERS
+  cat > lib/catalog.py <<'CATALOG'
+  class Catalog:
+      def __init__(self):
+          self.titles = {}
+
+      def add(self, book_id, title, copies):
+          self.titles[book_id] = {"title": title, "copies": copies}
+
+      def title_of(self, book_id):
+          return self.titles[book_id]["title"]
+
+      def available(self, book_id):
+          return self.titles[book_id]["copies"] > 0
+
+      def take_copy(self, book_id):
+          self.titles[book_id]["copies"] -= 1
+  CATALOG
+  cat > lib/desk.py <<'DESK'
+  from lib.borrowers import make_borrower
+  from lib.catalog import Catalog
+
+
+  class Desk:
+      def __init__(self):
+          self.catalog = Catalog()
+          self.borrowers = {}
+
+      def register(self, name, limit):
+          self.borrowers[name] = make_borrower(name, limit)
+
+      def checkout(self, name, book_id):
+          borrower = self.borrowers[name]
+          if not borrower.can_borrow():
+              return "limit"
+          if not self.catalog.available(book_id):
+              return "unavailable"
+          borrower.record(book_id)
+          self.catalog.take_copy(book_id)
+          return name
+  DESK
+
+goal_tr: >
+  lib/desk.py icindeki Desk.checkout metodunu, basarili bir oduncte oduncu
+  adini degil odunc verilen kitabin basligini dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > lib/desk.py <<'DESK'
+  from lib.borrowers import make_borrower
+  from lib.catalog import Catalog
+
+
+  class Desk:
+      def __init__(self):
+          self.catalog = Catalog()
+          self.borrowers = {}
+
+      def register(self, name, limit):
+          self.borrowers[name] = make_borrower(name, limit)
+
+      def checkout(self, name, book_id):
+          borrower = self.borrowers[name]
+          if not borrower.can_borrow():
+              return "limit"
+          if not self.catalog.available(book_id):
+              return "unavailable"
+          borrower.record(book_id)
+          self.catalog.take_copy(book_id)
+          return self.catalog.title_of(book_id)
+  DESK
+
+outputs:
+  - {path: lib/desk.py, kind: program, run: 'python3 -c ''from lib.desk import Desk; d=Desk(); d.catalog.add("b1","Dune",2); d.catalog.add("b2","Solaris",1); d.register("ada",1); d.register("bob",2); r1=d.checkout("ada","b1"); assert r1=="Dune", r1; assert d.checkout("ada","b2")=="limit"; r3=d.checkout("bob","b2"); assert r3=="Solaris", r3; assert d.checkout("bob","b2")=="unavailable"; assert d.borrowers["ada"].loans==["b1"]; assert d.catalog.titles["b1"]["copies"]==1; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from lib.desk import Desk; d=Desk(); d.catalog.add("b1","Dune",2); d.catalog.add("b2","Solaris",1); d.register("ada",1); d.register("bob",2); r1=d.checkout("ada","b1"); assert r1=="Dune", r1; assert d.checkout("ada","b2")=="limit"; r3=d.checkout("bob","b2"); assert r3=="Solaris", r3; assert d.checkout("bob","b2")=="unavailable"; assert d.borrowers["ada"].loans==["b1"]; assert d.catalog.titles["b1"]["copies"]==1; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8047
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kutuphane-oduncleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: tip-karismasi
+      karmasiklik: duz
+      kalip: abc-protokol
+      akis: bellek-ici
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

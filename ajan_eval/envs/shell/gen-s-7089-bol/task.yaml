@@ -1,0 +1,85 @@
+id: gen-s-7089-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  hava/kayitlar.txt dosyasındaki her satırı tarih, saat, sıcaklık, nem ve durum alanlarına göre ayır; sıcaklık ve nem değerlerini ondalıklı sayı olarak her satırda tek tek yaz. Bu satırları tarihe göre bölüp gunluk sıcaklık ve nem ortalamalarını hesaplayarak hava/bolumler dizininde her gun için 2024-03-01.txt, 2024-03-02.txt, 2024-03-03.txt ve 2024-03-01.ozet, 2024-03-02.ozet, 2024-03-03.ozet dosyaları oluştur.
+
+setup: |
+  mkdir -p hava
+  cat > hava/kayitlar.txt <<'LOG'
+  2024-03-01 06:00 IST | 12.5 | 78 | yagmurlu
+  2024-03-01 12:00 IST | 15.2 | 65 | bulutlu
+  2024-03-01 18:00 IST | 11.0 | 82 | yagmurlu
+  2024-03-02 06:00 IST | 13.1 | 70 | parcali-bulutlu
+  2024-03-02 12:00 IST | 16.8 | 58 | acik
+  2024-03-02 18:00 IST | 10.4 | 88 | yagmurlu
+  2024-03-03 06:00 IST | 14.0 | 72 | bulutlu
+  2024-03-03 12:00 IST | 17.3 | 55 | acik
+  2024-03-03 18:00 IST | 12.2 | 80 | yagmurlu
+  LOG
+
+goal_tr: >
+  hava dizinindeki kayitlar.txt dosyasindaki her satiri tarih, saat,
+  sicaklik, nem ve durum alanlarina gore ayirip, sicaklik ve nem degerlerini
+  ondalikli sayi olarak tek tek satirlara yaz ve bu satirlari gunluk
+  sicaklik ortalamasi ile gunluk nem ortalamasini hesaplayacak sekilde tarih
+  bazinda ayri dosyalara bolerek hava/bolumler dizininde gun basina bir
+  dosya olustur
+
+reference_solution: |
+  mkdir -p hava/bolumler
+  cut -d'|' -f1 hava/kayitlar.txt | cut -d' ' -f1 | sort -u | while read -r gun; do
+    grep "^$gun" hava/kayitlar.txt | tee "hava/bolumler/$gun.txt" > /dev/null
+  done
+  for f in hava/bolumler/*.txt; do
+    gun=$(basename "$f" .txt)
+    awk -F'|' '{gsub(/ /,"",$2); gsub(/ /,"",$3); s+=$2; n+=$3; c++} END {printf "gun %s sicaklik_ort %.2f nem_ort %.2f\n", "'"$gun"'", s/c, n/c}' "$f" | tee "hava/bolumler/$gun.ozet" > /dev/null
+  done
+
+outputs:
+  - {path: hava/bolumler, kind: dir}
+  - {path: hava/bolumler/2024-03-01.txt, kind: file}
+  - {path: hava/bolumler/2024-03-02.txt, kind: file}
+  - {path: hava/bolumler/2024-03-03.txt, kind: file}
+  - {path: hava/bolumler/2024-03-01.ozet, kind: file}
+  - {path: hava/bolumler/2024-03-02.ozet, kind: file}
+  - {path: hava/bolumler/2024-03-03.ozet, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: hava/bolumler, value: [2024-03-01.ozet, 2024-03-01.txt, 2024-03-02.ozet, 2024-03-02.txt, 2024-03-03.ozet, 2024-03-03.txt]}
+  - {op: file_content_eq, path: hava/bolumler/2024-03-01.ozet, value: gun 2024-03-01 sicaklik_ort 12.90 nem_ort 75.00}
+  - {op: file_lines_eq, path: hava/bolumler/2024-03-01.txt, value: ['2024-03-01 06:00 IST | 12.5 | 78 | yagmurlu', '2024-03-01 12:00 IST | 15.2 | 65 | bulutlu', '2024-03-01 18:00 IST | 11.0 | 82 | yagmurlu']}
+  - {op: file_content_eq, path: hava/bolumler/2024-03-02.ozet, value: gun 2024-03-02 sicaklik_ort 13.43 nem_ort 72.00}
+  - {op: file_lines_eq, path: hava/bolumler/2024-03-02.txt, value: ['2024-03-02 06:00 IST | 13.1 | 70 | parcali-bulutlu', '2024-03-02 12:00 IST | 16.8 | 58 | acik', '2024-03-02 18:00 IST | 10.4 | 88 | yagmurlu']}
+  - {op: file_content_eq, path: hava/bolumler/2024-03-03.ozet, value: gun 2024-03-03 sicaklik_ort 14.50 nem_ort 69.00}
+  - {op: file_lines_eq, path: hava/bolumler/2024-03-03.txt, value: ['2024-03-03 06:00 IST | 14.0 | 72 | bulutlu', '2024-03-03 12:00 IST | 17.3 | 55 | acik', '2024-03-03 18:00 IST | 12.2 | 80 | yagmurlu']}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7089
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: hava-durumu-kayitlari
+    hedef: bol
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: dosyayi-bul
+    uslup: terse
+    direnc: yok
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

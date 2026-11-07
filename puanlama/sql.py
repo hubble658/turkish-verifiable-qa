@@ -85,6 +85,143 @@ def sonuc_eslesiyor(gold, aday, sira_onemli):
     return True
 
 
+def _dis_konumlar(sql):
+    """Parantez ve tirnak disindaki SELECT/FROM/ORDER BY/LIMIT/birlesim anahtar sozcukleri: [(sozcuk, bas, son)]."""
+    out, derinlik, i, kapanis = [], 0, 0, {"'": "'", '"': '"', "`": "`", "[": "]"}
+    anahtar = re.compile(r"\b(SELECT|FROM|ORDER\s+BY|LIMIT|UNION|INTERSECT|EXCEPT)\b", re.I)
+    while i < len(sql):
+        c = sql[i]
+        if c in kapanis:
+            j = sql.find(kapanis[c], i + 1)
+            if j < 0:
+                return out
+            i = j + 1
+        elif c in "()":
+            derinlik += 1 if c == "(" else -1
+            i += 1
+        else:
+            m = anahtar.match(sql, i) if derinlik == 0 else None
+            if m:
+                out.append((re.sub(r"\s+", " ", m.group(1)).upper(), m.start(), m.end()))
+                i = m.end()
+            else:
+                i += 1
+    return out
+
+
+def _dis_virgul(s):
+    """Parantez ve tirnak disindaki virgullerden boler."""
+    parca, derinlik, tirnak, bas = [], 0, None, 0
+    for i, c in enumerate(s):
+        if tirnak:
+            tirnak = None if c == tirnak else tirnak
+        elif c in "'\"`":
+            tirnak = c
+        elif c in "()":
+            derinlik += 1 if c == "(" else -1
+        elif c == "," and derinlik == 0:
+            parca.append(s[bas:i])
+            bas = i + 1
+    return [x.strip() for x in parca + [s[bas:]]]
+
+
+def limit_gruplari(db_yolu, gold_sql, ekler=None, sure=SURE_SN):
+    """Altin en dista ORDER BY ... LIMIT n ise satirlari siralama anahtarina gore gruplar: (gruplar, n). Son grup n. satiri
+    icerir ve o anahtardaki tum esit satirlari tasir. Uygulanamazsa None (birlesim, OFFSET, ayristirilamayan altin)."""
+    sql = gold_sql.strip().rstrip(";").strip()
+    k = _dis_konumlar(sql)
+    ad = [x[0] for x in k]
+    if any(a in ad for a in ("UNION", "INTERSECT", "EXCEPT")) or ad.count("SELECT") != 1 or ad[0] != "SELECT" \
+            or not {"FROM", "ORDER BY", "LIMIT"} <= set(ad):
+        return None
+    sel, frm, ord_, lim = (next(x for x in k if x[0] == a) for a in ("SELECT", "FROM", "ORDER BY", "LIMIT"))
+    m = re.fullmatch(r"\s*(\d+)\s*", sql[lim[2]:])
+    if not m or not frm[1] < ord_[1] < lim[1]:
+        return None
+    n = int(m.group(1))
+    secim = sql[sel[2]:frm[1]].strip()
+    takma = {}
+    for s in _dis_virgul(re.sub(r"^DISTINCT\b", "", secim, flags=re.I).strip()):
+        a = re.fullmatch(r"(.+?)\s+AS\s+[\"`\[]?([^\s\"`\]]+)[\"`\]]?", s, re.I | re.S)
+        if a:
+            takma[a.group(2).lower()] = a.group(1)
+    sutunlar = _dis_virgul(re.sub(r"^DISTINCT\b", "", secim, flags=re.I).strip())
+    anahtarlar = []
+    for s in _dis_virgul(sql[ord_[2]:lim[1]]):
+        s = re.sub(r"\s+(ASC|DESC)\s*$", "", s, flags=re.I).strip()
+        if re.fullmatch(r"\d+", s):
+            if int(s) > len(sutunlar):
+                return None
+            s = re.sub(r"\s+AS\s+\S+$", "", sutunlar[int(s) - 1], flags=re.I)
+        anahtarlar.append(takma.get(s.strip('"`[]').lower(), s))
+    ekli = ", ".join(f"({x}) AS __k{i}" for i, x in enumerate(anahtarlar))
+    sorgu = f"{sql[:frm[1]].rstrip()}, {ekli} {sql[frm[1]:lim[1]].rstrip()}"
+    con = sqlite3.connect(f"file:{db_yolu}?mode=ro", uri=True)
+    try:
+        for a, yol in (ekler or {}).items():
+            con.execute(f"ATTACH DATABASE 'file:{yol}?mode=ro' AS {a}")
+        _sinirli(con, sure)
+        cur = con.execute(sorgu)
+        m_ = len(anahtarlar)
+        gruplar, son, sayi, gorulen, tekil = [], object(), 0, set(), bool(re.match(r"DISTINCT\b", secim, re.I))
+        for r in cur:
+            satir, an = list(r[:-m_]), tuple(r[-m_:])
+            if tekil:
+                if repr(satir) in gorulen:
+                    continue
+                gorulen.add(repr(satir))
+            if an != son:
+                if sayi >= n:
+                    break
+                gruplar.append([])
+                son = an
+            gruplar[-1].append(satir)
+            sayi += 1
+    except Exception:
+        return None
+    finally:
+        con.close()
+    return (gruplar, n) if sayi >= n and n > 0 else None
+
+
+def limit_esitlik_kabul(gold, aday, sira_onemli, g):
+    """2026-11-05: altin ORDER BY ... LIMIT n ve n. satirda esit deger varsa altin tek degildir. Kabul: anahtari kesin olan
+    satirlarin hepsi + esit gruptan kalan sayida herhangi satir, ya da esit grubun tamami. sira_onemli ise anahtar gruplari
+    sirasiyla gelmeli (grup ici sira serbest). g: limit_gruplari sonucu."""
+    if g is None:
+        return False
+    gruplar, n = g
+    if not sonuc_eslesiyor(gold, [x for gr in gruplar for x in gr][:n], False):
+        return False  # altin bu ayristirmayla yeniden uretilemedi
+    onceki = sum(map(len, gruplar[:-1]))
+    if len(aday) not in (n, onceki + len(gruplar[-1])):
+        return False
+    kalan, adet = list(aday), [len(x) for x in gruplar[:-1]] + [len(aday) - onceki]
+    if sira_onemli:
+        for gr, k in zip(gruplar, adet):
+            havuz = list(gr)
+            for a in kalan[:k]:
+                i = next((j for j, x in enumerate(havuz) if satir_esit(x, a)), -1)
+                if i < 0:
+                    return False
+                havuz.pop(i)
+            kalan = kalan[k:]
+        return True
+    for gr, k in zip(gruplar[:-1], adet[:-1]):
+        for x in gr:
+            i = next((j for j, a in enumerate(kalan) if satir_esit(x, a)), -1)
+            if i < 0:
+                return False
+            kalan.pop(i)
+    havuz = list(gruplar[-1])
+    for a in kalan:
+        i = next((j for j, x in enumerate(havuz) if satir_esit(x, a)), -1)
+        if i < 0:
+            return False
+        havuz.pop(i)
+    return True
+
+
 def dis_order_by(sql):
     """En distaki sorguda ORDER BY var mi (alt sorgulardakiler sayilmaz)."""
     derinlik = 0

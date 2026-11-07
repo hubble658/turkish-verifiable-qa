@@ -1,0 +1,117 @@
+id: gen-s-3065-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+prompt: 'girdi/hesap_plani.csv (kod,ad) ile girdi/kalemler.csv (kod,tutar) dosyalarını kod üzerinden eşleştirip her hesap
+  için adını ve tutarlarının toplamını içeren geçerli bir JSON nesnesini cikti/ozet.json dosyasına yazmanı istiyorum. girdi/yedek
+  altındaki kopya ve BOM içeren girdi/fazla.csv hesaba katılmamalı.
+
+
+  JSON biçimi: {"<kod>": {"ad": "<hesap adı>", "toplam": <sayı>}} (ör. {"100": {"ad": "Kasa", "toplam": 2100}}).
+
+  '
+setup: 'mkdir -p girdi
+
+  cat > girdi/hesap_plani.csv <<''CSV''
+
+  kod,ad
+
+  100,Kasa
+
+  101,Banka
+
+  120,Alicilar
+
+  320,Saticilar
+
+  CSV
+
+  cat > girdi/kalemler.csv <<''CSV''
+
+  kod,tutar
+
+  100,1500
+
+  101,2300
+
+  120,750
+
+  320,4100
+
+  100,600
+
+  CSV
+
+  printf ''\xef\xbb\xbf'' > girdi/fazla.csv
+
+  cat >> girdi/fazla.csv <<''CSV''
+
+  kod,tutar
+
+  999,1
+
+  CSV
+
+  mkdir -p girdi/yedek
+
+  cp girdi/kalemler.csv girdi/yedek/kalemler.csv
+
+  '
+goal_tr: 'girdi/hesap_plani.csv (kod,ad) ile girdi/kalemler.csv (kod,tutar) dosyalarini kod uzerinden birlestirip her hesap
+  icin ad ve tutarlarin toplamini iceren gecerli bir JSON nesnesini cikti/ozet.json dosyasina yaz; girdi/yedek altindaki kopya
+  ve BOM iceren girdi/fazla.csv dikkate alinmamalidir.
+
+  '
+reference_solution: "find girdi -maxdepth 1 -name '*.csv' ! -name 'fazla.csv' -print | sort > /tmp/liste.txt\ntar czf /tmp/girdi.tgz\
+  \ -T /tmp/liste.txt\ngzip -t /tmp/girdi.tgz\nmkdir -p /tmp/ac\ntar xzf /tmp/girdi.tgz -C /tmp/ac\nawk -F, 'NR>1 && FNR==NR\
+  \ {ad[$1]=$2; next} NR>1 {top[$1]+=$2} END {for (k in ad) printf \"%s\\t%s\\t%d\\n\", k, ad[k], top[k]+0}' /tmp/ac/girdi/hesap_plani.csv\
+  \ /tmp/ac/girdi/kalemler.csv | sort > /tmp/birlesik.txt\nmkdir -p cikti\n{\n  printf '{\\n'\n  awk -F'\\t' 'BEGIN{n=0} {n++;\
+  \ if (n>1) printf \",\\n\"; printf \"  \\\"%s\\\": {\\\"ad\\\": \\\"%s\\\", \\\"toplam\\\": %d}\", $1, $2, $3} END {printf\
+  \ \"\\n\"}' /tmp/birlesik.txt\n  printf '}\\n'\n} > cikti/ozet.json\n"
+outputs:
+- path: cikti/ozet.json
+  kind: json
+checks:
+- op: json_eq
+  path: cikti/ozet.json
+  value:
+    '100':
+      ad: Kasa
+      toplam: 2100
+    '101':
+      ad: Banka
+      toplam: 2300
+    '120':
+      ad: Alicilar
+      toplam: 750
+    '320':
+      ad: Saticilar
+      toplam: 4100
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3065
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: muhasebe-kalemleri
+    hedef: donustur
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: json
+    kesif: yok
+    uslup: duz-hedef
+    direnc: bom
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}
+  duzeltme:
+    neden: gizli_sart
+    not: JSON biçimi yazmıyordu.

@@ -1,0 +1,85 @@
+id: gen-s-3205-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  randevular.txt ve iptaller.txt dosyalarını karşılaştır; iptaller.txt içinde geçmeyen randevu kayıtlarını koru. Kalan bu kayıtları hastane adına göre grupla; her hastane için, o hastaneye ait kalan randevuları hasta bazında özetleyerek her hasta için kalan randevu sayısını ve en erken randevu saatini göster. Sonucu, hastane adlarının JSON anahtarı olduğu geçerli bir JSON nesnesi olarak ozet.json dosyasına yaz.
+
+setup: |
+  cat > randevular.txt <<'DATA'
+  RND-001|Ali Kaya|2024-03-01|09:00
+  RND-002|Ayse Demir|2024-03-01|09:30
+  RND-003|Ali Kaya|2024-03-01|10:00
+  RND-004|Mehmet Can|2024-03-02|11:00
+  RND-005|Ayse Demir|2024-03-02|09:00
+  RND-006|Zeynep Ak|2024-03-02|13:00
+  DATA
+
+  cat > iptaller.txt <<'DATA'
+  RND-002
+  RND-004
+  RND-005
+  DATA
+
+goal_tr: >
+  randevular.txt ve iptaller.txt dosyalarini karsilastirip iptaller.txt'de
+  gecmeyen randevu kayitlarini koruyarak, bu kayitlari hastane adina gore
+  gruplayip her hasta icin kalan randevu sayisini ve en erken randevu
+  saatini gosteren gecerli bir JSON nesnesini ozet.json dosyasina yaz;
+  hastane adlari JSON anahtari olsun.
+
+reference_solution: |
+  grep -v -f iptaller.txt randevular.txt > kalan.txt
+  sort -t'|' -k2,2 -k4,4 kalan.txt > sirali.txt
+  awk -F'|' '{sayi[$2]++; if (!($2 in ilk)) ilk[$2]=$4} END {for (h in sayi) printf "%s|%d|%s\n", h, sayi[h], ilk[h]}' sirali.txt | sort > gruplu.txt
+  head -n 1 gruplu.txt > ilk_satir.txt
+  tail -n +2 gruplu.txt > kalan_satirlar.txt
+  {
+    printf '{\n'
+    ilk=1
+    while IFS='|' read -r hasta sayi saat; do
+      if [ $ilk -eq 0 ]; then printf ',\n'; fi
+      printf '  "%s": {"kalan": %d, "en_erken": "%s"}' "$hasta" "$sayi" "$saat"
+      ilk=0
+    done < ilk_satir.txt
+    while IFS='|' read -r hasta sayi saat; do
+      printf ',\n'
+      printf '  "%s": {"kalan": %d, "en_erken": "%s"}' "$hasta" "$sayi" "$saat"
+    done < kalan_satirlar.txt
+    printf '\n}\n'
+  } > ozet.json
+
+outputs:
+  - {path: ozet.json, kind: json}
+
+checks:
+  - {op: json_eq, path: ozet.json, value: {Ali Kaya: {kalan: 2, en_erken: '09:00'}, Zeynep Ak: {kalan: 1, en_erken: '13:00'}}}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3205
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: hastane-randevulari
+    hedef: bol
+    girdi: log-satiri
+    kaynak: iki-dosya-capraz
+    cikti: json
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

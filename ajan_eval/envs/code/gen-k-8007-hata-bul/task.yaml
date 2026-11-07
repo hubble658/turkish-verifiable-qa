@@ -1,0 +1,117 @@
+id: gen-k-8007-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Bugün kargo takip tarafında bir tutarsızlık bildirildi; müşteriye giden durum bilgisi, tam sınır saatteki bir hareketi hesaba katmadığı için yanlış görünüyormuş. Olaylar zaten `kargo/events.py` içindeki `parse_events` ile ayrıştırılıyor, akış verisi de `akis.txt` dosyasında duruyor.
+
+  `kargo/track.py` içindeki `last_status` fonksiyonunu düzeltmeni istiyorum: bir `cutoff` verildiğinde, zamanı tam olarak `cutoff` değerine eşit olan olaylar da hesaba katılsın. Yani sınırın kendisindeki olay artık göz ardı edilmesin. Fonksiyonun geri kalan davranışı aynı kalsın.
+
+setup: |
+  mkdir -p kargo
+  cat > kargo/events.py <<'EVENTS'
+  def parse_events(text):
+      events = []
+      for line in text.strip().splitlines():
+          code, ts, city = line.split('|')
+          events.append((code, int(ts), city))
+      return events
+  EVENTS
+  cat > kargo/track.py <<'TRACK'
+  from kargo.events import parse_events
+
+  STATUS = {
+      'PICK': 'alindi',
+      'MOVE': 'yolda',
+      'OUT': 'dagitimda',
+      'DONE': 'teslim',
+      'FAIL': 'basarisiz',
+  }
+
+
+  def last_status(text, cutoff=None):
+      events = parse_events(text)
+      if cutoff is not None:
+          events = [e for e in events if e[1] < cutoff]
+      if not events:
+          return None
+      events.sort(key=lambda e: e[1])
+      return STATUS[events[-1][0]]
+  TRACK
+  cat > akis.txt <<'AKIS'
+  PICK|100|Ankara
+  MOVE|140|Eskisehir
+  MOVE|200|Istanbul
+  OUT|260|Istanbul
+  DONE|300|Istanbul
+  AKIS
+
+goal_tr: >
+  kargo/track.py icindeki last_status fonksiyonunu, cutoff verildiginde
+  zamani cutoff'a esit olan olaylari da hesaba katacak bicimde duzelt.
+
+reference_solution: |
+  cat > kargo/track.py <<'TRACK'
+  from kargo.events import parse_events
+
+  STATUS = {
+      'PICK': 'alindi',
+      'MOVE': 'yolda',
+      'OUT': 'dagitimda',
+      'DONE': 'teslim',
+      'FAIL': 'basarisiz',
+  }
+
+
+  def last_status(text, cutoff=None):
+      events = parse_events(text)
+      if cutoff is not None:
+          events = [e for e in events if e[1] <= cutoff]
+      if not events:
+          return None
+      events.sort(key=lambda e: e[1])
+      return STATUS[events[-1][0]]
+  TRACK
+
+outputs:
+  - {path: kargo/track.py, kind: program, run: 'python3 -c ''from kargo.track import last_status as f; t=open("akis.txt").read(); assert f(t)=="teslim", f(t); assert f(t,200)=="yolda", f(t,200); assert f(t,260)=="dagitimda", f(t,260); assert f(t,99) is None, f(t,99); assert f(t,100)=="alindi", f(t,100); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from kargo.track import last_status as f; t=open("akis.txt").read(); assert f(t)=="teslim", f(t); assert f(t,200)=="yolda", f(t,200); assert f(t,260)=="dagitimda", f(t,260); assert f(t,99) is None, f(t,99); assert f(t,100)=="alindi", f(t,100); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8007
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kargo-takibi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kenar-durum
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: parcali-akis
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,283 @@
+id: gen-k-9631-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  releases/version.py, releases/tree.py ve releases/report.py dosyalarındaki sürüm ağacı raporu şu an yanlış sırada geliyor ve aynı sürümün yinelenen kayıtlarını bazen birleştirip bazen ayrı ayrı gösteriyor. Bu davranışı düzelt: sürümler (major, minor, patch) anahtarına göre artan sırada gelmeli; aynı (major, minor, patch) anahtarına sahip kayıtlar tek bir satırda birleştirilmiş olarak gösterilmeli ve bu birleşik satırda sürümün etiketleri de yer almalı. releases/report.py çıktısı bu kurallara uygun olmalı; releases/version.py ve releases/tree.py de bu davranışı destekleyecek şekilde düzeltilmeli.
+
+  Şu şartlar sağlanmalı:
+  - releases/report.py, releases/version.py ve releases/tree.py dosyalarının hepsi güncellenmiş olmalı.
+  - Rapordaki sürümler (major, minor, patch) anahtarına göre artan sırada listelenmeli.
+  - Aynı (major, minor, patch) anahtarına sahip yinelenen kayıtlar tek bir satırda birleşik gösterilmeli; aynı anahtar için birden fazla satır çıkmamalı.
+  - Birleştirilmiş satırda ilgili sürümün etiketleri de görünmeli.
+  - Farklı (major, minor, patch) anahtarlarına sahip sürümler ayrı satırlarda kalmalı.
+
+setup: |
+  mkdir -p releases
+  cat > releases/version.py <<'PY'
+  from dataclasses import dataclass, field
+
+
+  @dataclass
+  class Version:
+      major: int
+      minor: int
+      patch: int
+      tags: list = field(default_factory=list)
+
+      def key(self):
+          # BUG: patch ignored in ordering key
+          return (self.major, self.minor)
+
+      def __str__(self):
+          base = "%d.%d.%d" % (self.major, self.minor, self.patch)
+          if self.tags:
+              base += "-" + ".".join(self.tags)
+          return base
+  PY
+  cat > releases/tree.py <<'PY'
+  from dataclasses import dataclass, field
+  from releases.version import Version
+
+
+  @dataclass
+  class Node:
+      version: Version
+      left: object = None
+      right: object = None
+
+
+  class ReleaseTree:
+      def __init__(self):
+          self.root = None
+
+      def insert(self, version):
+          # BUG: compares by str() not by key(), and ignores duplicates
+          if self.root is None:
+              self.root = Node(version)
+              return
+          cur = self.root
+          while True:
+              if str(version) < str(cur.version):
+                  if cur.left is None:
+                      cur.left = Node(version)
+                      return
+                  cur = cur.left
+              else:
+                  if cur.right is None:
+                      cur.right = Node(version)
+                      return
+                  cur = cur.right
+
+      def inorder(self):
+          out = []
+          stack = []
+          cur = self.root
+          while stack or cur is not None:
+              while cur is not None:
+                  stack.append(cur)
+                  cur = cur.left
+              cur = stack.pop()
+              out.append(cur.version)
+              cur = cur.right
+          return out
+  PY
+  cat > releases/report.py <<'PY'
+  from releases.tree import ReleaseTree
+  from releases.version import Version
+
+
+  def build_tree(rows):
+      # rows: list of [major, minor, patch, tag]
+      tree = ReleaseTree()
+      for r in rows:
+          tree.insert(Version(int(r[0]), int(r[1]), int(r[2]), list(r[3])))
+      return tree
+
+
+  def release_line(rows):
+      # BUG: uses str ordering via inorder but dedupes on string form
+      tree = build_tree(rows)
+      seen = []
+      for v in tree.inorder():
+          s = str(v)
+          if s not in seen:
+              seen.append(s)
+      return seen
+  PY
+
+goal_tr: >
+  surum agaci raporu yanlis sirada ve yinelenen surumleri bazen birlestirip
+  bazen ayri gosteriyor; surumler (major, minor, patch) anahtarina gore
+  artan sirada, esit anahtarda etiketlere gore tek satir halinde birlesik
+  donmeli.
+
+reference_solution: |
+  mkdir -p releases
+  cat > releases/version.py <<'PY'
+  from dataclasses import dataclass, field
+
+
+  @dataclass
+  class Version:
+      major: int
+      minor: int
+      patch: int
+      tags: list = field(default_factory=list)
+
+      def key(self):
+          return (self.major, self.minor, self.patch)
+
+      def __str__(self):
+          base = "%d.%d.%d" % (self.major, self.minor, self.patch)
+          if self.tags:
+              base += "-" + ".".join(self.tags)
+          return base
+  PY
+  cat > releases/tree.py <<'PY'
+  from dataclasses import dataclass, field
+  from releases.version import Version
+
+
+  @dataclass
+  class Node:
+      version: Version
+      left: object = None
+      right: object = None
+
+
+  class ReleaseTree:
+      def __init__(self):
+          self.root = None
+
+      def insert(self, version):
+          if self.root is None:
+              self.root = Node(version)
+              return
+          cur = self.root
+          while True:
+              if version.key() < cur.version.key():
+                  if cur.left is None:
+                      cur.left = Node(version)
+                      return
+                  cur = cur.left
+              else:
+                  if cur.right is None:
+                      cur.right = Node(version)
+                      return
+                  cur = cur.right
+
+      def inorder(self):
+          out = []
+          stack = []
+          cur = self.root
+          while stack or cur is not None:
+              while cur is not None:
+                  stack.append(cur)
+                  cur = cur.left
+              cur = stack.pop()
+              out.append(cur.version)
+              cur = cur.right
+          return out
+  PY
+  cat > releases/report.py <<'PY'
+  from releases.tree import ReleaseTree
+  from releases.version import Version
+
+
+  def build_tree(rows):
+      tree = ReleaseTree()
+      for r in rows:
+          tree.insert(Version(int(r[0]), int(r[1]), int(r[2]), list(r[3])))
+      return tree
+
+
+  def release_line(rows):
+      tree = build_tree(rows)
+      merged = {}
+      order = []
+      for v in tree.inorder():
+          k = v.key()
+          if k not in merged:
+              merged[k] = []
+              order.append(k)
+          for t in v.tags:
+              if t not in merged[k]:
+                  merged[k].append(t)
+      out = []
+      for k in order:
+          base = "%d.%d.%d" % k
+          if merged[k]:
+              base += "-" + ".".join(sorted(merged[k]))
+          out.append(base)
+      return out
+  PY
+
+ara_adim: |
+  cat > releases/version.py <<'PY'
+  from dataclasses import dataclass, field
+
+
+  @dataclass
+  class Version:
+      major: int
+      minor: int
+      patch: int
+      tags: list = field(default_factory=list)
+
+      def key(self):
+          return (self.major, self.minor, self.patch)
+
+      def __str__(self):
+          base = "%d.%d.%d" % (self.major, self.minor, self.patch)
+          if self.tags:
+              base += "-" + ".".join(self.tags)
+          return base
+  PY
+
+outputs:
+  - {path: releases/report.py, kind: program, run: 'python3 -c ''from releases.report import release_line as f; rows=[[1,0,0,[]],[1,0,1,[]],[1,0,0,["beta"]]]; assert f(rows)==["1.0.0-beta","1.0.1"], f(rows); rows2=[[2,1,0,["rc"]],[2,0,9,[]],[2,1,0,["final"]]]; assert f(rows2)==["2.0.9","2.1.0-final.rc"], f(rows2); print("TAMAM")'''}
+  - {path: releases/version.py, kind: program, run: 'python3 -c ''from releases.version import Version as V; assert V(1,2,3).key()==(1,2,3); assert V(1,2,3,["b"]).key()==(1,2,3); assert V(1,2,3,["b"]).key()==V(1,2,3,["a"]).key(); print("ILERLEME-TAMAM")'''}
+  - {path: releases/tree.py, kind: program, run: 'python3 -c ''from releases.tree import ReleaseTree as T; from releases.version import Version as V; t=T(); [t.insert(V(*k)) for k in [(1,0,1),(1,0,0),(1,1,0)]]; ks=[v.key() for v in t.inorder()]; assert ks==[(1,0,0),(1,0,1),(1,1,0)], ks; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from releases.report import release_line as f; rows=[[1,0,0,[]],[1,0,1,[]],[1,0,0,["beta"]]]; assert f(rows)==["1.0.0-beta","1.0.1"], f(rows); rows2=[[2,1,0,["rc"]],[2,0,9,[]],[2,1,0,["final"]]]; assert f(rows2)==["2.0.9","2.1.0-final.rc"], f(rows2); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from releases.tree import ReleaseTree as T; from releases.version import Version as V; t=T(); [t.insert(V(*k)) for k in [(1,0,1),(1,0,0),(1,1,0)]]; ks=[v.key() for v in t.inorder()]; assert ks==[(1,0,0),(1,0,1),(1,1,0)], ks; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from releases.version import Version as V; assert V(1,2,3).key()==(1,2,3); assert V(1,2,3,["b"]).key()==(1,2,3); assert V(1,2,3,["b"]).key()==V(1,2,3,["a"]).key(); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9631
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: yazilim-surumleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: zor
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: ikili-arama-agaci
+      karmasiklik: derin
+      kalip: dataclass-dogrulama
+      akis: ic-ice-yapi
+      topoloji: iki-modul-zincir
+      zincir: 3
+      regresyon: true
+      bagimli: true
+      kesif_zor: true

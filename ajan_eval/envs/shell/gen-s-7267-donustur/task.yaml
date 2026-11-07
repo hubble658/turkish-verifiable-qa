@@ -1,0 +1,77 @@
+id: gen-s-7267-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) vardiya dizini ağacındaki .json uzantılı dosyaların her birindeki JSON kayıtlarını oku.
+
+  2) Okunan tüm kayıtları "ad;gun;vardiya" biçiminde büyük harfe çevrilmiş satırlar halinde tek bir satır listesi olarak vardiya_listesi.txt dosyasına yaz.
+
+  3) Yazma sırasında CRLF satır sonlarını temizle.
+
+  4) JSON olmayan dosyaları yok say.
+
+setup: |
+  mkdir -p vardiya/arsiv vardiya/gecmis
+  cat > vardiya/vardiya.json <<'J'
+  [
+    {"ad":"ALI","gun":"Pazartesi","vardiya":"sabah"},
+    {"ad":"AYSE","gun":"Pazartesi","vardiya":"aksam"}
+  ]
+  J
+  cat > vardiya/arsiv/vardiya_eski.json <<'J'
+  [
+    {"ad":"MEHMET","gun":"Sali","vardiya":"gece"}
+  ]
+  J
+  cat > vardiya/gecmis/notlar.txt <<'T'
+  bu dosya json degil
+  T
+  printf '[\r\n  {"ad":"ZEYNEP","gun":"Carsamba","vardiya":"sabah"}\r\n]\r\n' > vardiya/crlf_vardiya.json
+
+goal_tr: >
+  vardiya dizini agacindaki .json uzantili dosyalarin her birindeki JSON
+  kayitlarini okuyup, "ad;gun;vardiya" biciminde buyuk harfe cevrilmis
+  satirlar halinde tum kayitlari tek bir satir listesi olarak
+  vardiya_listesi.txt dosyasina yaz; CRLF satir sonlarini temizle ve JSON
+  olmayan dosyalari yok say.
+
+reference_solution: |
+  find vardiya -name '*.json' -type f | sort | while read -r f; do
+    tr -d '\r' < "$f" | sed -n 's/.*"ad":"\([^"]*\)".*"gun":"\([^"]*\)".*"vardiya":"\([^"]*\)".*/\1;\2;\3/p'
+  done | tr 'a-z' 'A-Z' > vardiya_listesi.txt
+
+outputs:
+  - {path: vardiya_listesi.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: vardiya_listesi.txt, value: [MEHMET;SALI;GECE, ZEYNEP;CARSAMBA;SABAH, ALI;PAZARTESI;SABAH, AYSE;PAZARTESI;AKSAM]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7267
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: personel-vardiyalari
+    hedef: donustur
+    girdi: json
+    kaynak: dizin-agaci
+    cikti: satir-listesi
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: crlf
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

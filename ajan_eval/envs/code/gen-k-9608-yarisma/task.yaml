@@ -1,0 +1,223 @@
+id: gen-k-9608-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 24
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  release paketindeki find_version fonksiyonunu düzelt. release/index.py içindeki find_version, verilen dosyadan sürümleri okuyup verilen ada göre aramada eşleşen kaydın sürüm demetini döndürmeli. Şu an bazı adlar için yanlış sürüm dönüyor ve dosyada bulunmayan bir ad verildiğinde None yerine hatalı bir sonuç üretiyor; bu iki sorunu gider.
+
+  Gerekirse release/store.py içindeki yardımcı fonksiyonları da gözden geçir, ancak düzeltmenin asıl amacı find_version'ın doğru sürüm demetini döndürmesi ve dosyada olmayan ad için None döndürmesidir. Çalışma dizini /workspace; veri dosyası data.txt.
+
+setup: |
+  mkdir -p release
+  cat > release/store.py <<'STORE'
+  class VersionStore:
+      def __init__(self, path):
+          self.path = path
+          self._rows = None
+
+      def __enter__(self):
+          self._fh = open(self.path, "r")
+          self._rows = []
+          for line in self._fh:
+              line = line.strip()
+              if not line:
+                  continue
+              name, ver = line.split('=')
+              self._rows.append(
+                  (name.strip(), tuple(int(p) for p in ver.strip().split('.')))
+              )
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self._fh.close()
+          return False
+
+      def rows(self):
+          return list(self._rows)
+
+
+  def parse_versions(text):
+      rows = []
+      for line in text.strip().splitlines():
+          name, ver = line.split('=')
+          rows.append((name.strip(), tuple(int(p) for p in ver.strip().split('.'))))
+      return rows
+
+
+  def sort_versions(rows):
+      return sorted(rows, key=lambda r: r[1])
+  STORE
+  cat > release/index.py <<'INDEX'
+  from release.store import VersionStore, sort_versions
+
+
+  def find_version(path, name):
+      with VersionStore(path) as store:
+          ordered = sort_versions(store.rows())
+      lo, hi = 0, len(ordered) - 1
+      while lo < hi:
+          mid = (lo + hi) // 2
+          if ordered[mid][0] < name:
+              lo = mid + 1
+          else:
+              hi = mid
+      return ordered[lo][1]
+  INDEX
+  cat > data.txt <<'DATA'
+  alpha=1.2.0
+  beta=0.9.1
+  gamma=2.0.0
+  delta=1.10.3
+  epsilon=1.2.10
+  DATA
+
+goal_tr: >
+  release paketindeki find_version, verilen dosyadan surumleri okuyup ada
+  gore sirali aramada eslesen kaydin surum demetini dondurmeli; su an bazi
+  adlar icin yanlis surum donuyor ve dosyada bulunmayan bir ad icin None
+  yerine hatali bir sonuc uretiyor, bunu duzelt.
+
+reference_solution: |
+  cat > release/store.py <<'STORE'
+  class VersionStore:
+      def __init__(self, path):
+          self.path = path
+          self._rows = None
+
+      def __enter__(self):
+          self._fh = open(self.path, "r")
+          self._rows = []
+          for line in self._fh:
+              line = line.strip()
+              if not line:
+                  continue
+              name, ver = line.split('=')
+              self._rows.append(
+                  (name.strip(), tuple(int(p) for p in ver.strip().split('.')))
+              )
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self._fh.close()
+          return False
+
+      def rows(self):
+          return list(self._rows)
+
+
+  def parse_versions(text):
+      rows = []
+      for line in text.strip().splitlines():
+          name, ver = line.split('=')
+          rows.append((name.strip(), tuple(int(p) for p in ver.strip().split('.'))))
+      return rows
+
+
+  def sort_versions(rows):
+      return sorted(rows, key=lambda r: r[0])
+  STORE
+  cat > release/index.py <<'INDEX'
+  from release.store import VersionStore, sort_versions
+
+
+  def find_version(path, name):
+      with VersionStore(path) as store:
+          ordered = sort_versions(store.rows())
+      lo, hi = 0, len(ordered) - 1
+      while lo < hi:
+          mid = (lo + hi) // 2
+          if ordered[mid][0] < name:
+              lo = mid + 1
+          else:
+              hi = mid
+      if lo < len(ordered) and ordered[lo][0] == name:
+          return ordered[lo][1]
+      return None
+  INDEX
+
+ara_adim: |
+  cat > release/store.py <<'STORE'
+  class VersionStore:
+      def __init__(self, path):
+          self.path = path
+          self._rows = None
+
+      def __enter__(self):
+          self._fh = open(self.path, "r")
+          self._rows = []
+          for line in self._fh:
+              line = line.strip()
+              if not line:
+                  continue
+              name, ver = line.split('=')
+              self._rows.append(
+                  (name.strip(), tuple(int(p) for p in ver.strip().split('.')))
+              )
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self._fh.close()
+          return False
+
+      def rows(self):
+          return list(self._rows)
+
+
+  def parse_versions(text):
+      rows = []
+      for line in text.strip().splitlines():
+          name, ver = line.split('=')
+          rows.append((name.strip(), tuple(int(p) for p in ver.strip().split('.'))))
+      return rows
+
+
+  def sort_versions(rows):
+      return sorted(rows, key=lambda r: r[0])
+  STORE
+
+outputs:
+  - {path: release/index.py, kind: program, run: 'python3 -c ''from release.index import find_version as f; assert f("data.txt","gamma")==(2,0,0), f("data.txt","gamma"); assert f("data.txt","alpha")==(1,2,0), f("data.txt","alpha"); assert f("data.txt","epsilon")==(1,2,10), f("data.txt","epsilon"); assert f("data.txt","zeta") is None, f("data.txt","zeta"); print("TAMAM")'''}
+  - {path: release/store.py, kind: program, run: 'python3 -c ''from release.store import sort_versions as f; rows=[("beta",(0,9,1)),("alpha",(1,2,0)),("gamma",(2,0,0))]; assert [r[0] for r in f(rows)]==["alpha","beta","gamma"], f(rows); print("ILERLEME-TAMAM")'''}
+  - {path: release/store.py, kind: program, run: 'python3 -c ''from release.store import VersionStore as V; s=V("data.txt"); s.__enter__(); rows=s.rows(); s.__exit__(None,None,None); assert rows[0]==("alpha",(1,2,0)), rows[0]; assert rows[-1]==("epsilon",(1,2,10)), rows[-1]; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from release.index import find_version as f; assert f("data.txt","gamma")==(2,0,0), f("data.txt","gamma"); assert f("data.txt","alpha")==(1,2,0), f("data.txt","alpha"); assert f("data.txt","epsilon")==(1,2,10), f("data.txt","epsilon"); assert f("data.txt","zeta") is None, f("data.txt","zeta"); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from release.store import sort_versions as f; rows=[("beta",(0,9,1)),("alpha",(1,2,0)),("gamma",(2,0,0))]; assert [r[0] for r in f(rows)]==["alpha","beta","gamma"], f(rows); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from release.store import VersionStore as V; s=V("data.txt"); s.__enter__(); rows=s.rows(); s.__exit__(None,None,None); assert rows[0]==("alpha",(1,2,0)), rows[0]; assert rows[-1]==("epsilon",(1,2,10)), rows[-1]; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9608
+    bundle: yarisma
+    tools:
+    - python3
+    konu: yazilim-surumleri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 9
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-ikili-arama
+      karmasiklik: derin
+      kalip: context-manager
+      akis: cok-dosya-birlestirme
+      topoloji: iki-modul-zincir
+      zincir: 3
+      regresyon: true
+      bagimli: true
+      kesif_zor: true

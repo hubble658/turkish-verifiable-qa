@@ -1,0 +1,91 @@
+id: gen-s-3049-toplu-yeniden-adlandir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  notlar dizin ağacındaki her .txt dosyasını, dosyanın bulunduğu dizinin adı ile dosya adından oluşan yeni bir adla yeniden adlandır. Örneğin notlar/2023/guz/ali.txt dosyası notlar/2023/guz/guz-ali.txt olsun. Hedef ad aynı dizinde zaten varsa dosyayı değiştirmeden bırak ve hiçbir dosyanın içeriğini değiştirme. Sonuçta notlar/2023/guz/guz-ali.txt, notlar/2023/bahar/bahar-ali.txt, notlar/2024/guz/guz-mehmet.txt ve notlar/2024/guz/guz-ayse.txt dosyaları oluşmalı.
+
+setup: |
+  mkdir -p notlar/2023/guz notlar/2023/bahar notlar/2024/guz
+  cat > notlar/2023/guz/ali.txt <<'EOF'
+  ali 85
+  EOF
+  cat > notlar/2023/guz/ayse.txt <<'EOF'
+  ayse 90
+  EOF
+  cat > notlar/2023/bahar/ali.txt <<'EOF'
+  ali 70
+  EOF
+  cat > notlar/2024/guz/mehmet.txt <<'EOF'
+  mehmet 60
+  EOF
+  cat > notlar/2024/guz/ayse.txt <<'EOF'
+  ayse 95
+  EOF
+  cat > notlar/2023/guz/guz-ayse.txt <<'EOF'
+  ayse 90
+  EOF
+
+goal_tr: >
+  notlar dizin agacindaki her .txt dosyasini, dosyanin bulundugu dizinin adi
+  ile dosya adindan olusan yeni bir ada sahip olacak sekilde yeniden
+  adlandir; ornegin notlar/2023/guz/ali.txt dosyasi
+  notlar/2023/guz/guz-ali.txt olsun, hedef ad ayni dizinde zaten varsa
+  dosyayi degistirmeden birak ve hicbir dosyanin icerigini degistirme.
+
+reference_solution: |
+  find notlar -type f -name '*.txt' | while IFS= read -r f; do
+    d=$(dirname "$f")
+    b=$(basename "$f")
+    base=$(basename "$d")
+    t="$d/$base-$b"
+    if [ ! -e "$t" ]; then
+      mv "$f" "$t"
+    fi
+  done
+
+outputs:
+  - {path: notlar/2023/guz/guz-ali.txt, kind: file}
+  - {path: notlar/2023/bahar/bahar-ali.txt, kind: file}
+  - {path: notlar/2024/guz/guz-mehmet.txt, kind: file}
+  - {path: notlar/2024/guz/guz-ayse.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: notlar/2023/bahar/bahar-ali.txt, value: ali 70}
+  - {op: file_content_eq, path: notlar/2023/guz/guz-ali.txt, value: ali 85}
+  - {op: file_content_eq, path: notlar/2024/guz/guz-ayse.txt, value: ayse 95}
+  - {op: file_content_eq, path: notlar/2024/guz/guz-mehmet.txt, value: mehmet 60}
+  - {op: not_exists, path: notlar/2023/bahar/ali.txt}
+  - {op: not_exists, path: notlar/2023/guz/ali.txt}
+  - {op: not_exists, path: notlar/2023/guz/guz-ayse.txt}
+  - {op: not_exists, path: notlar/2024/guz/ayse.txt}
+  - {op: not_exists, path: notlar/2024/guz/mehmet.txt}
+
+metadata:
+  domain: toplu-yeniden-adlandir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3049
+    bundle: yol-parcala
+    tools:
+    - basename
+    - dirname
+    konu: ogrenci-notlari
+    hedef: toplu-yeniden-adlandir
+    girdi: log-satiri
+    kaynak: dizin-agaci
+    cikti: dizin-yapisi
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: tekrar-eden-kayit
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

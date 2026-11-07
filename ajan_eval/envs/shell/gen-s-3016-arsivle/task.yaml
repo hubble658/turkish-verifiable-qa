@@ -1,0 +1,84 @@
+id: gen-s-3016-arsivle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  siparisler dizinindeki json uzantılı dosyayı bul ve içindeki her satırdaki masa değerini siparisler/masalar.txt ile karşılaştır. Yalnızca masalar.txt içinde geçen masa değerlerine sahip satırları masa numarasına göre ayır; siparisler_arsiv dizininde her masa için ayrı bir masa_<numara>.jsonl dosyası oluştur, yani masa_3.jsonl, masa_5.jsonl ve masa_7.jsonl dosyalarını üret. Ardından bu dosyaları gzip ile sıkıştırıp tek bir siparisler.tar.gz arşivinde topla.
+
+setup: |
+  mkdir -p siparisler
+  cat > siparisler/siparisler.json <<'JSON'
+  {"id":1,"masa":3,"urun":"corba","adet":2}
+  {"id":2,"masa":3,"urun":"pizza","adet":1}
+  {"id":3,"masa":5,"urun":"salata","adet":4}
+  {"id":4,"masa":5,"urun":"corba","adet":1}
+  {"id":5,"masa":7,"urun":"pizza","adet":3}
+  JSON
+  cat > siparisler/masalar.txt <<'TXT'
+  3
+  5
+  7
+  TXT
+
+goal_tr: >
+  siparisler dizinindeki json uzantili dosyayi bulup, icindeki her satirdaki
+  masa degerini masalar.txt ile karsilastir, yalnizca masalar.txt icinde
+  gecen masa degerlerine sahip satirlari masa numarasina gore ayri dosyalara
+  bolerek siparisler_arsiv dizininde her masa icin masa_<numara>.jsonl
+  dosyasi olustur ve bu dosyalari gzip ile sikistirip tek bir
+  siparisler.tar.gz arsivinde topla.
+
+reference_solution: |
+  mkdir -p siparisler_arsiv
+  src=$(find siparisler -maxdepth 1 -name '*.json' -type f)
+  awk 'NR==FNR{var[$1]=1;next} {split($0,a,"\"masa\":"); split(a[2],b,","); if (b[1] in var) print > ("siparisler_arsiv/masa_" b[1] ".jsonl")}' siparisler/masalar.txt "$src"
+  tar -cf - siparisler_arsiv | gzip > siparisler.tar.gz
+
+outputs:
+  - {path: siparisler.tar.gz, kind: file}
+  - {path: siparisler_arsiv, kind: dir}
+  - {path: siparisler_arsiv/masa_3.jsonl, kind: file}
+  - {path: siparisler_arsiv/masa_5.jsonl, kind: file}
+  - {path: siparisler_arsiv/masa_7.jsonl, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: siparisler_arsiv, value: [masa_3.jsonl, masa_5.jsonl, masa_7.jsonl]}
+  - {op: run_stdout_eq, cmd: tar -tzf siparisler.tar.gz | sort, value: 'siparisler_arsiv/
+
+    siparisler_arsiv/masa_3.jsonl
+
+    siparisler_arsiv/masa_5.jsonl
+
+    siparisler_arsiv/masa_7.jsonl'}
+  - {op: file_lines_eq, path: siparisler_arsiv/masa_3.jsonl, value: ['{"id":1,"masa":3,"urun":"corba","adet":2}', '{"id":2,"masa":3,"urun":"pizza","adet":1}']}
+  - {op: file_lines_eq, path: siparisler_arsiv/masa_5.jsonl, value: ['{"id":3,"masa":5,"urun":"salata","adet":4}', '{"id":4,"masa":5,"urun":"corba","adet":1}']}
+  - {op: json_eq, path: siparisler_arsiv/masa_7.jsonl, value: {id: 5, masa: 7, urun: pizza, adet: 3}}
+
+metadata:
+  domain: arsivle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3016
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: restoran-siparisleri
+    hedef: arsivle
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: dizin-yapisi
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

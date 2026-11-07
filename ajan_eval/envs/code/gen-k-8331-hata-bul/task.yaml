@@ -1,0 +1,126 @@
+id: gen-k-8331-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) sessions/tracker.py dosyasındaki SessionTracker sınıfını düzelt: her örnek kendi etiket listesini kendi içinde tutmalı, bir örnekteki login çağrısı başka bir örneğin etiketlerini ya da paylaşılan varsayılan bir listeyi etkilememeli.
+
+  2) Aynı sınıfta her login çağrısı için ayrı bir SessionStore kullanılmasını sağla.
+
+  3) sessions/tracker.py dosyasını bu düzeltmelerle güncelle.
+
+setup: |
+  mkdir -p sessions
+  cat > sessions/store.py <<'STORE'
+  class SessionStore:
+      def __init__(self):
+          self._sessions = {}
+
+      def add(self, user, token):
+          self._sessions[user] = token
+
+      def get(self, user):
+          return self._sessions.get(user)
+
+      def all_tokens(self):
+          return list(self._sessions.values())
+  STORE
+  cat > sessions/tracker.py <<'TRACKER'
+  from sessions.store import SessionStore
+
+
+  class SessionTracker:
+      def __init__(self, store=None, tags=[]):
+          self.store = store if store is not None else SessionStore()
+          self.tags = tags
+
+      def login(self, user, token, tag=None):
+          self.store.add(user, token)
+          if tag is not None:
+              self.tags.append(tag)
+          return self.store.get(user)
+
+      def active_users(self):
+          return sorted(self.store._sessions.keys())
+
+      def tag_count(self):
+          return len(self.tags)
+  TRACKER
+  cat > events.txt <<'EVENTS'
+  alice t1 admin
+  bob t2 guest
+  alice t3 admin
+  carol t4 guest
+  EVENTS
+
+goal_tr: >
+  sessions/tracker.py icindeki SessionTracker sinifini, her ornegin etiket
+  listesi kendi icinde tutulacak ve login cagrilari baska bir ornegin
+  etiketlerini ya da paylasilan varsayilan listeyi etkilemeyecek bicimde
+  duzelt; ayrica her cagri icin ayri bir SessionStore kullanilmasini sagla.
+
+reference_solution: |
+  cat > sessions/tracker.py <<'TRACKER'
+  from sessions.store import SessionStore
+
+
+  class SessionTracker:
+      def __init__(self, store=None, tags=None):
+          self.store = store if store is not None else SessionStore()
+          self.tags = list(tags) if tags is not None else []
+
+      def login(self, user, token, tag=None):
+          self.store.add(user, token)
+          if tag is not None:
+              self.tags.append(tag)
+          return self.store.get(user)
+
+      def active_users(self):
+          return sorted(self.store._sessions.keys())
+
+      def tag_count(self):
+          return len(self.tags)
+  TRACKER
+
+outputs:
+  - {path: sessions/tracker.py, kind: program, run: 'python3 -c ''from sessions.tracker import SessionTracker as T; a=T(); b=T(); a.login("alice","t1","admin"); b.login("bob","t2","guest"); assert a.tag_count()==1, a.tag_count(); assert b.tag_count()==1, b.tag_count(); assert a.tags!=b.tags; c=T(tags=["seed"]); c.login("carol","t4"); assert c.tag_count()==1; d=T(); d.login("dave","t5"); assert d.tag_count()==0, d.tag_count(); assert a.active_users()==["alice"]; assert b.active_users()==["bob"]; assert c.active_users()==["carol"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sessions.tracker import SessionTracker as T; a=T(); b=T(); a.login("alice","t1","admin"); b.login("bob","t2","guest"); assert a.tag_count()==1, a.tag_count(); assert b.tag_count()==1, b.tag_count(); assert a.tags!=b.tags; c=T(tags=["seed"]); c.login("carol","t4"); assert c.tag_count()==1; d=T(); d.login("dave","t5"); assert d.tag_count()==0, d.tag_count(); assert a.active_users()==["alice"]; assert b.active_users()==["bob"]; assert c.active_users()==["carol"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8331
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kullanici-oturumlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: mutable-varsayilan
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: cok-dosya-birlestirme
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

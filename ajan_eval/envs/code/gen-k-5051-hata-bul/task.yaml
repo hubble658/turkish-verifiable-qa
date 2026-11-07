@@ -1,0 +1,130 @@
+id: gen-k-5051-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  net/router.py dosyasındaki cheapest_route fonksiyonunu düzelt. Fonksiyon, aramaya başlarken başlangıç düğümünü de ziyaret edilmiş olarak saysın; böylece başlangıç düğümüne geri dönen döngüler elenir ve fonksiyon her durumda doğru bir Route nesnesi döndürür.
+
+setup: |
+  mkdir -p net
+  cat > net/paths.py <<'PATHS'
+  from dataclasses import dataclass, field
+
+
+  @dataclass
+  class Route:
+      hops: list = field(default_factory=list)
+
+      def add(self, node):
+          self.hops.append(node)
+
+      def cost(self):
+          return len(self.hops)
+
+
+  @dataclass
+  class Network:
+      edges: dict = field(default_factory=dict)
+
+      def neighbors(self, node):
+          return self.edges.get(node, [])
+  PATHS
+  cat > net/router.py <<'ROUTER'
+  from net.paths import Network, Route
+
+
+  def cheapest_route(net, start, goal):
+      best = None
+      queue = [(start, [])]
+      while queue:
+          node, path = queue.pop(0)
+          if node == goal:
+              if best is None or len(path) < len(best):
+                  best = path
+              continue
+          for nxt in net.neighbors(node):
+              if nxt in path:
+                  continue
+              queue.append((nxt, path + [nxt]))
+      if best is None:
+          return None
+      route = Route()
+      for node in best:
+          route.add(node)
+      return route
+  ROUTER
+
+goal_tr: >
+  net/router.py icindeki cheapest_route fonksiyonunu, baslangic dugumunun
+  yolu baslatirken ziyaret edilmis sayilmasini saglayacak sekilde duzelt;
+  boylece start dugumune geri donen donguler elenir ve fonksiyon her durumda
+  dogru Route dondurur.
+
+reference_solution: |
+  cat > net/router.py <<'ROUTER'
+  from net.paths import Network, Route
+
+
+  def cheapest_route(net, start, goal):
+      best = None
+      queue = [(start, [start])]
+      while queue:
+          node, path = queue.pop(0)
+          if node == goal:
+              if best is None or len(path) < len(best):
+                  best = path
+              continue
+          for nxt in net.neighbors(node):
+              if nxt in path:
+                  continue
+              queue.append((nxt, path + [nxt]))
+      if best is None:
+          return None
+      route = Route()
+      for node in best:
+          route.add(node)
+      return route
+  ROUTER
+
+outputs:
+  - {path: net/router.py, kind: program, run: 'python3 -c ''from net.paths import Network; from net.router import cheapest_route; n=Network({"A":["B","C"],"B":["D"],"C":["D"],"D":["A"]}); r=cheapest_route(n,"A","D"); assert r is not None, "no route"; assert r.hops==["A","B","D"], r.hops; assert r.cost()==3, r.cost(); r2=cheapest_route(n,"A","A"); assert r2 is not None and r2.hops==["A"], r2.hops; n2=Network({"X":["Y"],"Y":["X"]}); r3=cheapest_route(n2,"X","Y"); assert r3 is not None and r3.hops==["X","Y"], r3.hops; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from net.paths import Network; from net.router import cheapest_route; n=Network({"A":["B","C"],"B":["D"],"C":["D"],"D":["A"]}); r=cheapest_route(n,"A","D"); assert r is not None, "no route"; assert r.hops==["A","B","D"], r.hops; assert r.cost()==3, r.cost(); r2=cheapest_route(n,"A","A"); assert r2 is not None and r2.hops==["A"], r2.hops; n2=Network({"X":["Y"],"Y":["X"]}); r3=cheapest_route(n2,"X","Y"); assert r3 is not None and r3.hops==["X","Y"], r3.hops; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5051
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: yol-tarifi-agi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kapsam-hatasi
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: bellek-ici
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,74 @@
+id: gen-s-3097-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri/kargolar.txt içindeki her kargo satırından şehir ve durum alanlarını çıkar; veri/iller.txt içindeki her şehir için o şehre ait TESLİM durumundaki kargo sayısını "ŞEHİR SAYI" biçiminde şehir adına göre artan sırada sonuc.txt dosyasına yaz.
+
+setup: |
+  mkdir -p veri
+  cat > veri/kargolar.txt <<'KARGO'
+  K001|ANKARA|YOLDA
+  K002|IZMIR|TESLIM
+  K003|ANKARA|TESLIM
+  K004|BURSA|YOLDA
+  K005|IZMIR|YOLDA
+  K006|ANKARA|YOLDA
+  K007|BURSA|TESLIM
+  KARGO
+  cat > veri/iller.txt <<'IL'
+  ANKARA
+  IZMIR
+  BURSA
+  IL
+
+goal_tr: >
+  veri/kargolar.txt icindeki her kargo satirindan sehir alanini ve durum
+  alanini cikarip, veri/iller.txt icindeki her sehir icin o sehre ait TESLIM
+  durumundaki kargo sayisini "SEHIR SAYI" biciminde sehir adina gore artan
+  sirada sonuc.txt dosyasina yaz
+
+reference_solution: |
+  cut -d'|' -f2,3 veri/kargolar.txt > /tmp/kargo_alan.txt
+  grep 'TESLIM' /tmp/kargo_alan.txt | cut -d'|' -f1 > /tmp/teslim_iller.txt
+  sort /tmp/teslim_iller.txt > /tmp/teslim_sirali.txt
+  sort veri/iller.txt > /tmp/iller_sirali.txt
+  join /tmp/iller_sirali.txt /tmp/teslim_sirali.txt | awk '{print $1, NF-1}' > /tmp/sayilar.txt
+  join -a1 /tmp/iller_sirali.txt /tmp/sayilar.txt > /dev/null
+  awk 'NR==FNR{c[$1]=$2; next} {print $1, (($1 in c) ? c[$1] : 0)}' /tmp/sayilar.txt /tmp/iller_sirali.txt > sonuc.txt
+  wc -l sonuc.txt > /tmp/satir_sayisi.txt
+
+outputs:
+  - {path: sonuc.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: sonuc.txt, value: [ANKARA 0, BURSA 0, IZMIR 0]}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3097
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: kargo-takibi
+    hedef: grupla-say
+    girdi: sabit-genislik
+    kaynak: iki-dosya-capraz
+    cikti: satir-listesi
+    kesif: veriye-bak
+    uslup: terse
+    direnc: yok
+    bukulme: olcek
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

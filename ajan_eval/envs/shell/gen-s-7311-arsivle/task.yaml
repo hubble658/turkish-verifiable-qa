@@ -1,0 +1,108 @@
+id: gen-s-7311-arsivle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  notlar dizinindeki her .txt dosyasını, içindeki ders bilgisine göre notlar_arsiv/ders/ altına kopyala ve tüm bu arşivi notlar_arsiv.tar.gz olarak oluştur.
+
+  Şu şartlar sağlanmalı:
+  - notlar_arsiv adlı bir dizin oluşturulmalı ve içinde ders adına göre alt dizinler bulunmalı.
+  - Her .txt dosyası, içeriğindeki ders değerine karşılık gelen alt dizine kopyalanmalı.
+  - notlar_arsiv.tar.gz adlı bir arşiv dosyası oluşturulmalı ve notlar_arsiv içeriğini barındırmalı.
+
+setup: |
+  mkdir -p notlar
+  cat > notlar/ali.txt <<'E'
+  ad: Ali
+  ders: matematik
+  not: 85
+  E
+  cat > notlar/ayse.txt <<'E'
+  ad: Ayse
+  ders: matematik
+  not: 90
+  E
+  cat > notlar/mehmet.txt <<'E'
+  ad: Mehmet
+  ders: fizik
+  not: 70
+  E
+  cat > notlar/zeynep.txt <<'E'
+  ad: Zeynep
+  ders: fizik
+  not: 95
+  E
+  cat > notlar/can.txt <<'E'
+  ad: Can
+  ders: kimya
+  not: 60
+  E
+  cat > notlar/deniz.txt <<'E'
+  ad: Deniz
+  ders: kimya
+  not: 88
+  E
+
+goal_tr: >
+  notlar dizinindeki her .txt dosyasini ders adina gore notlar_arsiv/ders/
+  altina kopyalayip notlar_arsiv.tar.gz arsivini olustur
+
+reference_solution: |
+  mkdir -p notlar_arsiv
+  for f in $(find notlar -name '*.txt' | sort); do d=$(grep '^ders:' "$f" | cut -d' ' -f2); mkdir -p "notlar_arsiv/$d"; cp "$f" "notlar_arsiv/$d/"; done
+  tar czf notlar_arsiv.tar.gz notlar_arsiv
+
+outputs:
+  - {path: notlar_arsiv, kind: dir}
+  - {path: notlar_arsiv.tar.gz, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: notlar_arsiv, value: [fizik, kimya, matematik]}
+  - {op: run_stdout_eq, cmd: tar -tzf notlar_arsiv.tar.gz | sort, value: 'notlar_arsiv/
+
+    notlar_arsiv/fizik/
+
+    notlar_arsiv/fizik/mehmet.txt
+
+    notlar_arsiv/fizik/zeynep.txt
+
+    notlar_arsiv/kimya/
+
+    notlar_arsiv/kimya/can.txt
+
+    notlar_arsiv/kimya/deniz.txt
+
+    notlar_arsiv/matematik/
+
+    notlar_arsiv/matematik/ali.txt
+
+    notlar_arsiv/matematik/ayse.txt'}
+
+metadata:
+  domain: arsivle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7311
+    bundle: secerek-arsivle
+    tools:
+    - tar
+    - find
+    konu: ogrenci-notlari
+    hedef: arsivle
+    girdi: log-satiri
+    kaynak: cok-dosya
+    cikti: dizin-yapisi
+    kesif: veriye-bak
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

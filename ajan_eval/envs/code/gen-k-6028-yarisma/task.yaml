@@ -1,0 +1,202 @@
+id: gen-k-6028-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 20
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) meter/reader.py dosyasındaki read_reading fonksiyonunu, okuma satırındaki kWh değerini float türünde döndürecek biçimde düzelt.
+
+  2) meter/usage.py dosyasındaki daily_usage fonksiyonunu, aynı sayaç ve aynı gün için gelen tüm okumaları toplayacak biçimde düzelt.
+
+  3) meter/usage.py içindeki total_usage ve peak_day fonksiyonlarının davranışlarının bozulmadan çalışmaya devam ettiğinden emin ol.
+
+setup: |
+  mkdir -p meter
+  cat > meter/reader.py <<'READER'
+  def read_reading(line):
+      # Format: "METERID|YYYY-MM-DD|KWH"
+      parts = line.strip().split("|")
+      if len(parts) != 3:
+          raise ValueError("bad line: " + line)
+      meter_id, day, kwh = parts
+      return meter_id, day, kwh
+
+
+  def read_file(path):
+      out = []
+      with open(path) as fh:
+          for line in fh:
+              if not line.strip():
+                  continue
+              out.append(read_reading(line))
+      return out
+  READER
+  cat > meter/usage.py <<'USAGE'
+  from meter.reader import read_file
+
+
+  def daily_usage(path):
+      rows = read_file(path)
+      totals = {}
+      for meter_id, day, kwh in rows:
+          key = (meter_id, day)
+          totals[key] = kwh
+      result = {}
+      for (meter_id, day), kwh in totals.items():
+          result.setdefault(meter_id, {})[day] = kwh
+      return result
+
+
+  def total_usage(path):
+      rows = read_file(path)
+      total = 0.0
+      for meter_id, day, kwh in rows:
+          total += kwh
+      return total
+
+
+  def peak_day(path):
+      per_day = {}
+      for meter_id, day, kwh in read_file(path):
+          per_day[day] = per_day.get(day, 0.0) + kwh
+      best = None
+      for day, kwh in per_day.items():
+          if best is None or kwh > best[1]:
+              best = (day, kwh)
+      return best[0]
+  USAGE
+  cat > readings.txt <<'DATA'
+  M1|2024-01-01|10.5
+  M1|2024-01-01|4.5
+  M1|2024-01-02|3.0
+  M2|2024-01-01|7.0
+  M2|2024-01-03|1.0
+  DATA
+
+goal_tr: >
+  meter/reader.py icindeki read_reading fonksiyonunu kWh degerini float
+  olarak dondurecek bicimde duzelt, sonra meter/usage.py icindeki
+  daily_usage fonksiyonunu ayni sayac-gun icin gelen okumalari toplayacak
+  bicimde duzelt; total_usage ve peak_day davranislari bozulmasin.
+
+reference_solution: |
+  cat > meter/reader.py <<'READER'
+  def read_reading(line):
+      # Format: "METERID|YYYY-MM-DD|KWH"
+      parts = line.strip().split("|")
+      if len(parts) != 3:
+          raise ValueError("bad line: " + line)
+      meter_id, day, kwh = parts
+      return meter_id, day, float(kwh)
+
+
+  def read_file(path):
+      out = []
+      with open(path) as fh:
+          for line in fh:
+              if not line.strip():
+                  continue
+              out.append(read_reading(line))
+      return out
+  READER
+  cat > meter/usage.py <<'USAGE'
+  from meter.reader import read_file
+
+
+  def daily_usage(path):
+      rows = read_file(path)
+      totals = {}
+      for meter_id, day, kwh in rows:
+          key = (meter_id, day)
+          totals[key] = totals.get(key, 0.0) + kwh
+      result = {}
+      for (meter_id, day), kwh in totals.items():
+          result.setdefault(meter_id, {})[day] = kwh
+      return result
+
+
+  def total_usage(path):
+      rows = read_file(path)
+      total = 0.0
+      for meter_id, day, kwh in rows:
+          total += kwh
+      return total
+
+
+  def peak_day(path):
+      per_day = {}
+      for meter_id, day, kwh in read_file(path):
+          per_day[day] = per_day.get(day, 0.0) + kwh
+      best = None
+      for day, kwh in per_day.items():
+          if best is None or kwh > best[1]:
+              best = (day, kwh)
+      return best[0]
+  USAGE
+
+ara_adim: |
+  cat > meter/reader.py <<'READER'
+  def read_reading(line):
+      # Format: "METERID|YYYY-MM-DD|KWH"
+      parts = line.strip().split("|")
+      if len(parts) != 3:
+          raise ValueError("bad line: " + line)
+      meter_id, day, kwh = parts
+      return meter_id, day, float(kwh)
+
+
+  def read_file(path):
+      out = []
+      with open(path) as fh:
+          for line in fh:
+              if not line.strip():
+                  continue
+              out.append(read_reading(line))
+      return out
+  READER
+
+outputs:
+  - {path: meter/usage.py, kind: program, run: 'python3 -c ''from meter.usage import daily_usage as d, peak_day as p; u=d("readings.txt"); assert u=={"M1":{"2024-01-01":15.0,"2024-01-02":3.0},"M2":{"2024-01-01":7.0,"2024-01-03":1.0}}, u; assert p("readings.txt")=="2024-01-01", p("readings.txt"); print("ZINCIR-TAMAM")'''}
+  - {path: meter/reader.py, kind: program, run: 'python3 -c ''from meter.reader import read_file as f; r=f("readings.txt"); assert r[0]==("M1","2024-01-01",10.5), r[0]; assert isinstance(r[0][2], float), type(r[0][2]); print("ILERLEME-TAMAM")'''}
+  - {path: meter/usage.py, kind: program, run: 'python3 -c ''from meter.usage import total_usage as t; assert abs(t("readings.txt")-26.0)<1e-9, t("readings.txt"); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from meter.reader import read_file as f; r=f("readings.txt"); assert r[0]==("M1","2024-01-01",10.5), r[0]; assert isinstance(r[0][2], float), type(r[0][2]); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from meter.usage import daily_usage as d, peak_day as p; u=d("readings.txt"); assert u=={"M1":{"2024-01-01":15.0,"2024-01-02":3.0},"M2":{"2024-01-01":7.0,"2024-01-03":1.0}}, u; assert p("readings.txt")=="2024-01-01", p("readings.txt"); print("ZINCIR-TAMAM")''', value: ZINCIR-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from meter.usage import total_usage as t; assert abs(t("readings.txt")-26.0)<1e-9, t("readings.txt"); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-6028
+    bundle: yarisma
+    tools:
+    - python3
+    konu: elektrik-sayaclari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 7
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: metin-ayristirma
+      karmasiklik: orta
+      kalip: duz-fonksiyon
+      akis: dosya-okuma
+      topoloji: iki-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

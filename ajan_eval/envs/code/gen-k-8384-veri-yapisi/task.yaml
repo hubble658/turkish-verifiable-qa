@@ -1,0 +1,156 @@
+id: gen-k-8384-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  depot/raf.py içindeki RafZinciri sınıfına ekle, toplam ve esik_uzerinde metotlarını yaz; depot/yerlesim.py'deki zincir_kur kayıtları bağlı listeye çevirsin, depot/rapor.py'deki rapor_uret en az esik adetli raf kodlarını sıralı döndürsün.
+
+setup: |
+  mkdir -p depot
+  cat > depot/raf.py <<'RAF'
+  class RafDugumu:
+      def __init__(self, kod, adet):
+          self.kod = kod
+          self.adet = adet
+          self.sonraki = None
+
+
+  class RafZinciri:
+      def __init__(self):
+          self.bas = None
+
+      def ekle(self, kod, adet):
+          raise NotImplementedError
+
+      def toplam(self):
+          raise NotImplementedError
+
+      def esik_uzerinde(self, esik):
+          raise NotImplementedError
+  RAF
+  cat > depot/yerlesim.py <<'YER'
+  from depot.raf import RafZinciri
+
+
+  def zincir_kur(kayitlar):
+      raise NotImplementedError
+  YER
+  cat > depot/rapor.py <<'RAPOR'
+  from depot.yerlesim import zincir_kur
+
+
+  def rapor_uret(kayitlar, esik):
+      raise NotImplementedError
+  RAPOR
+
+goal_tr: >
+  depot/raf.py icindeki RafZinciri sinifini (ekle, toplam, esik_uzerinde
+  metotlariyla) ve depot/yerlesim.py ile depot/rapor.py icindeki
+  fonksiyonlari, zincir_kur kayitlari bagli listeye cevirip rapor_uret en az
+  esik adetli raf kodlarini sirali dondurecek bicimde gerceklestir
+
+reference_solution: |
+  cat > depot/raf.py <<'RAF'
+  class RafDugumu:
+      def __init__(self, kod, adet):
+          self.kod = kod
+          self.adet = adet
+          self.sonraki = None
+
+
+  class RafZinciri:
+      def __init__(self):
+          self.bas = None
+
+      def ekle(self, kod, adet):
+          yeni = RafDugumu(kod, adet)
+          if self.bas is None:
+              self.bas = yeni
+              return
+          imlec = self.bas
+          while imlec.sonraki is not None:
+              imlec = imlec.sonraki
+          imlec.sonraki = yeni
+
+      def toplam(self):
+          toplam = 0
+          imlec = self.bas
+          while imlec is not None:
+              toplam += imlec.adet
+              imlec = imlec.sonraki
+          return toplam
+
+      def esik_uzerinde(self, esik):
+          kodlar = []
+          imlec = self.bas
+          while imlec is not None:
+              if imlec.adet >= esik:
+                  kodlar.append(imlec.kod)
+              imlec = imlec.sonraki
+          return kodlar
+  RAF
+  cat > depot/yerlesim.py <<'YER'
+  from depot.raf import RafZinciri
+
+
+  def zincir_kur(kayitlar):
+      zincir = RafZinciri()
+      for kayit in kayitlar:
+          zincir.ekle(kayit["kod"], kayit["adet"])
+      return zincir
+  YER
+  cat > depot/rapor.py <<'RAPOR'
+  from depot.yerlesim import zincir_kur
+
+
+  def rapor_uret(kayitlar, esik):
+      zincir = zincir_kur(kayitlar)
+      kodlar = zincir.esik_uzerinde(esik)
+      kodlar.sort()
+      return {"toplam": zincir.toplam(), "secili": kodlar}
+  RAPOR
+
+outputs:
+  - {path: depot/raf.py, kind: program, run: 'python3 -c ''from depot.rapor import rapor_uret as f; k=[{"kod":"B3","adet":4},{"kod":"A1","adet":9},{"kod":"C2","adet":9},{"kod":"D4","adet":1}]; r=f(k,9); assert r=={"toplam":23,"secili":["A1","C2"]}, r; assert f(k,100)=={"toplam":23,"secili":[]}; assert f([],5)=={"toplam":0,"secili":[]}; print("TAMAM")'''}
+  - {path: depot/yerlesim.py, kind: program, run: 'python3 -c ''from depot.rapor import rapor_uret as f; k=[{"kod":"B3","adet":4},{"kod":"A1","adet":9},{"kod":"C2","adet":9},{"kod":"D4","adet":1}]; r=f(k,9); assert r=={"toplam":23,"secili":["A1","C2"]}, r; assert f(k,100)=={"toplam":23,"secili":[]}; assert f([],5)=={"toplam":0,"secili":[]}; print("TAMAM")'''}
+  - {path: depot/rapor.py, kind: program, run: 'python3 -c ''from depot.rapor import rapor_uret as f; k=[{"kod":"B3","adet":4},{"kod":"A1","adet":9},{"kod":"C2","adet":9},{"kod":"D4","adet":1}]; r=f(k,9); assert r=={"toplam":23,"secili":["A1","C2"]}, r; assert f(k,100)=={"toplam":23,"secili":[]}; assert f([],5)=={"toplam":0,"secili":[]}; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depot.rapor import rapor_uret as f; k=[{"kod":"B3","adet":4},{"kod":"A1","adet":9},{"kod":"C2","adet":9},{"kod":"D4","adet":1}]; r=f(k,9); assert r=={"toplam":23,"secili":["A1","C2"]}, r; assert f(k,100)=={"toplam":23,"secili":[]}; assert f([],5)=={"toplam":0,"secili":[]}; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8384
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: depo-raf-yerlesimi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: terse
+    direnc: yok
+    bukulme: zor
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: bagli-liste
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: ic-ice-yapi
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

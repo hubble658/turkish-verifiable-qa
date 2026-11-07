@@ -1,0 +1,132 @@
+id: gen-k-5160-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  pricing/summary.py dosyasındaki total_by_sku fonksiyonunu, her SKU için toplamları doğru şekilde, negatif işaret hilesine başvurmadan hesaplayacak biçimde düzelt. Fonksiyon pricing/loader.py içindeki load_records ile okunan kayıtları kullanmaya devam etmeli ve sonuçta her SKU için gerçek toplamı, iki ondalık basamağa yuvarlanmış olarak döndürmeli.
+
+setup: |
+  mkdir -p pricing
+  cat > pricing/records.py <<'RECORDS'
+  from dataclasses import dataclass
+
+
+  @dataclass
+  class PriceRecord:
+      sku: str
+      unit_price: float
+      quantity: int
+
+      def total(self):
+          return self.unit_price * self.quantity
+  RECORDS
+  cat > pricing/loader.py <<'LOADER'
+  from pricing.records import PriceRecord
+
+
+  def load_records(path):
+      records = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              sku, price, qty = line.split(",")
+              records.append(PriceRecord(sku, float(price), int(qty)))
+      return records
+  LOADER
+  cat > pricing/summary.py <<'SUMMARY'
+  from pricing.loader import load_records
+
+
+  def grand_total(path):
+      records = load_records(path)
+      total = 0.0
+      for r in records:
+          total = total + r.total()
+      return round(total, 2)
+
+
+  def total_by_sku(path):
+      records = load_records(path)
+      result = {}
+      for r in records:
+          result[r.sku] = result.get(r.sku, 0.0) - r.total()
+      return {k: round(-v, 2) for k, v in result.items()}
+  SUMMARY
+  cat > prices.txt <<'DATA'
+  apple,1.50,4
+  banana,0.75,10
+  apple,1.50,2
+  cherry,3.00,1
+  banana,0.75,6
+  DATA
+
+goal_tr: >
+  pricing/summary.py icindeki total_by_sku fonksiyonunu, her SKU icin
+  toplamlari dogru (negatif isaret hilesi olmadan) hesaplayacak bicimde
+  duzelt
+
+reference_solution: |
+  cat > pricing/summary.py <<'SUMMARY'
+  from pricing.loader import load_records
+
+
+  def grand_total(path):
+      records = load_records(path)
+      total = 0.0
+      for r in records:
+          total = total + r.total()
+      return round(total, 2)
+
+
+  def total_by_sku(path):
+      records = load_records(path)
+      result = {}
+      for r in records:
+          result[r.sku] = result.get(r.sku, 0.0) + r.total()
+      return {k: round(v, 2) for k, v in result.items()}
+  SUMMARY
+
+outputs:
+  - {path: pricing/summary.py, kind: program, run: 'python3 -c ''import pricing.summary as m; d=m.total_by_sku("prices.txt"); assert d=={"apple":9.0,"banana":12.0,"cherry":3.0}, d; assert m.grand_total("prices.txt")==24.0; src=open("pricing/summary.py").read(); assert "result.get(r.sku, 0.0) + r.total()" in src; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import pricing.summary as m; d=m.total_by_sku("prices.txt"); assert d=={"apple":9.0,"banana":12.0,"cherry":3.0}, d; assert m.grand_total("prices.txt")==24.0; src=open("pricing/summary.py").read(); assert "result.get(r.sku, 0.0) + r.total()" in src; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5160
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: urun-fiyatlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-toplama-sirasi
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,75 @@
+id: gen-s-4075-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  yorumlar.txt'teki her satırın ilk alanı ürün adı, ikincisi yorum. Her ürünün yorumlarını cikti/urunA.txt, cikti/urunB.txt, cikti/urunC.txt dosyalarına yaz; her ürünün yorum sayısını ürün adı ve sayı olarak sayilar.txt'ye yaz.
+
+setup: |
+  cat > yorumlar.txt <<'TXT'
+  urunC iyi
+  urunA harika
+  urunB kotu
+  urunA iyi
+  urunC kotu
+  urunA harika
+  urunB iyi
+  urunC iyi
+  urunA kotu
+  urunB harika
+  TXT
+
+goal_tr: >
+  yorumlar.txt dosyasindaki her satirin ilk alanini urun adi, ikinci alanini
+  yorum olarak kabul edip her urun icin o urune ait yorumlari kendi
+  dosyasina yaz; ayrica her urunun kac yorum aldigini urun adi ve sayi
+  olarak sayilar.txt dosyasina yaz.
+
+reference_solution: |
+  mkdir -p cikti
+  cut -d' ' -f1 yorumlar.txt | sort | uniq > urunler.txt
+  while read -r urun; do
+    grep "^$urun " yorumlar.txt | cut -d' ' -f2 | sort > "cikti/$urun.txt"
+  done < urunler.txt
+  cut -d' ' -f1 yorumlar.txt | sort | uniq -c | awk '{print $2, $1}' > sayilar.txt
+
+outputs:
+  - {path: cikti/urunA.txt, kind: file}
+  - {path: cikti/urunB.txt, kind: file}
+  - {path: cikti/urunC.txt, kind: file}
+  - {path: sayilar.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: cikti/urunA.txt, value: [harika, harika, iyi, kotu]}
+  - {op: file_lines_eq, path: cikti/urunB.txt, value: [harika, iyi, kotu]}
+  - {op: file_lines_eq, path: cikti/urunC.txt, value: [iyi, iyi, kotu]}
+  - {op: file_lines_eq, path: sayilar.txt, value: [urunA 4, urunB 3, urunC 3]}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4075
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: urun-yorumlari
+    hedef: grupla-say
+    girdi: duz-metin
+    kaynak: tek-dosya
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

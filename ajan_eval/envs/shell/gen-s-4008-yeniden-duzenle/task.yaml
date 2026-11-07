@@ -1,0 +1,84 @@
+id: gen-s-4008-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kitaplik dizini altındaki .json dosyalarını bul; her birini kendi içindeki id değerini büyük harfe çevirerek <ID>.json biçiminde yeniden adlandırılmış kopya olarak cikti dizinine yaz. Bu işlem sonucunda cikti dizininde A-01.json, B-02.json ve C-03.json dosyaları oluşmalı; kitaplik içindeki .json olmayan dosyalar dikkate alınmamalı. Ardından cikti dizinini cikti.tar.gz arşivine paketle.
+
+setup: |
+  mkdir -p kitaplik
+  cat > kitaplik/kitap_a.json <<'JSON'
+  {"id": "A-01", "baslik": "Deniz Feneri", "yazar": "Ali Veli", "yil": 1998}
+  JSON
+  cat > kitaplik/kitap_b.json <<'JSON'
+  {"id": "B-02", "baslik": "Dag Yolu", "yazar": "Ayse Demir", "yil": 2004}
+  JSON
+  cat > kitaplik/notlar.txt <<'TXT'
+  bu dosya json degil
+  TXT
+  cat > kitaplik/kitap_c.json <<'JSON'
+  {"id": "C-03", "baslik": "Kuzey Ruzgari", "yazar": "Mehmet Kaya", "yil": 2011}
+  JSON
+
+goal_tr: >
+  kitaplik altindaki .json dosyalarini bulup her birini kendi icindeki id
+  degerini buyuk harfe cevirerek <ID>.json biciminde yeniden adlandirilmis
+  kopya olarak cikti/ dizinine yaz ve cikti/ dizinini cikti.tar.gz arsivine
+  paketle
+
+reference_solution: |
+  mkdir -p cikti
+  find kitaplik -type f -name '*.json' | while read -r f; do
+    id=$(grep -o '"id"[[:space:]]*:[[:space:]]*"[^"]*"' "$f" | sed 's/.*"\([^"]*\)"$/\1/' | tr 'a-z' 'A-Z')
+    sed "s/\"id\"[[:space:]]*:[[:space:]]*\"[^\"]*\"/\"id\": \"$id\"/" "$f" > "cikti/$id.json"
+  done
+  tar -czf cikti.tar.gz cikti
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/A-01.json, kind: file}
+  - {path: cikti/B-02.json, kind: file}
+  - {path: cikti/C-03.json, kind: file}
+  - {path: cikti.tar.gz, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [A-01.json, B-02.json, C-03.json]}
+  - {op: run_stdout_eq, cmd: tar -tzf cikti.tar.gz | sort, value: 'cikti/
+
+    cikti/A-01.json
+
+    cikti/B-02.json
+
+    cikti/C-03.json'}
+  - {op: json_eq, path: cikti/A-01.json, value: {id: A-01, baslik: Deniz Feneri, yazar: Ali Veli, yil: 1998}}
+  - {op: json_eq, path: cikti/B-02.json, value: {id: B-02, baslik: Dag Yolu, yazar: Ayse Demir, yil: 2004}}
+  - {op: json_eq, path: cikti/C-03.json, value: {id: C-03, baslik: Kuzey Ruzgari, yazar: Mehmet Kaya, yil: 2011}}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4008
+    bundle: secerek-arsivle
+    tools:
+    - tar
+    - find
+    konu: kutuphane-kayitlari
+    hedef: yeniden-duzenle
+    girdi: json
+    kaynak: cok-dosya
+    cikti: yeniden-adlandirilmis
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

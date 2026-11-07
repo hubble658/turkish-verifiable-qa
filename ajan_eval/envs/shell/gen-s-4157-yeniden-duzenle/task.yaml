@@ -1,0 +1,81 @@
+id: gen-s-4157-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  "kütüphane kayitlari" dizinindeki her düz metin dosyasinda "kitap: " ile baslayan satirlarda geçen benzersiz kitap adlarinin toplam sayisini bul ve bu sayiyi sonuc.txt dosyasina sadece sayi olarak yaz.
+
+  Su sartlar saglanmali:
+  - "kütüphane kayitlari" dizinindeki her düz metin dosyasi taranmis olmali.
+  - Yalnizca "kitap: " ile baslayan satirlardaki kitap adlari dikkate alinmis olmali.
+  - Ayni kitap adi birden fazla dosyada ya da birden fazla satirda geçse bile yalnizca bir kez sayilmis olmali.
+  - sonuc.txt dosyasi olusturulmus olmali.
+  - sonuc.txt içinde yalnizca toplam sayi bulunmali; baska metin, etiket ya da açiklama olmamali.
+
+setup: |
+  mkdir -p "kutuphane kayitlari"
+  cat > "kutuphane kayitlari/ocak.txt" <<'TXT'
+  kitap: Simyaci
+  kitap: Kucuk Prens
+  kitap: Simyaci
+  kitap: Ucurtma Avcisi
+  TXT
+  cat > "kutuphane kayitlari/subat.txt" <<'TXT'
+  kitap: Kucuk Prens
+  kitap: Yaban
+  kitap: Simyaci
+  kitap: Yaban
+  kitap: Ucurtma Avcisi
+  TXT
+  cat > "kutuphane kayitlari/mart.txt" <<'TXT'
+  kitap: Yaban
+  kitap: Simyaci
+  kitap: Kucuk Prens
+  kitap: Yaban
+  TXT
+
+goal_tr: >
+  "kutuphane kayitlari" dizinindeki her duz metin dosyasindaki "kitap: " ile
+  baslayan satirlarda gecen benzersiz kitap adlarinin toplam sayisini
+  sonuc.txt dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  find "kutuphane kayitlari" -type f -name '*.txt' -print0 | xargs -0 cat > /tmp/kitaplar.txt
+  sed -n 's/^kitap: //p' /tmp/kitaplar.txt > /tmp/adlar.txt
+  sort /tmp/adlar.txt | uniq > /tmp/benzersiz.txt
+  wc -l < /tmp/benzersiz.txt > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '4'}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4157
+    bundle: bul-tasi
+    tools:
+    - find
+    - xargs
+    konu: kutuphane-kayitlari
+    hedef: yeniden-duzenle
+    girdi: duz-metin
+    kaynak: cok-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: bosluklu-ad
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

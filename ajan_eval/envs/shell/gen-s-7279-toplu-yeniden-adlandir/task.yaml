@@ -1,0 +1,75 @@
+id: gen-s-7279-toplu-yeniden-adlandir
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  vardiya klasöründeki personel.txt ve gunler.txt sabit genişlikli dosyalarından, ilk 3 karakteri anahtar kabul ederek eşleşen kayıtları birleştir; sonucu her satırda "anahtar,ad,gun" biçiminde olacak şekilde vardiya.csv dosyasına yaz.
+
+  Şu şartlar sağlanmalı:
+  - vardiya/personel.txt ve vardiya/gunler.txt dosyalarındaki kayıtlar ilk 3 karakterlerine göre eşleştirilmeli.
+  - Eşleşen her kayıt için tek satır üretilmeli.
+  - Her satır "anahtar,ad,gun" biçiminde olmalı.
+  - Çıktı vardiya.csv dosyasına yazılmalı.
+  - vardiya.csv içinde yalnızca eşleşen kayıtlar bulunmalı.
+
+setup: |
+  mkdir -p vardiya
+  cat > vardiya/personel.txt <<'TXT'
+  001Ahmet Yilmaz
+  002Ayse Kaya
+  003Mehmet Demir
+  TXT
+  cat > vardiya/gunler.txt <<'TXT'
+  001Pazartesi
+  002Sali
+  003Carsamba
+  TXT
+
+goal_tr: >
+  vardiya klasorundeki personel.txt ve gunler.txt sabit genislikli
+  dosyalarindan ilk 3 karakteri anahtar kabul ederek eslesen kayitlari
+  birlestirip, her satiri "anahtar,ad,gun" biciminde vardiya.csv dosyasina
+  yaz.
+
+reference_solution: |
+  find vardiya -name '*.txt' -print0 | xargs -0 -n1 basename | sort | while read f; do cut -c1-3 "vardiya/$f" | while read k; do :; done; done > /dev/null
+  find vardiya -name '*.txt' -print0 | xargs -0 cat | cut -c1-3 | sort -u | while read k; do
+    ad=$(grep "^$k" vardiya/personel.txt | cut -c4-)
+    gun=$(grep "^$k" vardiya/gunler.txt | cut -c4-)
+    [ -n "$ad" ] && [ -n "$gun" ] && printf '%s,%s,%s\n' "$k" "$ad" "$gun"
+  done > vardiya.csv
+
+outputs:
+  - {path: vardiya.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: vardiya.csv, value: ['001,Ahmet Yilmaz,Pazartesi', '002,Ayse Kaya,Sali', '003,Mehmet Demir,Carsamba']}
+
+metadata:
+  domain: toplu-yeniden-adlandir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7279
+    bundle: bul-tasi
+    tools:
+    - find
+    - xargs
+    konu: personel-vardiyalari
+    hedef: toplu-yeniden-adlandir
+    girdi: sabit-genislik
+    kaynak: iki-dosya-capraz
+    cikti: csv
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: bosluklu-ad
+    bukulme: yok
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

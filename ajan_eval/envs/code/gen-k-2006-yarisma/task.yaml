@@ -1,0 +1,127 @@
+id: gen-k-2006-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  releasekit/report/prefix.py içindeki prefix_sums fonksiyonu, kendisine verilen her satır için ön ek toplamlarını eksiksiz döndürmeli; hiçbir ön ek toplamı atlanmamalı. Ardından releasekit/report/summary.py içindeki cumulative_span fonksiyonu, [lo, hi] aralığındaki (her iki uç dahil) sürüm zaman damgalarının toplamını doğru biçimde hesaplamalı. Bu iki dosyada yapılacak düzeltmeler releasekit/versions.py dosyasındaki parse_versions fonksiyonunun davranışını değiştirmemeli; sürümlerin ayrıştırılması aynı kalmalı. Çalışma sonunda releasekit/report/prefix.py, releasekit/report/summary.py ve releasekit/versions.py dosyaları beklendiği gibi çalışır durumda olmalı.
+
+setup: |
+  mkdir -p releasekit/report
+  cat > releasekit/versions.py <<'PY'
+  def parse_versions(text):
+      out = []
+      for line in text.strip().splitlines():
+          if not line.strip():
+              continue
+          tag, ts = line.split()
+          out.append((tag, int(ts)))
+      return out
+  PY
+  cat > releasekit/report/prefix.py <<'PY'
+  def prefix_sums(rows):
+      totals = []
+      running = 0
+      for tag, ts in rows:
+          running += ts
+          totals.append(running)
+      return totals[:len(rows) - 1]
+  PY
+  cat > releasekit/report/summary.py <<'PY'
+  from releasekit.versions import parse_versions
+  from releasekit.report.prefix import prefix_sums
+
+
+  def cumulative_span(stream, lo, hi):
+      rows = parse_versions(stream)
+      totals = prefix_sums(rows)
+      if lo == 0:
+          return totals[hi]
+      return totals[hi] - totals[lo]
+  PY
+  printf 'v1 10\nv2 20\nv3 30\nv4 40\n' > history.txt
+
+goal_tr: >
+  releasekit/report/prefix.py icindeki prefix_sums fonksiyonunun her on ek
+  toplamini eksiksiz dondurmesini, ardindan releasekit/report/summary.py
+  icindeki cumulative_span fonksiyonunun [lo, hi] araligindaki (iki ucu
+  dahil) surum zaman damgalarinin toplamini dogru hesaplamasini sagla.
+
+reference_solution: |
+  cat > releasekit/report/prefix.py <<'PY'
+  def prefix_sums(rows):
+      totals = []
+      running = 0
+      for tag, ts in rows:
+          running += ts
+          totals.append(running)
+      return totals
+  PY
+  cat > releasekit/report/summary.py <<'PY'
+  from releasekit.versions import parse_versions
+  from releasekit.report.prefix import prefix_sums
+
+
+  def cumulative_span(stream, lo, hi):
+      rows = parse_versions(stream)
+      totals = prefix_sums(rows)
+      if lo == 0:
+          return totals[hi]
+      return totals[hi] - totals[lo - 1]
+  PY
+
+ara_adim: |
+  cat > releasekit/report/prefix.py <<'PY'
+  def prefix_sums(rows):
+      totals = []
+      running = 0
+      for tag, ts in rows:
+          running += ts
+          totals.append(running)
+      return totals
+  PY
+
+outputs:
+  - {path: releasekit/report/summary.py, kind: program, run: 'python3 -c ''import sys; from releasekit.report.summary import cumulative_span as f; s=sys.stdin.read(); assert f(s,0,0)==10, f(s,0,0); assert f(s,0,3)==100, f(s,0,3); assert f(s,1,2)==50, f(s,1,2); print("TAMAM")'' < history.txt'}
+  - {path: releasekit/report/prefix.py, kind: program, run: 'python3 -c ''from releasekit.report.prefix import prefix_sums as f; assert f([("a",1),("b",2),("c",3)])==[1,3,6], f([("a",1),("b",2),("c",3)]); print("ILERLEME-TAMAM")'''}
+  - {path: releasekit/versions.py, kind: program, run: 'python3 -c ''from releasekit.versions import parse_versions as f; assert f("v1 10\nv2 20\n")==[("v1",10),("v2",20)], f("v1 10\nv2 20\n"); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from releasekit.report.prefix import prefix_sums as f; assert f([("a",1),("b",2),("c",3)])==[1,3,6], f([("a",1),("b",2),("c",3)]); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import sys; from releasekit.report.summary import cumulative_span as f; s=sys.stdin.read(); assert f(s,0,0)==10, f(s,0,0); assert f(s,0,3)==100, f(s,0,3); assert f(s,1,2)==50, f(s,1,2); print("TAMAM")'' < history.txt', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-2006
+    bundle: yarisma
+    tools:
+    - python3
+    konu: yazilim-surumleri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: onek-toplam
+      karmasiklik: orta
+      kalip: duz-fonksiyon
+      akis: stdin-boru
+      topoloji: paket-alt-paket
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

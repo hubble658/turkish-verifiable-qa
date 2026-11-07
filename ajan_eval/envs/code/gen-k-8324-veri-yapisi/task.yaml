@@ -1,0 +1,171 @@
+id: gen-k-8324-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Sınav dönemleri yaklaşırken elimizdeki öğrenci kayıtlarını düzenli bir şekilde takip edebileceğimiz bir yapı kurmaya çalışıyoruz; bu hafta birkaç farklı sınıfın verisini bir araya getirdik ve her şeyin tek bir yerden yönetilmesini istiyoruz. Gün içinde kayıtları gözden geçirirken öğrencilerin puanlarının hem tek tek hem de genel sıralama içinde nasıl durduğunu görmek bizim için önemli hale geldi. Bu yüzden exams klasörü altındaki scorebook.py dosyasındaki ScoreBook sınıfını, öğrenci puanlarını ikili arama ağacında tutacak şekilde baştan sona çalışır hale getirmeni istiyorum.
+
+  ScoreBook sınıfının add, rank, top ve count metotlarının hepsi doğru çalışmalı. add metodu bir öğrenci için aynı isimle tekrar çağrıldığında yeni bir kayıt açmak yerine o öğrencinin puanını güncellemeli. rank metodu, verilen öğrencinin puana göre sırasını 1 tabanlı olarak döndürmeli; yani en yüksek puan 1. sırada olacak ve aynı puana sahip öğrenciler aynı sırayı paylaşacak. top metodu ise en yüksek k puanı azalan sırada döndürmeli. count metodu da kitaptaki mevcut öğrenci sayısını vermeli. Sadece exams/scorebook.py üzerinde çalışman yeterli; diğer dosyalara dokunmana gerek yok.
+
+setup: |
+  mkdir -p exams
+  cat > exams/records.py <<'RECORDS'
+  def parse_records(text):
+      rows = []
+      for line in text.strip().splitlines():
+          student, score = line.split(':')
+          rows.append((student.strip(), int(score.strip())))
+      return rows
+  RECORDS
+  cat > exams/scorebook.py <<'SCOREBOOK'
+  class ScoreBook:
+      def __init__(self):
+          raise NotImplementedError
+
+      def add(self, student, score):
+          raise NotImplementedError
+
+      def rank(self, student):
+          raise NotImplementedError
+
+      def top(self, k):
+          raise NotImplementedError
+
+      def count(self):
+          raise NotImplementedError
+  SCOREBOOK
+  cat > exams/loader.py <<'LOADER'
+  from exams.records import parse_records
+  from exams.scorebook import ScoreBook
+
+
+  def build_scorebook(path):
+      book = ScoreBook()
+      with open(path) as fh:
+          for student, score in parse_records(fh.read()):
+              book.add(student, score)
+      return book
+  LOADER
+  cat > exams/results.txt <<'RESULTS'
+  ayse: 88
+  mehmet: 72
+  zeynep: 95
+  ali: 72
+  fatma: 60
+  RESULTS
+
+goal_tr: >
+  exams/scorebook.py icindeki ScoreBook sinifini, ogrenci puanlarini ikili
+  arama agacinda tutacak ve add ile rank, top, count metotlarini dogru
+  calistirecek bicimde gerceklestir; add ayni ogrenci icin tekrar cagrilirsa
+  puan guncellensin, rank verilen ogrencinin puana gore 1 tabanli sirasini
+  (en yuksek puan 1) dondursun ve esit puanlilar ayni sirayi paylassin, top
+  en yuksek k puani azalan sirada dondursun.
+
+reference_solution: |
+  cat > exams/scorebook.py <<'SCOREBOOK'
+  class _Node:
+      __slots__ = ("student", "score", "left", "right")
+
+      def __init__(self, student, score):
+          self.student = student
+          self.score = score
+          self.left = None
+          self.right = None
+
+
+  class ScoreBook:
+      def __init__(self):
+          self._root = None
+          self._scores = {}
+
+      def add(self, student, score):
+          if student in self._scores:
+              self._delete(self._scores[student])
+          self._scores[student] = score
+          self._root = self._insert(self._root, student, score)
+
+      def _insert(self, node, student, score):
+          if node is None:
+              return _Node(student, score)
+          if student < node.student:
+              node.left = self._insert(node.left, student, score)
+          elif student > node.student:
+              node.right = self._insert(node.right, student, score)
+          else:
+              node.score = score
+          return node
+
+      def _delete(self, score):
+          pass
+
+      def _walk(self):
+          out = []
+          stack = []
+          node = self._root
+          while stack or node is not None:
+              while node is not None:
+                  stack.append(node)
+                  node = node.left
+              node = stack.pop()
+              out.append((node.student, node.score))
+              node = node.right
+          return out
+
+      def rank(self, student):
+          if student not in self._scores:
+              raise KeyError(student)
+          target = self._scores[student]
+          higher = sum(1 for _, s in self._scores.items() if s > target)
+          return higher + 1
+
+      def top(self, k):
+          ordered = sorted(self._scores.items(), key=lambda kv: (-kv[1], kv[0]))
+          return [student for student, _ in ordered[:k]]
+
+      def count(self):
+          return len(self._scores)
+  SCOREBOOK
+
+outputs:
+  - {path: exams/scorebook.py, kind: program, run: 'python3 -c ''from exams.loader import build_scorebook; b=build_scorebook("exams/results.txt"); assert b.count()==5, b.count(); assert b.rank("zeynep")==1; assert b.rank("ayse")==2; assert b.rank("mehmet")==3; assert b.rank("ali")==3; assert b.rank("fatma")==5; assert b.top(2)==["zeynep","ayse"], b.top(2); assert b.top(10)==["zeynep","ayse","ali","mehmet","fatma"], b.top(10); b.add("mehmet",99); assert b.rank("mehmet")==1; assert b.rank("zeynep")==2; assert b.count()==5; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from exams.loader import build_scorebook; b=build_scorebook("exams/results.txt"); assert b.count()==5, b.count(); assert b.rank("zeynep")==1; assert b.rank("ayse")==2; assert b.rank("mehmet")==3; assert b.rank("ali")==3; assert b.rank("fatma")==5; assert b.top(2)==["zeynep","ayse"], b.top(2); assert b.top(10)==["zeynep","ayse","ali","mehmet","fatma"], b.top(10); b.add("mehmet",99); assert b.rank("mehmet")==1; assert b.rank("zeynep")==2; assert b.count()==5; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8324
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: sinav-sonuclari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: ikili-arama-agaci
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: cok-dosya-birlestirme
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

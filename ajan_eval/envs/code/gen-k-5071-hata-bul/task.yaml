@@ -1,0 +1,110 @@
+id: gen-k-5071-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sessions/report/latest.py dosyasındaki latest_by_user fonksiyonunu, her kullanıcı için o kullanıcıya ait olaylar arasından en son olayın kind değerini döndürecek şekilde düzelt. Aynı zaman damgasına sahip birden fazla olay olduğunda, girdi sırasında daha sonra gelen olay kazanmalı; bu eşitlik durumundaki seçim, sessions/report/latest.py içinde tanımlanacak olan @latest_wins dekoratörü tarafından yapılmalı ve bu dekoratör latest_by_user fonksiyonuna uygulanmalı.
+
+setup: |
+  mkdir -p sessions/core sessions/report
+  cat > sessions/__init__.py <<'EOF'
+  EOF
+  cat > sessions/core/__init__.py <<'EOF'
+  EOF
+  cat > sessions/report/__init__.py <<'EOF'
+  EOF
+  cat > sessions/core/events.py <<'EVENTS'
+  def normalize(event):
+      return (event["user"], event["ts"], event["kind"])
+  EVENTS
+  cat > sessions/core/collect.py <<'COLLECT'
+  from sessions.core.events import normalize
+
+
+  def collect(events):
+      return [normalize(e) for e in events]
+  COLLECT
+  cat > sessions/report/latest.py <<'LATEST'
+  from sessions.core.collect import collect
+
+
+  def latest_by_user(events):
+      rows = collect(events)
+      rows.sort(key=lambda r: r[1])
+      seen = {}
+      for user, ts, kind in rows:
+          seen[user] = kind
+      return seen
+  LATEST
+
+goal_tr: >
+  sessions/report/latest.py icindeki latest_by_user fonksiyonunu, her
+  kullanici icin en son olayin kind degerini dondurecek bicimde duzelt; ayni
+  zaman damgasina sahip olaylarda girdi sirasinda SONRA gelen kazanmali ve
+  bu secim, fonksiyona uygulanan `@latest_wins` dekoratoru tarafindan
+  yapilmali (dekorator sessions/report/latest.py icinde tanimlanmali ve
+  latest_by_user'a uygulanmali).
+
+reference_solution: |
+  cat > sessions/report/latest.py <<'LATEST'
+  from sessions.core.collect import collect
+
+
+  def latest_wins(fn):
+      def wrapper(events):
+          rows = collect(events)
+          best = {}
+          for idx, (user, ts, kind) in enumerate(rows):
+              if user not in best or ts >= best[user][0]:
+                  best[user] = (ts, idx, kind)
+          return {u: v[2] for u, v in best.items()}
+      return wrapper
+
+
+  @latest_wins
+  def latest_by_user(events):
+      return {}
+  LATEST
+
+outputs:
+  - {path: sessions/report/latest.py, kind: program, run: 'python3 -c ''import sessions.report.latest as m; f=m.latest_by_user; assert hasattr(m,"latest_wins"), "decorator missing"; ev=[{"user":"a","ts":5,"kind":"login"},{"user":"b","ts":3,"kind":"login"},{"user":"a","ts":5,"kind":"logout"},{"user":"b","ts":7,"kind":"logout"},{"user":"a","ts":2,"kind":"view"}]; r=f(ev); assert r=={"a":"logout","b":"logout"}, r; ev2=[{"user":"x","ts":1,"kind":"k1"},{"user":"x","ts":1,"kind":"k2"},{"user":"x","ts":1,"kind":"k3"}]; r2=f(ev2); assert r2=={"x":"k3"}, r2; ev3=[{"user":"y","ts":4,"kind":"first"},{"user":"y","ts":4,"kind":"second"}]; r3=f(ev3); assert r3=={"y":"second"}, r3; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import sessions.report.latest as m; f=m.latest_by_user; assert hasattr(m,"latest_wins"), "decorator missing"; ev=[{"user":"a","ts":5,"kind":"login"},{"user":"b","ts":3,"kind":"login"},{"user":"a","ts":5,"kind":"logout"},{"user":"b","ts":7,"kind":"logout"},{"user":"a","ts":2,"kind":"view"}]; r=f(ev); assert r=={"a":"logout","b":"logout"}, r; ev2=[{"user":"x","ts":1,"kind":"k1"},{"user":"x","ts":1,"kind":"k2"},{"user":"x","ts":1,"kind":"k3"}]; r2=f(ev2); assert r2=={"x":"k3"}, r2; ev3=[{"user":"y","ts":4,"kind":"first"},{"user":"y","ts":4,"kind":"second"}]; r3=f(ev3); assert r3=={"y":"second"}, r3; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5071
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kullanici-oturumlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-kararsizligi
+      karmasiklik: duz
+      kalip: dekorator
+      akis: bellek-ici
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

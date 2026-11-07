@@ -1,0 +1,103 @@
+id: gen-k-8188-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  billing/invoice.py dosyasındaki storage_for fonksiyonunu, bir planın depolama limitini plan sözlüğündeki doğru anahtardan okuyacak biçimde düzelt.
+
+  Şu şartlar sağlanmalı:
+  - billing/invoice.py dosyasındaki storage_for fonksiyonu, plan sözlüğündeki depolama limitini doğru anahtar adıyla okuyup döndürmeli.
+  - billing/plans.py içindeki mevcut plan yapısı ve anahtar adları korunmalı.
+  - billing/invoice.py içindeki seat_price fonksiyonu çalışmaya devam etmeli.
+  - storage_for fonksiyonu, basic, pro ve team planları için sırasıyla 2, 50 ve 200 değerlerini döndürmeli.
+
+setup: |
+  mkdir -p billing
+  cat > billing/plans.py <<'PLANS'
+  PLANS = {
+      "basic": {"monthly": 5, "limits": {"seats": 1, "storage_gb": 2}},
+      "pro": {"monthly": 15, "limits": {"seats": 5, "storage_gb": 50}},
+      "team": {"monthly": 40, "limits": {"seats": 20, "storage_gb": 200}},
+  }
+  PLANS_BY_ID = {1: "basic", 2: "pro", 3: "team"}
+
+
+  def lookup(plan_id):
+      name = PLANS_BY_ID[plan_id]
+      return PLANS[name]
+  PLANS
+  cat > billing/invoice.py <<'INVOICE'
+  from billing.plans import lookup
+
+
+  def storage_for(plan_id):
+      plan = lookup(plan_id)
+      return plan["limits"]["storage"]
+
+
+  def seat_price(plan_id):
+      plan = lookup(plan_id)
+      return plan["monthly"] / plan["limits"]["seats"]
+  INVOICE
+
+goal_tr: >
+  billing/invoice.py icindeki storage_for fonksiyonunu, bir planin depolama
+  limitini plan sozlugundeki dogru anahtardan okuyacak bicimde duzelt.
+
+reference_solution: |
+  cat > billing/invoice.py <<'INVOICE'
+  from billing.plans import lookup
+
+
+  def storage_for(plan_id):
+      plan = lookup(plan_id)
+      return plan["limits"]["storage_gb"]
+
+
+  def seat_price(plan_id):
+      plan = lookup(plan_id)
+      return plan["monthly"] / plan["limits"]["seats"]
+  INVOICE
+
+outputs:
+  - {path: billing/invoice.py, kind: program, run: 'python3 -c ''from billing.invoice import storage_for as s, seat_price as p; assert s(1)==2, s(1); assert s(2)==50, s(2); assert s(3)==200, s(3); assert p(1)==5.0; assert p(2)==3.0; assert p(3)==2.0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from billing.invoice import storage_for as s, seat_price as p; assert s(1)==2, s(1); assert s(2)==50, s(2); assert s(3)==200, s(3); assert p(1)==5.0; assert p(2)==3.0; assert p(3)==2.0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8188
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: abonelik-planlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sozluk-anahtar-hatasi
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: ic-ice-yapi
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

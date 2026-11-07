@@ -1,0 +1,71 @@
+id: gen-s-7310-sirala-sec
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Çalışma dizinindeki vardiya dizin ağacında yalnızca adı personel.json olan dosyalardaki kayıtları saat alanına göre büyükten küçüğe sırala ve her satıra "ad vardiya saat" biçiminde yazıp sirali.txt dosyasına koy.
+
+setup: |
+  mkdir -p vardiya/ocak vardiya/subat vardiya/mart
+  cat > vardiya/ocak/personel.json <<'JSON'
+  {"ad": "ayse", "vardiya": "gunduz", "saat": 8}
+  {"ad": "mehmet", "vardiya": "gece", "saat": 12}
+  JSON
+  cat > vardiya/subat/personel.json <<'JSON'
+  {"ad": "zeynep", "vardiya": "gunduz", "saat": 6}
+  {"ad": "ali", "vardiya": "gece", "saat": 10}
+  JSON
+  cat > vardiya/mart/personel.json <<'JSON'
+  {"ad": "fatma", "vardiya": "gunduz", "saat": 9}
+  {"ad": "can", "vardiya": "gece", "saat": 7}
+  JSON
+  cat > vardiya/ocak/notlar.txt <<'TXT'
+  bu dosya json degil
+  TXT
+  cat > vardiya/subat/yedek.json.bak <<'BAK'
+  {"ad": "bos", "vardiya": "yok", "saat": 0}
+  BAK
+
+goal_tr: >
+  vardiya dizin agacindaki yalnizca adi personel.json olan dosyalardaki
+  kayitlari saat alanina gore buyukten kucuge sirala ve her satira "ad
+  vardiya saat" biciminde yazip sirali.txt dosyasina koy
+
+reference_solution: |
+  find vardiya -type f -name personel.json | sort | xargs awk -F'[:,}]' '{gsub(/[^a-z0-9]/, "", $2); gsub(/[^a-z0-9]/, "", $4); print $2, $4, $6}' > gecici.txt
+  sort -k3,3nr gecici.txt | awk '{print $1, $2, $3}' > sirali.txt
+  rm gecici.txt
+
+outputs:
+  - {path: sirali.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: sirali.txt, value: [mehmet gece 12, ali gece 10, fatma gunduz 9, ayse gunduz 8, can gece 7, zeynep gunduz 6]}
+
+metadata:
+  domain: sirala-sec
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7310
+    bundle: awk
+    tools:
+    - awk
+    konu: personel-vardiyalari
+    hedef: sirala-sec
+    girdi: json
+    kaynak: dizin-agaci
+    cikti: satir-listesi
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

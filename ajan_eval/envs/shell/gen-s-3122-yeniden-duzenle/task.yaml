@@ -1,0 +1,77 @@
+id: gen-s-3122-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Kafede yoğun bir gün geçirdik; garsonların tuttuğu sipariş kayıtlarını aylık olarak arşivlemeye başladık ama eski kayıtlar hâlâ ham hâlde duruyor. Bu kayıtları daha okunur hâle getirip raporlamak istiyoruz, o yüzden elimizdeki siparişler.tar.gz arşivini işlememiz gerekiyor.
+
+  Arşivin içindeki her ".log" dosyasını bul; her birindeki satırları "masa=<masa> urun=<urun> adet=<adet> fiyat=<fiyat>" biçiminden "<urun> x<adet> = <adet*fiyat>" biçimine çevir. Aynı adlı dosyaları cikti/ dizini altında, arşivdeki yapıya uygun olarak üret: cikti/arsiv/ocak.log, cikti/arsiv/subat.log ve cikti/arsiv/mart.log.
+
+setup: |
+  mkdir -p arsiv
+  cat > arsiv/ocak.log <<'LOG'
+  masa=3 urun=mercimek adet=2 fiyat=45
+  masa=1 urun=ayran adet=1 fiyat=15
+  masa=3 urun=ezogelin adet=1 fiyat=40
+  LOG
+  cat > arsiv/subat.log <<'LOG'
+  masa=2 urun=kebab adet=1 fiyat=120
+  masa=2 urun=ayran adet=2 fiyat=15
+  masa=4 urun=mercimek adet=1 fiyat=45
+  LOG
+  cat > arsiv/mart.log <<'LOG'
+  masa=1 urun=kebab adet=2 fiyat=120
+  masa=5 urun=ezogelin adet=1 fiyat=40
+  masa=5 urun=ayran adet=3 fiyat=15
+  LOG
+  tar -czf siparisler.tar.gz arsiv
+
+goal_tr: >
+  siparisler.tar.gz arsivindeki her ".log" dosyasini bulup, icindeki her
+  satiri "masa=<masa> urun=<urun> adet=<adet> fiyat=<fiyat>" biciminden
+  "<urun> x<adet> = <adet*fiyat>" bicimine cevirerek, ayni adli dosyalari
+  cikti/ dizininde uret
+
+reference_solution: |
+  mkdir -p cikti
+  tar -xzf siparisler.tar.gz -C cikti
+  find cikti -name '*.log' -type f -print0 | xargs -0 -I{} sh -c 'awk "{print \$2\" x\"substr(\$3,6)\" = \"substr(\$3,6)*substr(\$4,7)}" {} > {}.tmp && mv {}.tmp {}'
+
+outputs:
+  - {path: cikti/arsiv/ocak.log, kind: file}
+  - {path: cikti/arsiv/subat.log, kind: file}
+  - {path: cikti/arsiv/mart.log, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: cikti/arsiv/mart.log, value: [urun=kebab x2 = 240, urun=ezogelin x1 = 40, urun=ayran x3 = 45]}
+  - {op: file_lines_eq, path: cikti/arsiv/ocak.log, value: [urun=mercimek x2 = 90, urun=ayran x1 = 15, urun=ezogelin x1 = 40]}
+  - {op: file_lines_eq, path: cikti/arsiv/subat.log, value: [urun=kebab x1 = 120, urun=ayran x2 = 30, urun=mercimek x1 = 45]}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3122
+    bundle: secerek-arsivle
+    tools:
+    - tar
+    - find
+    konu: restoran-siparisleri
+    hedef: yeniden-duzenle
+    girdi: log-satiri
+    kaynak: cok-dosya
+    cikti: birden-cok-dosya
+    kesif: dosyayi-bul
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

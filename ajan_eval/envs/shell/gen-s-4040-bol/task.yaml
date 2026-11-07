@@ -1,0 +1,77 @@
+id: gen-s-4040-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Kafede siparişler her şubede ayrı ayrı defterlere karalanıyor, ay sonunda hangi üründen ne kadar sattığımızı toparlamak tam bir eziyet oluyor. Bu yüzden şubelerin bıraktığı dosyaları tek bir özet haline getirmek istiyorum. Çalışma dizinindeki subeler klasöründe duran .txt dosyalarına bak; her satırı "masa:<no>|<urun>|<adet>" biçiminde olanları al, ürün bazında toplam adetleri hesapla ve toplamı büyükten küçüğe doğru sırala, toplamlar eşitse ürün adına göre alfabetik diz. Sonucu bol.csv dosyasına, ilk satırı "urun,toplam_adet" olacak şekilde yaz. Biçime uymayan satırları ve içi boş dosyaları hiç yok say.
+
+setup: |
+  mkdir -p subeler
+  cat > subeler/ankara.txt <<'TXT'
+  masa:4|corba|2
+  masa:4|kebap|1
+  masa:7|salata|3
+  TXT
+  cat > subeler/istanbul.txt <<'TXT'
+  masa:1|pizza|2
+  masa:1|corba|1
+  masa:9|kebap|4
+  masa:9|salata|1
+  TXT
+  cat > subeler/izmir.txt <<'TXT'
+  masa:2|pizza|3
+  TXT
+  : > subeler/bos.txt
+  cat > subeler/notlar.log <<'LOG'
+  bu dosya siparis degil
+  LOG
+  tar -czf subeler/arsiv.txt.gz subeler/notlar.log
+
+goal_tr: >
+  subeler altindaki .txt uzantili dosyalardan her satiri
+  "masa:<no>|<urun>|<adet>" biciminde olanlari toplayip, urun bazinda toplam
+  adedi buyukten kucuge, esitlikte urun adina gore alfabetik sirala ve
+  "urun,toplam_adet" basligiyla bol.csv dosyasina yaz; bicime uymayan
+  satirlar ve bos dosyalar yok sayilir.
+
+reference_solution: |
+  find subeler -type f -name '*.txt' -print0 | xargs -0 cat | grep -E '^masa:[0-9]+\|[^|]+\|[0-9]+$' | cut -d'|' -f2,3 | awk -F'|' '{t[$1]+=$2} END {for (u in t) printf "%s,%d\n", u, t[u]}' | sort -t, -k2,2nr -k1,1 > /tmp/bol_govde.csv
+  printf 'urun,toplam_adet\n' > bol.csv
+  cat /tmp/bol_govde.csv >> bol.csv
+  gzip -t subeler/arsiv.txt.gz
+  tar -tzf subeler/arsiv.txt.gz > /dev/null
+
+outputs:
+  - {path: bol.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: bol.csv, value: ['urun,toplam_adet', 'kebap,5', 'pizza,5', 'salata,4', 'corba,3']}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4040
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: restoran-siparisleri
+    hedef: bol
+    girdi: duz-metin
+    kaynak: cok-dosya
+    cikti: csv
+    kesif: dosyayi-bul
+    uslup: baglam-gomulu
+    direnc: bos-dosya
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

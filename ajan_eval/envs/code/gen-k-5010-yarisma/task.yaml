@@ -1,0 +1,105 @@
+id: gen-k-5010-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Lexer tarafını geçen hafta bitirdik, token üretme işi artık oturdu. Şimdi bunu kullanacak tarafta duruyoruz; corpus.txt gibi dosyaları satır satır işlerken token'ları baştan sona tüketmek ve arada bir sonraki token'a bakmadan ilerlemek istiyoruz.
+
+  docs/lexer.py içindeki tokenize fonksiyonunu kullanarak docs/stream.py dosyasını oluştur. Bu dosyada TokenStream adında bir sınıf olsun. Sınıf, token listesini iç içe sözlük halinde tutsun ve next_token, peek ve remaining metotlarıyla durumlu bir akış sunsun.
+
+setup: |
+  mkdir -p docs
+  cat > docs/lexer.py <<'LEXER'
+  def tokenize(text):
+      tokens = []
+      for raw in text.splitlines():
+          line = raw.strip()
+          if not line or line.startswith("#"):
+              continue
+          tokens.append(line.split())
+      return tokens
+  LEXER
+  cat > docs/__init__.py <<'INIT'
+  INIT
+  cat > corpus.txt <<'CORPUS'
+  alpha beta
+  # comment line
+  gamma delta epsilon
+  alpha gamma
+  beta beta delta
+  CORPUS
+
+goal_tr: >
+  docs/lexer.py icindeki tokenize fonksiyonunu kullanarak, docs/stream.py
+  dosyasinda TokenStream sinifini yaz; bu sinif token listesini ic-ice
+  sozluk halinde tutup next_token, peek ve remaining metotlariyla durumlu
+  bir akis sunmali.
+
+reference_solution: |
+  cat > docs/stream.py <<'STREAM'
+  from docs.lexer import tokenize
+
+
+  class TokenStream:
+      def __init__(self, text):
+          self._tokens = tokenize(text)
+          self._i = 0
+
+      def next_token(self):
+          if self._i >= len(self._tokens):
+              return None
+          tok = self._tokens[self._i]
+          self._i += 1
+          return tok
+
+      def peek(self):
+          if self._i >= len(self._tokens):
+              return None
+          return self._tokens[self._i]
+
+      def remaining(self):
+          return len(self._tokens) - self._i
+  STREAM
+
+outputs:
+  - {path: docs/stream.py, kind: program, run: 'python3 -c ''from docs.stream import TokenStream as S; t=open("corpus.txt").read(); s=S(t); assert s.remaining()==4; assert s.peek()==["alpha","beta"]; assert s.next_token()==["alpha","beta"]; assert s.remaining()==3; assert s.next_token()==["gamma","delta","epsilon"]; assert s.peek()==["alpha","gamma"]; assert s.next_token()==["alpha","gamma"]; assert s.next_token()==["beta","beta","delta"]; assert s.remaining()==0; assert s.next_token() is None; assert s.peek() is None; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from docs.stream import TokenStream as S; t=open("corpus.txt").read(); s=S(t); assert s.remaining()==4; assert s.peek()==["alpha","beta"]; assert s.next_token()==["alpha","beta"]; assert s.remaining()==3; assert s.next_token()==["gamma","delta","epsilon"]; assert s.peek()==["alpha","gamma"]; assert s.next_token()==["alpha","gamma"]; assert s.next_token()==["beta","beta","delta"]; assert s.remaining()==0; assert s.next_token() is None; assert s.peek() is None; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5010
+    bundle: yarisma
+    tools:
+    - python3
+    konu: metin-belgeleri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: benzetim
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: ic-ice-yapi
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

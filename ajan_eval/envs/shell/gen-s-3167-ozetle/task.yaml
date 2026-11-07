@@ -1,0 +1,74 @@
+id: gen-s-3167-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  olcumler klasöründeki a.json ve b.json dosyalarındaki geçerli kayıtları (deger alanı tam sayı olanları) birleştir; geçersiz deger içeren satırları ayıkla. Her sensör için kayıt sayısını cikti klasöründe cikti/S1.txt, cikti/S2.txt, cikti/S3.txt ve cikti/S4.txt dosyalarına yaz; her dosyada sadece sayı olsun.
+
+setup: |
+  mkdir -p olcumler cikti
+  cat > olcumler/a.json <<'JSON'
+  {"sensor":"S1","deger":12}
+  {"sensor":"S2","deger":7}
+  {"sensor":"S1","deger":abc}
+  {"sensor":"S3","deger":9}
+  {"sensor":"S2","deger":-3}
+  {"sensor":"S1","deger":5}
+  JSON
+  cat > olcumler/b.json <<'JSON'
+  {"sensor":"S1","deger":4}
+  {"sensor":"S3","deger":xyz}
+  {"sensor":"S2","deger":8}
+  {"sensor":"S4","deger":0}
+  {"sensor":"S1","deger":11}
+  JSON
+
+goal_tr: >
+  olcumler klasorundeki a.json ve b.json dosyalarindaki gecerli kayitlari
+  (deger alani tam sayi olanlari) birlestirip her sensor icin kayit sayisini
+  cikti/<sensor>.txt dosyasina sadece sayi olarak yaz, gecersiz deger iceren
+  satirlari ayikla
+
+reference_solution: |
+  cat olcumler/*.json | grep -E '"deger":[[:space:]]*-?[0-9]+([[:space:]]*})?$' | sed -E 's/.*"sensor":"([^"]+)".*/\1/' | sort | uniq -c | awk '{print $2, $1}' | xargs -n2 sh -c 'printf "%s\n" "$1" > cikti/"$0".txt'
+
+outputs:
+  - {path: cikti/S1.txt, kind: file}
+  - {path: cikti/S2.txt, kind: file}
+  - {path: cikti/S3.txt, kind: file}
+  - {path: cikti/S4.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: cikti/S1.txt, value: '4'}
+  - {op: file_content_eq, path: cikti/S2.txt, value: '3'}
+  - {op: file_content_eq, path: cikti/S3.txt, value: '1'}
+  - {op: file_content_eq, path: cikti/S4.txt, value: '1'}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3167
+    bundle: cok-dosya-ara
+    tools:
+    - xargs
+    - grep
+    konu: sensor-olcumleri
+    hedef: ozetle
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: birden-cok-dosya
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

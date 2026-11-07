@@ -1,0 +1,72 @@
+id: gen-s-7129-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) yorumlar.tsv dosyasındaki her ürün için en yüksek puana sahip yorumun satırını bul.
+  2) Bulunan satırlardan her ürün için ürün ve puan alanlarını içeren geçerli bir JSON dizisi oluştur.
+  3) Bu JSON dizisini ürün adına göre artan sırada sırala.
+  4) Sonucu ozet.json dosyasına yaz.
+
+setup: |
+  cat > yorumlar.tsv <<'TSV'
+  urun	sehir	puan	yorum
+  kalem	Ankara	5	harika urun
+  defter	Izmir	4	kullanisli
+  kalem	Ankara	3	fiyat yuksek
+  silgi	Bursa	5	cok iyi
+  defter	Izmir	2	beklentimi karsilamadi
+  kalem	Istanbul	4	saglam
+  silgi	Bursa	1	kisa omurlu
+  defter	Ankara	5	mukemmel
+  kalem	Izmir	4	tekrar alirim
+  silgi	Istanbul	3	ortalama
+  TSV
+
+goal_tr: >
+  yorumlar.tsv dosyasindaki her urun icin en yuksek puana sahip yorumun
+  satirini bulup, urun adina gore artan sirada, her urun icin urun ve puan
+  alanlarini iceren gecerli bir JSON dizisi olarak ozet.json dosyasina yaz
+
+reference_solution: |
+  head -n 1 yorumlar.tsv > baslik.tsv
+  tail -n +2 yorumlar.tsv > govde.tsv
+  sort -t$'\t' -k1,1 -k3,3nr govde.tsv > sirali.tsv
+  awk -F'\t' '{if($1!=prev){print $0; prev=$1}}' sirali.tsv > enler.tsv
+  awk -F'\t' 'BEGIN{print "["} {printf "  {\"urun\": \"%s\", \"puan\": %s}", $1, $3; if(NR<n) printf ",\n"; else printf "\n"} END{print "]"}' n=$(wc -l < enler.tsv) enler.tsv > ozet.json
+  rm -f baslik.tsv govde.tsv sirali.tsv enler.tsv
+
+outputs:
+  - {path: ozet.json, kind: json}
+
+checks:
+  - {op: json_eq, path: ozet.json, value: [{urun: defter, puan: 5}, {urun: kalem, puan: 5}, {urun: silgi, puan: 5}]}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7129
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: urun-yorumlari
+    hedef: ozetle
+    girdi: tsv
+    kaynak: tek-dosya
+    cikti: json
+    kesif: dolayli-hedef
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,63 @@
+id: gen-s-3138-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  İçinde boşluk geçen "sensor verileri" klasöründeki olcumler.json dosyasını oku ve her kaydı "sensor,sicaklik,nem" biçiminde virgülle ayrılmış satırlara dönüştürüp "sensor verileri/donusmus.csv" dosyasına yaz. Bu dosyanın ilk satırı "sensor,sicaklik,nem" başlığı olsun.
+
+setup: |
+  mkdir -p "sensor verileri"
+  cat > "sensor verileri/olcumler.json" <<'JSON'
+  [
+    {"sensor": "S1", "sicaklik": 21, "nem": 40},
+    {"sensor": "S2", "sicaklik": 25, "nem": 55},
+    {"sensor": "S3", "sicaklik": 19, "nem": 60}
+  ]
+  JSON
+
+goal_tr: >
+  Icinde bosluk gecen "sensor verileri" klasorundeki olcumler.json dosyasini
+  okuyup her kaydi "sensor,sicaklik,nem" biciminde virgulle ayrilmis
+  satirlara donustur ve bunu "sensor verileri/donusmus.csv" dosyasina yaz;
+  ilk satir baslik "sensor,sicaklik,nem" olsun.
+
+reference_solution: |
+  cd "sensor verileri"
+  tr -d ' \n' < olcumler.json | sed 's/},{/}\n{/g' | sed 's/^\[//; s/\]$//' > gecici.jsonl
+  { echo "sensor,sicaklik,nem"; cut -d'[:,}]' -f3,6,9 gecici.jsonl; } | tee donusmus.csv
+  rm gecici.jsonl
+
+outputs:
+  - {path: sensor verileri/donusmus.csv, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sensor verileri/donusmus.csv, value: 'sensor,sicaklik,nem'}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3138
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: sensor-olcumleri
+    hedef: donustur
+    girdi: json
+    kaynak: tek-dosya
+    cikti: json
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: bosluklu-ad
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

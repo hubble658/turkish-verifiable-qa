@@ -1,0 +1,75 @@
+id: gen-s-3061-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi/loglar.csv'deki her sunucu için cikti/<sunucu>/kayitlar.log oluştur; her sunucunun satırlarını tarih, seviye, mesaj olarak virgülle ayır.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/loglar.csv <<'CSV'
+  tarih,seviye,sunucu,mesaj
+  2024-01-01,BILGI,srv1,basladi
+  2024-01-01,HATA,srv2,disk dolu
+  2024-01-02,UYARI,srv1,bellek az
+  2024-01-02,HATA,srv3,zaman asimi
+  2024-01-03,BILGI,srv2,kullanici girdi
+  2024-01-03,HATA,srv1,baglanti koptu
+  2024-01-04,UYARI,srv3,bellek az
+  2024-01-04,HATA,srv2,disk dolu
+  2024-01-05,BILGI,srv3,basladi
+  2024-01-05,HATA,srv3,zaman asimi
+  CSV
+
+goal_tr: >
+  girdi/loglar.csv icindeki her sunucu icin cikti/<sunucu>/kayitlar.log
+  dosyasi olustur; her dosyada o sunucuya ait satirlarin tarih, seviye ve
+  mesaj alanlarini virgulle ayrilmis sekilde yaz.
+
+reference_solution: |
+  mkdir -p cikti
+  cut -d, -f3 girdi/loglar.csv | tail -n +2 | sort -u | while read -r sunucu; do
+    mkdir -p "cikti/$sunucu"
+    grep ",$sunucu," girdi/loglar.csv | cut -d, -f1,2,4 | tee "cikti/$sunucu/kayitlar.log" >/dev/null
+  done
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/srv1/kayitlar.log, kind: lines}
+  - {path: cikti/srv2/kayitlar.log, kind: lines}
+  - {path: cikti/srv3/kayitlar.log, kind: lines}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [srv1, srv2, srv3]}
+  - {op: file_lines_eq, path: cikti/srv1/kayitlar.log, value: ['2024-01-01,BILGI,basladi', '2024-01-02,UYARI,bellek az', '2024-01-03,HATA,baglanti koptu']}
+  - {op: file_lines_eq, path: cikti/srv2/kayitlar.log, value: ['2024-01-01,HATA,disk dolu', '2024-01-03,BILGI,kullanici girdi', '2024-01-04,HATA,disk dolu']}
+  - {op: file_lines_eq, path: cikti/srv3/kayitlar.log, value: ['2024-01-02,HATA,zaman asimi', '2024-01-04,UYARI,bellek az', '2024-01-05,BILGI,basladi', '2024-01-05,HATA,zaman asimi']}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3061
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: sunucu-loglari
+    hedef: ayikla
+    girdi: csv
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: dosyayi-bul
+    uslup: terse
+    direnc: yok
+    bukulme: olcek
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

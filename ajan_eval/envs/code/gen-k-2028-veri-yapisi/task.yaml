@@ -1,0 +1,113 @@
+id: gen-k-2028-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+prompt: 'depot/stackcore.py, depot/ledger.py ve depot/audit.py içindeki NotImplementedError gövdelerini gerçek bir LIFO yığını
+  üzerinden doldur. Stack pop/peek/depth/__add__/__len__, Ledger undo_last/balance ve Audit rollback/total doğru sonuç versin.
+
+
+  undo_last ve rollback geri alınan (key, amount) çiftini döndürsün.
+
+  '
+setup: "mkdir -p depot\ncat > depot/stackcore.py <<'PY'\nclass Stack:\n    def __init__(self):\n        self._items = []\n\
+  \n    def push(self, item):\n        self._items.append(item)\n\n    def pop(self):\n        raise NotImplementedError\n\
+  \n    def peek(self):\n        raise NotImplementedError\n\n    def depth(self):\n        raise NotImplementedError\n\n\
+  \    def __add__(self, other):\n        raise NotImplementedError\n\n    def __len__(self):\n        raise NotImplementedError\n\
+  PY\ncat > depot/ledger.py <<'PY'\nfrom depot.stackcore import Stack\n\n\nclass Ledger:\n    def __init__(self):\n      \
+  \  self._undo = Stack()\n        self._entries = {}\n\n    def record(self, key, amount):\n        self._undo.push((key,\
+  \ amount))\n        self._entries[key] = self._entries.get(key, 0) + amount\n\n    def undo_last(self):\n        raise NotImplementedError\n\
+  \n    def balance(self, key):\n        raise NotImplementedError\nPY\ncat > depot/audit.py <<'PY'\nfrom depot.ledger import\
+  \ Ledger\n\n\nclass Audit:\n    def __init__(self):\n        self._ledger = Ledger()\n        self._history = Stack()\n\n\
+  \    def apply(self, key, amount):\n        self._ledger.record(key, amount)\n        self._history.push((key, amount))\n\
+  \n    def rollback(self):\n        raise NotImplementedError\n\n    def total(self, key):\n        raise NotImplementedError\n\
+  PY\ncat > inventory.txt <<'TXT'\nbolt 5\nnut 3\nbolt 2\nTXT\n"
+goal_tr: 'depot/stackcore.py, depot/ledger.py ve depot/audit.py icindeki NotImplementedError govdelerini gercek bir yigin
+  (LIFO) uzerinden calisacak sekilde doldur; Stack pop/peek/depth/__add__/__len__, Ledger undo_last/balance ve Audit rollback/total
+  dogru sonuc versin.
+
+  '
+reference_solution: "cat > depot/stackcore.py <<'PY'\nclass Stack:\n    def __init__(self):\n        self._items = []\n\n\
+  \    def push(self, item):\n        self._items.append(item)\n\n    def pop(self):\n        if not self._items:\n      \
+  \      raise IndexError(\"pop from empty stack\")\n        return self._items.pop()\n\n    def peek(self):\n        if not\
+  \ self._items:\n            raise IndexError(\"peek from empty stack\")\n        return self._items[-1]\n\n    def depth(self):\n\
+  \        return len(self._items)\n\n    def __add__(self, other):\n        merged = Stack()\n        merged._items = list(self._items)\
+  \ + list(other._items)\n        return merged\n\n    def __len__(self):\n        return len(self._items)\nPY\ncat > depot/ledger.py\
+  \ <<'PY'\nfrom depot.stackcore import Stack\n\n\nclass Ledger:\n    def __init__(self):\n        self._undo = Stack()\n\
+  \        self._entries = {}\n\n    def record(self, key, amount):\n        self._undo.push((key, amount))\n        self._entries[key]\
+  \ = self._entries.get(key, 0) + amount\n\n    def undo_last(self):\n        key, amount = self._undo.pop()\n        self._entries[key]\
+  \ = self._entries.get(key, 0) - amount\n        return (key, amount)\n\n    def balance(self, key):\n        return self._entries.get(key,\
+  \ 0)\nPY\ncat > depot/audit.py <<'PY'\nfrom depot.ledger import Ledger\nfrom depot.stackcore import Stack\n\n\nclass Audit:\n\
+  \    def __init__(self):\n        self._ledger = Ledger()\n        self._history = Stack()\n\n    def apply(self, key, amount):\n\
+  \        self._ledger.record(key, amount)\n        self._history.push((key, amount))\n\n    def rollback(self):\n      \
+  \  key, amount = self._history.pop()\n        self._ledger.record(key, -amount)\n        return (key, amount)\n\n    def\
+  \ total(self, key):\n        return self._ledger.balance(key)\nPY\n"
+ara_adim: "cat > depot/stackcore.py <<'PY'\nclass Stack:\n    def __init__(self):\n        self._items = []\n\n    def push(self,\
+  \ item):\n        self._items.append(item)\n\n    def pop(self):\n        if not self._items:\n            raise IndexError(\"\
+  pop from empty stack\")\n        return self._items.pop()\n\n    def peek(self):\n        if not self._items:\n        \
+  \    raise IndexError(\"peek from empty stack\")\n        return self._items[-1]\n\n    def depth(self):\n        return\
+  \ len(self._items)\n\n    def __add__(self, other):\n        merged = Stack()\n        merged._items = list(self._items)\
+  \ + list(other._items)\n        return merged\n\n    def __len__(self):\n        return len(self._items)\nPY\n"
+outputs:
+- path: depot/audit.py
+  kind: program
+  run: python3 -c 'from depot.audit import Audit; a=Audit(); a.apply("bolt",5); a.apply("bolt",2); assert a.total("bolt")==7,
+    a.total("bolt"); r=a.rollback(); assert r==("bolt",2), r; assert a.total("bolt")==5, a.total("bolt"); print("TAMAM")'
+- path: depot/stackcore.py
+  kind: program
+  run: python3 -c 'from depot.stackcore import Stack; s=Stack(); s.push(1); s.push(2); assert s.peek()==2; assert s.depth()==2;
+    assert s.pop()==2; assert len(s)==1; t=Stack(); t.push(9); m=s+t; assert m.depth()==2; assert m.pop()==9; assert m.pop()==1;
+    print("ILERLEME-TAMAM")'
+- path: depot/ledger.py
+  kind: program
+  run: python3 -c 'from depot.ledger import Ledger; l=Ledger(); l.record("nut",3); l.record("nut",4); assert l.balance("nut")==7,
+    l.balance("nut"); k,a=l.undo_last(); assert (k,a)==("nut",4), (k,a); assert l.balance("nut")==3, l.balance("nut"); print("REGRESYON-TAMAM")'
+checks:
+- op: run_stdout_eq
+  cmd: python3 -c 'from depot.audit import Audit; a=Audit(); a.apply("bolt",5); a.apply("bolt",2); assert a.total("bolt")==7,
+    a.total("bolt"); r=a.rollback(); assert r==("bolt",2), r; assert a.total("bolt")==5, a.total("bolt"); print("TAMAM")'
+  value: TAMAM
+- op: run_stdout_eq
+  cmd: python3 -c 'from depot.ledger import Ledger; l=Ledger(); l.record("nut",3); l.record("nut",4); assert l.balance("nut")==7,
+    l.balance("nut"); k,a=l.undo_last(); assert (k,a)==("nut",4), (k,a); assert l.balance("nut")==3, l.balance("nut"); print("REGRESYON-TAMAM")'
+  value: REGRESYON-TAMAM
+- op: run_stdout_eq
+  cmd: python3 -c 'from depot.stackcore import Stack; s=Stack(); s.push(1); s.push(2); assert s.peek()==2; assert s.depth()==2;
+    assert s.pop()==2; assert len(s)==1; t=Stack(); t.push(9); m=s+t; assert m.depth()==2; assert m.pop()==9; assert m.pop()==1;
+    print("ILERLEME-TAMAM")'
+  value: ILERLEME-TAMAM
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-2028
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: depo-envanteri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin
+      karmasiklik: orta
+      kalip: operator-asiri-yukleme
+      akis: ic-ice-yapi
+      topoloji: elmas
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false
+  duzeltme:
+    neden: gizli_sart
+    not: Dönüş değerleri yazmıyordu.

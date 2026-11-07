@@ -1,0 +1,62 @@
+id: gen-s-7249-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Bugün vardiya çizelgesiyle ilgili birkaç düzeltme yapmam gerekti ve akşamüstü de elime eski bir kayıt dosyası geçti. Elimizdeki vardiya.log dosyası Mart ayının ilk günlerine ait personel kayıtlarını içeriyor; her satırda tarih, saat, isim ve vardiya bilgisi var. Bu kayıtlardan yalnızca gündüz vardiyasında çalışanları ayrı bir listede toplamak istiyorum, çünkü gündüz ekibiyle ilgili ayrı bir planlama yapacağız. vardiya.log dosyasındaki satırlardan vardiyası GUNDUZ olanları, dosyadaki sırayı bozmadan gunduz.txt dosyasına yaz.
+
+setup: |
+  cat > vardiya.log <<'LOG'
+  2024-03-01 08:00 AYSE GUNDUZ
+  2024-03-01 16:00 MEHMET GECE
+  2024-03-01 00:00 AYSE GECE
+  2024-03-02 08:00 ZEYNEP GUNDUZ
+  2024-03-02 16:00 MEHMET GECE
+  2024-03-02 00:00 ALI GECE
+  2024-03-03 08:00 AYSE GUNDUZ
+  2024-03-03 16:00 ZEYNEP AKSAM
+  2024-03-03 00:00 ALI GECE
+  LOG
+
+goal_tr: >
+  vardiya.log dosyasindaki satirlardan vardiyasi GUNDUZ olanlari, dosyadaki
+  sirayi koruyarak gunduz.txt dosyasina yaz.
+
+reference_solution: |
+  grep 'GUNDUZ' vardiya.log > gunduz.txt
+  wc -l gunduz.txt
+
+outputs:
+  - {path: gunduz.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: gunduz.txt, value: ['2024-03-01 08:00 AYSE GUNDUZ', '2024-03-02 08:00 ZEYNEP GUNDUZ', '2024-03-03 08:00 AYSE GUNDUZ']}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7249
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: personel-vardiyalari
+    hedef: denetle
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

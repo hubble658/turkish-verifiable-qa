@@ -1,0 +1,120 @@
+id: gen-k-5110-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) callcenter/planner.py dosyasını oluştur.
+
+  2) Bu dosyada greedy_schedule(stream, budget) fonksiyonunu tanımla; fonksiyon RecordStream context manager'ı ile kayıtları tüketsin.
+
+  3) Fonksiyon, toplam maliyeti budget değerini aşmayacak şekilde kayıtları en düşük maliyetli olandan başlayarak açgözlü biçimde seçsin ve seçilen ajan adlarını liste olarak döndürsün.
+
+setup: |
+  mkdir -p callcenter data
+  cat > callcenter/records.py <<'RECORDS'
+  class RecordStream:
+      """Reads raw call records from a text stream, one per line.
+
+      Format: agent,duration,cost
+      """
+
+      def __init__(self, stream):
+          self._stream = stream
+          self._seen = 0
+
+      def __enter__(self):
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          return False
+
+      def __iter__(self):
+          return self
+
+      def __next__(self):
+          for line in self._stream:
+              line = line.strip()
+              if not line:
+                  continue
+              agent, duration, cost = line.split(",")
+              self._seen += 1
+              return (agent, int(duration), float(cost))
+          raise StopIteration
+
+      @property
+      def seen(self):
+          return self._seen
+  RECORDS
+  cat > data/calls.txt <<'CALLS'
+  alice,120,3.5
+  bob,90,1.5
+  carol,200,2.0
+  dave,60,4.0
+  CALLS
+
+goal_tr: >
+  callcenter/planner.py dosyasini yaz; greedy_schedule(stream, budget)
+  fonksiyonu RecordStream context manager'i ile kayitlari tuketip, toplam
+  maliyeti butceyi asmayan kayitlari once en dusuk maliyetli olacak sekilde
+  acgozlu secip secilen ajan adlarini liste olarak dondursun.
+
+reference_solution: |
+  cat > callcenter/planner.py <<'PLANNER'
+  from callcenter.records import RecordStream
+
+
+  def greedy_schedule(stream, budget):
+      with RecordStream(stream) as records:
+          rows = list(records)
+      rows.sort(key=lambda r: r[2])
+      picked = []
+      spent = 0.0
+      for agent, _duration, cost in rows:
+          if spent + cost <= budget:
+              picked.append(agent)
+              spent += cost
+      return picked
+  PLANNER
+
+outputs:
+  - {path: callcenter/planner.py, kind: program, run: 'python3 -c ''import io; from callcenter.planner import greedy_schedule as f; d="alice,120,3.5\nbob,90,1.5\ncarol,200,2.0\ndave,60,4.0\n"; assert f(io.StringIO(d),5.0)==["bob","carol"]; assert f(io.StringIO(d),1.6)==["bob"]; assert f(io.StringIO(d),0.0)==[]; assert f(io.StringIO(d),100.0)==["bob","carol","alice","dave"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import io; from callcenter.planner import greedy_schedule as f; d="alice,120,3.5\nbob,90,1.5\ncarol,200,2.0\ndave,60,4.0\n"; assert f(io.StringIO(d),5.0)==["bob","carol"]; assert f(io.StringIO(d),1.6)==["bob"]; assert f(io.StringIO(d),0.0)==[]; assert f(io.StringIO(d),100.0)==["bob","carol","alice","dave"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5110
+    bundle: yarisma
+    tools:
+    - python3
+    konu: cagri-merkezi-kayitlari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: acgozlu
+      karmasiklik: duz
+      kalip: context-manager
+      akis: stdin-boru
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

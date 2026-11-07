@@ -1,0 +1,88 @@
+id: gen-s-3002-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi altındaki vardiya_*.txt dosyalarını girdi/kurallar.txt içindeki geçerli vardiya ve personel listelerine göre doğrula. Geçersiz kayıt içeren her dosyayı girdi/ içinde aynı adla .hata uzantılı olarak yeniden adlandır; geçerli olan dosyaların adlarını ise girdi/temiz_<eski_ad> biçimine çevir.
+
+  Şu şartlar sağlanmalı:
+  - girdi/vardiya_a.txt geçerli sayılmalı ve girdi/temiz_vardiya_a.txt adına dönüşmeli.
+  - girdi/vardiya_b.txt geçerli sayılmalı ve girdi/temiz_vardiya_b.txt adına dönüşmeli.
+  - girdi/vardiya_c.txt geçersiz sayılmalı ve girdi/vardiya_c.txt.hata adına dönüşmeli.
+  - Doğrulama, girdi/kurallar.txt içindeki GECERLI_VARDIYALAR ve GECERLI_PERSONEL listelerine dayanmalı.
+  - Geçersiz dosyanın eski adı korunmalı, yalnızca sonuna .hata eklenmeli.
+  - Geçerli dosyaların yeni adları temiz_ öneki ile başlamalı.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/vardiya_a.txt <<'TXT'
+  P101 | 2024-05-01 | SABAH
+  P102 | 2024-05-01 | SABAH
+  P103 | 2024-05-01 | AKSAM
+  TXT
+  cat > girdi/vardiya_b.txt <<'TXT'
+  P101 | 2024-05-02 | AKSAM
+  P104 | 2024-05-02 | GECE
+  P102 | 2024-05-02 | GECE
+  TXT
+  cat > girdi/vardiya_c.txt <<'TXT'
+  P103 | 2024-05-03 | SABAH
+  P105 | 2024-05-03 | OGLE
+  P101 | 2024-05-03 | SABAH
+  TXT
+  cat > girdi/kurallar.txt <<'TXT'
+  GECERLI_VARDIYALAR=SABAH,AKSAM,GECE
+  GECERLI_PERSONEL=P101,P102,P103,P104,P105
+  TXT
+
+goal_tr: >
+  girdi altindaki vardiya_*.txt dosyalarini kurallar.txt'deki gecerli
+  vardiya ve personel listelerine gore dogrula; gecersiz kayit iceren her
+  dosyayi girdi/icinde ayni adla .hata uzantili olarak yeniden adlandir ve
+  gecerli dosyalarin adlarini girdi/temiz_<eski_ad> bicimine cevir
+
+reference_solution: |
+  awk 'NR==FNR{if($0~/^GECERLI_VARDIYALAR=/){split(substr($0,index($0,"=")+1),v,",");for(i in v)okv[v[i]]=1}if($0~/^GECERLI_PERSONEL=/){split(substr($0,index($0,"=")+1),p,",");for(i in p)okp[p[i]]=1}next}{n=split($0,a,"|");gsub(/^ +| +$/,"",a[1]);gsub(/^ +| +$/,"",a[3]);if(!(a[1] in okp)||!(a[3] in okv)){bad=1}}END{exit bad?1:0}' girdi/kurallar.txt girdi/vardiya_a.txt && mv girdi/vardiya_a.txt girdi/temiz_vardiya_a.txt || mv girdi/vardiya_a.txt girdi/vardiya_a.txt.hata
+  awk 'NR==FNR{if($0~/^GECERLI_VARDIYALAR=/){split(substr($0,index($0,"=")+1),v,",");for(i in v)okv[v[i]]=1}if($0~/^GECERLI_PERSONEL=/){split(substr($0,index($0,"=")+1),p,",");for(i in p)okp[p[i]]=1}next}{n=split($0,a,"|");gsub(/^ +| +$/,"",a[1]);gsub(/^ +| +$/,"",a[3]);if(!(a[1] in okp)||!(a[3] in okv)){bad=1}}END{exit bad?1:0}' girdi/kurallar.txt girdi/vardiya_b.txt && mv girdi/vardiya_b.txt girdi/temiz_vardiya_b.txt || mv girdi/vardiya_b.txt girdi/vardiya_b.txt.hata
+  awk 'NR==FNR{if($0~/^GECERLI_VARDIYALAR=/){split(substr($0,index($0,"=")+1),v,",");for(i in v)okv[v[i]]=1}if($0~/^GECERLI_PERSONEL=/){split(substr($0,index($0,"=")+1),p,",");for(i in p)okp[p[i]]=1}next}{n=split($0,a,"|");gsub(/^ +| +$/,"",a[1]);gsub(/^ +| +$/,"",a[3]);if(!(a[1] in okp)||!(a[3] in okv)){bad=1}}END{exit bad?1:0}' girdi/kurallar.txt girdi/vardiya_c.txt && mv girdi/vardiya_c.txt girdi/temiz_vardiya_c.txt || mv girdi/vardiya_c.txt girdi/vardiya_c.txt.hata
+
+outputs:
+  - {path: girdi/temiz_vardiya_a.txt, kind: file}
+  - {path: girdi/temiz_vardiya_b.txt, kind: file}
+  - {path: girdi/vardiya_c.txt.hata, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: girdi/temiz_vardiya_a.txt, value: [P101 | 2024-05-01 | SABAH, P102 | 2024-05-01 | SABAH, P103 | 2024-05-01 | AKSAM]}
+  - {op: file_lines_eq, path: girdi/temiz_vardiya_b.txt, value: [P101 | 2024-05-02 | AKSAM, P104 | 2024-05-02 | GECE, P102 | 2024-05-02 | GECE]}
+  - {op: file_lines_eq, path: girdi/vardiya_c.txt.hata, value: [P103 | 2024-05-03 | SABAH, P105 | 2024-05-03 | OGLE, P101 | 2024-05-03 | SABAH]}
+  - {op: not_exists, path: girdi/vardiya_a.txt}
+  - {op: not_exists, path: girdi/vardiya_b.txt}
+  - {op: not_exists, path: girdi/vardiya_c.txt}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3002
+    bundle: awk
+    tools:
+    - awk
+    konu: personel-vardiyalari
+    hedef: dogrula
+    girdi: duz-metin
+    kaynak: cok-dosya
+    cikti: yeniden-adlandirilmis
+    kesif: dolayli-hedef
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

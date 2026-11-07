@@ -1,0 +1,61 @@
+id: gen-s-4030-sirala-sec
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  envanter.json dosyasındaki ürünleri ada göre tekilleştirip toplam adetlerini büyükten küçüğe sırala ve sonucu sirali.txt dosyasına yaz. sirali.txt içinde her satırda bir ürün olsun ve her satırda ürünün adı ile toplam adedi "ad adet" biçiminde yer alsın.
+
+setup: |
+  cat > envanter.json <<'JSON'
+  {"urunler": [
+    {"ad": "kablo", "adet": 12, "depo": "A"},
+    {"ad": "vida", "adet": 3, "depo": "B"},
+    {"ad": "pense", "adet": 7, "depo": "A"},
+    {"ad": "kablo", "adet": 5, "depo": "B"},
+    {"ad": "vida", "adet": 3, "depo": "A"},
+    {"ad": "cakmak", "adet": 1, "depo": "C"}
+  ]}
+  JSON
+
+goal_tr: >
+  envanter.json icindeki urunleri ada gore tekillestirip toplam adetlerini
+  buyukten kucuge sirala ve her satira "ad adet" yazip sirali.txt dosyasina
+  koy
+
+reference_solution: |
+  sed -n 's/.*"ad": "\([^"]*\)".*"adet": \([0-9]*\).*/\1 \2/p' envanter.json | sort | awk '{t[$1]+=$2} END {for (k in t) print k, t[k]}' | sort -k2,2nr | uniq > sirali.txt
+
+outputs:
+  - {path: sirali.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: sirali.txt, value: [kablo 17, pense 7, vida 6, cakmak 1]}
+
+metadata:
+  domain: sirala-sec
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4030
+    bundle: sirala
+    tools:
+    - sort
+    - uniq
+    konu: envanter
+    hedef: sirala-sec
+    girdi: json
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

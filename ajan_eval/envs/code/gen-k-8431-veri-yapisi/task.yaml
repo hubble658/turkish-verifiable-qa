@@ -1,0 +1,132 @@
+id: gen-k-8431-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  stock/queue.py içindeki PriorityQueue sınıfını ikili yığın (heap) olarak gerçekleştir; push, pop, peek ve __len__ çalışsın, en küçük öncelik değeri önce çıksın.
+
+setup: |
+  mkdir -p stock
+  cat > stock/queue.py <<'QUEUE'
+  class PriorityQueue:
+      def __init__(self):
+          raise NotImplementedError
+
+      def push(self, priority, item):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+  QUEUE
+  cat > stock/moves.py <<'MOVES'
+  from stock.queue import PriorityQueue
+
+
+  def make_ledger():
+      pq = PriorityQueue()
+
+      def record(ticker, delta, urgency):
+          pq.push(-urgency, (ticker, delta))
+          return len(pq)
+
+      def drain():
+          out = []
+          while len(pq):
+              out.append(pq.pop())
+          return out
+
+      def next_move():
+          if len(pq) == 0:
+              return None
+          return pq.peek()
+
+      return record, drain, next_move
+  MOVES
+  cat > stock/main.py <<'MAIN'
+  from stock.moves import make_ledger
+
+
+  def run(events):
+      record, drain, next_move = make_ledger()
+      for ticker, delta, urgency in events:
+          record(ticker, delta, urgency)
+      peeked = next_move()
+      drained = drain()
+      return drained, peeked
+  MAIN
+
+goal_tr: >
+  stock/queue.py icindeki PriorityQueue sinifini ikili yigin (heap) olarak
+  gerceklestir; push, pop, peek ve __len__ calissin, en kucuk oncelik degeri
+  once ciksin.
+
+reference_solution: |
+  cat > stock/queue.py <<'QUEUE'
+  import heapq
+
+
+  class PriorityQueue:
+      def __init__(self):
+          self._heap = []
+
+      def push(self, priority, item):
+          heapq.heappush(self._heap, (priority, item))
+
+      def pop(self):
+          return heapq.heappop(self._heap)[1]
+
+      def peek(self):
+          return self._heap[0][1]
+
+      def __len__(self):
+          return len(self._heap)
+  QUEUE
+
+outputs:
+  - {path: stock/queue.py, kind: program, run: 'python3 -c ''from stock.queue import PriorityQueue; q=PriorityQueue(); assert len(q)==0; q.push(5,"a"); q.push(-2,"b"); q.push(3,"c"); assert len(q)==3, len(q); assert q.peek()=="b", q.peek(); assert q.pop()=="b"; assert q.pop()=="c"; assert q.pop()=="a"; assert len(q)==0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from stock.queue import PriorityQueue; q=PriorityQueue(); assert len(q)==0; q.push(5,"a"); q.push(-2,"b"); q.push(3,"c"); assert len(q)==3, len(q); assert q.peek()=="b", q.peek(); assert q.pop()=="b"; assert q.pop()=="c"; assert q.pop()=="a"; assert len(q)==0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8431
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: stok-hareketleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: terse
+    direnc: yok
+    bukulme: zor
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: oncelik-kuyrugu
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: bellek-ici
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,146 @@
+id: gen-k-8326-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Atölyedeki bakım kayıtlarını tuttuğumuz log dosyası iyice kabardı, artık vardiya çıkışlarında rapor çıkarmak tam bir işkenceye döndü. Geçen gün makinelerin toplam bakım saatini konuşurken herkesin elindeki sayı farklı çıktı, kimse birbirine güvenemez oldu. Ben de bu işi tek bir yerden, maintenance/summary.py üzerinden yürütelim dedim.
+
+  maintenance/summary.py içindeki cumulative_hours fonksiyonu, elimizdeki kayıtların tamamına ait toplam bakım saatini doğru şekilde döndürsün istiyorum. Şu an verdiği sonuç bizi yanıltıyor; bütün kayıtları kapsayan gerçek toplamı versin, eksik ya da kaydırılmış bir sayı görmek istemiyorum.
+
+setup: |
+  mkdir -p maintenance
+  cat > maintenance/records.py <<'RECORDS'
+  def parse_records(text):
+      rows = []
+      for line in text.strip().splitlines():
+          machine, hours, kind = line.split(',')
+          rows.append((machine, int(hours), kind))
+      return rows
+
+
+  def total_hours(text):
+      rows = parse_records(text)
+      return sum(r[1] for r in rows)
+  RECORDS
+  cat > maintenance/summary.py <<'SUMMARY'
+  from maintenance.records import parse_records
+
+
+  def count_kind(text, kind):
+      rows = parse_records(text)
+      n = 0
+      for r in rows:
+          if r[2] == kind:
+              n += 1
+      return n
+
+
+  def busiest_machine(text):
+      rows = parse_records(text)
+      totals = {}
+      for machine, hours, kind in rows:
+          totals[machine] = totals.get(machine, 0) + hours
+      best = None
+      for machine in totals:
+          if best is None or totals[machine] > totals[best]:
+              best = machine
+      return best
+
+
+  def cumulative_hours(text):
+      rows = parse_records(text)
+      def walk(i):
+          if i >= len(rows):
+              return 0
+          return rows[i][1] + walk(i + 1)
+      return walk(1)
+  SUMMARY
+  cat > log.txt <<'LOG'
+  press,5,repair
+  lathe,2,repair
+  press,3,inspect
+  mill,7,repair
+  lathe,1,inspect
+  LOG
+
+goal_tr: >
+  maintenance/summary.py icindeki cumulative_hours fonksiyonunu, kayitlarin
+  tamamina ait toplam bakim saatini dogru dondurecek bicimde duzelt
+
+reference_solution: |
+  cat > maintenance/summary.py <<'SUMMARY'
+  from maintenance.records import parse_records
+
+
+  def count_kind(text, kind):
+      rows = parse_records(text)
+      n = 0
+      for r in rows:
+          if r[2] == kind:
+              n += 1
+      return n
+
+
+  def busiest_machine(text):
+      rows = parse_records(text)
+      totals = {}
+      for machine, hours, kind in rows:
+          totals[machine] = totals.get(machine, 0) + hours
+      best = None
+      for machine in totals:
+          if best is None or totals[machine] > totals[best]:
+              best = machine
+      return best
+
+
+  def cumulative_hours(text):
+      rows = parse_records(text)
+      def walk(i):
+          if i >= len(rows):
+              return 0
+          return rows[i][1] + walk(i + 1)
+      return walk(0)
+  SUMMARY
+
+outputs:
+  - {path: maintenance/summary.py, kind: program, run: 'python3 -c ''from maintenance.summary import cumulative_hours as f, count_kind as c, busiest_machine as b; t=open("log.txt").read(); assert f(t)==18, f(t); assert c(t,"repair")==3; assert c(t,"inspect")==2; assert b(t)=="press"; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from maintenance.summary import cumulative_hours as f, count_kind as c, busiest_machine as b; t=open("log.txt").read(); assert f(t)==18, f(t); assert c(t,"repair")==3; assert c(t,"inspect")==2; assert b(t)=="press"; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8326
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: makine-bakim-kayitlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: kolay
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: off-by-one
+      karmasiklik: duz
+      kalip: ozyineleme
+      akis: cok-dosya-birlestirme
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

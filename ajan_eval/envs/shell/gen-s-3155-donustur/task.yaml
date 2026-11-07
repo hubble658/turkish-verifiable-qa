@@ -1,0 +1,64 @@
+id: gen-s-3155-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Hava durumu verileriyle ilgili küçük bir düzenleme işi çıktı ve bunu öğleden sonra halletmem gerekiyor. Elimde girdi klasöründe hava.tsv var, ama onun dışındaki dosyalarla uğraşmak istemiyorum; sadece bu dosyayı işlemem yeterli. Başlık satırını atlayıp her şehir için ayrı bir dosya oluşturmam lazım: cikti/Ankara.txt, cikti/Istanbul.txt, cikti/Izmir.txt ve cikti/Bursa.txt dosyalarının her birinde "sicaklik=<sicaklik> nem=<nem>" biçiminde tek bir satır olsun. Ayrıca cikti/dosyalar.txt adında bir dosya daha istiyorum.
+
+setup: |
+  mkdir -p girdi cikti
+  printf 'sehir\tsicaklik\tnem\nAnkara\t21\t40\nIstanbul\t24\t55\nIzmir\t28\t35\nBursa\t19\t60\n' > girdi/hava.tsv
+  printf 'sehir\tsicaklik\tnem\nAntalya\t30\t45\n' > girdi/yedek.tsv
+
+goal_tr: >
+  girdi/hava.tsv icindeki her satiri sehir adina gore cikti/<sehir>.txt
+  dosyasina "sicaklik=<sicaklik> nem=<nem>" bicimiyle yaz, baslik satirini
+  atla ve yalnizca hava.tsv dosyasini isle.
+
+reference_solution: |
+  toplam=$(seq 1 1 | wc -l)
+  tail -n +$((toplam + 1)) girdi/hava.tsv | while IFS=$'\t' read -r sehir sicaklik nem; do printf 'sicaklik=%s nem=%s\n' "$sicaklik" "$nem" > "cikti/$sehir.txt"; done
+  ls cikti | sort > cikti/dosyalar.txt
+
+outputs:
+  - {path: cikti/Ankara.txt, kind: file}
+  - {path: cikti/Istanbul.txt, kind: file}
+  - {path: cikti/Izmir.txt, kind: file}
+  - {path: cikti/Bursa.txt, kind: file}
+  - {path: cikti/dosyalar.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: cikti/Ankara.txt, value: sicaklik=21 nem=40}
+  - {op: file_content_eq, path: cikti/Bursa.txt, value: sicaklik=19 nem=60}
+  - {op: file_content_eq, path: cikti/Istanbul.txt, value: sicaklik=24 nem=55}
+  - {op: file_content_eq, path: cikti/Izmir.txt, value: sicaklik=28 nem=35}
+  - {op: file_lines_eq, path: cikti/dosyalar.txt, value: [Ankara.txt, Bursa.txt, Istanbul.txt, Izmir.txt, dosyalar.txt]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3155
+    bundle: uret
+    tools:
+    - printf
+    - seq
+    konu: hava-durumu-kayitlari
+    hedef: donustur
+    girdi: tsv
+    kaynak: tek-dosya
+    cikti: birden-cok-dosya
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,230 @@
+id: gen-k-5005-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  rezervasyon/trie/agac.py dosyasındaki Trie sınıfının __iter__ metodunu düzelt; bu metot, ağaçtaki tüm (uçuş_kodu, kayıt) çiftlerini uçuş koduna göre artan sırada üretsin. Böylece rezervasyon/akis/rezervasyon.py dosyasındaki RezervasyonDefteri.tum_ucuslar metodu doğru uçuş kodlarını döndürsün.
+
+  Şu şartlar sağlanmalı:
+  - rezervasyon/trie/agac.py içindeki Trie.__iter__ artık boş bir üretici döndürmemeli; ağaçta eklenmiş tüm çiftleri üretmeli.
+  - Üretilen her öğe bir (uçuş_kodu, kayıt) çifti olmalı.
+  - Çiftler uçuş koduna göre artan sırada üretilmeli.
+  - Aynı uçuş koduna sahip birden fazla kayıt varsa hepsi üretilmeli.
+  - rezervasyon/akis/rezervasyon.py içindeki RezervasyonDefteri.tum_ucuslar, bu düzeltme sayesinde doğru uçuş kodlarını döndürmeli.
+  - Mevcut ekle, ara ve onek_tara davranışları bozulmamalı.
+
+setup: |
+  mkdir -p rezervasyon/trie rezervasyon/akis
+  cat > rezervasyon/trie/dugum.py <<'DUGUM'
+  class Dugum:
+      def __init__(self):
+          self.cocuklar = {}
+          self.kayitlar = []
+  DUGUM
+  cat > rezervasyon/trie/agac.py <<'AGAC'
+  from rezervasyon.trie.dugum import Dugum
+
+
+  class Trie:
+      def __init__(self):
+          self.kok = Dugum()
+          self._boyut = 0
+
+      def ekle(self, anahtar, kayit):
+          dugum = self.kok
+          for harf in anahtar:
+              if harf not in dugum.cocuklar:
+                  dugum.cocuklar[harf] = Dugum()
+              dugum = dugum.cocuklar[harf]
+          dugum.kayitlar.append(kayit)
+          self._boyut += 1
+
+      def ara(self, anahtar):
+          dugum = self.kok
+          for harf in anahtar:
+              if harf not in dugum.cocuklar:
+                  return []
+              dugum = dugum.cocuklar[harf]
+          return list(dugum.kayitlar)
+
+      def onek_tara(self, onek):
+          dugum = self.kok
+          for harf in onek:
+              if harf not in dugum.cocuklar:
+                  return []
+              dugum = dugum.cocuklar[harf]
+          sonuc = []
+          yigin = [dugum]
+          while yigin:
+              gecerli = yigin.pop()
+              sonuc.extend(gecerli.kayitlar)
+              for harf in gecerli.cocuklar:
+                  yigin.append(gecerli.cocuklar[harf])
+          return sonuc
+
+      def __iter__(self):
+          return iter([])
+
+      def __len__(self):
+          return self._boyut
+  AGAC
+  cat > rezervasyon/akis/rezervasyon.py <<'REZ'
+  from rezervasyon.trie.agac import Trie
+
+
+  class RezervasyonDefteri:
+      """Ucus kodlarini anahtar, rezervasyon kayitlarini deger olarak tutar."""
+
+      def __init__(self):
+          self.agac = Trie()
+
+      def ekle(self, ucus_kodu, yolcu, koltuk):
+          self.agac.ekle(ucus_kodu, (yolcu, koltuk))
+
+      def ucus_yolculari(self, ucus_kodu):
+          return [yolcu for yolcu, _ in self.agac.ara(ucus_kodu)]
+
+      def filo_tara(self, onek):
+          return [yolcu for yolcu, _ in self.agac.onek_tara(onek)]
+
+      def tum_ucuslar(self):
+          return [ucus for ucus, _ in self.agac]
+  REZ
+  cat > veri.txt <<'VERI'
+  TK1980 Ada 12A
+  TK1980 Bora 12B
+  TK1981 Cem 3C
+  TK2450 Deniz 7A
+  TK2450 Ece 7B
+  AJ3001 Fatih 1A
+  AJ3001 Gizem 1B
+  AJ3002 Hakan 9C
+  VERI
+
+goal_tr: >
+  rezervasyon/trie/agac.py icindeki Trie sinifinin __iter__ metodunu, tum
+  (ucus_kodu, kayit) ciftlerini ucus koduna gore artan sirada uretecek
+  bicimde duzelt; boylece rezervasyon/akis/rezervasyon.py icindeki
+  RezervasyonDefteri.tum_ucuslar dogru ucus kodlarini dondursun.
+
+reference_solution: |
+  cat > rezervasyon/trie/agac.py <<'AGAC'
+  from rezervasyon.trie.dugum import Dugum
+
+
+  class Trie:
+      def __init__(self):
+          self.kok = Dugum()
+          self._boyut = 0
+
+      def ekle(self, anahtar, kayit):
+          dugum = self.kok
+          for harf in anahtar:
+              if harf not in dugum.cocuklar:
+                  dugum.cocuklar[harf] = Dugum()
+              dugum = dugum.cocuklar[harf]
+          dugum.kayitlar.append(kayit)
+          self._boyut += 1
+
+      def ara(self, anahtar):
+          dugum = self.kok
+          for harf in anahtar:
+              if harf not in dugum.cocuklar:
+                  return []
+              dugum = dugum.cocuklar[harf]
+          return list(dugum.kayitlar)
+
+      def onek_tara(self, onek):
+          dugum = self.kok
+          for harf in onek:
+              if harf not in dugum.cocuklar:
+                  return []
+              dugum = dugum.cocuklar[harf]
+          sonuc = []
+          yigin = [dugum]
+          while yigin:
+              gecerli = yigin.pop()
+              sonuc.extend(gecerli.kayitlar)
+              for harf in sorted(gecerli.cocuklar, reverse=True):
+                  yigin.append(gecerli.cocuklar[harf])
+          return sonuc
+
+      def __iter__(self):
+          yigin = [(self.kok, "")]
+          while yigin:
+              dugum, onek = yigin.pop()
+              for kayit in dugum.kayitlar:
+                  yield (onek, kayit)
+              for harf in sorted(dugum.cocuklar, reverse=True):
+                  yigin.append((dugum.cocuklar[harf], onek + harf))
+
+      def __len__(self):
+          return self._boyut
+  AGAC
+  cat > rezervasyon/akis/rezervasyon.py <<'REZ'
+  from rezervasyon.trie.agac import Trie
+
+
+  class RezervasyonDefteri:
+      """Ucus kodlarini anahtar, rezervasyon kayitlarini deger olarak tutar."""
+
+      def __init__(self):
+          self.agac = Trie()
+
+      def ekle(self, ucus_kodu, yolcu, koltuk):
+          self.agac.ekle(ucus_kodu, (yolcu, koltuk))
+
+      def ucus_yolculari(self, ucus_kodu):
+          return [yolcu for yolcu, _ in self.agac.ara(ucus_kodu)]
+
+      def filo_tara(self, onek):
+          return [yolcu for yolcu, _ in self.agac.onek_tara(onek)]
+
+      def tum_ucuslar(self):
+          return [ucus for ucus, _ in self.agac]
+  REZ
+
+outputs:
+  - {path: rezervasyon/trie/agac.py, kind: program, run: 'python3 -c ''from rezervasyon.trie.agac import Trie as T; t=T(); t.ekle("TK1980",("Ada","12A")); t.ekle("AJ3001",("Fatih","1A")); t.ekle("TK1980",("Bora","12B")); pairs=list(t); assert pairs==[("AJ3001",("Fatih","1A")),("TK1980",("Ada","12A")),("TK1980",("Bora","12B"))], pairs; assert len(t)==3; print("TAMAM")'''}
+  - {path: rezervasyon/akis/rezervasyon.py, kind: program, run: 'python3 -c ''from rezervasyon.akis.rezervasyon import RezervasyonDefteri as R; d=R(); [d.ekle(*l.split()) for l in open("veri.txt").read().splitlines() if l.strip()]; assert d.tum_ucuslar()==["AJ3001","AJ3001","AJ3002","TK1980","TK1980","TK1981","TK2450","TK2450"], d.tum_ucuslar(); assert d.filo_tara("TK1980")==["Ada","Bora"], d.filo_tara("TK1980"); assert d.filo_tara("AJ")==["Fatih","Gizem","Hakan"], d.filo_tara("AJ"); assert d.ucus_yolculari("TK2450")==["Deniz","Ece"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from rezervasyon.trie.agac import Trie as T; t=T(); t.ekle("TK1980",("Ada","12A")); t.ekle("AJ3001",("Fatih","1A")); t.ekle("TK1980",("Bora","12B")); pairs=list(t); assert pairs==[("AJ3001",("Fatih","1A")),("TK1980",("Ada","12A")),("TK1980",("Bora","12B"))], pairs; assert len(t)==3; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from rezervasyon.akis.rezervasyon import RezervasyonDefteri as R; d=R(); [d.ekle(*l.split()) for l in open("veri.txt").read().splitlines() if l.strip()]; assert d.tum_ucuslar()==["AJ3001","AJ3001","AJ3002","TK1980","TK1980","TK1981","TK2450","TK2450"], d.tum_ucuslar(); assert d.filo_tara("TK1980")==["Ada","Bora"], d.filo_tara("TK1980"); assert d.filo_tara("AJ")==["Fatih","Gizem","Hakan"], d.filo_tara("AJ"); assert d.ucus_yolculari("TK2450")==["Deniz","Ece"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5005
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: ucus-rezervasyonlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: trie
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: ic-ice-yapi
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

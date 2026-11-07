@@ -1,0 +1,88 @@
+id: gen-s-7318-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+prompt: 'Bugün atölyede yeni bir izleme paneli kurmaya çalışıyoruz ve elimizdeki ham kayıtların temizlenmesi işi bana kaldı.
+  Sensörlerden gelen veriler farklı dosyalara dağılmış durumda, bir de eski bir yedek dosya ortalıkta duruyor; onunla işimiz
+  yok. Panelde her sensörün ne kadar ölçüm ürettiğini göstereceğiz, o yüzden önce sayıları netleştirmem lazım.
+
+
+  veri klasöründeki sensor_a.json ve sensor_b.json dosyalarında yer alan ölçümleri sensör adına göre birleştir; veri/sensor_eski.json
+  dosyasını ise tamamen yok say. Birleştirme sonucunda her sensör için toplam değer sayısını hesapla ve bu sayıları sonuc.txt
+  dosyasına yaz. sonuc.txt içinde her satırda bir sensör olsun ve satırda yalnızca o sensöre ait toplam değer sayısı tek bir
+  sayı olarak bulunsun.
+
+  '
+setup: 'mkdir -p veri
+
+  cat > veri/sensor_a.json <<''JSON''
+
+  {"olcumler":[{"sensor":"S1","deger":12},{"sensor":"S2","deger":7},{"sensor":"S1","deger":5}]}
+
+  JSON
+
+  cat > veri/sensor_b.json <<''JSON''
+
+  {"olcumler":[{"sensor":"S2","deger":9},{"sensor":"S3","deger":4},{"sensor":"S1","deger":3}]}
+
+  JSON
+
+  cat > veri/sensor_eski.json <<''JSON''
+
+  {"olcumler":[{"sensor":"S9","deger":100}]}
+
+  JSON
+
+  '
+goal_tr: 'veri/sensor_a.json ve veri/sensor_b.json dosyalarindaki olcumleri sensor adina gore birlestirip her sensor icin
+  toplam deger sayisini tek sayi olarak sonuc.txt''ye yaz (veri/sensor_eski.json dosyasini yok say).
+
+  '
+reference_solution: 'python3 - <<''PY''
+
+  import json
+
+  from collections import Counter
+
+  c = Counter(o["sensor"] for f in ("veri/sensor_a.json", "veri/sensor_b.json") for o in json.load(open(f))["olcumler"])
+
+  open("sonuc.txt", "w").write("".join(f"{n}\n" for _, n in sorted(c.items())))
+
+  PY
+
+  '
+outputs: []
+checks:
+- op: file_lines_eq
+  path: sonuc.txt
+  value:
+  - '3'
+  - '2'
+  - '1'
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7318
+    bundle: awk
+    tools:
+    - awk
+    konu: sensor-olcumleri
+    hedef: grupla-say
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: tek-sayi
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}
+  duzeltme:
+    neden: altin_yanlis
+    not: İstem sensör başına değer sayısı istiyor (3, 2, 1); altın yalnız sensör sayısıydı.

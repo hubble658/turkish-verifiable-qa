@@ -1,0 +1,163 @@
+id: gen-k-8133-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  restaurant/service.py içindeki Service.top_table metodu şu an en yüksek toplam tutara sahip masayı doğru şekilde döndürmüyor; bu metodu, toplamı en yüksek olan masayı doğru biçimde döndürecek şekilde düzelt. Düzeltmeyi yalnızca restaurant/service.py dosyası üzerinde yap; restaurant/storage.py, restaurant/totals.py ve restaurant/receipt.py dosyalarına dokunma.
+
+setup: |
+  mkdir -p restaurant
+  cat > restaurant/storage.py <<'STORAGE'
+  class OrderStore:
+      def __init__(self):
+          self._orders = []
+
+      def add(self, table, item, qty, unit_price):
+          self._orders.append({"table": table, "item": item, "qty": qty, "unit_price": unit_price})
+
+      def all_orders(self):
+          return list(self._orders)
+  STORAGE
+  cat > restaurant/totals.py <<'TOTALS'
+  from restaurant.storage import OrderStore
+
+
+  class TotalCalculator:
+      def __init__(self, store):
+          self.store = store
+
+      def per_table(self):
+          result = {}
+          for order in self.store.all_orders():
+              table = order["table"]
+              amount = order["qty"] * order["unit_price"]
+              if table in result:
+                  result[table] += amount
+              else:
+                  result[table] = amount
+          return result
+  TOTALS
+  cat > restaurant/receipt.py <<'RECEIPT'
+  from restaurant.storage import OrderStore
+  from restaurant.totals import TotalCalculator
+
+
+  class Receipt:
+      def __init__(self, store):
+          self.store = store
+          self.calc = TotalCalculator(store)
+
+      def table_lines(self):
+          totals = self.calc.per_table()
+          lines = []
+          for table in sorted(totals):
+              lines.append((table, totals[table]))
+          return lines
+
+      def grand_total(self):
+          totals = self.calc.per_table()
+          return sum(totals.values())
+  RECEIPT
+  cat > restaurant/service.py <<'SERVICE'
+  from restaurant.storage import OrderStore
+  from restaurant.receipt import Receipt
+
+
+  class Service:
+      def __init__(self):
+          self.store = OrderStore()
+
+      def order(self, table, item, qty, unit_price):
+          self.store.add(table, item, qty, unit_price)
+
+      def summary(self):
+          receipt = Receipt(self.store)
+          return receipt.table_lines(), receipt.grand_total()
+
+      def top_table(self):
+          receipt = Receipt(self.store)
+          lines = receipt.table_lines()
+          best = None
+          best_total = 0
+          for table, total in lines:
+              if total > best_total:
+                  best_total = total
+                  best = table
+          return best
+  SERVICE
+
+goal_tr: >
+  restaurant/service.py icindeki Service.top_table metodunu, en yuksek
+  toplamli masayi dogru dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > restaurant/service.py <<'SERVICE'
+  from restaurant.storage import OrderStore
+  from restaurant.receipt import Receipt
+
+
+  class Service:
+      def __init__(self):
+          self.store = OrderStore()
+
+      def order(self, table, item, qty, unit_price):
+          self.store.add(table, item, qty, unit_price)
+
+      def summary(self):
+          receipt = Receipt(self.store)
+          return receipt.table_lines(), receipt.grand_total()
+
+      def top_table(self):
+          receipt = Receipt(self.store)
+          lines = receipt.table_lines()
+          best = None
+          best_total = None
+          for table, total in lines:
+              if best_total is None or total > best_total:
+                  best_total = total
+                  best = table
+          return best
+  SERVICE
+
+outputs:
+  - {path: restaurant/service.py, kind: program, run: 'python3 -c ''from restaurant.service import Service; s=Service(); s.order("A","soup",1,5.0); s.order("B","steak",1,20.0); assert s.top_table()=="B", s.top_table(); s2=Service(); s2.order("C","tea",1,0.0); s2.order("D","water",1,0.0); assert s2.top_table() in ("C","D"), s2.top_table(); s3=Service(); s3.order("E","pasta",1,10.0); assert s3.top_table()=="E", s3.top_table(); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from restaurant.service import Service; s=Service(); s.order("A","soup",1,5.0); s.order("B","steak",1,20.0); assert s.top_table()=="B", s.top_table(); s2=Service(); s2.order("C","tea",1,0.0); s2.order("D","water",1,0.0); assert s2.top_table() in ("C","D"), s2.top_table(); s3=Service(); s3.order("E","pasta",1,10.0); assert s3.top_table()=="E", s3.top_table(); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8133
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: restoran-siparisleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: off-by-one
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: bellek-ici
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

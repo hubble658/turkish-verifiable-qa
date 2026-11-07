@@ -1,0 +1,105 @@
+id: gen-k-5102-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) depo/rapor.py dosyasındaki total_by_city fonksiyonunu, depo/alt/kayıt.py içindeki make_reader'in ürettiği sözlük anahtarlarıyla uyumlu çalışacak şekilde düzelt.
+
+  2) Fonksiyon her şehre ait toplam tutarı doğru hesaplasın ve şehir adını anahtar olarak kullansın.
+
+setup: |
+  mkdir -p depo/alt
+  cat > depo/__init__.py <<'PY'
+  PY
+  cat > depo/alt/__init__.py <<'PY'
+  PY
+  cat > depo/alt/kayit.py <<'PY'
+  def make_reader(columns):
+      def read(line):
+          parts = line.split(';')
+          return {columns[i]: parts[i] for i in range(len(parts))}
+      return read
+  PY
+  cat > depo/rapor.py <<'PY'
+  from depo.alt.kayit import make_reader
+
+
+  def total_by_city(lines):
+      read = make_reader(['city', 'item', 'qty', 'price'])
+      totals = {}
+      for line in lines:
+          row = read(line)
+          amount = int(row['qty']) * float(row['price'])
+          key = row['sehir']
+          totals[key] = totals.get(key, 0.0) + amount
+      return totals
+  PY
+  cat > girdi.txt <<'TXT'
+  istanbul;kalem;2;10.0
+  ankara;kalem;1;5.0
+  istanbul;kalem;3;1.0
+  TXT
+
+goal_tr: >
+  depo/rapor.py icindeki total_by_city fonksiyonunu, depo/alt/kayit.py'deki
+  make_reader'in urettigi sozluk anahtarlariyla uyumlu calisip her sehre ait
+  toplam tutari dogru hesaplayacak bicimde duzelt.
+
+reference_solution: |
+  cat > depo/rapor.py <<'PY'
+  from depo.alt.kayit import make_reader
+
+
+  def total_by_city(lines):
+      read = make_reader(['city', 'item', 'qty', 'price'])
+      totals = {}
+      for line in lines:
+          row = read(line)
+          amount = int(row['qty']) * float(row['price'])
+          key = row['city']
+          totals[key] = totals.get(key, 0.0) + amount
+      return totals
+  PY
+
+outputs:
+  - {path: depo/rapor.py, kind: program, run: 'python3 -c ''from depo.rapor import total_by_city as f; lines=["istanbul;kalem;2;10.0","ankara;kalem;1;5.0","istanbul;kalem;3;1.0"]; r=f(lines); assert r=={"istanbul":23.0,"ankara":5.0}, r; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.rapor import total_by_city as f; lines=["istanbul;kalem;2;10.0","ankara;kalem;1;5.0","istanbul;kalem;3;1.0"]; r=f(lines); assert r=={"istanbul":23.0,"ankara":5.0}, r; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5102
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: siparis-kayitlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sozluk-anahtar-hatasi
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: stdin-boru
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

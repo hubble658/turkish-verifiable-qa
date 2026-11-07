@@ -1,0 +1,150 @@
+id: gen-k-5017-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) route/graph.py dosyasındaki RouteGraph.shortest metodunu, başlangıç düğümü ile hedef düğüm aynı olduğunda sıfır dakikalık bir Edge döndürecek şekilde düzelt.
+
+  2) Aynı metodu, başlangıçtan hedefe hiçbir yol bulunmadığında None döndürecek şekilde düzelt.
+
+  3) route/graph.py dışındaki dosyalara dokunma; plan fonksiyonu ve Edge sınıfı değişmeden kalsın.
+
+setup: |
+  mkdir -p route
+  cat > route/edge.py <<'EDGE'
+  class Edge:
+      def __init__(self, src, dst, minutes):
+          self.src = src
+          self.dst = dst
+          self.minutes = minutes
+
+      def __add__(self, other):
+          return Edge(self.src, other.dst, self.minutes + other.minutes)
+
+      def __repr__(self):
+          return "Edge(%r,%r,%r)" % (self.src, self.dst, self.minutes)
+  EDGE
+  cat > route/graph.py <<'GRAPH'
+  from route.edge import Edge
+
+
+  class RouteGraph:
+      def __init__(self, edges):
+          self.edges = list(edges)
+
+      def neighbours(self, node):
+          return [e for e in self.edges if e.src == node]
+
+      def shortest(self, start, goal):
+          best = None
+          stack = [(start, [])]
+          while stack:
+              node, path = stack.pop()
+              if node == goal:
+                  total = None
+                  for e in path:
+                      total = e if total is None else total + e
+                  if total is not None:
+                      if best is None or total.minutes < best.minutes:
+                          best = total
+                  continue
+              for e in self.neighbours(node):
+                  stack.append((e.dst, path + [e]))
+          return best
+  GRAPH
+  cat > route/plan.py <<'PLAN'
+  from route.graph import RouteGraph
+
+
+  def plan(edges, start, goal):
+      graph = RouteGraph(edges)
+      return graph.shortest(start, goal)
+  PLAN
+  cat > map.txt <<'MAP'
+  A B 5
+  B C 4
+  A C 12
+  C D 3
+  B D 20
+  MAP
+
+goal_tr: >
+  route/graph.py icindeki RouteGraph.shortest metodunu, baslangic dugumu ile
+  hedef dugum ayni oldugunda da dogru (sifir dakikalik) Edge dondurecek ve
+  hicbir yol yokken None verecek bicimde duzelt; plan fonksiyonu ve Edge
+  sinifi degismesin.
+
+reference_solution: |
+  cat > route/graph.py <<'GRAPH'
+  from route.edge import Edge
+
+
+  class RouteGraph:
+      def __init__(self, edges):
+          self.edges = list(edges)
+
+      def neighbours(self, node):
+          return [e for e in self.edges if e.src == node]
+
+      def shortest(self, start, goal):
+          if start == goal:
+              return Edge(start, start, 0)
+          best = None
+          stack = [(start, [])]
+          while stack:
+              node, path = stack.pop()
+              if node == goal:
+                  total = None
+                  for e in path:
+                      total = e if total is None else total + e
+                  if total is not None:
+                      if best is None or total.minutes < best.minutes:
+                          best = total
+                  continue
+              for e in self.neighbours(node):
+                  stack.append((e.dst, path + [e]))
+          return best
+  GRAPH
+
+outputs:
+  - {path: route/graph.py, kind: program, run: 'python3 -c ''from route.plan import plan; from route.edge import Edge; E=[Edge("A","B",5),Edge("B","C",4),Edge("A","C",12),Edge("C","D",3),Edge("B","D",20)]; r=plan(E,"A","D"); assert r is not None and r.minutes==12, r; assert r.src=="A" and r.dst=="D", r; s=plan(E,"B","B"); assert s is not None and s.minutes==0 and s.src=="B" and s.dst=="B", s; assert plan(E,"D","A") is None; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from route.plan import plan; from route.edge import Edge; E=[Edge("A","B",5),Edge("B","C",4),Edge("A","C",12),Edge("C","D",3),Edge("B","D",20)]; r=plan(E,"A","D"); assert r is not None and r.minutes==12, r; assert r.src=="A" and r.dst=="D", r; s=plan(E,"B","B"); assert s is not None and s.minutes==0 and s.src=="B" and s.dst=="B", s; assert plan(E,"D","A") is None; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5017
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: yol-tarifi-agi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kenar-durum
+      karmasiklik: duz
+      kalip: operator-asiri-yukleme
+      akis: cok-dosya-birlestirme
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

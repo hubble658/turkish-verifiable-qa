@@ -1,0 +1,141 @@
+id: gen-k-8356-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) sinav/aralik.py dosyasındaki AralıkBirlestirici sınıfını, eklenen [bas, son) aralıklarını kesişen veya bitişik olanları birleştirip artan sırada döndüren durumlu bir iterator olacak şekilde gerçekleştir.
+
+  2) Böylece sinav/rapor.py içindeki birlestirilmis_toplam fonksiyonu her öğrenci için birleştirilmiş aralık uzunluklarının toplamını doğru hesaplasın; veri.txt dosyasındaki kayıtlarla çalıştırıldığında sonuçlar bu birleştirmeye uygun olsun.
+
+setup: |
+  mkdir -p sinav
+  cat > sinav/__init__.py <<'PY'
+  PY
+  cat > sinav/aralik.py <<'PY'
+  class AralikBirlestirici:
+      def __init__(self):
+          raise NotImplementedError
+
+      def ekle(self, bas, son):
+          raise NotImplementedError
+
+      def __iter__(self):
+          raise NotImplementedError
+  PY
+  cat > sinav/okuyucu.py <<'PY'
+  from sinav.aralik import AralikBirlestirici
+
+
+  def ham_kayitlar(yol):
+      kayitlar = []
+      with open(yol, encoding="utf-8") as f:
+          for satir in f:
+              satir = satir.strip()
+              if not satir or satir.startswith("#"):
+                  continue
+              ogrenci, bas, son = satir.split(";")
+              kayitlar.append((ogrenci, int(bas), int(son)))
+      return kayitlar
+
+
+  def ogrenci_araliklari(yol, ogrenci):
+      biriktirici = AralikBirlestirici()
+      for o, bas, son in ham_kayitlar(yol):
+          if o == ogrenci:
+              biriktirici.ekle(bas, son)
+      return biriktirici
+  PY
+  cat > sinav/rapor.py <<'PY'
+  from sinav.okuyucu import ham_kayitlar, ogrenci_araliklari
+
+
+  def birlestirilmis_toplam(yol):
+      toplam = {}
+      for ogrenci in sorted({o for o, _, _ in ham_kayitlar(yol)}):
+          araliklar = ogrenci_araliklari(yol, ogrenci)
+          toplam[ogrenci] = sum(son - bas for bas, son in araliklar)
+      return toplam
+  PY
+  cat > veri.txt <<'TXT'
+  # ogrenci;bas;son
+  ayse;10;20
+  ayse;15;25
+  ayse;30;35
+  mehmet;5;12
+  mehmet;10;15
+  mehmet;100;107
+  zeynep;0;5
+  TXT
+
+goal_tr: >
+  sinav/aralik.py icindeki AralikBirlestirici sinifini, eklenen [bas, son)
+  araliklarini kesisen veya bitisik olanlari birlestirip artan sirada
+  donduren durumlu bir iterator olacak sekilde gerceklestir; boylece
+  sinav/rapor.py icindeki birlestirilmis_toplam her ogrenci icin
+  birlestirilmis aralik uzunluklarinin toplamini dogru hesaplasin.
+
+reference_solution: |
+  cat > sinav/aralik.py <<'PY'
+  class AralikBirlestirici:
+      def __init__(self):
+          self._araliklar = []
+
+      def ekle(self, bas, son):
+          if son < bas:
+              bas, son = son, bas
+          self._araliklar.append((bas, son))
+
+      def __iter__(self):
+          sirali = sorted(self._araliklar)
+          birlestirilmis = []
+          for bas, son in sirali:
+              if birlestirilmis and bas <= birlestirilmis[-1][1]:
+                  onceki_bas, onceki_son = birlestirilmis[-1]
+                  birlestirilmis[-1] = (onceki_bas, max(onceki_son, son))
+              else:
+                  birlestirilmis.append((bas, son))
+          return iter(birlestirilmis)
+  PY
+
+outputs:
+  - {path: sinav/aralik.py, kind: program, run: 'python3 -c ''from sinav.rapor import birlestirilmis_toplam as f; d=f("veri.txt"); assert d=={"ayse":20,"mehmet":17,"zeynep":5}, d; from sinav.aralik import AralikBirlestirici; b=AralikBirlestirici(); b.ekle(1,4); b.ekle(4,7); b.ekle(10,12); b.ekle(2,3); assert list(b)==[(1,7),(10,12)], list(b); b2=AralikBirlestirici(); b2.ekle(5,5); assert list(b2)==[(5,5)], list(b2); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sinav.rapor import birlestirilmis_toplam as f; d=f("veri.txt"); assert d=={"ayse":20,"mehmet":17,"zeynep":5}, d; from sinav.aralik import AralikBirlestirici; b=AralikBirlestirici(); b.ekle(1,4); b.ekle(4,7); b.ekle(10,12); b.ekle(2,3); assert list(b)==[(1,7),(10,12)], list(b); b2=AralikBirlestirici(); b2.ekle(5,5); assert list(b2)==[(5,5)], list(b2); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8356
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: sinav-sonuclari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: aralik-birlestirme
+      karmasiklik: duz
+      kalip: iterator-protokolu
+      akis: cok-dosya-birlestirme
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

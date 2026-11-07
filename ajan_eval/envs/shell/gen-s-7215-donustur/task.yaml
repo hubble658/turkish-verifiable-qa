@@ -1,0 +1,62 @@
+id: gen-s-7215-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  siparisler.tsv dosyasındaki her satırı işleyerek adet ile fiyatın çarpımından oluşan bir tutar alanı ekle ve sonucu siparisler.json dosyasına geçerli bir JSON nesneleri dizisi olarak yaz. Boş satırları atla; eğer siparisler.tsv boşsa siparisler.json içinde boş bir dizi oluşsun.
+
+setup: |
+  cat > siparisler.tsv <<'TSV'
+  masa	urun	adet	fiyat
+  1	mercimek	2	45
+  1	cay	3	10
+  2	kebap	1	120
+  3	mercimek	1	45
+  3	salata	2	30
+  TSV
+
+goal_tr: >
+  siparisler.tsv dosyasindaki her satiri adet ile fiyatin carpimi olan tutar
+  alanini ekleyerek siparisler.json dosyasina gecerli bir JSON nesneleri
+  dizisi olarak yaz; bos satirlari atla ve bos dosyada bos dizi uret.
+
+reference_solution: |
+  cut -f1-4 siparisler.tsv > gecici.tsv
+  awk -F'\t' 'NR==1{next} NF==0{next} {printf "{\"masa\":%s,\"urun\":\"%s\",\"adet\":%s,\"fiyat\":%s,\"tutar\":%s}\n", $1, $2, $3, $4, $3*$4}' gecici.tsv > satirlar.txt
+  { printf '['; paste -sd, satirlar.txt; printf ']\n'; } | tee siparisler.json > /dev/null
+  rm -f gecici.tsv satirlar.txt
+
+outputs:
+  - {path: siparisler.json, kind: json}
+
+checks:
+  - {op: json_eq, path: siparisler.json, value: [{masa: 1, urun: mercimek, adet: 2, fiyat: 45, tutar: 90}, {masa: 1, urun: cay, adet: 3, fiyat: 10, tutar: 30}, {masa: 2, urun: kebap, adet: 1, fiyat: 120, tutar: 120}, {masa: 3, urun: mercimek, adet: 1, fiyat: 45, tutar: 45}, {masa: 3, urun: salata, adet: 2, fiyat: 30, tutar: 60}]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7215
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: restoran-siparisleri
+    hedef: donustur
+    girdi: tsv
+    kaynak: tek-dosya
+    cikti: json
+    kesif: yok
+    uslup: duz-hedef
+    direnc: bos-dosya
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

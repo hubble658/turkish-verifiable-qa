@@ -1,0 +1,102 @@
+id: gen-k-5162-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) sensors/alarm.py dosyasını aç ve içindeki scan fonksiyonunu, modül seviyesindeki birikimli durum kullanmayacak şekilde düzelt.
+
+  2) scan fonksiyonu her çağrıldığında yalnızca o çağrının girdisindeki limit aşan sensör adlarını, girdideki sırayla döndürsün.
+
+  3) Önceki çağrılardan kalan sensör adları sonraki çağrıların sonucuna karışmasın.
+
+setup: |
+  mkdir -p sensors
+  cat > sensors/stream.py <<'STREAM'
+  def parse_readings(text):
+      rows = []
+      for line in text.strip().splitlines():
+          if not line.strip():
+              continue
+          name, value, limit = line.split(',')
+          rows.append((name, float(value), float(limit)))
+      return rows
+  STREAM
+  cat > sensors/alarm.py <<'ALARM'
+  from sensors.stream import parse_readings
+
+  _SEEN = []
+
+
+  def scan(text):
+      for name, value, limit in parse_readings(text):
+          if value > limit and name not in _SEEN:
+              _SEEN.append(name)
+      return list(_SEEN)
+  ALARM
+  cat > readings.csv <<'CSV'
+  boiler,80,100
+  pump,120,100
+  tank,50,60
+  valve,90,70
+  CSV
+
+goal_tr: >
+  sensors/alarm.py icindeki scan fonksiyonunu, modul seviyesindeki birikimli
+  durumu kaldirip her cagride yalnizca o cagrinin girdisindeki limit asan
+  sensor adlarini sirasiyla dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > sensors/alarm.py <<'ALARM'
+  from sensors.stream import parse_readings
+
+
+  def scan(text):
+      alerts = []
+      for name, value, limit in parse_readings(text):
+          if value > limit:
+              alerts.append(name)
+      return alerts
+  ALARM
+
+outputs:
+  - {path: sensors/alarm.py, kind: program, run: 'python3 -c ''from sensors.alarm import scan as f; t=open("readings.csv").read(); a=f(t); assert a==["pump","valve"], a; assert f("boiler,80,100\n")==[], f("boiler,80,100\n"); assert f("pump,120,100\n")==["pump"], f("pump,120,100\n"); assert f(t)==["pump","valve"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensors.alarm import scan as f; t=open("readings.csv").read(); a=f(t); assert a==["pump","valve"], a; assert f("boiler,80,100\n")==[], f("boiler,80,100\n"); assert f("pump,120,100\n")==["pump"], f("pump,120,100\n"); assert f(t)==["pump","valve"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5162
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: sensor-alarm-kurallari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-durum-sifirlama
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: parcali-akis
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

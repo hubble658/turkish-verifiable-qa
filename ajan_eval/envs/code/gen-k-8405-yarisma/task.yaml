@@ -1,0 +1,105 @@
+id: gen-k-8405-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Banka tarafında hesap özeti çıkaran küçük bir araç üzerinde çalışıyoruz; gün içinde hareketleri gözden geçirirken özet kısmının beklenmedik sonuçlar verdiğini fark ettik. Özellikle en büyük toplamlı hesapları listelerken bazı hesapların eksik kaldığını, bazen de sıralamanın karıştığını gördük. Bu yüzden banka/summary.py dosyasındaki top_accounts fonksiyonunu düzeltmemiz gerekiyor.
+
+  Fonksiyon, verilen hareketler içinde toplamı en büyük olan k hesabın adını doğru şekilde döndürmeli; kaç hesap istendiyse o kadar hesap gelmeli, ne eksik ne fazla. Ayrıca iki hesabın toplamı birbirine eşit olduğunda, bu hesaplar hesap adına göre alfabetik sırada yer almalı ki sonuç her seferinde aynı ve tutarlı olsun. Sadece banka/summary.py üzerinde çalış, diğer dosyaların içeriğine dokunma.
+
+setup: |
+  mkdir -p banka
+  cat > banka/ledger.py <<'LEDGER'
+  def normalize(entries):
+      out = {}
+      for account, amount in entries:
+          out.setdefault(account, []).append(amount)
+      return out
+
+
+  def balances(entries):
+      out = {}
+      for account, amounts in normalize(entries).items():
+          out[account] = sum(amounts)
+      return out
+  LEDGER
+  cat > banka/movements.py <<'MOVEMENTS'
+  from banka.ledger import balances
+
+
+  def transfer_log(entries):
+      b = balances(entries)
+      return sorted(b.items(), key=lambda kv: kv[1], reverse=True)
+  MOVEMENTS
+  cat > banka/summary.py <<'SUMMARY'
+  from banka.movements import transfer_log
+
+
+  def top_accounts(entries, k):
+      return [name for name, _ in transfer_log(entries)[:k - 1]]
+  SUMMARY
+
+goal_tr: >
+  banka/summary.py icindeki top_accounts fonksiyonunu, en buyuk toplamli k
+  hesabin adini dogru dondurecek ve esit toplamlar oldugunda hesap adina
+  gore alfabetik sirada verecek sekilde duzelt.
+
+reference_solution: |
+  cat > banka/movements.py <<'MOVEMENTS'
+  from banka.ledger import balances
+
+
+  def transfer_log(entries):
+      b = balances(entries)
+      return sorted(b.items(), key=lambda kv: (-kv[1], kv[0]))
+  MOVEMENTS
+  cat > banka/summary.py <<'SUMMARY'
+  from banka.movements import transfer_log
+
+
+  def top_accounts(entries, k):
+      return [name for name, _ in transfer_log(entries)[:k]]
+  SUMMARY
+
+outputs:
+  - {path: banka/summary.py, kind: program, run: 'python3 -c ''from banka.summary import top_accounts as f; from banka.movements import transfer_log as g; e=[("a",5),("b",3),("a",2),("c",10),("b",1)]; assert f(e,2)==["c","a"], f(e,2); assert f(e,1)==["c"]; assert f(e,3)==["c","a","b"]; e2=[("x",4),("y",4),("z",1)]; assert g(e2)==[("x",4),("y",4),("z",1)], g(e2); assert f(e2,2)==["x","y"], f(e2,2); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from banka.summary import top_accounts as f; from banka.movements import transfer_log as g; e=[("a",5),("b",3),("a",2),("c",10),("b",1)]; assert f(e,2)==["c","a"], f(e,2); assert f(e,1)==["c"]; assert f(e,3)==["c","a","b"]; e2=[("x",4),("y",4),("z",1)]; assert g(e2)==[("x",4),("y",4),("z",1)], g(e2); assert f(e2,2)==["x","y"], f(e2,2); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8405
+    bundle: yarisma
+    tools:
+    - python3
+    konu: banka-hareketleri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sayma
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: ic-ice-yapi
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

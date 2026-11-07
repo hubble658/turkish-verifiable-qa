@@ -1,0 +1,61 @@
+id: gen-s-7007-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  randevular.log dosyasındaki her satırda dikey çubuklarla ayrılmış alanları aralarında boşluk kalmayacak şekilde tek bir sekmeye indirge ve yalnızca durumu ONAYLANDI olan satırların tarih, saat, hasta ve bölüm alanlarını aynı sırayla sekmeyle ayrılmış biçimde onayli.tsv dosyasına yaz.
+
+setup: |
+  cat > randevular.log <<'LOG'
+  2024-03-01 09:00 | AYSE YILMAZ | KARDiyoloji | ONAYLANDI
+  2024-03-01 09:30 | MEHMET DEMIR | Noroloji | BEKLEMEDE
+  2024-03-01 10:00 | FATMA KAYA | KARDiyoloji | ONAYLANDI
+  2024-03-01 10:30 | ALI OZTURK | Ortopedi | IPTAL
+  2024-03-01 11:00 | ZEYNEP ARSLAN | Noroloji | ONAYLANDI
+  2024-03-01 11:30 | HASAN CELIK | KARDiyoloji | BEKLEMEDE
+  LOG
+
+goal_tr: >
+  randevular.log dosyasindaki her satirda dikey cubuklarla ayrilmis alanlari
+  bosluk birakmadan tek bir sekmeye indirgeyip, yalnizca durumu ONAYLANDI
+  olan satirlarin tarih, saat, hasta ve bolum alanlarini ayni sirada
+  sekmeyle ayrilmis olarak onayli.tsv dosyasina yaz
+
+reference_solution: |
+  sed -n 's/^\([^|]*\) | \([^|]*\) | \([^|]*\) | ONAYLANDI$/\1\t\2\t\3/p' randevular.log | tr -s ' ' | sed 's/^ *//; s/ *$//' > onayli.tsv
+
+outputs:
+  - {path: onayli.tsv, kind: lines}
+  - {path: randevular.log, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: onayli.tsv, value: ["2024-03-01 09:00\tAYSE YILMAZ\tKARDiyoloji", "2024-03-01 10:00\tFATMA KAYA\tKARDiyoloji", "2024-03-01 11:00\tZEYNEP ARSLAN\tNoroloji"]}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7007
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: hastane-randevulari
+    hedef: dogrula
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

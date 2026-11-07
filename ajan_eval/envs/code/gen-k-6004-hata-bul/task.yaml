@@ -1,0 +1,211 @@
+id: gen-k-6004-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 18
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) fx/rates/table.py içindeki lookup fonksiyonunu, base ile quote aynı para birimi olduğunda 1.0 döndürecek şekilde düzelt.
+
+  2) fx/core/convert.py içindeki Converter.convert metodunu, çift yönlü kur bulunamadığında ters kuru kullanıp bölerek çevrim yapacak biçimde düzelt.
+
+  3) fx/core/batch.py içindeki convert_all fonksiyonunu, amounts.txt dosyasındaki her satırı ("QUOTE AMOUNT") okuyup convert_all(base, [(quote, float(amount)), ...]) çağrısını yapacak şekilde tamamla.
+
+  4) Converter sınıfının context manager davranışını ve log kayıtlarını koru.
+
+  5) Yalnızca fx/rates/table.py, fx/core/convert.py ve fx/core/batch.py dosyalarını değiştir; başka hiçbir dosyaya dokunma.
+
+setup: |
+  mkdir -p fx/core fx/rates
+  cat > fx/rates/table.py <<'PY'
+  def raw_table():
+      return {
+          "USD": {"EUR": 0.90, "GBP": 0.80},
+          "EUR": {"USD": 1.10, "GBP": 0.88},
+          "GBP": {"USD": 1.25, "EUR": 1.13},
+      }
+
+
+  def lookup(base, quote):
+      t = raw_table()
+      return t[base][quote]
+  PY
+  cat > fx/core/convert.py <<'PY'
+  from fx.rates.table import lookup
+
+
+  class Converter:
+      def __init__(self, base):
+          self.base = base
+          self.log = []
+
+      def __enter__(self):
+          self.log.append("open:" + self.base)
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self.log.append("close:" + self.base)
+          return False
+
+      def rate(self, quote):
+          return lookup(self.base, quote)
+
+      def convert(self, amount, quote):
+          return amount * self.rate(quote)
+  PY
+  cat > fx/core/batch.py <<'PY'
+  from fx.core.convert import Converter
+
+
+  def convert_all(base, amounts):
+      out = []
+      with Converter(base) as c:
+          for quote, amt in amounts:
+              out.append((quote, c.convert(amt, quote)))
+      return out
+  PY
+  cat > amounts.txt <<'TXT'
+  EUR 100
+  GBP 50
+  TXT
+
+goal_tr: >
+  1. fx/rates/table.py icindeki lookup fonksiyonunu, ayni para birimi
+  kendisine cevrilirken (base == quote) 1.0 dondurecek sekilde duzelt; 2.
+  ardindan fx/core/convert.py icindeki Converter.convert metodunu, cift
+  yonlu kur yoksa ters kuru kullanip bolerek cevrim yapacak bicimde duzelt;
+  3. son olarak fx/core/batch.py icindeki convert_all fonksiyonunu
+  amounts.txt dosyasindaki satirlari okuyup (her satir "QUOTE AMOUNT")
+  convert_all(base, [(quote, float(amount)), ...]) cagrisini yapacak sekilde
+  tamamla; 4. context manager davranisini (log kayitlari) koru; 5. yalnizca
+  bu uc dosyayi degistir.
+
+reference_solution: |
+  cat > fx/rates/table.py <<'PY'
+  def raw_table():
+      return {
+          "USD": {"EUR": 0.90, "GBP": 0.80},
+          "EUR": {"USD": 1.10, "GBP": 0.88},
+          "GBP": {"USD": 1.25, "EUR": 1.13},
+      }
+
+
+  def lookup(base, quote):
+      if base == quote:
+          return 1.0
+      t = raw_table()
+      return t[base][quote]
+  PY
+  cat > fx/core/convert.py <<'PY'
+  from fx.rates.table import lookup
+
+
+  class Converter:
+      def __init__(self, base):
+          self.base = base
+          self.log = []
+
+      def __enter__(self):
+          self.log.append("open:" + self.base)
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          self.log.append("close:" + self.base)
+          return False
+
+      def rate(self, quote):
+          if quote == self.base:
+              return 1.0
+          try:
+              return lookup(self.base, quote)
+          except KeyError:
+              return 1.0 / lookup(quote, self.base)
+
+      def convert(self, amount, quote):
+          return amount * self.rate(quote)
+  PY
+  cat > fx/core/batch.py <<'PY'
+  from fx.core.convert import Converter
+
+
+  def read_amounts(path):
+      rows = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              quote, amt = line.split()
+              rows.append((quote, float(amt)))
+      return rows
+
+
+  def convert_all(base, amounts):
+      out = []
+      with Converter(base) as c:
+          for quote, amt in amounts:
+              out.append((quote, c.convert(amt, quote)))
+      return out
+  PY
+
+ara_adim: |
+  cat > fx/rates/table.py <<'PY'
+  def raw_table():
+      return {
+          "USD": {"EUR": 0.90, "GBP": 0.80},
+          "EUR": {"USD": 1.10, "GBP": 0.88},
+          "GBP": {"USD": 1.25, "EUR": 1.13},
+      }
+
+
+  def lookup(base, quote):
+      if base == quote:
+          return 1.0
+      t = raw_table()
+      return t[base][quote]
+  PY
+
+outputs:
+  - {path: fx/core/batch.py, kind: program, run: 'python3 -c ''from fx.core.batch import convert_all, read_amounts; rows=read_amounts("amounts.txt"); assert rows==[("EUR",100.0),("GBP",50.0)], rows; assert convert_all("USD", rows)==[("EUR",90.0),("GBP",40.0)], convert_all("USD", rows); assert convert_all("EUR", [("EUR",10.0),("GBP",10.0)])==[("EUR",10.0),("GBP",8.8)]; print("TAMAM")'''}
+  - {path: fx/core/convert.py, kind: program, run: 'python3 -c ''from fx.core.convert import Converter; c=Converter("GBP"); assert c.rate("GBP")==1.0, c.rate("GBP"); assert c.rate("USD")==1.25, c.rate("USD"); assert c.rate("EUR")==1.13, c.rate("EUR"); print("ILERLEME-TAMAM")'''}
+  - {path: fx/rates/table.py, kind: program, run: 'python3 -c ''from fx.rates.table import lookup; assert lookup("USD","USD")==1.0; assert lookup("EUR","EUR")==1.0; assert lookup("USD","EUR")==0.90; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fx.core.batch import convert_all, read_amounts; rows=read_amounts("amounts.txt"); assert rows==[("EUR",100.0),("GBP",50.0)], rows; assert convert_all("USD", rows)==[("EUR",90.0),("GBP",40.0)], convert_all("USD", rows); assert convert_all("EUR", [("EUR",10.0),("GBP",10.0)])==[("EUR",10.0),("GBP",8.8)]; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fx.core.convert import Converter; c=Converter("GBP"); assert c.rate("GBP")==1.0, c.rate("GBP"); assert c.rate("USD")==1.25, c.rate("USD"); assert c.rate("EUR")==1.13, c.rate("EUR"); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fx.rates.table import lookup; assert lookup("USD","USD")==1.0; assert lookup("EUR","EUR")==1.0; assert lookup("USD","EUR")==0.90; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-6004
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kur-cevrimleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 6
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kenar-durum
+      karmasiklik: orta
+      kalip: context-manager
+      akis: ic-ice-yapi
+      topoloji: paket-alt-paket
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

@@ -1,0 +1,114 @@
+id: gen-k-8415-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  docs/parse/records.py içindeki iter_blocks fonksiyonunu, boş satırlarda boş blok üretmeyecek şekilde düzelt. Böylece docs/summary.py içindeki summarize fonksiyonu her blok için başlığı ve o bloktaki "-" ile başlayan satır sayısını doğru döndürsün. Var olan docs/parse/__init__.py dosyası olduğu gibi kalsın; yalnızca docs/parse/records.py üzerinde çalış.
+
+setup: |
+  mkdir -p docs/parse
+  cat > docs/parse/__init__.py <<'A'
+  A
+  cat > docs/parse/records.py <<'REC'
+  def iter_blocks(lines):
+      block = []
+      for line in lines:
+          if line.strip() == "":
+              yield block
+              block = []
+          else:
+              block.append(line)
+      if block:
+          yield block
+  REC
+  cat > docs/summary.py <<'SUM'
+  from docs.parse.records import iter_blocks
+
+
+  def summarize(text):
+      out = []
+      for block in iter_blocks(text.splitlines()):
+          title = block[0].strip()
+          count = 0
+          for line in block[1:]:
+              if line.startswith("-"):
+                  count += 1
+          out.append((title, count))
+      return out
+  SUM
+  cat > data.txt <<'TXT'
+  intro
+  - a
+  - b
+
+  body
+  - c
+  - d
+  - e
+
+  tail
+  TXT
+
+goal_tr: >
+  docs/parse/records.py icindeki iter_blocks fonksiyonunu, bos satirlarda
+  BOS blok uretmeyecek bicimde duzelt; boylece docs/summary.py'deki
+  summarize her blok icin basligi ve o bloktaki "-" ile baslayan satir
+  sayisini dogru dondursun.
+
+reference_solution: |
+  cat > docs/parse/records.py <<'REC'
+  def iter_blocks(lines):
+      block = []
+      for line in lines:
+          if line.strip() == "":
+              if block:
+                  yield block
+                  block = []
+          else:
+              block.append(line)
+      if block:
+          yield block
+  REC
+
+outputs:
+  - {path: docs/parse/records.py, kind: program, run: 'python3 -c ''from docs.summary import summarize as f; t=open("data.txt").read(); assert f(t)==[("intro",2),("body",3),("tail",0)], f(t); assert f("only\n- x\n")==[("only",1)]; assert f("\n\nhead\n- y\n\n")==[("head",1)]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from docs.summary import summarize as f; t=open("data.txt").read(); assert f(t)==[("intro",2),("body",3),("tail",0)], f(t); assert f("only\n- x\n")==[("only",1)]; assert f("\n\nhead\n- y\n\n")==[("head",1)]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8415
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: metin-belgeleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: orta
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-durum-sifirlama
+      karmasiklik: duz
+      kalip: generator
+      akis: ic-ice-yapi
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

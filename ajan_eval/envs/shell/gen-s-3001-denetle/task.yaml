@@ -1,0 +1,63 @@
+id: gen-s-3001-denetle
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Atölyedeki sensör kayıtlarını gün sonunda gözden geçiriyoruz; sahada iki farklı kayıt dosyası dolaplarda kalmış, biri asıl ölçümleri tutuyor, diğeri ise eski bir kopya olduğu için karışıklık yaratıyor. Elimizdeki asıl kayıt olcumler.json içinde satır satır sensör okumaları var ve bu okumaların bir kısmında deger alanı 99 olarak işaretlenmiş. tuzak.json dosyası ise yanlışlıkla ortama bırakılmış, onu tamamen yok sayıyoruz.
+
+  Benim istediğim şu: olcumler.json içindeki satırlardan deger alanı 99 olanların sayısını bulup sonuc.txt dosyasına yaz. sonuc.txt içinde yalnızca sayı olsun, başka hiçbir şey bulunmasın.
+
+setup: |
+  cat > olcumler.json <<'JSON'
+  {"sensor":"A1","deger":21}
+  {"sensor":"A2","deger":99}
+  {"sensor":"A1","deger":35}
+  {"sensor":"B7","deger":99}
+  JSON
+  printf '%s' '{"sensor":"A1","deger":21}
+  {"sensor":"A2","deger":99}
+  {"sensor":"A1","deger":35}
+  {"sensor":"B7","deger":99}' > tuzak.json
+
+goal_tr: >
+  olcumler.json dosyasindaki satirlar arasinda deger alani 99 olan satir
+  sayisini sonuc.txt dosyasina yalnizca sayi olarak yaz; tuzak.json
+  dosyasini dikkate alma.
+
+reference_solution: |
+  grep '"deger":99' olcumler.json | wc -l > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '2'}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3001
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: sensor-olcumleri
+    hedef: denetle
+    girdi: json
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: son-newline-yok
+    bukulme: tuzak-dosya
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

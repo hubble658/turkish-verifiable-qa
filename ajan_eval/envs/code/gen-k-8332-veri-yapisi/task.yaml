@@ -1,0 +1,106 @@
+id: gen-k-8332-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  orders.py içindeki IntervalBook sınıfını, aynı müşterinin iç içe geçen ya da komşu sipariş aralıklarını tek aralıkta birleştirecek şekilde düzelt. merged metodu, müşteri için birleştirilmiş aralıkları sıralı demet listesi olarak döndürmeli; total metodu ise müşterinin toplam kapsanan miktarını doğru hesaplamalı. Sınıfın mevcut arayüzü korunmalı: add, merged ve total metotları aynı adlarla çalışmaya devam etmeli.
+
+setup: |
+  cat > orders.py <<'PY'
+  class IntervalBook:
+      """Merge overlapping order quantity intervals per customer."""
+
+      def __init__(self):
+          self._books = {}
+
+      def add(self, customer, start, end):
+          self._books.setdefault(customer, []).append([start, end])
+
+      def merged(self, customer):
+          spans = sorted(self._books.get(customer, []))
+          out = []
+          for s, e in spans:
+              if out and s <= out[-1][1] and e <= out[-1][1]:
+                  out[-1][1] = e
+              else:
+                  out.append([s, e])
+          return [tuple(x) for x in out]
+
+      def total(self, customer):
+          return sum(e - s for s, e in self.merged(customer))
+  PY
+
+goal_tr: >
+  orders.py icindeki IntervalBook sinifini, ayni musterinin ic ice gecen ya
+  da komsu siparis araliklarini tek araliga birlestirip merged ile sirali
+  demet listesi ve total ile toplam kapsanan miktari dogru dondurecek
+  bicimde duzelt.
+
+reference_solution: |
+  cat > orders.py <<'PY'
+  class IntervalBook:
+      """Merge overlapping order quantity intervals per customer."""
+
+      def __init__(self):
+          self._books = {}
+
+      def add(self, customer, start, end):
+          self._books.setdefault(customer, []).append([start, end])
+
+      def merged(self, customer):
+          spans = sorted(self._books.get(customer, []))
+          out = []
+          for s, e in spans:
+              if out and s <= out[-1][1]:
+                  if e > out[-1][1]:
+                      out[-1][1] = e
+              else:
+                  out.append([s, e])
+          return [tuple(x) for x in out]
+
+      def total(self, customer):
+          return sum(e - s for s, e in self.merged(customer))
+  PY
+
+outputs:
+  - {path: orders.py, kind: program, run: 'python3 -c ''from orders import IntervalBook; b=IntervalBook(); b.add("a",1,5); b.add("a",3,8); assert b.merged("a")==[(1,8)], b.merged("a"); b.add("a",10,12); b.add("a",11,15); assert b.merged("a")==[(1,8),(10,15)], b.merged("a"); assert b.total("a")==12, b.total("a"); b.add("b",0,2); b.add("b",2,4); assert b.merged("b")==[(0,4)], b.merged("b"); assert b.total("b")==4; assert b.merged("z")==[]; c=IntervalBook(); c.add("x",5,9); c.add("x",1,3); assert c.merged("x")==[(1,3),(5,9)]; assert c.total("x")==6; c.add("x",3,5); assert c.merged("x")==[(1,9)], c.merged("x"); c.add("x",20,21); c.add("x",25,26); c.add("x",21,25); assert c.merged("x")==[(1,9),(20,26)], c.merged("x"); assert c.total("x")==14; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from orders import IntervalBook; b=IntervalBook(); b.add("a",1,5); b.add("a",3,8); assert b.merged("a")==[(1,8)], b.merged("a"); b.add("a",10,12); b.add("a",11,15); assert b.merged("a")==[(1,8),(10,15)], b.merged("a"); assert b.total("a")==12, b.total("a"); b.add("b",0,2); b.add("b",2,4); assert b.merged("b")==[(0,4)], b.merged("b"); assert b.total("b")==4; assert b.merged("z")==[]; c=IntervalBook(); c.add("x",5,9); c.add("x",1,3); assert c.merged("x")==[(1,3),(5,9)]; assert c.total("x")==6; c.add("x",3,5); assert c.merged("x")==[(1,9)], c.merged("x"); c.add("x",20,21); c.add("x",25,26); c.add("x",21,25); assert c.merged("x")==[(1,9),(20,26)], c.merged("x"); assert c.total("x")==14; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8332
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: siparis-kayitlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: aralik-birlestirme
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: ic-ice-yapi
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

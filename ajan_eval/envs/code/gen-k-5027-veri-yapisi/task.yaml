@@ -1,0 +1,161 @@
+id: gen-k-5027-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  stock/moves/cache.py içindeki make_lru'yu, verilen kapasiteye sahip get/put metotlu bir LRU önbellek closure'ı döndürecek şekilde tamamla. stock/moves/ledger.py'deki Ledger sınıfı bu önbelleği kullanıp parçalı akıştan SKU başına net miktarı doğru biriktirsin.
+
+setup: |
+  mkdir -p stock
+  cat > stock/__init__.py <<'INIT'
+  INIT
+  mkdir -p stock/moves
+  cat > stock/moves/__init__.py <<'MOVES'
+  MOVES
+  cat > stock/moves/reader.py <<'READER'
+  def read_chunks(stream, size):
+      chunk = []
+      for line in stream:
+          chunk.append(line.strip())
+          if len(chunk) == size:
+              yield chunk
+              chunk = []
+      if chunk:
+          yield chunk
+  READER
+  cat > stock/moves/cache.py <<'CACHE'
+  def make_lru(capacity):
+      """Return an LRU cache closure with get/put methods."""
+      raise NotImplementedError
+  CACHE
+  cat > stock/moves/ledger.py <<'LEDGER'
+  class Ledger:
+      """Accumulate net quantity per SKU from a stream of movement lines."""
+
+      def __init__(self, capacity):
+          raise NotImplementedError
+
+      def feed(self, chunk):
+          """Feed a list of 'sku,delta' lines; return dict of this chunk's nets."""
+          raise NotImplementedError
+
+      def net(self, sku):
+          """Return the cached net for a sku, or None if absent."""
+          raise NotImplementedError
+  LEDGER
+  cat > stock/moves/data.txt <<'DATA'
+  A,3
+  B,-1
+  A,2
+  C,5
+  B,4
+  A,-1
+  C,-2
+  D,7
+  DATA
+
+goal_tr: >
+  stock/moves/cache.py icindeki make_lru fonksiyonunu kapasiteye sahip,
+  get/put metotlari olan bir LRU onbellek closure'i dondurecek sekilde ve
+  stock/moves/ledger.py icindeki Ledger sinifini bu onbellegi kullanip
+  parcali akistan SKU basina net miktari dogru biriktirecek sekilde
+  gerceklestir.
+
+reference_solution: |
+  cat > stock/moves/cache.py <<'CACHE'
+  def make_lru(capacity):
+      """Return an LRU cache closure with get/put methods."""
+      store = {}
+      order = []
+
+      def touch(key):
+          if key in order:
+              order.remove(key)
+          order.append(key)
+
+      def get(key):
+          if key not in store:
+              return None
+          touch(key)
+          return store[key]
+
+      def put(key, value):
+          if key in store:
+              store[key] = value
+              touch(key)
+              return
+          if len(store) >= capacity:
+              oldest = order.pop(0)
+              del store[oldest]
+          store[key] = value
+          order.append(key)
+
+      return {"get": get, "put": put}
+  CACHE
+  cat > stock/moves/ledger.py <<'LEDGER'
+  from stock.moves.cache import make_lru
+
+
+  class Ledger:
+      """Accumulate net quantity per SKU from a stream of movement lines."""
+
+      def __init__(self, capacity):
+          self.cache = make_lru(capacity)
+
+      def feed(self, chunk):
+          nets = {}
+          for line in chunk:
+              sku, delta = line.split(",")
+              nets[sku] = nets.get(sku, 0) + int(delta)
+          for sku, delta in nets.items():
+              prior = self.cache["get"](sku)
+              base = prior if prior is not None else 0
+              self.cache["put"](sku, base + delta)
+          return nets
+
+      def net(self, sku):
+          return self.cache["get"](sku)
+  LEDGER
+
+outputs:
+  - {path: stock/moves/cache.py, kind: program, run: 'python3 -c ''from stock.moves.ledger import Ledger; led=Ledger(2); led.feed(["A,3","B,-1"]); assert led.net("A")==3, led.net("A"); led.feed(["C,5"]); assert led.net("B") is None, led.net("B"); assert led.net("A")==3; assert led.net("C")==5; led2=Ledger(3); led2.feed(["A,1","B,1","C,1"]); assert led2.net("A")==1; led2.feed(["D,1"]); assert led2.net("B") is None, led2.net("B"); assert led2.net("A")==1; assert led2.net("C")==1; assert led2.net("D")==1; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from stock.moves.ledger import Ledger; led=Ledger(2); led.feed(["A,3","B,-1"]); assert led.net("A")==3, led.net("A"); led.feed(["C,5"]); assert led.net("B") is None, led.net("B"); assert led.net("A")==3; assert led.net("C")==5; led2=Ledger(3); led2.feed(["A,1","B,1","C,1"]); assert led2.net("A")==1; led2.feed(["D,1"]); assert led2.net("B") is None, led2.net("B"); assert led2.net("A")==1; assert led2.net("C")==1; assert led2.net("D")==1; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5027
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: stok-hareketleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: lru-onbellek
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: parcali-akis
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

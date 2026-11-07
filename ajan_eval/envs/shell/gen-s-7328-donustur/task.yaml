@@ -1,0 +1,77 @@
+id: gen-s-7328-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  arsiv.tar.gz arşivindeki tüm .json dosyalarındaki muhasebe kalemlerini kalem, tutar ve ay sütunlarıyla kalemler.csv dosyasına dönüştür.
+
+setup: |
+  mkdir -p arsiv
+  cat > arsiv/2024-01.json <<'J'
+  {"kalem":"kira","tutar":1500,"ay":"Ocak"}
+  {"kalem":"elektrik","tutar":320,"ay":"Ocak"}
+  {"kalem":"su","tutar":85,"ay":"Ocak"}
+  J
+  cat > arsiv/2024-02.json <<'J'
+  {"kalem":"kira","tutar":1500,"ay":"Subat"}
+  {"kalem":"elektrik","tutar":290,"ay":"Subat"}
+  J
+  cat > arsiv/2024-03.json <<'J'
+  {"kalem":"kira","tutar":1500,"ay":"Mart"}
+  {"kalem":"su","tutar":70,"ay":"Mart"}
+  {"kalem":"internet","tutar":200,"ay":"Mart"}
+  J
+  cat > arsiv/2024-04.json <<'J'
+  {"kalem":"kira","tutar":1500,"ay":"Nisan"}
+  {"kalem":"elektrik","tutar":310,"ay":"Nisan"}
+  J
+  cat > arsiv/2024-05.json <<'J'
+  {"kalem":"kira","tutar":1500,"ay":"Mayis"}
+  {"kalem":"su","tutar":95,"ay":"Mayis"}
+  {"kalem":"internet","tutar":200,"ay":"Mayis"}
+  J
+  tar czf arsiv.tar.gz arsiv
+  rm -rf arsiv
+
+goal_tr: >
+  arsiv.tar.gz icindeki tum .json dosyalarindaki muhasebe kalemlerini
+  kalem,tutar,ay sutunlariyla kalemler.csv dosyasina donustur.
+
+reference_solution: |
+  gzip -dc arsiv.tar.gz | tar xf -
+  find arsiv -name '*.json' | sort | xargs sed -E 's/.*"kalem":"([^"]*)","tutar":([0-9]+),"ay":"([^"]*)".*/\1,\2,\3/' | sed '1i kalem,tutar,ay' > kalemler.csv
+
+outputs:
+  - {path: kalemler.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: kalemler.csv, value: ['kalem,tutar,ay', 'kira,1500,Ocak', 'elektrik,320,Ocak', 'su,85,Ocak', 'kira,1500,Subat', 'elektrik,290,Subat', 'kira,1500,Mart', 'su,70,Mart', 'internet,200,Mart', 'kira,1500,Nisan', 'elektrik,310,Nisan', 'kira,1500,Mayis', 'su,95,Mayis', 'internet,200,Mayis']}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7328
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: muhasebe-kalemleri
+    hedef: donustur
+    girdi: json
+    kaynak: cok-dosya
+    cikti: csv
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: olcek
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

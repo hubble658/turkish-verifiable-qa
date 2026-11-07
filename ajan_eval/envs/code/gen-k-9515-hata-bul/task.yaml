@@ -1,0 +1,175 @@
+id: gen-k-9515-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 24
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Depo raf yerleşim planından üretilen bölge toplamları ve raf doluluk değerleri, stoktan mal çıkarma sonucuyla tutarlı olsun. Plan yüklendikten sonra hangi bölgede ne kadar mal olduğu ve bir raf hücresinden mal çıkınca kalan miktar doğru hesaplansın. Bunun için depo/raf/rapor.py, depo/raf/geo.py ve depo/raf/kayit.py dosyaları hazır olsun; plan.json içindeki plan bu dosyalarla birlikte çalışsın.
+
+setup: |
+  mkdir -p depo/raf
+  cat > depo/raf/geo.py <<'GEO'
+  def slot_key(slot):
+      return "%s#%s" % (slot["zone"], slot["aisle"])
+  GEO
+  cat > depo/raf/kayit.py <<'KAYIT'
+  from dataclasses import dataclass, field
+
+
+  @dataclass
+  class Rack:
+      slots: dict = field(default_factory=dict)
+
+      def put(self, slot, sku, qty):
+          key = "%s#%s" % (slot["zone"], slot["aisle"])
+          self.slots.setdefault(key, {})[sku] = qty
+          return key
+
+      def take(self, slot, sku, qty):
+          key = "%s#%s" % (slot["zone"], slot["aisle"])
+          cell = self.slots[key]
+          cell[sku] -= qty
+          return cell[sku]
+  KAYIT
+  cat > depo/raf/rapor.py <<'RAPOR'
+  from depo.raf.kayit import Rack
+  from depo.raf.geo import slot_key
+
+
+  def load_plan(rows):
+      rack = Rack()
+      for row in rows:
+          slot = row["slot"]
+          for sku, qty in row["items"].items():
+              rack.put(slot, sku, qty)
+      return rack
+
+
+  def zone_totals(rack):
+      totals = {}
+      for key, cell in rack.slots.items():
+          zone = key.split("-")[0]
+          totals[zone] = totals.get(zone, 0) + sum(cell.values())
+      return totals
+
+
+  def slot_usage(rack, slot):
+      key = slot_key(slot)
+      return sum(rack.slots[key].values())
+  RAPOR
+  cat > plan.json <<'JSON'
+  [
+    {"slot": {"zone": "A", "aisle": "1"}, "items": {"bolt": 10, "nut": 4}},
+    {"slot": {"zone": "A", "aisle": "2"}, "items": {"bolt": 3}},
+    {"slot": {"zone": "B", "aisle": "1"}, "items": {"gear": 7}}
+  ]
+  JSON
+
+goal_tr: >
+  Depo raf yerlesim planindan uretilen bolge toplamlari ve raf doluluk
+  degerleri ile stoktan mal cikarma sonucu tutarli olsun; plan yuklendikten
+  sonra hangi bolgede ne kadar mal oldugu ve bir raf hucresinden mal cikinca
+  kalan miktar dogru hesaplansin.
+
+reference_solution: |
+  cat > depo/raf/geo.py <<'GEO'
+  def slot_key(slot):
+      return "%s-%s" % (slot["zone"], slot["aisle"])
+  GEO
+  cat > depo/raf/kayit.py <<'KAYIT'
+  from dataclasses import dataclass, field
+
+
+  @dataclass
+  class Rack:
+      slots: dict = field(default_factory=dict)
+
+      def put(self, slot, sku, qty):
+          key = "%s-%s" % (slot["zone"], slot["aisle"])
+          self.slots.setdefault(key, {})[sku] = qty
+          return key
+
+      def take(self, slot, sku, qty):
+          key = "%s-%s" % (slot["zone"], slot["aisle"])
+          cell = self.slots[key]
+          cell[sku] -= qty
+          return cell[sku]
+  KAYIT
+  cat > depo/raf/rapor.py <<'RAPOR'
+  from depo.raf.kayit import Rack
+  from depo.raf.geo import slot_key
+
+
+  def load_plan(rows):
+      rack = Rack()
+      for row in rows:
+          slot = row["slot"]
+          for sku, qty in row["items"].items():
+              rack.put(slot, sku, qty)
+      return rack
+
+
+  def zone_totals(rack):
+      totals = {}
+      for key, cell in rack.slots.items():
+          zone = key.split("-")[0]
+          totals[zone] = totals.get(zone, 0) + sum(cell.values())
+      return totals
+
+
+  def slot_usage(rack, slot):
+      key = slot_key(slot)
+      return sum(rack.slots[key].values())
+  RAPOR
+
+ara_adim: |
+  cat > depo/raf/geo.py <<'GEO'
+  def slot_key(slot):
+      return "%s-%s" % (slot["zone"], slot["aisle"])
+  GEO
+
+outputs:
+  - {path: depo/raf/rapor.py, kind: program, run: 'python3 -c ''import json; from depo.raf.rapor import load_plan, zone_totals, slot_usage; rows=json.load(open("plan.json")); r=load_plan(rows); assert zone_totals(r)=={"A":17,"B":7}, zone_totals(r); assert slot_usage(r,{"zone":"A","aisle":"1"})==14, slot_usage(r,{"zone":"A","aisle":"1"}); print("TAMAM")'''}
+  - {path: depo/raf/geo.py, kind: program, run: 'python3 -c ''from depo.raf.geo import slot_key as f; assert f({"zone":"A","aisle":"1"})=="A-1", f({"zone":"A","aisle":"1"}); print("ILERLEME-TAMAM")'''}
+  - {path: depo/raf/kayit.py, kind: program, run: 'python3 -c ''from depo.raf.kayit import Rack as R; r=R(); r.put({"zone":"A","aisle":"1"},"bolt",10); assert r.take({"zone":"A","aisle":"1"},"bolt",4)==6; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.raf.geo import slot_key as f; assert f({"zone":"A","aisle":"1"})=="A-1", f({"zone":"A","aisle":"1"}); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.raf.kayit import Rack as R; r=R(); r.put({"zone":"A","aisle":"1"},"bolt",10); assert r.take({"zone":"A","aisle":"1"},"bolt",4)==6; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import json; from depo.raf.rapor import load_plan, zone_totals, slot_usage; rows=json.load(open("plan.json")); r=load_plan(rows); assert zone_totals(r)=={"A":17,"B":7}, zone_totals(r); assert slot_usage(r,{"zone":"A","aisle":"1"})==14, slot_usage(r,{"zone":"A","aisle":"1"}); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9515
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: depo-raf-yerlesimi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 9
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: sozluk-anahtar-hatasi
+      karmasiklik: derin
+      kalip: dataclass-dogrulama
+      akis: ic-ice-yapi
+      topoloji: yildiz
+      zincir: 3
+      regresyon: true
+      bagimli: true
+      kesif_zor: true

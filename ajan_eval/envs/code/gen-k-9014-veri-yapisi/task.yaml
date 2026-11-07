@@ -1,0 +1,138 @@
+id: gen-k-9014-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 20
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  fleet/route.py dosyasındaki load_manifest fonksiyonunu, her satırdaki yakıt alanını int'e çevirecek şekilde düzelt. Ardından fleet/planner.py içindeki next_vehicle fonksiyonunu, skip parametresini kullanarak doğru aracı döndürecek hale getir; skip değeri kadar aracı atlayıp sıradakini döndürmeli. fleet/dispatch.py dosyasındaki mevcut sıralama ve öncelik mantığı bozulmadan kalmalı, bu dosyaya dokunma. manifest.txt içeriği de aynen korunmalı.
+
+setup: |
+  mkdir -p fleet
+  cat > fleet/route.py <<'ROUTE'
+  def load_manifest(path):
+      legs = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              vid, km, fuel = line.split(",")
+              legs.append((vid, int(km), fuel))
+      return legs
+  ROUTE
+  cat > fleet/dispatch.py <<'DISPATCH'
+  from fleet.route import load_manifest
+
+
+  def priority_of(leg):
+      vid, km, fuel = leg
+      return fuel * 1000 + km
+
+
+  def rank_legs(legs):
+      ranked = sorted(legs, key=priority_of)
+      return ranked
+  DISPATCH
+  cat > fleet/planner.py <<'PLANNER'
+  from fleet.dispatch import rank_legs
+  from fleet.route import load_manifest
+
+
+  def next_vehicle(path, skip=0):
+      legs = rank_legs(load_manifest(path))
+      return legs[0][0]
+  PLANNER
+  cat > manifest.txt <<'MAN'
+  truck-a,120,30
+  truck-b,80,45
+  truck-c,200,10
+  MAN
+
+goal_tr: >
+  fleet/route.py icindeki load_manifest fonksiyonunu yakit alanini int'e
+  cevirecek sekilde duzelt ve fleet/planner.py'deki next_vehicle
+  fonksiyonunu skip parametresini kullanip dogru araci dondurecek hale
+  getir.
+
+reference_solution: |
+  cat > fleet/route.py <<'ROUTE'
+  def load_manifest(path):
+      legs = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              vid, km, fuel = line.split(",")
+              legs.append((vid, int(km), int(fuel)))
+      return legs
+  ROUTE
+  cat > fleet/planner.py <<'PLANNER'
+  from fleet.dispatch import rank_legs
+  from fleet.route import load_manifest
+
+
+  def next_vehicle(path, skip=0):
+      legs = rank_legs(load_manifest(path))
+      return legs[skip][0]
+  PLANNER
+
+ara_adim: |
+  cat > fleet/route.py <<'ROUTE'
+  def load_manifest(path):
+      legs = []
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              vid, km, fuel = line.split(",")
+              legs.append((vid, int(km), int(fuel)))
+      return legs
+  ROUTE
+
+outputs:
+  - {path: fleet/planner.py, kind: program, run: 'python3 -c ''from fleet.planner import next_vehicle as f; assert f("manifest.txt",0)=="truck-c", f("manifest.txt",0); assert f("manifest.txt",1)=="truck-a", f("manifest.txt",1); assert f("manifest.txt",2)=="truck-b", f("manifest.txt",2); print("TAMAM")'''}
+  - {path: fleet/route.py, kind: program, run: 'python3 -c ''from fleet.route import load_manifest as f; r=f("manifest.txt"); assert r==[("truck-a",120,30),("truck-b",80,45),("truck-c",200,10)], r; print("ILERLEME-TAMAM")'''}
+  - {path: fleet/dispatch.py, kind: program, run: 'python3 -c ''from fleet.dispatch import rank_legs as f; assert f([("x",5,1),("y",3,1),("z",9,0)])==[("z",9,0),("y",3,1),("x",5,1)]; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.planner import next_vehicle as f; assert f("manifest.txt",0)=="truck-c", f("manifest.txt",0); assert f("manifest.txt",1)=="truck-a", f("manifest.txt",1); assert f("manifest.txt",2)=="truck-b", f("manifest.txt",2); print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.route import load_manifest as f; r=f("manifest.txt"); assert r==[("truck-a",120,30),("truck-b",80,45),("truck-c",200,10)], r; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fleet.dispatch import rank_legs as f; assert f([("x",5,1),("y",3,1),("z",9,0)])==[("z",9,0),("y",3,1),("x",5,1)]; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9014
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: arac-filosu
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: zor
+    adim: 7
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: oncelik-kuyrugu
+      karmasiklik: orta
+      kalip: ozyineleme
+      akis: dosya-okuma
+      topoloji: yildiz
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

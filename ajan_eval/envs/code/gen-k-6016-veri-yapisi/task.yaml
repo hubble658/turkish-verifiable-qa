@@ -1,0 +1,216 @@
+id: gen-k-6016-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 18
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Bugün çağrı merkezindeki yoğunluktan başımız ağrıdı; ajanların hangi aramada olduğunu, kaç arama aldıklarını ve ne kadar süre konuştuğunu bir türlü düzenli tutamıyoruz. Elimizdeki ham kayıtlar bir yerde duruyor ama bunları anlamlı biçimde işleyen bir yapı yok, o yüzden her seferinde elle bakıyoruz ve hata yapıyoruz. Artık şu işi düzgün bir kod yapısına oturtmamız lazım.
+
+  callcenter/stack.py dosyasındaki CallStack sınıfını, çağrı kayıtlarını LIFO yığın mantığıyla tutacak şekilde gerçekleştir; yığına kayıt ekleme, çıkarma, en üstteki kaydı görme, yığının boş olup olmadığını sorma ve derinliğini öğrenme davranışları çalışsın. callcenter/agent.py dosyasındaki AgentSession sınıfı da bu yığını kullanarak bir ajanın aktif çağrısını, o ajanın toplam çağrı sayısını ve bitirdiği çağrıların süre toplamını doğru döndürsün; bir çağrı başlatma ve bitirme adımları bu sayıları tutarlı biçimde güncellesin. callcenter/log_store.py içindeki read_calls fonksiyonunu da kullanarak calls.txt dosyasındaki her satırdaki ajan ve süre bilgisini okuyup bu yapıya besleyebilelim. callcenter/log_store.py dosyasını yeniden yazma, sadece mevcut haliyle kullan.
+
+setup: |
+  mkdir -p callcenter
+  cat > callcenter/log_store.py <<'LOGSTORE'
+  def read_calls(path):
+      """Read a call log file. Each line: <agent>,<duration_seconds>."""
+      entries = []
+      with open(path, "r", encoding="ascii") as handle:
+          for line in handle:
+              line = line.strip()
+              if not line:
+                  continue
+              agent, duration = line.split(",")
+              entries.append((agent, int(duration)))
+      return entries
+  LOGSTORE
+  cat > callcenter/stack.py <<'STACK'
+  class CallStack:
+      """A LIFO stack of active call records for one agent."""
+
+      def __init__(self):
+          self._items = []
+
+      def push(self, record):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def peek(self):
+          raise NotImplementedError
+
+      def is_empty(self):
+          raise NotImplementedError
+
+      def depth(self):
+          raise NotImplementedError
+  STACK
+  cat > callcenter/agent.py <<'AGENT'
+  from callcenter.stack import CallStack
+
+
+  class AgentSession:
+      """Tracks a single agent's calls using a LIFO stack."""
+
+      def __init__(self, name):
+          self.name = name
+          self.stack = CallStack()
+
+      def start_call(self, call_id):
+          raise NotImplementedError
+
+      def end_call(self):
+          raise NotImplementedError
+
+      def current_call(self):
+          raise NotImplementedError
+
+      def call_count(self):
+          raise NotImplementedError
+  AGENT
+  cat > calls.txt <<'CALLS'
+  alice,120
+  bob,45
+  alice,300
+  carol,60
+  alice,90
+  CALLS
+
+goal_tr: >
+  callcenter/stack.py icindeki CallStack sinifini ve callcenter/agent.py
+  icindeki AgentSession sinifini, calls.txt dosyasindan okunan cagri
+  kayitlarini LIFO yigin mantigiyla isleyip her ajanin aktif cagrisini,
+  toplam cagri sayisini ve bitirilen cagrilarin sure toplamini dogru
+  dondurecek bicimde gerceklestir.
+
+reference_solution: |
+  cat > callcenter/stack.py <<'STACK'
+  class CallStack:
+      """A LIFO stack of active call records for one agent."""
+
+      def __init__(self):
+          self._items = []
+
+      def push(self, record):
+          self._items.append(record)
+
+      def pop(self):
+          if not self._items:
+              raise IndexError("pop from empty CallStack")
+          return self._items.pop()
+
+      def peek(self):
+          if not self._items:
+              raise IndexError("peek from empty CallStack")
+          return self._items[-1]
+
+      def is_empty(self):
+          return len(self._items) == 0
+
+      def depth(self):
+          return len(self._items)
+  STACK
+  cat > callcenter/agent.py <<'AGENT'
+  from callcenter.stack import CallStack
+
+
+  class AgentSession:
+      """Tracks a single agent's calls using a LIFO stack."""
+
+      def __init__(self, name):
+          self.name = name
+          self.stack = CallStack()
+          self._total = 0
+          self._finished = 0
+
+      def start_call(self, call_id):
+          self.stack.push(call_id)
+          self._total += 1
+
+      def end_call(self):
+          if self.stack.is_empty():
+              raise IndexError("no active call to end")
+          return self.stack.pop()
+
+      def current_call(self):
+          if self.stack.is_empty():
+              return None
+          return self.stack.peek()
+
+      def call_count(self):
+          return self._total
+  AGENT
+
+ara_adim: |
+  cat > callcenter/stack.py <<'STACK'
+  class CallStack:
+      """A LIFO stack of active call records for one agent."""
+
+      def __init__(self):
+          self._items = []
+
+      def push(self, record):
+          self._items.append(record)
+
+      def pop(self):
+          if not self._items:
+              raise IndexError("pop from empty CallStack")
+          return self._items.pop()
+
+      def peek(self):
+          if not self._items:
+              raise IndexError("peek from empty CallStack")
+          return self._items[-1]
+
+      def is_empty(self):
+          return len(self._items) == 0
+
+      def depth(self):
+          return len(self._items)
+  STACK
+
+outputs:
+  - {path: callcenter/agent.py, kind: program, run: 'python3 -c ''from callcenter.agent import AgentSession as A; s=A("alice"); s.start_call("c1"); s.start_call("c2"); assert s.current_call()=="c2", s.current_call(); assert s.end_call()=="c2"; assert s.current_call()=="c1"; assert s.call_count()==2; print("TAMAM")'''}
+  - {path: callcenter/stack.py, kind: program, run: python3 -c 'from callcenter.stack import CallStack as C; s=C(); assert s.is_empty() is True; s.push("a"); s.push("b"); assert s.depth()==2; assert s.peek()=="b"; assert s.pop()=="b"; assert s.pop()=="a"; assert s.is_empty() is True; print("ILERLEME-TAMAM")'}
+  - {path: callcenter/log_store.py, kind: program, run: 'python3 -c ''from callcenter.log_store import read_calls as f; r=f("calls.txt"); assert r==[("alice",120),("bob",45),("alice",300),("carol",60),("alice",90)], r; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from callcenter.agent import AgentSession as A; s=A("alice"); s.start_call("c1"); s.start_call("c2"); assert s.current_call()=="c2", s.current_call(); assert s.end_call()=="c2"; assert s.current_call()=="c1"; assert s.call_count()==2; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: python3 -c 'from callcenter.stack import CallStack as C; s=C(); assert s.is_empty() is True; s.push("a"); s.push("b"); assert s.depth()==2; assert s.peek()=="b"; assert s.pop()=="b"; assert s.pop()=="a"; assert s.is_empty() is True; print("ILERLEME-TAMAM")', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from callcenter.log_store import read_calls as f; r=f("calls.txt"); assert r==[("alice",120),("bob",45),("alice",300),("carol",60),("alice",90)], r; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-6016
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: cagri-merkezi-kayitlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: orta
+    adim: 6
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin
+      karmasiklik: orta
+      kalip: durumlu-sinif
+      akis: dosya-okuma
+      topoloji: yildiz
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

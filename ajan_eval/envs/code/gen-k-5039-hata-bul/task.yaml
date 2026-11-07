@@ -1,0 +1,122 @@
+id: gen-k-5039-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) flights/booking.py dosyasını aç ve Booking sınıfının book metodunu, her rezervasyonda rezervasyon tutarını self.total değerine ekleyecek şekilde düzelt.
+
+  2) book metodu, mevcut davranışını korumalı: koltuk doluysa None dönmeli, koltuk boşsa rezervasyonu yapıp hesaplanan fiyatı döndürmeli.
+
+  3) Yapılan değişiklikten sonra self.total, o ana kadar yapılan tüm rezervasyonların fiyatlarının toplamını tutmalı.
+
+setup: |
+  mkdir -p flights
+  cat > flights/seats.py <<'SEATS'
+  class SeatMap:
+      def __init__(self, rows, cols):
+          self.rows = rows
+          self.cols = cols
+          self.taken = set()
+
+      def key(self, r, c):
+          return r * self.cols + c
+
+      def reserve(self, r, c):
+          self.taken.add(self.key(r, c))
+
+      def is_free(self, r, c):
+          return self.key(r, c) not in self.taken
+  SEATS
+  cat > flights/pricing.py <<'PRICING'
+  def price_for(row, base):
+      if row < 3:
+          return base * 2
+      return base
+  PRICING
+  cat > flights/booking.py <<'BOOKING'
+  from flights.seats import SeatMap
+  from flights.pricing import price_for
+
+
+  class Booking:
+      def __init__(self, rows, cols, base):
+          self.map = SeatMap(rows, cols)
+          self.base = base
+          self.total = 0
+
+      def book(self, r, c):
+          if not self.map.is_free(r, c):
+              return None
+          self.map.reserve(r, c)
+          price = price_for(r, self.base)
+          self.total = price
+          return price
+  BOOKING
+
+goal_tr: >
+  flights/booking.py icindeki Booking.book metodunu, her rezervasyonda
+  toplam tutari onceki tutarlarin uzerine ekleyecek bicimde duzelt.
+
+reference_solution: |
+  cat > flights/booking.py <<'BOOKING'
+  from flights.seats import SeatMap
+  from flights.pricing import price_for
+
+
+  class Booking:
+      def __init__(self, rows, cols, base):
+          self.map = SeatMap(rows, cols)
+          self.base = base
+          self.total = 0
+
+      def book(self, r, c):
+          if not self.map.is_free(r, c):
+              return None
+          self.map.reserve(r, c)
+          price = price_for(r, self.base)
+          self.total += price
+          return price
+  BOOKING
+
+outputs:
+  - {path: flights/booking.py, kind: program, run: 'python3 -c ''from flights.booking import Booking as B; b=B(10,4,100); assert b.book(0,0)==200; assert b.book(5,1)==100; assert b.book(0,0) is None; assert b.total==300, b.total; assert b.book(1,2)==200; assert b.total==500, b.total; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from flights.booking import Booking as B; b=B(10,4,100); assert b.book(0,0)==200; assert b.book(5,1)==100; assert b.book(0,0) is None; assert b.total==300, b.total; assert b.book(1,2)==200; assert b.total==500, b.total; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5039
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: ucus-rezervasyonlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kapsam-hatasi
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: bellek-ici
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

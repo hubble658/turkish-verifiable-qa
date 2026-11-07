@@ -1,0 +1,64 @@
+id: gen-s-7069-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Kafeteryanın aylık mutfak giderlerini kapatmaya çalışıyorum, ama şube şube tutulan sipariş notları birbirinden kopuk kaldı; ocak ve şubat klasörlerine dağılmış menü dosyalarını tek tek açıp toplamak artık vaktimi alıyor. Bu yüzden elini çabuk tutup bütün o dağınık kayıtları tek bir yerde birleştirmeni istiyorum.
+
+  siparisler dizin ağacının altında, alt klasörler dahil, ne kadar tsv dosyası varsa hepsindeki ürün satırlarını birleştir; her ürün için toplam adet ve toplam fiyat tutarını hesapla ve sonucu çalışma dizinindeki sonuc.json dosyasına geçerli bir JSON olarak yaz.
+
+setup: |
+  mkdir -p siparisler/ocak siparisler/subat
+  printf 'urun\tadet\tfiyat\ncorba\t2\t45\npilav\t1\t60\nkebap\t3\t120' > siparisler/ocak/menu.tsv
+  printf 'urun\tadet\tfiyat\nsalata\t1\t40\nkebap\t2\t120\nayran\t4\t15' > siparisler/subat/menu.tsv
+  printf 'urun\tadet\tfiyat\npilav\t5\t60\ncorba\t1\t45' > siparisler/subat/ek.tsv
+
+goal_tr: >
+  siparisler dizin agacindaki tum tsv dosyalarindaki urun satirlarini
+  birlestirip urun basina toplam adet ve toplam fiyat tutarini hesaplayarak
+  sonuc.json dosyasina gecerli JSON olarak yaz
+
+reference_solution: |
+  find siparisler -name '*.tsv' -print0 | xargs -0 grep -h '^[^\t]' | grep -v '^urun' > /tmp/satirlar.txt
+  wc -l /tmp/satirlar.txt > /tmp/satir_sayisi.txt
+  awk -F'\t' '{adet[$1]+=$2; tutar[$1]+=$2*$3} END {for (u in adet) printf "%s\t%d\t%d\n", u, adet[u], tutar[u]}' /tmp/satirlar.txt | sort > /tmp/ozet.txt
+  printf '{\n' > sonuc.json
+  while IFS=$'\t' read -r urun adet tutar; do
+    printf '  "%s": {"adet": %s, "tutar": %s},\n' "$urun" "$adet" "$tutar"
+  done < /tmp/ozet.txt | sed '$ s/,$//' >> sonuc.json
+  printf '}\n' >> sonuc.json
+
+outputs:
+  - {path: sonuc.json, kind: json}
+
+checks:
+  - {op: json_eq, path: sonuc.json, value: {ayran: {adet: 4, tutar: 60}, corba: {adet: 3, tutar: 135}, kebap: {adet: 5, tutar: 600}, pilav: {adet: 6, tutar: 360}, salata: {adet: 1, tutar: 40}}}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7069
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: restoran-siparisleri
+    hedef: ayikla
+    girdi: tsv
+    kaynak: dizin-agaci
+    cikti: json
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: son-newline-yok
+    bukulme: olcek
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,124 @@
+id: gen-k-8140-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  docs/store/search.py içindeki search fonksiyonunu düzelt. Fonksiyon, modül seviyesindeki birikimli listeyi kullanmayı bırakmalı ve her çağrıda yalnızca o çağrıya ait eşleşen başlıkları döndürmeli.
+
+  Şu şartlar sağlanmalı:
+  - docs/store/search.py dosyası hâlâ search fonksiyonunu içermeli.
+  - search fonksiyonu, docs/store/index.py içindeki build_index fonksiyonunu kullanmaya devam etmeli.
+  - Modül seviyesindeki birikimli _hits listesi kaldırılmalı; sonuçlar çağrılar arasında birikmemeli.
+  - search fonksiyonu her çağrıldığında yalnızca o çağrıda eşleşen başlıkları içeren bir liste döndürmeli.
+  - corpus.txt gibi bir dosya için aynı terimle yapılan ardışık çağrılar aynı sonucu vermeli; önceki çağrıların sonuçları sonraki çağrılara eklenmemeli.
+  - docs/store/loader.py, docs/store/index.py, docs/__init__.py ve docs/store/__init__.py dosyaları olduğu gibi kalmalı.
+
+setup: |
+  mkdir -p docs/store
+  cat > docs/store/loader.py <<'LOADER'
+  def read_items(path):
+      rows = []
+      with open(path, encoding="utf-8") as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              title, body = line.split("|", 1)
+              rows.append((title, body))
+      return rows
+  LOADER
+  cat > docs/store/index.py <<'INDEX'
+  from docs.store.loader import read_items
+
+
+  def build_index(path):
+      index = {}
+      for title, body in read_items(path):
+          index[title] = body
+      return index
+  INDEX
+  cat > docs/store/search.py <<'SEARCH'
+  from docs.store.index import build_index
+
+  _hits = []
+
+
+  def search(path, term):
+      index = build_index(path)
+      for title, body in index.items():
+          if term in body:
+              _hits.append(title)
+      return _hits
+  SEARCH
+  cat > docs/__init__.py <<'INIT'
+  INIT
+  cat > docs/store/__init__.py <<'INIT'
+  INIT
+  cat > corpus.txt <<'CORPUS'
+  alpha|the quick brown fox
+  beta|a slow green turtle
+  gamma|the quick red fox
+  delta|nothing here
+  CORPUS
+
+goal_tr: >
+  docs/store/search.py icindeki search fonksiyonunu, modul seviyesindeki
+  birikimli listeyi kaldirip her cagride yalnizca o cagriya ait eslesen
+  basliklari dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > docs/store/search.py <<'SEARCH'
+  from docs.store.index import build_index
+
+
+  def search(path, term):
+      index = build_index(path)
+      hits = []
+      for title, body in index.items():
+          if term in body:
+              hits.append(title)
+      return hits
+  SEARCH
+
+outputs:
+  - {path: docs/store/search.py, kind: program, run: 'python3 -c ''from docs.store.search import search as f; p="corpus.txt"; a=f(p,"quick"); assert a==["alpha","gamma"], a; b=f(p,"turtle"); assert b==["beta"], b; c=f(p,"quick"); assert c==["alpha","gamma"], c; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from docs.store.search import search as f; p="corpus.txt"; a=f(p,"quick"); assert a==["alpha","gamma"], a; b=f(p,"turtle"); assert b==["beta"], b; c=f(p,"quick"); assert c==["alpha","gamma"], c; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8140
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: metin-belgeleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-durum-sifirlama
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: dosya-okuma
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

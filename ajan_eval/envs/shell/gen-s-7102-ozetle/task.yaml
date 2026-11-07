@@ -1,0 +1,86 @@
+id: gen-s-7102-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi klasöründeki her CSV dosyası için o dosyadaki ürünlerin toplam adet ve toplam fiyat değerlerini hesapla; her bir depo için sonucu cikti/<dosya-adi>.ozet dosyasına "toplam_adet toplam_fiyat" biçiminde tek satır olarak yaz, yani cikti/depo_a.ozet, cikti/depo_b.ozet ve cikti/depo_c.ozet dosyalarını oluştur. Ayrıca tüm dosyaların toplam_adet değerlerinin genel toplamını cikti/toplam.txt dosyasına sadece sayı olacak şekilde yaz.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/depo_a.csv <<'CSV'
+  urun,adet,fiyat
+  kalem,10,5
+  defter,3,20
+  silgi,7,2
+  CSV
+  cat > girdi/depo_b.csv <<'CSV'
+  urun,adet,fiyat
+  kalem,2,5
+  defter,5,20
+  cetvel,4,10
+  CSV
+  cat > girdi/depo_c.csv <<'CSV'
+  urun,adet,fiyat
+  silgi,1,2
+  cetvel,6,10
+  kalem,3,5
+  CSV
+
+goal_tr: >
+  girdi altindaki her CSV dosyasi icin, o dosyadaki urunlerin toplam adet ve
+  toplam fiyat degerlerini hesaplayip cikti/<dosya-adi>.ozet dosyasina
+  "toplam_adet toplam_fiyat" biciminde tek satir olarak yaz; ayrica tum
+  dosyalarin toplam_adet degerlerinin genel toplamini cikti/toplam.txt
+  dosyasina sadece sayi olarak yaz.
+
+reference_solution: |
+  mkdir -p cikti
+  for f in girdi/*.csv; do
+    b=$(basename "$f" .csv)
+    tail -n +2 "$f" | awk -F, '{a+=$2; t+=$2*$3} END {print a, t}' > "cikti/$b.ozet"
+  done
+  head -n 1 cikti/toplam.txt >/dev/null 2>&1 || true
+  awk '{s+=$1} END {print s}' cikti/*.ozet > cikti/toplam.txt
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/depo_a.ozet, kind: file}
+  - {path: cikti/depo_b.ozet, kind: file}
+  - {path: cikti/depo_c.ozet, kind: file}
+  - {path: cikti/toplam.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [depo_a.ozet, depo_b.ozet, depo_c.ozet, toplam.txt]}
+  - {op: file_content_eq, path: cikti/depo_a.ozet, value: 20 124}
+  - {op: file_content_eq, path: cikti/depo_b.ozet, value: 11 150}
+  - {op: file_content_eq, path: cikti/depo_c.ozet, value: 10 77}
+  - {op: file_content_eq, path: cikti/toplam.txt, value: '41'}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7102
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: envanter
+    hedef: ozetle
+    girdi: csv
+    kaynak: cok-dosya
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,153 @@
+id: gen-k-5116-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sensors/tree.py içindeki SensorTree sınıfını, insert ile eklenen (deger, ad) çiftlerini ikili arama ağacında tutacak ve range_query(lo, hi) çağrıldığında değeri [lo, hi] aralığında olan adları artan değer sırasında döndürecek şekilde gerçekleştir.
+
+setup: |
+  mkdir -p sensors
+  cat > sensors/readings.py <<'READINGS'
+  def load_series(path):
+      series = {}
+      with open(path) as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              name, value = line.split(',')
+              series.setdefault(name, []).append(float(value))
+      return series
+  READINGS
+  cat > sensors/tree.py <<'TREE'
+  class SensorTree:
+      def __init__(self):
+          raise NotImplementedError
+
+      def insert(self, key, value):
+          raise NotImplementedError
+
+      def range_query(self, lo, hi):
+          raise NotImplementedError
+  TREE
+  cat > sensors/merge.py <<'MERGE'
+  from sensors.readings import load_series
+  from sensors.tree import SensorTree
+
+
+  def merge_series(paths):
+      tree = SensorTree()
+      for path in paths:
+          for name, values in load_series(path).items():
+              for v in values:
+                  tree.insert(v, name)
+      return tree
+  MERGE
+  cat > a.txt <<'A'
+  temp,10.0
+  temp,30.0
+  hum,20.0
+  A
+  cat > b.txt <<'B'
+  temp,25.0
+  hum,5.0
+  hum,35.0
+  B
+
+goal_tr: >
+  sensors/tree.py icindeki SensorTree sinifini, insert ile eklenen (deger,
+  ad) ciftlerini ikili arama agacinda tutacak ve range_query(lo, hi)
+  cagrildiginda degeri [lo, hi] araliginda olan adlari artan deger sirasinda
+  dondurecek bicimde gerceklestir.
+
+reference_solution: |
+  cat > sensors/tree.py <<'TREE'
+  class _Node:
+      __slots__ = ("key", "value", "left", "right")
+
+      def __init__(self, key, value):
+          self.key = key
+          self.value = value
+          self.left = None
+          self.right = None
+
+
+  class SensorTree:
+      def __init__(self):
+          self._root = None
+
+      def insert(self, key, value):
+          if self._root is None:
+              self._root = _Node(key, value)
+              return
+          node = self._root
+          while True:
+              if key < node.key:
+                  if node.left is None:
+                      node.left = _Node(key, value)
+                      return
+                  node = node.left
+              else:
+                  if node.right is None:
+                      node.right = _Node(key, value)
+                      return
+                  node = node.right
+
+      def range_query(self, lo, hi):
+          out = []
+          self._walk(self._root, lo, hi, out)
+          return out
+
+      def _walk(self, node, lo, hi, out):
+          if node is None:
+              return
+          if node.key > lo:
+              self._walk(node.left, lo, hi, out)
+          if lo <= node.key <= hi:
+              out.append(node.value)
+          if node.key < hi:
+              self._walk(node.right, lo, hi, out)
+  TREE
+
+outputs:
+  - {path: sensors/tree.py, kind: program, run: 'python3 -c ''from sensors.merge import merge_series as m; from sensors.tree import SensorTree; t=m(["a.txt","b.txt"]); r=t.range_query(10.0,25.0); assert r==["temp","hum","temp"], r; assert t.range_query(0.0,100.0)==["hum","temp","hum","temp","temp","hum"]; assert t.range_query(50.0,60.0)==[]; assert t.range_query(20.0,20.0)==["hum"]; u=SensorTree(); u.insert(5.0,"a"); u.insert(1.0,"b"); u.insert(9.0,"c"); u.insert(3.0,"d"); u.insert(7.0,"e"); assert u.range_query(1.0,9.0)==["b","d","a","e","c"], u.range_query(1.0,9.0); assert u.range_query(2.0,8.0)==["d","a","e"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sensors.merge import merge_series as m; from sensors.tree import SensorTree; t=m(["a.txt","b.txt"]); r=t.range_query(10.0,25.0); assert r==["temp","hum","temp"], r; assert t.range_query(0.0,100.0)==["hum","temp","hum","temp","temp","hum"]; assert t.range_query(50.0,60.0)==[]; assert t.range_query(20.0,20.0)==["hum"]; u=SensorTree(); u.insert(5.0,"a"); u.insert(1.0,"b"); u.insert(9.0,"c"); u.insert(3.0,"d"); u.insert(7.0,"e"); assert u.range_query(1.0,9.0)==["b","d","a","e","c"], u.range_query(1.0,9.0); assert u.range_query(2.0,8.0)==["d","a","e"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5116
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: sensor-serisi
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: terse
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: ikili-arama-agaci
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: cok-dosya-birlestirme
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

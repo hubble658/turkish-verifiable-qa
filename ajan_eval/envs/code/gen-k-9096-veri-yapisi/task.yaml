@@ -1,0 +1,195 @@
+id: gen-k-9096-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  clinic/queue_core.py, clinic/triage.py ve clinic/report.py dosyalarını çalışan bir randevu akışı oluşturacak şekilde tamamla. Öncelik kuyruğu düşük sayının yüksek öncelik anlamına geldiği bir yapı üzerinden hastaları doğru sırada çağırmalı; clinic/triage.py içindeki logged dekoratörü register ve next_patient metotlarına uygulanmalı.
+
+setup: |
+  mkdir -p clinic
+  cat > clinic/queue_core.py <<'CORE'
+  class PriorityQueue:
+      def __init__(self):
+          self._items = []
+
+      def push(self, priority, value):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def __len__(self):
+          raise NotImplementedError
+  CORE
+  cat > clinic/triage.py <<'TRIAGE'
+  from clinic.queue_core import PriorityQueue
+
+
+  class TriageQueue:
+      def __init__(self):
+          self._pq = PriorityQueue()
+
+      def register(self, patient, severity):
+          raise NotImplementedError
+
+      def next_patient(self):
+          raise NotImplementedError
+
+      def waiting(self):
+          raise NotImplementedError
+
+
+  def logged(method):
+      def wrapper(self, *args, **kwargs):
+          result = method(self, *args, **kwargs)
+          self._log.append((method.__name__, args))
+          return result
+      return wrapper
+  TRIAGE
+  cat > clinic/report.py <<'REPORT'
+  from clinic.triage import TriageQueue
+
+
+  def run_day(entries):
+      tq = TriageQueue()
+      for patient, severity in entries:
+          tq.register(patient, severity)
+      out = []
+      while tq.waiting() > 0:
+          out.append(tq.next_patient())
+      return out
+  REPORT
+
+goal_tr: >
+  clinic/queue_core.py, clinic/triage.py ve clinic/report.py dosyalarini,
+  oncelik kuyrugu (dusuk sayi = yuksek oncelik) uzerinden hastalari dogru
+  sirada cagiran ve triage.py'deki logged dekoratorunu register/next_patient
+  metotlarina uygulayan calisan bir randevu akisi olacak sekilde tamamla.
+
+reference_solution: |
+  cat > clinic/queue_core.py <<'CORE'
+  class PriorityQueue:
+      def __init__(self):
+          self._items = []
+
+      def push(self, priority, value):
+          self._items.append((priority, value))
+
+      def pop(self):
+          if not self._items:
+              raise IndexError("pop from empty queue")
+          best = min(self._items, key=lambda item: item[0])
+          self._items.remove(best)
+          return best[1]
+
+      def __len__(self):
+          return len(self._items)
+  CORE
+  cat > clinic/triage.py <<'TRIAGE'
+  from clinic.queue_core import PriorityQueue
+
+
+  def logged(method):
+      def wrapper(self, *args, **kwargs):
+          result = method(self, *args, **kwargs)
+          self._log.append((method.__name__, args))
+          return result
+      return wrapper
+
+
+  class TriageQueue:
+      def __init__(self):
+          self._pq = PriorityQueue()
+          self._log = []
+
+      @logged
+      def register(self, patient, severity):
+          self._pq.push(severity, patient)
+
+      @logged
+      def next_patient(self):
+          return self._pq.pop()
+
+      def waiting(self):
+          return len(self._pq)
+  TRIAGE
+  cat > clinic/report.py <<'REPORT'
+  from clinic.triage import TriageQueue
+
+
+  def run_day(entries):
+      tq = TriageQueue()
+      for patient, severity in entries:
+          tq.register(patient, severity)
+      out = []
+      while tq.waiting() > 0:
+          out.append(tq.next_patient())
+      return out
+  REPORT
+
+ara_adim: |
+  cat > clinic/queue_core.py <<'CORE'
+  class PriorityQueue:
+      def __init__(self):
+          self._items = []
+
+      def push(self, priority, value):
+          self._items.append((priority, value))
+
+      def pop(self):
+          if not self._items:
+              raise IndexError("pop from empty queue")
+          best = min(self._items, key=lambda item: item[0])
+          self._items.remove(best)
+          return best[1]
+
+      def __len__(self):
+          return len(self._items)
+  CORE
+
+outputs:
+  - {path: clinic/report.py, kind: program, run: 'python3 -c ''from clinic.report import run_day as f; assert f([("a",3),("b",1),("c",2)])==["b","c","a"], f([("a",3),("b",1),("c",2)]); assert f([("x",5),("y",5)])==["x","y"]; print("TAMAM")'''}
+  - {path: clinic/queue_core.py, kind: program, run: 'python3 -c ''from clinic.queue_core import PriorityQueue as Q; q=Q(); q.push(3,"a"); q.push(1,"b"); assert q.pop()=="b"; assert len(q)==1; print("ILERLEME-TAMAM")'''}
+  - {path: clinic/triage.py, kind: program, run: 'python3 -c ''from clinic.triage import TriageQueue as T; t=T(); t.register("p",2); t.register("q",1); assert t.next_patient()=="q"; assert t.waiting()==1; assert t._log==[("register",("p",2)),("register",("q",1)),("next_patient",())], t._log; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from clinic.queue_core import PriorityQueue as Q; q=Q(); q.push(3,"a"); q.push(1,"b"); assert q.pop()=="b"; assert len(q)==1; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from clinic.triage import TriageQueue as T; t=T(); t.register("p",2); t.register("q",1); assert t.next_patient()=="q"; assert t.waiting()==1; assert t._log==[("register",("p",2)),("register",("q",1)),("next_patient",())], t._log; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from clinic.report import run_day as f; assert f([("a",3),("b",1),("c",2)])==["b","c","a"], f([("a",3),("b",1),("c",2)]); assert f([("x",5),("y",5)])==["x","y"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9096
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: hastane-randevulari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: oncelik-kuyrugu
+      karmasiklik: orta
+      kalip: dekorator
+      akis: bellek-ici
+      topoloji: elmas
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

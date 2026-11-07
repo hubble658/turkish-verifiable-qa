@@ -1,0 +1,86 @@
+id: gen-s-3171-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  envanter.csv dosyasındaki her kategori için cikti/ dizini altında kategori adıyla bir alt dizin oluştur. Yazım kategorisi için cikti/yazim/kategori.csv, mobilya kategorisi için cikti/mobilya/kategori.csv ve aydınlatma kategorisi için cikti/aydinlatma/kategori.csv dosyalarını üret. Her kategori.csv dosyasında urun,adet,fiyat başlıkları olsun ve yalnızca ilgili kategoride adet değeri sıfırdan büyük olan satırlar yer alsın; adet değeri sıfır olan satırları dışarıda bırak. Satırlar ürün adına göre alfabetik sıralı olsun. Bir kategoride hiç satır kalmıyorsa o kategori için boş kategori.csv dosyası oluşturma.
+
+setup: |
+  cat > envanter.csv <<'CSV'
+  urun,kategori,adet,fiyat
+  kalem,yazim,10,5
+  defter,yazim,4,12
+  silgi,yazim,0,3
+  masa,mobilya,2,150
+  sandalye,mobilya,6,80
+  lamba,aydinlatma,3,40
+  ampul,aydinlatma,0,15
+  CSV
+  mkdir -p cikti
+
+goal_tr: >
+  envanter.csv dosyasindaki her kategori icin cikti/ dizininde kategori
+  adiyla bir alt dizin olustur; her alt dizine o kategorinin adet degeri
+  sifirdan buyuk olan satirlarini urun,adet,fiyat basligiyla ve urun adina
+  gore alfabetik sirali olarak kategori.csv dosyasina yaz, adet degeri sifir
+  olan satirlari disarida birak ve hicbir satiri kalmayan kategori icin bos
+  kategori.csv dosyasi olusturma
+
+reference_solution: |
+  python3 - <<'PY'
+  import csv, os
+  rows = list(csv.DictReader(open('envanter.csv')))
+  kats = []
+  for r in rows:
+      if r['kategori'] not in kats:
+          kats.append(r['kategori'])
+  for k in kats:
+      sec = [r for r in rows if r['kategori'] == k and int(r['adet']) > 0]
+      sec.sort(key=lambda r: r['urun'])
+      d = os.path.join('cikti', k)
+      os.makedirs(d, exist_ok=True)
+      if sec:
+          with open(os.path.join(d, 'kategori.csv'), 'w', newline='') as f:
+              w = csv.writer(f)
+              w.writerow(['urun', 'adet', 'fiyat'])
+              for r in sec:
+                  w.writerow([r['urun'], r['adet'], r['fiyat']])
+  PY
+
+outputs:
+  - {path: cikti/yazim/kategori.csv, kind: file}
+  - {path: cikti/mobilya/kategori.csv, kind: file}
+  - {path: cikti/aydinlatma/kategori.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: cikti/aydinlatma/kategori.csv, value: ['urun,adet,fiyat', 'lamba,3,40']}
+  - {op: file_lines_eq, path: cikti/mobilya/kategori.csv, value: ['urun,adet,fiyat', 'masa,2,150', 'sandalye,6,80']}
+  - {op: file_lines_eq, path: cikti/yazim/kategori.csv, value: ['urun,adet,fiyat', 'defter,4,12', 'kalem,10,5']}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3171
+    bundle: python-veri
+    tools:
+    - python3
+    konu: envanter
+    hedef: dogrula
+    girdi: csv
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

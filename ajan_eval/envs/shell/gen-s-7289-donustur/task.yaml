@@ -1,0 +1,62 @@
+id: gen-s-7289-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  randevular.txt'deki her satırda ilk 4 haneden sonraki 11 karakterlik ad-soyad alanını boşluklardan arındırıp bitişik yap; tüm kayıtların toplam karakter sayısını sonuc.txt'ye sadece sayı olarak yaz.
+
+setup: |
+  cat > randevular.txt <<'TXT'
+  0001ALI YILMAZ     20240513
+  0002AYSE DEMIR     20240513
+  0003MEHMET KAYA    20240514
+  0004FATMA OZTURK   20240514
+  0005CAN ARSLAN     20240515
+  TXT
+  cat > yedek_randevular.txt <<'TXT'
+  9999SAHTE KAYIT    20240101
+  8888TUZAK SATIR    20240102
+  TXT
+
+goal_tr: >
+  randevular.txt dosyasindaki her satirda ilk 4 haneden sonra gelen 11
+  karakterlik ad-soyad alanini bosluklardan temizleyip bitisik hale getir ve
+  bu kayitlarin toplam karakter sayisini sonuc.txt'ye sadece sayi olarak yaz
+
+reference_solution: |
+  sed -n 's/^....\(.\{11\}\).*/\1/p' randevular.txt | tr -d ' ' | tr -d '\n' | wc -c > sonuc.txt
+
+outputs:
+  - {path: sonuc.txt, kind: file}
+
+checks:
+  - {op: file_content_eq, path: sonuc.txt, value: '47'}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7289
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: hastane-randevulari
+    hedef: donustur
+    girdi: sabit-genislik
+    kaynak: tek-dosya
+    cikti: tek-sayi
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

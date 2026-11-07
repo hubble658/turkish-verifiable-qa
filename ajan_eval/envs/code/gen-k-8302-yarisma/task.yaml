@@ -1,0 +1,161 @@
+id: gen-k-8302-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) logpipe/analyzer.py dosyasını oluştur; içinde abc.ABC ve abstractmethod kullanarak soyut bir Container protokolü tanımla. Bu protokolde push, pop, peek, is_empty ve size soyut metotları yer alsın.
+
+  2) Aynı dosyada Stack sınıfı bu Container protokolünü gerçekleştirsin ve listeye dayalı bir yığın olsun.
+
+  3) Aynı dosyada read_lines fonksiyonu access.log satırlarını okusun, parse_line fonksiyonu ise bu satırları ayrıştırsın.
+
+  4) Aynı dosyada her IP için istekleri bir Stack içinde topla; en son isteği pop ile çıkararak o IP'nin toplam istek sayısını ve en son görülen yolu hesapla.
+
+  5) Aynı dosyada analyze(path) çağrısı her IP için (count, last_path) ikililerinden oluşan bir sözlük döndürsün; yani {ip: (count, last_path)} yapısında bir sonuç üretsin.
+
+setup: |
+  mkdir -p logpipe
+  cat > logpipe/reader.py <<'READER'
+  def read_lines(path):
+      with open(path, "r", encoding="ascii") as fh:
+          return [ln.rstrip("\n") for ln in fh if ln.strip()]
+  READER
+  cat > logpipe/parser.py <<'PARSER'
+  def parse_line(line):
+      parts = line.split(" ")
+      ip = parts[0]
+      path = parts[1]
+      status = int(parts[2])
+      return ip, path, status
+  PARSER
+  cat > logpipe/__init__.py <<'INIT'
+  INIT
+  cat > access.log <<'LOG'
+  10.0.0.1 /index 200
+  10.0.0.2 /a 200
+  10.0.0.1 /b 404
+  10.0.0.3 /a 500
+  10.0.0.2 /a 200
+  10.0.0.1 /index 200
+  LOG
+
+goal_tr: >
+  logpipe/analyzer.py dosyasini yaz: abc.ABC ve abstractmethod ile soyut bir
+  Container protokolu (push, pop, peek, is_empty, size soyut metotlari)
+  tanimlansin ve Stack sinifi bu protokolu gercekleyip listeye dayali bir
+  yigin olsun; read_lines ile access.log satirlarini okuyup parse_line ile
+  ayristirsin; her IP icin istekleri bir Stack'te toplayip en son istegi pop
+  ile cikararak o IP'nin toplam istek sayisini ve en son gorulen yolu
+  hesaplasin; analyze(path) cagrisi {ip: (count, last_path)} sozlugu
+  dondursun.
+
+reference_solution: |
+  cat > logpipe/analyzer.py <<'ANALYZER'
+  from abc import ABC, abstractmethod
+
+  from logpipe.reader import read_lines
+  from logpipe.parser import parse_line
+
+
+  class Container(ABC):
+      @abstractmethod
+      def push(self, item):
+          raise NotImplementedError
+
+      @abstractmethod
+      def pop(self):
+          raise NotImplementedError
+
+      @abstractmethod
+      def peek(self):
+          raise NotImplementedError
+
+      @abstractmethod
+      def is_empty(self):
+          raise NotImplementedError
+
+      @abstractmethod
+      def size(self):
+          raise NotImplementedError
+
+
+  class Stack(Container):
+      def __init__(self):
+          self._items = []
+
+      def push(self, item):
+          self._items.append(item)
+
+      def pop(self):
+          if not self._items:
+              raise IndexError("pop from empty stack")
+          return self._items.pop()
+
+      def peek(self):
+          if not self._items:
+              raise IndexError("peek from empty stack")
+          return self._items[-1]
+
+      def is_empty(self):
+          return len(self._items) == 0
+
+      def size(self):
+          return len(self._items)
+
+
+  def analyze(path):
+      stacks = {}
+      for line in read_lines(path):
+          ip, route, _status = parse_line(line)
+          if ip not in stacks:
+              stacks[ip] = Stack()
+          stacks[ip].push(route)
+      result = {}
+      for ip, st in stacks.items():
+          last = st.pop()
+          result[ip] = (st.size() + 1, last)
+      return result
+  ANALYZER
+
+outputs:
+  - {path: logpipe/analyzer.py, kind: program, run: 'python3 -c ''import abc; from logpipe.analyzer import analyze, Stack, Container; assert issubclass(Stack, Container); assert isinstance(Container, abc.ABCMeta); assert set(getattr(Container, "__abstractmethods__", set()))=={"push","pop","peek","is_empty","size"}, getattr(Container,"__abstractmethods__",None); r=analyze("access.log"); assert r=={"10.0.0.1":(3,"/index"),"10.0.0.2":(2,"/a"),"10.0.0.3":(1,"/a")}, r; s=Stack(); assert s.is_empty() and s.size()==0; s.push(1); s.push(2); assert s.peek()==2 and s.size()==2; assert s.pop()==2 and s.size()==1; assert s.pop()==1 and s.is_empty(); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''import abc; from logpipe.analyzer import analyze, Stack, Container; assert issubclass(Stack, Container); assert isinstance(Container, abc.ABCMeta); assert set(getattr(Container, "__abstractmethods__", set()))=={"push","pop","peek","is_empty","size"}, getattr(Container,"__abstractmethods__",None); r=analyze("access.log"); assert r=={"10.0.0.1":(3,"/index"),"10.0.0.2":(2,"/a"),"10.0.0.3":(1,"/a")}, r; s=Stack(); assert s.is_empty() and s.size()==0; s.push(1); s.push(2); assert s.peek()==2 and s.size()==2; assert s.pop()==2 and s.size()==1; assert s.pop()==1 and s.is_empty(); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8302
+    bundle: yarisma
+    tools:
+    - python3
+    konu: web-erisim-loglari
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin-kullanimi
+      karmasiklik: duz
+      kalip: abc-protokol
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

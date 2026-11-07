@@ -1,0 +1,71 @@
+id: gen-s-3236-grupla-say
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  vardiya/personel.tsv ile vardiya/vardiya.tsv dosyalarını vardiya adına göre birleştir; her vardiyadaki personel sayısını gösteren geçerli JSON'u vardiya/ozet.json'a yaz. personel.tsv'de vardiya alanı boş satırlar sayılmasın, vardiya.tsv'deki tekrar eden tanımlar bir kez sayılsın.
+
+setup: |
+  mkdir -p vardiya
+  cat > vardiya/personel.tsv <<'TSV'
+  P01	Ali	Vardiya-A
+  P02	Ayse	Vardiya-B
+  P03	Can	Vardiya-A
+  P04	Deniz	Vardiya-C
+  P05	Ece	Vardiya-B
+  P06	Fatma	Vardiya-A
+  TSV
+  cat > vardiya/vardiya.tsv <<'TSV'
+  Vardiya-A	08:00	16:00
+  Vardiya-B	16:00	00:00
+  Vardiya-C	00:00	08:00
+  Vardiya-A	08:00	16:00
+  TSV
+
+goal_tr: >
+  vardiya/personel.tsv ve vardiya/vardiya.tsv dosyalarini vardiya adina gore
+  birlestirip her vardiyada kac personel oldugunu gosteren gecerli bir JSON
+  nesnesini vardiya/ozet.json dosyasina yaz; personel.tsv icindeki bos
+  vardiya alani olan satirlar sayima katilmasin, vardiya.tsv icindeki tekrar
+  eden vardiya tanimlari bir kez sayilsin.
+
+reference_solution: |
+  cd vardiya
+  awk -F'\t' 'NR==FNR && $1!="" {seen[$1]=1; next} $3!="" {if ($3 in seen) cnt[$3]++} END{for (v in cnt) print v "\t" cnt[v]}' vardiya.tsv personel.tsv | sort > sayim.tsv
+  find . -maxdepth 1 -name sayim.tsv | wc -l | grep -q 1
+  awk -F'\t' 'BEGIN{printf "{"} {if (NR>1) printf ","; printf "\"%s\":%d", $1, $2} END{printf "}\n"}' sayim.tsv > ozet.json
+
+outputs:
+  - {path: vardiya/ozet.json, kind: json}
+
+checks:
+  - {op: json_eq, path: vardiya/ozet.json, value: {Vardiya-A: 3, Vardiya-B: 2, Vardiya-C: 1}}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3236
+    bundle: dizin-istatistik
+    tools:
+    - wc
+    - find
+    konu: personel-vardiyalari
+    hedef: grupla-say
+    girdi: tsv
+    kaynak: iki-dosya-capraz
+    cikti: json
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,158 @@
+id: gen-k-8389-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  warehouse/union.py dosyasındaki UnionFind sınıfını ve merge_pairs ile load_and_merge fonksiyonlarını tamamla. Sınıf, verilen eşleşme çiftlerinden birleşim-bulma yöntemiyle grupları hesaplamalı ve her grubun sipariş kodlarını sıralı liste halinde döndürmelidir. merge_pairs fonksiyonu çiftlerden grupları üretmeli, load_and_merge ise warehouse/io/reader.py içindeki read_records ile data/links.txt dosyasını okuyup aynı sonucu döndürmelidir. Dönen yapıda her grup için kodlar sıralı olmalı ve gruplar da kendi içinde tutarlı bir sırayla listelenmelidir; mevcut read_records fonksiyonunun davranışı korunmalıdır.
+
+setup: |
+  mkdir -p warehouse/io data
+  cat > warehouse/io/reader.py <<'READER'
+  def read_records(path):
+      with open(path, "r", encoding="utf-8") as handle:
+          lines = handle.read().strip().splitlines()
+      pairs = []
+      for line in lines:
+          left, right = line.split("|")
+          pairs.append((left.strip(), right.strip()))
+      return pairs
+  READER
+  cat > warehouse/union.py <<'UNION'
+  from warehouse.io.reader import read_records
+
+
+  class UnionFind:
+      def __init__(self, n):
+          raise NotImplementedError
+
+      def find(self, x):
+          raise NotImplementedError
+
+      def union(self, a, b):
+          raise NotImplementedError
+
+      def groups(self):
+          raise NotImplementedError
+
+
+  def merge_pairs(pairs):
+      raise NotImplementedError
+
+
+  def load_and_merge(path):
+      raise NotImplementedError
+  UNION
+  cat > data/links.txt <<'LINKS'
+  a|b
+  b|c
+  d|e
+  LINKS
+
+goal_tr: >
+  warehouse/union.py icindeki UnionFind sinifini ve merge_pairs ile
+  load_and_merge fonksiyonlarini, verilen eslesme ciftlerinden
+  birlesim-bulma ile gruplari hesaplayip ayni gruptaki siparis kodlarini
+  sirali liste halinde dondurecek bicimde gerceklestir.
+
+reference_solution: |
+  cat > warehouse/union.py <<'UNION'
+  from warehouse.io.reader import read_records
+
+
+  class UnionFind:
+      def __init__(self, n):
+          self.parent = list(range(n))
+          self.rank = [0] * n
+
+      def find(self, x):
+          root = x
+          while self.parent[root] != root:
+              root = self.parent[root]
+          while self.parent[x] != root:
+              self.parent[x], x = root, self.parent[x]
+          return root
+
+      def union(self, a, b):
+          ra, rb = self.find(a), self.find(b)
+          if ra == rb:
+              return False
+          if self.rank[ra] < self.rank[rb]:
+              ra, rb = rb, ra
+          self.parent[rb] = ra
+          if self.rank[ra] == self.rank[rb]:
+              self.rank[ra] += 1
+          return True
+
+      def groups(self):
+          buckets = {}
+          for i in range(len(self.parent)):
+              buckets.setdefault(self.find(i), []).append(i)
+          return buckets
+
+
+  def merge_pairs(pairs):
+      codes = []
+      index = {}
+      for left, right in pairs:
+          for name in (left, right):
+              if name not in index:
+                  index[name] = len(codes)
+                  codes.append(name)
+      uf = UnionFind(len(codes))
+      for left, right in pairs:
+          uf.union(index[left], index[right])
+      buckets = uf.groups()
+      result = {}
+      for members in buckets.values():
+          names = sorted(codes[i] for i in members)
+          for name in names:
+              result[name] = names
+      return result
+
+
+  def load_and_merge(path):
+      return merge_pairs(read_records(path))
+  UNION
+
+outputs:
+  - {path: warehouse/union.py, kind: program, run: 'python3 -c ''from warehouse.union import merge_pairs, load_and_merge; r=merge_pairs([("a","b"),("b","c"),("d","e")]); assert r["a"]==["a","b","c"], r; assert r["c"]==["a","b","c"]; assert r["d"]==["d","e"]; assert r["e"]==["d","e"]; m=load_and_merge("data/links.txt"); assert m["a"]==["a","b","c"], m; assert m["d"]==["d","e"]; assert sorted(m.keys())==["a","b","c","d","e"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from warehouse.union import merge_pairs, load_and_merge; r=merge_pairs([("a","b"),("b","c"),("d","e")]); assert r["a"]==["a","b","c"], r; assert r["c"]==["a","b","c"]; assert r["d"]==["d","e"]; assert r["e"]==["d","e"]; m=load_and_merge("data/links.txt"); assert m["a"]==["a","b","c"], m; assert m["d"]==["d","e"]; assert sorted(m.keys())==["a","b","c","d","e"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8389
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: siparis-kayitlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: birlesim-bulma
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: dosya-okuma
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

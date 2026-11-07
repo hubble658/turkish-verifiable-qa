@@ -1,0 +1,181 @@
+id: gen-k-8418-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) grades/transcript.py dosyasındaki Transcript sınıfını tamamla; __enter__ metodu grades/records.py içindeki read_records fonksiyonu üzerinden dosyayı okuyup ders kayıtlarını son giren en üstte olacak şekilde bir yığına yığsın ve self döndürsün, __exit__ metodu dosya tutamacını kapatsın.
+
+  2) Transcript sınıfına push(course, score) metodu ekle; bu metot kaydı yığının tepesine koysun.
+
+  3) Transcript sınıfına pop() metodu ekle; bu metot en son kaydı yığından çıkarıp döndürsün ve yığın boşken IndexError versin.
+
+  4) Transcript sınıfına latest() metodu ekle; bu metot tepedeki kaydı yığından çıkarmadan döndürsün ve yığın boşken IndexError versin.
+
+  5) Transcript sınıfına gpa() metodu ekle; bu metot yığındaki tüm puanların ortalamasını float olarak döndürsün ve yığın boşken 0.0 döndürsün.
+
+  6) Transcript sınıfına courses() metodu ekle; bu metot yığındaki ders adlarını tepeden tabana doğru tekrarsız bir liste olarak döndürsün.
+
+setup: |
+  mkdir -p grades
+  cat > grades/records.py <<'RECORDS'
+  def read_records(path):
+      rows = []
+      with open(path, "r", encoding="utf-8") as handle:
+          for line in handle:
+              line = line.strip()
+              if not line:
+                  continue
+              student, course, score = line.split(",")
+              rows.append((student, course, int(score)))
+      return rows
+  RECORDS
+  cat > grades/transcript.py <<'TRANSCRIPT'
+  from grades.records import read_records
+
+
+  class Transcript:
+      def __init__(self, path):
+          self.path = path
+
+      def __enter__(self):
+          raise NotImplementedError
+
+      def __exit__(self, exc_type, exc, tb):
+          raise NotImplementedError
+
+      def push(self, course, score):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def latest(self):
+          raise NotImplementedError
+
+      def gpa(self):
+          raise NotImplementedError
+
+      def courses(self):
+          raise NotImplementedError
+  TRANSCRIPT
+  cat > grades/summary.py <<'SUMMARY'
+  from grades.transcript import Transcript
+
+
+  def summarize(path):
+      with Transcript(path) as transcript:
+          return transcript.gpa(), transcript.courses()
+  SUMMARY
+  cat > grades/data.txt <<'DATA'
+  ada,math,90
+  ada,physics,70
+  bob,math,50
+  ada,math,60
+  bob,physics,80
+  bob,physics,100
+  DATA
+
+goal_tr: >
+  1. grades/transcript.py icindeki Transcript sinifini tamamla: __enter__
+  dosyayi grades/records.py uzerinden okuyup ders kayitlarini bir yigina
+  (son giren en ustte) yigip self dondursun, __exit__ dosya tutamacini
+  kapatsin. 2. push(course, score) kaydi yiginin tepesine koysun; pop() en
+  son kaydi cikarip dondursun (bos yiginda IndexError); latest() tepedeki
+  kaydi cikarmadan dondursun (bos yiginda IndexError); gpa() yigindeki tum
+  puanlarin ortalamasini float dondursun (bos yiginda 0.0); courses()
+  yigindaki ders adlarini tepeden tabana dogru tekrarsiz liste olarak
+  dondursun.
+
+reference_solution: |
+  cat > grades/transcript.py <<'TRANSCRIPT'
+  from grades.records import read_records
+
+
+  class Transcript:
+      def __init__(self, path):
+          self.path = path
+          self._stack = []
+          self._handle = None
+
+      def __enter__(self):
+          self._handle = open(self.path, "r", encoding="utf-8")
+          self._handle.close()
+          for student, course, score in read_records(self.path):
+              self._stack.append((course, score))
+          return self
+
+      def __exit__(self, exc_type, exc, tb):
+          if self._handle is not None:
+              self._handle.close()
+              self._handle = None
+          return False
+
+      def push(self, course, score):
+          self._stack.append((course, score))
+
+      def pop(self):
+          if not self._stack:
+              raise IndexError("pop from empty transcript")
+          return self._stack.pop()
+
+      def latest(self):
+          if not self._stack:
+              raise IndexError("latest from empty transcript")
+          return self._stack[-1]
+
+      def gpa(self):
+          if not self._stack:
+              return 0.0
+          total = sum(score for _, score in self._stack)
+          return total / len(self._stack)
+
+      def courses(self):
+          seen = []
+          for course, _ in reversed(self._stack):
+              if course not in seen:
+                  seen.append(course)
+          return seen
+  TRANSCRIPT
+
+outputs:
+  - {path: grades/transcript.py, kind: program, run: 'python3 -c ''from grades.transcript import Transcript; from grades.summary import summarize; t=Transcript("grades/data.txt"); assert t.__enter__() is t; assert t.latest()==("physics",100), t.latest(); assert t.pop()==("physics",100); t.push("chem",40); assert t.latest()==("chem",40); assert t.gpa()==(90+70+50+60+80+40)/6, t.gpa(); assert t.courses()==["chem","physics","math"], t.courses(); t.__exit__(None,None,None); assert summarize("grades/data.txt")==(75.0,["physics","math"]), summarize("grades/data.txt"); e=Transcript("grades/data.txt"); e.__enter__(); [e.pop() for _ in range(6)]; assert e.gpa()==0.0; assert e.courses()==[]; e.__exit__(None,None,None); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from grades.transcript import Transcript; from grades.summary import summarize; t=Transcript("grades/data.txt"); assert t.__enter__() is t; assert t.latest()==("physics",100), t.latest(); assert t.pop()==("physics",100); t.push("chem",40); assert t.latest()==("chem",40); assert t.gpa()==(90+70+50+60+80+40)/6, t.gpa(); assert t.courses()==["chem","physics","math"], t.courses(); t.__exit__(None,None,None); assert summarize("grades/data.txt")==(75.0,["physics","math"]), summarize("grades/data.txt"); e=Transcript("grades/data.txt"); e.__enter__(); [e.pop() for _ in range(6)]; assert e.gpa()==0.0; assert e.courses()==[]; e.__exit__(None,None,None); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8418
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: ogrenci-transkripti
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yigin
+      karmasiklik: duz
+      kalip: context-manager
+      akis: dosya-okuma
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

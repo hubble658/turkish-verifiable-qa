@@ -1,0 +1,90 @@
+id: gen-s-3235-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+prompt: 'vardiya.txt dosyasındaki her satırı personel, vardiya ve saat alanlarına ayırıp vardiya türlerine göre grupla. Her
+  vardiya türü için o vardiyadaki toplam saat sayısını ve personel listesini içeren geçerli bir JSON nesnesini ozet.json dosyasına
+  yaz.
+
+
+  JSON biçimi: {"<vardiya>": {"toplam_saat": <sayı>, "personel": ["<ad>"]}}.
+
+  '
+setup: 'cat > vardiya.txt <<''EOF''
+
+  Ali|sabah|3
+
+  Ayse|aksam|5
+
+  Can|sabah|2
+
+  Deniz|gece|4
+
+  Ece|aksam|6
+
+  Fatma|gece|1
+
+  EOF
+
+  '
+goal_tr: 'vardiya.txt dosyasindaki her satiri personel, vardiya ve saat alanlarina ayirip vardiya turlerine gore gruplayarak,
+  her vardiya turu icin o vardiyadaki toplam saat sayisini ve personel listesini iceren gecerli bir JSON nesnesini ozet.json
+  dosyasina yaz.
+
+  '
+reference_solution: "mkdir -p bol\ntee bol/gecici.txt < vardiya.txt > /dev/null\ncut -d'|' -f2 bol/gecici.txt | sort | uniq\
+  \ > bol/vardiyalar.txt\n{\n  printf '{\\n'\n  ilk=1\n  while read -r v; do\n    toplam=$(awk -F'|' -v v=\"$v\" '$2==v {s+=$3}\
+  \ END {print s+0}' vardiya.txt)\n    kisiler=$(awk -F'|' -v v=\"$v\" '$2==v {print $1}' vardiya.txt | sort | paste -sd,\
+  \ -)\n    if [ $ilk -eq 0 ]; then printf ',\\n'; fi\n    ilk=0\n    printf '  \"%s\": {\"toplam_saat\": %s, \"personel\"\
+  : [\"%s\"]}' \"$v\" \"$toplam\" \"$(printf '%s' \"$kisiler\" | sed 's/,/\", \"/g')\"\n  done < bol/vardiyalar.txt\n  printf\
+  \ '\\n}\\n'\n} > ozet.json\n"
+outputs:
+- path: ozet.json
+  kind: json
+checks:
+- op: json_eq
+  path: ozet.json
+  value:
+    aksam:
+      toplam_saat: 11
+      personel:
+      - Ayse
+      - Ece
+    gece:
+      toplam_saat: 5
+      personel:
+      - Deniz
+      - Fatma
+    sabah:
+      toplam_saat: 5
+      personel:
+      - Ali
+      - Can
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3235
+    bundle: dallandir
+    tools:
+    - tee
+    - cut
+    konu: personel-vardiyalari
+    hedef: bol
+    girdi: duz-metin
+    kaynak: tek-dosya
+    cikti: json
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}
+  duzeltme:
+    neden: gizli_sart
+    not: JSON anahtarları istemde yoktu.

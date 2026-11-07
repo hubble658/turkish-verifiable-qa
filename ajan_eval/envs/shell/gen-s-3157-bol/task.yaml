@@ -1,0 +1,70 @@
+id: gen-s-3157-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri dizini altındaki ayarlar.ini dosyasının yalnızca [takip] bölümündeki satırları, başka hiçbir bölümdeki satırları dahil etmeden, olduğu gibi takip.txt dosyasına yaz.
+
+setup: |
+  mkdir -p veri
+  cat > veri/ayarlar.ini <<'INI'
+  [genel]
+  surum=3
+  [takip]
+  kargo=TR12345
+  durum=yolda
+  [gecmis]
+  kayit=2024-05-01
+  INI
+  cat > veri/ayarlar.ini.bak <<'INI'
+  [genel]
+  surum=2
+  [takip]
+  kargo=TR99999
+  durum=iptal
+  INI
+
+goal_tr: >
+  veri dizini altindaki ayarlar.ini dosyasinin [takip] bolumundeki
+  satirlari, baska hicbir bolumunkini almadan, takip.txt dosyasina oldugu
+  gibi yaz
+
+reference_solution: |
+  f=$(find veri -name 'ayarlar.ini' -type f | head -n 1)
+  b=$(grep -n '^\[takip\]' "$f" | cut -d: -f1)
+  tail -n +$((b+1)) "$f" | sed '/^\[/,$d' > takip.txt
+
+outputs:
+  - {path: takip.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: takip.txt, value: [kargo=TR12345, durum=yolda]}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3157
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: kargo-takibi
+    hedef: bol
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,77 @@
+id: gen-s-7113-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi dizinindeki tüm randevu dosyalarını birleştirip her bölüm için randevu sayısını ve ilk randevu tarihini hesapla; sonuçları ozet dizininde bölüm adıyla aynı olan bir dosyaya yaz. Her bölüm için ozet/Kardiyoloji.txt, ozet/Ortopedi.txt ve ozet/Noroloji.txt dosyaları oluşturulsun ve her birinin içinde "bolum|sayi|ilk_tarih" biçiminde tek bir satır bulunsun.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/randevular_a.txt <<'TXT'
+  1001|Ayse Yilmaz|Kardiyoloji|2024-03-01|09:00
+  1002|Mehmet Demir|Ortopedi|2024-03-01|10:30
+  1003|Zeynep Kaya|Kardiyoloji|2024-03-02|11:00
+  1004|Ali Celik|Noroloji|2024-03-02|14:00
+  TXT
+  cat > girdi/randevular_b.txt <<'TXT'
+  1005|Fatma Sahin|Ortopedi|2024-03-03|08:30
+  1006|Emre Aydin|Kardiyoloji|2024-03-03|15:00
+  1007|Elif Ozturk|Noroloji|2024-03-04|09:30
+  TXT
+  cat > girdi/randevular_c.txt <<'TXT'
+  1008|Burak Arslan|Ortopedi|2024-03-04|13:00
+  1009|Selin Dogan|Kardiyoloji|2024-03-05|10:00
+  TXT
+
+goal_tr: >
+  girdi dizinindeki tum randevu dosyalarini birlestirip her bolum icin
+  randevu sayisini ve ilk randevu tarihini hesaplayarak ozet dizininde bolum
+  adiyla ayni olan bir dosyaya "bolum|sayi|ilk_tarih" biciminde yaz
+
+reference_solution: |
+  mkdir -p ozet
+  cat girdi/randevular_*.txt | cut -d'|' -f3,4 | sort -t'|' -k1,1 -k2,2 > /tmp/sirali.txt
+  cut -d'|' -f1 /tmp/sirali.txt | uniq -c | awk '{print $2"|"$1}' | sort -t'|' -k1,1 > /tmp/sayilar.txt
+  awk -F'|' '!seen[$1]++ {print $1"|"$2}' /tmp/sirali.txt | sort -t'|' -k1,1 > /tmp/ilkler.txt
+  join -t'|' /tmp/sayilar.txt /tmp/ilkler.txt | awk -F'|' '{print $1"|"$2"|"$3}' | while IFS='|' read b s t; do printf '%s|%s|%s\n' "$b" "$s" "$t" > "ozet/$b.txt"; done
+
+outputs:
+  - {path: ozet, kind: dir}
+  - {path: ozet/Kardiyoloji.txt, kind: file}
+  - {path: ozet/Ortopedi.txt, kind: file}
+  - {path: ozet/Noroloji.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: ozet, value: [Kardiyoloji.txt, Noroloji.txt, Ortopedi.txt]}
+  - {op: file_content_eq, path: ozet/Kardiyoloji.txt, value: Kardiyoloji|4|2024-03-01}
+  - {op: file_content_eq, path: ozet/Noroloji.txt, value: Noroloji|2|2024-03-02}
+  - {op: file_content_eq, path: ozet/Ortopedi.txt, value: Ortopedi|3|2024-03-01}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7113
+    bundle: birlestir
+    tools:
+    - join
+    - sort
+    konu: hastane-randevulari
+    hedef: ozetle
+    girdi: log-satiri
+    kaynak: cok-dosya
+    cikti: dizin-yapisi
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: bos-dosya
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,62 @@
+id: gen-s-7293-ozetle
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sunucu.log dosyasındaki her bir mesaj metnini, kaç kez geçtiğine göre azalan sırada "sayı mesaj" biçiminde ozet.txt dosyasına yaz; tekrar eden mesajlar tek satırda toplansın.
+
+setup: |
+  cat > sunucu.log <<'LOG'
+  2024-01-01 10:00:00 BILGI servis basladi
+  2024-01-01 10:01:00 HATA disk dolu
+  2024-01-01 10:02:00 BILGI kullanici giris yapti
+  2024-01-01 10:03:00 HATA disk dolu
+  2024-01-01 10:04:00 UYARI bellek az
+  2024-01-01 10:05:00 HATA baglanti koptu
+  2024-01-01 10:06:00 HATA disk dolu
+  2024-01-01 10:07:00 BILGI islem tamamlandi
+  2024-01-01 10:08:00 HATA zaman asimi
+  2024-01-01 10:09:00 UYARI bellek az
+  LOG
+
+goal_tr: >
+  sunucu.log dosyasindaki her bir mesaj metnini, kac kez gectigine gore
+  azalan sirada, "sayi mesaj" biciminde ozet.txt dosyasina yaz; tekrar eden
+  mesajlar tek satirda toplansin
+
+reference_solution: |
+  awk '{$1="";$2="";sub(/^  */,"");print}' sunucu.log | sort | uniq -c | sort -rn | awk '{c=$1;$1="";sub(/^  */,"");print c" "$0}' > ozet.txt
+
+outputs:
+  - {path: ozet.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: ozet.txt, value: [3 HATA disk dolu, 2 UYARI bellek az, 1 HATA zaman asimi, 1 HATA baglanti koptu, 1 BILGI servis basladi, 1 BILGI kullanici giris yapti, 1 BILGI islem tamamlandi]}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7293
+    bundle: awk
+    tools:
+    - awk
+    konu: sunucu-loglari
+    hedef: ozetle
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: yok
+    uslup: duz-hedef
+    direnc: tekrar-eden-kayit
+    bukulme: yok
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

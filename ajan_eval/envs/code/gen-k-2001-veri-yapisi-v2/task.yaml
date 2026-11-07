@@ -1,0 +1,219 @@
+id: gen-k-2001-veri-yapisi-v2
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  /workspace dizinindeki docpipe paketinde DocStore sınıfını docpipe/store.py içinde append, find ve to_list metotlarıyla birlikte gerçekleştir; DocStore başlangıçta docpipe/records.py içindeki Doc ve Node veri sınıflarını kullanacak şekilde tanımlı. Ayrıca docpipe/report.py içindeki load_store ve longest_doc fonksiyonlarını yaz; load_store, stdin'den gelen "doc_id:govde" biçimindeki satırlardan bağlı liste tabanlı bir DocStore oluşturup döndürsün, longest_doc ise aynı satırlar üzerinden en uzun govdeye sahip belgenin doc_id'sini verecek bir Doc döndürsün. main.py bu fonksiyonları kullanarak önce toplam belge sayısını, ardından en uzun belgenin doc_id'sini yazdırıyor; bu çıktı doğru üretilecek. Gerekli dosyalar docpipe/store.py, docpipe/report.py ve docpipe/records.py; docpipe/records.py içindeki Doc ve Node tanımları ile main.py olduğu gibi kalmalı.
+
+setup: |
+  mkdir -p docpipe
+  cat > docpipe/records.py <<'RECORDS'
+  from dataclasses import dataclass
+
+
+  @dataclass
+  class Doc:
+      doc_id: str
+      body: str
+
+
+  @dataclass
+  class Node:
+      doc: Doc
+      next: "Node" = None
+  RECORDS
+  cat > docpipe/store.py <<'STORE'
+  from docpipe.records import Doc, Node
+
+
+  class DocStore:
+      def __init__(self):
+          self.head = None
+          self.size = 0
+
+      def append(self, doc):
+          raise NotImplementedError
+
+      def find(self, doc_id):
+          raise NotImplementedError
+
+      def to_list(self):
+          raise NotImplementedError
+  STORE
+  cat > docpipe/report.py <<'REPORT'
+  from docpipe.store import DocStore
+
+
+  def load_store(lines):
+      raise NotImplementedError
+
+
+  def longest_doc(lines):
+      raise NotImplementedError
+  REPORT
+  cat > main.py <<'MAIN'
+  import sys
+  from docpipe.report import load_store, longest_doc
+
+
+  def main():
+      lines = [ln.rstrip("\n") for ln in sys.stdin if ln.strip()]
+      store = load_store(lines)
+      print(store.size)
+      print(longest_doc(lines).doc_id)
+
+
+  if __name__ == "__main__":
+      main()
+  MAIN
+
+goal_tr: >
+  docpipe/store.py icindeki DocStore sinifini (append, find, to_list) ve
+  docpipe/report.py icindeki load_store ile longest_doc fonksiyonlarini,
+  stdin'den gelen "doc_id:govde" satirlarindan bagli liste kurup en uzun
+  govdeli belgenin doc_id'sini ve toplam belge sayisini dogru uretecek
+  bicimde gerceklestir.
+
+reference_solution: |
+  cat > docpipe/store.py <<'STORE'
+  from docpipe.records import Doc, Node
+
+
+  class DocStore:
+      def __init__(self):
+          self.head = None
+          self.size = 0
+
+      def append(self, doc):
+          node = Node(doc)
+          if self.head is None:
+              self.head = node
+          else:
+              cur = self.head
+              while cur.next is not None:
+                  cur = cur.next
+              cur.next = node
+          self.size += 1
+
+      def find(self, doc_id):
+          cur = self.head
+          while cur is not None:
+              if cur.doc.doc_id == doc_id:
+                  return cur.doc
+              cur = cur.next
+          return None
+
+      def to_list(self):
+          out = []
+          cur = self.head
+          while cur is not None:
+              out.append(cur.doc)
+              cur = cur.next
+          return out
+  STORE
+  cat > docpipe/report.py <<'REPORT'
+  from docpipe.records import Doc
+  from docpipe.store import DocStore
+
+
+  def load_store(lines):
+      store = DocStore()
+      for line in lines:
+          doc_id, _, body = line.partition(":")
+          store.append(Doc(doc_id.strip(), body.strip()))
+      return store
+
+
+  def longest_doc(lines):
+      store = load_store(lines)
+      best = None
+      for doc in store.to_list():
+          if best is None or len(doc.body) > len(best.body):
+              best = doc
+      return best
+  REPORT
+
+ara_adim: |
+  cat > docpipe/store.py <<'STORE'
+  from docpipe.records import Doc, Node
+
+
+  class DocStore:
+      def __init__(self):
+          self.head = None
+          self.size = 0
+
+      def append(self, doc):
+          node = Node(doc)
+          if self.head is None:
+              self.head = node
+          else:
+              cur = self.head
+              while cur.next is not None:
+                  cur = cur.next
+              cur.next = node
+          self.size += 1
+
+      def find(self, doc_id):
+          cur = self.head
+          while cur is not None:
+              if cur.doc.doc_id == doc_id:
+                  return cur.doc
+              cur = cur.next
+          return None
+
+      def to_list(self):
+          out = []
+          cur = self.head
+          while cur is not None:
+              out.append(cur.doc)
+              cur = cur.next
+          return out
+  STORE
+
+outputs:
+  - {path: docpipe/report.py, kind: program, run: 'python3 -c ''from docpipe.report import load_store, longest_doc; lines=["a:hi","b:longer body","c:mid"]; s=load_store(lines); assert s.size==3; assert longest_doc(lines).doc_id=="b"; print("TAMAM")'''}
+  - {path: docpipe/store.py, kind: program, run: 'python3 -c ''from docpipe.records import Doc; from docpipe.store import DocStore; s=DocStore(); s.append(Doc("x","one")); s.append(Doc("y","two")); assert s.size==2; assert [d.doc_id for d in s.to_list()]==["x","y"]; assert s.find("y").body=="two"; assert s.find("z") is None; print("ILERLEME-TAMAM")'''}
+  - {path: docpipe/records.py, kind: program, run: 'python3 -c ''from docpipe.records import Doc, Node; d=Doc("id","body"); n=Node(d); assert n.doc is d; assert n.next is None; assert Doc("id","body")==Doc("id","body"); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from docpipe.report import load_store, longest_doc; lines=["a:hi","b:longer body","c:mid"]; s=load_store(lines); assert s.size==3; assert longest_doc(lines).doc_id=="b"; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from docpipe.records import Doc; from docpipe.store import DocStore; s=DocStore(); s.append(Doc("x","one")); s.append(Doc("y","two")); assert s.size==2; assert [d.doc_id for d in s.to_list()]==["x","y"]; assert s.find("y").body=="two"; assert s.find("z") is None; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from docpipe.records import Doc, Node; d=Doc("id","body"); n=Node(d); assert n.doc is d; assert n.next is None; assert Doc("id","body")==Doc("id","body"); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-2001
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: metin-belgeleri
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dolayli-hedef
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: bagli-liste
+      karmasiklik: orta
+      kalip: dataclass-dogrulama
+      akis: stdin-boru
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

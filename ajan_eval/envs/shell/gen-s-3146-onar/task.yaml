@@ -1,0 +1,86 @@
+id: gen-s-3146-onar
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) siparisler.log dosyasındaki her satırı "adet|urun|birim_fiyat|toplam" alanlarına ayır ve tüm alanların baş ve son boşluklarını temizle.
+
+  2) Her satır için adet ile birim_fiyat değerlerini çarpıp toplam değerini hesapla.
+
+  3) Hesaplanan toplamları ürün adına göre biriktir.
+
+  4) Biriktirilen sonuçları ürün adına göre alfabetik sıralı olarak {"urun": toplam, ...} biçiminde geçerli JSON olarak ozet.json dosyasına yaz.
+
+setup: |
+  cat > siparisler.log <<'LOG'
+  101|Mercimek Corbasi|2|45
+  102 |Kofte|1|80
+  103|Ayran|3|15
+  104|Kofte|2|80
+  105|Baklava|1|55
+  106 |Mercimek Corbasi|1|45
+  107|Salata|4|30
+  108|Ayran|2|15
+  109|Baklava|3|55
+  110|Salata|1|30
+  LOG
+
+goal_tr: >
+  siparisler.log dosyasindaki her satiri "adet|urun|birim_fiyat|toplam"
+  alanlarina ayirip, bas/son bosluklari temizleyip, her satir icin adet ile
+  birim_fiyati carpip toplam hesaplayarak urun adina gore toplamlari
+  biriktirip, sonucu urun adina gore alfabetik sirali olarak {"urun":
+  toplam, ...} biciminde gecerli JSON olarak ozet.json dosyasina yaz
+
+reference_solution: |
+  sed 's/^[[:space:]]*//; s/[[:space:]]*$//' siparisler.log > temiz.log
+  awk -F'|' '{ gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2 "|" ($3 * $4) }' temiz.log > satirlar.log
+  awk -F'|' '{ toplam[$1] += $2 } END { for (u in toplam) printf "%s|%d\n", u, toplam[u] }' satirlar.log | sort > toplamlar.log
+  python3 -c "
+  import json
+  d = {}
+  for line in open('toplamlar.log'):
+      line = line.rstrip('\n')
+      if not line:
+          continue
+      k, v = line.split('|')
+      d[k] = int(v)
+  with open('ozet.json', 'w') as f:
+      json.dump(d, f, ensure_ascii=True, sort_keys=True)
+      f.write('\n')
+  "
+  rm -f temiz.log satirlar.log toplamlar.log
+
+outputs:
+  - {path: ozet.json, kind: json}
+
+checks:
+  - {op: json_eq, path: ozet.json, value: {Ayran: 75, Baklava: 220, Kofte: 240, Mercimek Corbasi: 135, Salata: 150}}
+
+metadata:
+  domain: onar
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3146
+    bundle: python-veri
+    tools:
+    - python3
+    konu: restoran-siparisleri
+    hedef: onar
+    girdi: log-satiri
+    kaynak: tek-dosya
+    cikti: json
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

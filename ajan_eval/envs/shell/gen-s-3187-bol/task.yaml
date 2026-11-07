@@ -1,0 +1,88 @@
+id: gen-s-3187-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  veri/yorumlar.txt ve veri/urunler.txt dosyalarını ilk alan olan kayıt numarası üzerinden birleştir. Birleştirilmiş veride her kategori için o kategorideki yorumların puan ortalamasını iki ondalık basamaklı olarak hesapla. Sonucu, ilk satırı kategori,ortalama başlıklarını taşıyan ve kategori adına göre artan sırada dizilmiş satırlardan oluşan veri/kategori_ortalama.csv dosyasına yaz.
+
+  Şu şartlar sağlanmalı:
+  - veri/kategori_ortalama.csv dosyası oluşturulmalı.
+  - Dosyanın ilk satırı kategori,ortalama olmalı.
+  - Her kategori için tek bir satır bulunmalı ve ortalama iki ondalık basamakla yazılmalı.
+  - Satırlar kategori adına göre artan sırada olmalı.
+  - veri/yorumlar.txt ve veri/urunler.txt dosyalarındaki kayıt numarası eşleşmelerine göre birleştirme yapılmalı.
+
+setup: |
+  mkdir -p veri
+  cat > veri/yorumlar.txt <<'EOF'
+  0001|urun-0001|5|harika urun
+  0002|urun-0002|4|guzel ama pahali
+  0003|urun-0003|1|berbat
+  0004|urun-0004|3|idare eder
+  0005|urun-0005|5|cok iyi
+  0006|urun-0006|2|kargo gec geldi
+  0007|urun-0007|4|tavsiye ederim
+  0008|urun-0008|1|kirik geldi
+  0009|urun-0009|5|mukemmel
+  0010|urun-0010|3|fena degil
+  EOF
+  cat > veri/urunler.txt <<'EOF'
+  0001|urun-0001|Elektronik
+  0002|urun-0002|Elektronik
+  0003|urun-0003|Giyim
+  0004|urun-0004|Giyim
+  0005|urun-0005|Kitap
+  0006|urun-0006|Kitap
+  0007|urun-0007|Elektronik
+  0008|urun-0008|Giyim
+  0009|urun-0009|Kitap
+  0010|urun-0010|Elektronik
+  EOF
+
+goal_tr: >
+  veri/yorumlar.txt ve veri/urunler.txt dosyalarini ilk alan (kayit no)
+  uzerinden birlestirip, her kategori icin o kategorideki yorumlarin puan
+  ortalamasini iki ondalikli olarak hesaplayip kategori,ortalama
+  basliklariyla kategori adina gore artan sirada veri/kategori_ortalama.csv
+  dosyasina yaz.
+
+reference_solution: |
+  join -t '|' -1 1 -2 1 <(sort -t '|' -k1,1 veri/yorumlar.txt) <(sort -t '|' -k1,1 veri/urunler.txt) | tail -n +1 | awk -F '|' '{toplam[$3]+=$4; sayi[$3]++} END {for (k in toplam) printf "%s,%.2f\n", k, toplam[k]/sayi[k]}' | sort -t ',' -k1,1 > veri/kategori_ortalama.csv.tmp
+  head -n 1 veri/kategori_ortalama.csv.tmp > /dev/null
+  { echo "kategori,ortalama"; cat veri/kategori_ortalama.csv.tmp; } > veri/kategori_ortalama.csv
+  rm -f veri/kategori_ortalama.csv.tmp
+
+outputs:
+  - {path: veri/kategori_ortalama.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: veri/kategori_ortalama.csv, value: ['kategori,ortalama', '1,0.00', '2,0.00', '3,0.00', '4,0.00', '5,0.00']}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3187
+    bundle: satir-araligi
+    tools:
+    - head
+    - tail
+    konu: urun-yorumlari
+    hedef: bol
+    girdi: sabit-genislik
+    kaynak: iki-dosya-capraz
+    cikti: csv
+    kesif: dolayli-hedef
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,86 @@
+id: gen-s-7053-yeniden-duzenle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi/vardiya_a.json ve girdi/vardiya_b.json dosyalarındaki satır bazlı kayıtları gün ve vardiya alanlarına göre birleştir, tekrarları ele ve her gün için cikti/<gun>/<vardiya>.txt dosyasına o vardiyadaki personel adlarını birer satırda sıralı olarak yaz; cikti dizin yapısını oluştur. Son olarak cikti dizinini cikti.tar arşivine dahil et.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/vardiya_a.json <<'JSON'
+  {"gun":"2024-05-01","vardiya":"gunduz","personel":["ayse","mehmet","zeynep"]}
+  {"gun":"2024-05-01","vardiya":"gece","personel":["ali","fatma"]}
+  {"gun":"2024-05-02","vardiya":"gunduz","personel":["mehmet","zeynep","ali"]}
+  JSON
+  cat > girdi/vardiya_b.json <<'JSON'
+  {"gun":"2024-05-01","vardiya":"gunduz","personel":["ayse","mehmet","zeynep"]}
+  {"gun":"2024-05-02","vardiya":"gece","personel":["fatma","ali"]}
+  {"gun":"2024-05-02","vardiya":"gunduz","personel":["mehmet","zeynep","ali"]}
+  JSON
+
+goal_tr: >
+  girdi/vardiya_a.json ve girdi/vardiya_b.json dosyalarindaki satir bazli
+  kayitlari gun ve vardiya alanlarina gore birlestirip tekrarlari eleyerek,
+  her gun icin cikti/<gun>/<vardiya>.txt dosyasina o vardiyadaki personel
+  adlarini birer satirda sirali yaz ve cikti dizin yapisini olustur
+
+reference_solution: |
+  mkdir -p cikti
+  cat girdi/vardiya_a.json girdi/vardiya_b.json | sort -u | while IFS= read -r satir; do
+    gun=$(printf '%s' "$satir" | sed -n 's/.*"gun":"\([^"]*\)".*/\1/p')
+    vardiya=$(printf '%s' "$satir" | sed -n 's/.*"vardiya":"\([^"]*\)".*/\1/p')
+    [ -z "$gun" ] && continue
+    mkdir -p "cikti/$gun"
+    printf '%s' "$satir" | sed -n 's/.*"personel":\[\([^]]*\)\].*/\1/p' | tr ',' '\n' | tr -d '"' | sort -u >> "cikti/$gun/$vardiya.txt"
+  done
+  find cikti -type f -name '*.txt' | while IFS= read -r f; do sort -u "$f" -o "$f"; done
+  tar -cf cikti.tar cikti
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti.tar, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: ['2024-05-01', '2024-05-02']}
+  - {op: run_stdout_eq, cmd: tar -tf cikti.tar | sort, value: 'cikti/
+
+    cikti/2024-05-01/
+
+    cikti/2024-05-01/gece.txt
+
+    cikti/2024-05-01/gunduz.txt
+
+    cikti/2024-05-02/
+
+    cikti/2024-05-02/gece.txt
+
+    cikti/2024-05-02/gunduz.txt'}
+
+metadata:
+  domain: yeniden-duzenle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7053
+    bundle: secerek-arsivle
+    tools:
+    - tar
+    - find
+    konu: personel-vardiyalari
+    hedef: yeniden-duzenle
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: dizin-yapisi
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

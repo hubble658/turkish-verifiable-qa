@@ -1,0 +1,145 @@
+id: gen-k-5008-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) planner/schedule.py dosyasındaki RoomSchedule.busiest_rooms metodunu düzelt; en mesgul odaları toplam mesguliyete göre büyükten küçüğe sıralayarak döndürsün.
+
+  2) Eşit toplam mesguliyete sahip odalar için, planner/schedule.py içindeki etkinliklerde ilk görünme sırasını korusun.
+
+setup: |
+  mkdir -p planner
+  cat > planner/store.py <<'STORE'
+  def read_events(path):
+      events = []
+      with open(path, "r", encoding="utf-8") as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              eid, start, end, room = line.split(";")
+              events.append({
+                  "id": eid,
+                  "start": int(start),
+                  "end": int(end),
+                  "room": room,
+              })
+      return events
+  STORE
+  cat > planner/merge.py <<'MERGE'
+  def merge_intervals(intervals):
+      ordered = sorted(intervals, key=lambda p: p[0])
+      merged = []
+      for start, end in ordered:
+          if merged and start <= merged[-1][1]:
+              merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+          else:
+              merged.append((start, end))
+      return merged
+  MERGE
+  cat > planner/schedule.py <<'SCHEDULE'
+  from planner.store import read_events
+  from planner.merge import merge_intervals
+
+
+  class RoomSchedule:
+      def __init__(self, path):
+          self.events = read_events(path)
+          self._order = []
+          for e in self.events:
+              if e["room"] not in self._order:
+                  self._order.append(e["room"])
+
+      def busy(self, room):
+          spans = [(e["start"], e["end"]) for e in self.events if e["room"] == room]
+          return merge_intervals(spans)
+
+      def busiest_rooms(self, k):
+          ranked = sorted(self._order, key=lambda r: self.total_busy(r))
+          return ranked[:k]
+
+      def total_busy(self, room):
+          return sum(end - start for start, end in self.busy(room))
+  SCHEDULE
+  cat > events.txt <<'EVENTS'
+  a1;0;10;alpha
+  a2;5;20;alpha
+  b1;0;5;beta
+  b2;100;120;beta
+  c1;0;3;gamma
+  c2;4;8;gamma
+  EVENTS
+
+goal_tr: >
+  planner/schedule.py icindeki RoomSchedule.busiest_rooms metodunu, en
+  mesgul odalari toplam mesguliyete gore buyukten kucuge dondurecek ve
+  esitlikte dosyadaki ilk gorunme sirasini koruyacak bicimde duzelt.
+
+reference_solution: |
+  cat > planner/schedule.py <<'SCHEDULE'
+  from planner.store import read_events
+  from planner.merge import merge_intervals
+
+
+  class RoomSchedule:
+      def __init__(self, path):
+          self.events = read_events(path)
+          self._order = []
+          for e in self.events:
+              if e["room"] not in self._order:
+                  self._order.append(e["room"])
+
+      def busy(self, room):
+          spans = [(e["start"], e["end"]) for e in self.events if e["room"] == room]
+          return merge_intervals(spans)
+
+      def busiest_rooms(self, k):
+          ranked = sorted(self._order, key=lambda r: -self.total_busy(r))
+          return ranked[:k]
+
+      def total_busy(self, room):
+          return sum(end - start for start, end in self.busy(room))
+  SCHEDULE
+
+outputs:
+  - {path: planner/schedule.py, kind: program, run: 'python3 -c ''from planner.schedule import RoomSchedule as R; s=R("events.txt"); assert s.busy("alpha")==[(0,20)], s.busy("alpha"); assert s.total_busy("alpha")==20; assert s.total_busy("beta")==25; assert s.total_busy("gamma")==7; assert s.busiest_rooms(3)==["beta","alpha","gamma"], s.busiest_rooms(3); assert s.busiest_rooms(1)==["beta"]; assert s.busiest_rooms(2)==["beta","alpha"]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from planner.schedule import RoomSchedule as R; s=R("events.txt"); assert s.busy("alpha")==[(0,20)], s.busy("alpha"); assert s.total_busy("alpha")==20; assert s.total_busy("beta")==25; assert s.total_busy("gamma")==7; assert s.busiest_rooms(3)==["beta","alpha","gamma"], s.busiest_rooms(3); assert s.busiest_rooms(1)==["beta"]; assert s.busiest_rooms(2)==["beta","alpha"]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5008
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: takvim-etkinlikleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: zor
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-kararsizligi
+      karmasiklik: duz
+      kalip: durumlu-sinif
+      akis: dosya-okuma
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

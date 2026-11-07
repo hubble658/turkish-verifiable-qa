@@ -1,0 +1,60 @@
+id: gen-s-7294-toplu-yeniden-adlandir
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  gelen altındaki üç .log dosyasını (izmir sevkiyati, ankara aktarma, istanbul dagitim) işle; her biri için aynı dizinde uzantısız adın sonuna _islenmis.log eklenmiş yeni dosyalar (izmir sevkiyati_islenmis.log, ankara aktarma_islenmis.log, istanbul dagitim_islenmis.log) oluştur. Her satırda önce kaynak dosya adı uzantısız, sonra boşluk, sonra ilgili satır olsun.
+
+setup: |
+  mkdir -p gelen
+  printf '2024-05-01 TR1234 istanbul\n2024-05-02 TR5678 ankara\n' > "gelen/izmir sevkiyati.log"
+  printf '2024-05-03 TR9012 izmir\n2024-05-04 TR3456 bursa\n' > "gelen/ankara aktarma.log"
+  printf '2024-05-05 TR7890 istanbul\n' > "gelen/istanbul dagitim.log"
+
+goal_tr: >
+  gelen altindaki her .log dosyasi icin, dosya adindaki .log uzantisini
+  kaldirip yerine _islenmis.log koyarak ayni dizinde yeni bir dosya olustur;
+  bu yeni dosyanin her satirinda once kaynak dosyanin adini (uzantisiz),
+  sonra bosluk, sonra ilgili satirin kendisini yaz.
+
+reference_solution: |
+  for f in gelen/*.log; do b=$(basename "$f" .log); d=$(dirname "$f"); sed "s|^|$b |" "$f" > "$d/${b}_islenmis.log"; done
+
+outputs:
+  - {path: gelen/izmir sevkiyati_islenmis.log, kind: lines}
+  - {path: gelen/ankara aktarma_islenmis.log, kind: lines}
+  - {path: gelen/istanbul dagitim_islenmis.log, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: gelen/ankara aktarma_islenmis.log, value: [ankara aktarma 2024-05-03 TR9012 izmir, ankara aktarma 2024-05-04 TR3456 bursa]}
+  - {op: file_content_eq, path: gelen/istanbul dagitim_islenmis.log, value: istanbul dagitim 2024-05-05 TR7890 istanbul}
+  - {op: file_lines_eq, path: gelen/izmir sevkiyati_islenmis.log, value: [izmir sevkiyati 2024-05-01 TR1234 istanbul, izmir sevkiyati 2024-05-02 TR5678 ankara]}
+
+metadata:
+  domain: toplu-yeniden-adlandir
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7294
+    bundle: yol-parcala
+    tools:
+    - basename
+    - dirname
+    konu: kargo-takibi
+    hedef: toplu-yeniden-adlandir
+    girdi: log-satiri
+    kaynak: cok-dosya
+    cikti: satir-listesi
+    kesif: dolayli-hedef
+    uslup: terse
+    direnc: bosluklu-ad
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

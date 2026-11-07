@@ -1,0 +1,157 @@
+id: gen-k-5158-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  inv/rules/policy.py içindeki ReorderPolicy sınıfının needs_reorder fonksiyonunu düzelt. Şu an bu fonksiyon yalnızca stoğu eşiğin altında olan ürünleri yeniden-sipariş gerektiriyor sayıyor; bunu, stoğu eşiğe tam olarak eşit olan ürünleri de yeniden-sipariş gerektirir sayacak biçimde güncelle. Diğer sınıfların ve dosyaların davranışını değiştirme.
+
+  Şu şartlar sağlanmalı:
+  - inv/rules/policy.py dosyası mevcut ve içinde ReorderPolicy sınıfı ile needs_reorder metodu korunmuş olmalı.
+  - Stoğu eşiğin altında olan ürünler için needs_reorder True döndürmeli.
+  - Stoğu eşiğe tam olarak eşit olan ürünler için needs_reorder True döndürmeli.
+  - Stoğu eşiğin üstünde olan ürünler için needs_reorder False döndürmeli.
+  - inv/report.py içindeki build_report ve low_stock fonksiyonları bu yeni davranışla uyumlu çalışmalı.
+
+setup: |
+  mkdir -p inv/store inv/rules
+  cat > inv/store/__init__.py <<'A'
+  from inv.store.memory import MemoryStore
+  A
+  cat > inv/store/memory.py <<'B'
+  import abc
+
+
+  class BaseStore(abc.ABC):
+      @abc.abstractmethod
+      def put(self, sku, qty):
+          ...
+
+      @abc.abstractmethod
+      def get(self, sku):
+          ...
+
+      @abc.abstractmethod
+      def skus(self):
+          ...
+
+
+  class MemoryStore(BaseStore):
+      def __init__(self):
+          self._items = {}
+
+      def put(self, sku, qty):
+          self._items[sku] = self._items.get(sku, 0) + qty
+
+      def get(self, sku):
+          return self._items.get(sku, 0)
+
+      def skus(self):
+          return sorted(self._items)
+  B
+  cat > inv/rules/__init__.py <<'C'
+  from inv.rules.policy import ReorderPolicy
+  C
+  cat > inv/rules/policy.py <<'D'
+  import abc
+
+
+  class BasePolicy(abc.ABC):
+      @abc.abstractmethod
+      def needs_reorder(self, store, sku):
+          ...
+
+
+  class ReorderPolicy(BasePolicy):
+      def __init__(self, threshold):
+          self.threshold = threshold
+
+      def needs_reorder(self, store, sku):
+          return store.get(sku) < self.threshold
+  D
+  cat > inv/report.py <<'E'
+  from inv.store import MemoryStore
+  from inv.rules import ReorderPolicy
+
+
+  def low_stock(store, policy):
+      out = []
+      for sku in store.skus():
+          if policy.needs_reorder(store, sku):
+              out.append(sku)
+      return out
+
+
+  def build_report(levels, threshold):
+      store = MemoryStore()
+      for sku, qty in levels:
+          store.put(sku, qty)
+      policy = ReorderPolicy(threshold)
+      return low_stock(store, policy)
+  E
+
+goal_tr: >
+  inv/rules/policy.py icindeki ReorderPolicy.needs_reorder fonksiyonunu,
+  stogu esige tam olarak esit olan urunleri de yeniden-siparis gerektirir
+  sayacak bicimde duzelt (su an yalnizca esigin altindakileri sayiyor).
+
+reference_solution: |
+  cat > inv/rules/policy.py <<'D'
+  import abc
+
+
+  class BasePolicy(abc.ABC):
+      @abc.abstractmethod
+      def needs_reorder(self, store, sku):
+          ...
+
+
+  class ReorderPolicy(BasePolicy):
+      def __init__(self, threshold):
+          self.threshold = threshold
+
+      def needs_reorder(self, store, sku):
+          return store.get(sku) <= self.threshold
+  D
+
+outputs:
+  - {path: inv/rules/policy.py, kind: program, run: 'python3 -c ''from inv.report import build_report as f; assert f([("bolt",10),("nut",2),("washer",0),("screw",5)],5)==["nut","screw","washer"], f([("bolt",10),("nut",2),("washer",0),("screw",5)],5); assert f([("a",5)],5)==["a"], f([("a",5)],5); assert f([("a",6)],5)==[], f([("a",6)],5); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from inv.report import build_report as f; assert f([("bolt",10),("nut",2),("washer",0),("screw",5)],5)==["nut","screw","washer"], f([("bolt",10),("nut",2),("washer",0),("screw",5)],5); assert f([("a",5)],5)==["a"], f([("a",5)],5); assert f([("a",6)],5)==[], f([("a",6)],5); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5158
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: depo-envanteri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: orta
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: off-by-one
+      karmasiklik: duz
+      kalip: abc-protokol
+      akis: bellek-ici
+      topoloji: elmas
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

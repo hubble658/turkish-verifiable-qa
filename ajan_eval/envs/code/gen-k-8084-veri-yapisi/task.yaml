@@ -1,0 +1,176 @@
+id: gen-k-8084-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) registrar/index.py dosyasındaki TranscriptTree sınıfının insert metodunu, (sid, course) ikilisi anahtarlarına göre ikili arama ağacına düğüm ekleyen özyinelemeli bir gerçekleşimle doldur.
+
+  2) Aynı sınıfın search metodunu, verilen (sid, course) anahtarını ağaçta arayan ve bulunduğunda değeri döndüren özyinelemeli bir gerçekleşimle doldur.
+
+  3) Aynı sınıfın inorder metodunu, ağaçtaki tüm (anahtar, değer) çiftlerini anahtarlara göre artan sırada döndüren özyinelemeli bir gerçekleşimle doldur.
+
+  4) Böylece registrar/report.py içindeki highest_grade fonksiyonu students.txt üzerinde en yüksek notu döndürsün.
+
+setup: |
+  mkdir -p registrar
+  cat > registrar/loader.py <<'LOADER'
+  def parse_student_rows(lines):
+      rows = []
+      for line in lines:
+          line = line.strip()
+          if not line:
+              continue
+          sid, course, grade = line.split(';')
+          rows.append((sid.strip(), course.strip(), int(grade)))
+      return rows
+  LOADER
+  cat > registrar/index.py <<'INDEX'
+  from registrar.loader import parse_student_rows
+
+
+  class TranscriptTree:
+      def __init__(self):
+          self.root = None
+
+      def insert(self, key, value):
+          raise NotImplementedError
+
+      def search(self, key):
+          raise NotImplementedError
+
+      def inorder(self):
+          raise NotImplementedError
+  INDEX
+  cat > registrar/report.py <<'REPORT'
+  from registrar.loader import parse_student_rows
+  from registrar.index import TranscriptTree
+
+
+  def build_transcript(lines):
+      tree = TranscriptTree()
+      for sid, course, grade in parse_student_rows(lines):
+          tree.insert((sid, course), grade)
+      return tree
+
+
+  def highest_grade(lines):
+      tree = build_transcript(lines)
+      pairs = tree.inorder()
+      if not pairs:
+          return None
+      best = pairs[0]
+      for pair in pairs[1:]:
+          if pair[1] > best[1]:
+              best = pair
+      return best
+  REPORT
+  cat > students.txt <<'DATA'
+  s2;math;71
+  s1;math;88
+  s2;physics;90
+  s1;physics;65
+  s3;math;90
+  DATA
+
+goal_tr: >
+  registrar/index.py icindeki TranscriptTree sinifinda insert, search ve
+  inorder metotlarini, anahtar (sid, course) ikililerine gore ikili arama
+  agaci kuran, arayan ve artan sirada (anahtar, deger) ciftleri donduren
+  ozyinelemeli gerceklesimlerle doldur; boylece registrar/report.py icindeki
+  highest_grade students.txt uzerinde en yuksek notu dondursun.
+
+reference_solution: |
+  cat > registrar/index.py <<'INDEX'
+  class _Node:
+      def __init__(self, key, value):
+          self.key = key
+          self.value = value
+          self.left = None
+          self.right = None
+
+
+  class TranscriptTree:
+      def __init__(self):
+          self.root = None
+
+      def insert(self, key, value):
+          self.root = self._insert(self.root, key, value)
+
+      def _insert(self, node, key, value):
+          if node is None:
+              return _Node(key, value)
+          if key < node.key:
+              node.left = self._insert(node.left, key, value)
+          elif key > node.key:
+              node.right = self._insert(node.right, key, value)
+          else:
+              node.value = value
+          return node
+
+      def search(self, key):
+          return self._search(self.root, key)
+
+      def _search(self, node, key):
+          if node is None:
+              return None
+          if key == node.key:
+              return node.value
+          if key < node.key:
+              return self._search(node.left, key)
+          return self._search(node.right, key)
+
+      def inorder(self):
+          out = []
+          self._inorder(self.root, out)
+          return out
+
+      def _inorder(self, node, out):
+          if node is None:
+              return
+          self._inorder(node.left, out)
+          out.append((node.key, node.value))
+          self._inorder(node.right, out)
+  INDEX
+
+outputs:
+  - {path: registrar/index.py, kind: program, run: 'python3 -c ''from registrar.index import TranscriptTree as T; t=T(); t.insert((2,"a"),5); t.insert((1,"b"),7); t.insert((3,"c"),9); assert t.search((1,"b"))==7; assert t.search((9,"z")) is None; assert t.inorder()==[((1,"b"),7),((2,"a"),5),((3,"c"),9)], t.inorder(); t.insert((2,"a"),99); assert t.search((2,"a"))==99; from registrar.report import highest_grade as h; lines=open("students.txt").readlines(); assert h(lines)==(("s2","physics"),90), h(lines); print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from registrar.index import TranscriptTree as T; t=T(); t.insert((2,"a"),5); t.insert((1,"b"),7); t.insert((3,"c"),9); assert t.search((1,"b"))==7; assert t.search((9,"z")) is None; assert t.inorder()==[((1,"b"),7),((2,"a"),5),((3,"c"),9)], t.inorder(); t.insert((2,"a"),99); assert t.search((2,"a"))==99; from registrar.report import highest_grade as h; lines=open("students.txt").readlines(); assert h(lines)==(("s2","physics"),90), h(lines); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8084
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: ogrenci-transkripti
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: ikili-arama-agaci
+      karmasiklik: duz
+      kalip: ozyineleme
+      akis: cok-dosya-birlestirme
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

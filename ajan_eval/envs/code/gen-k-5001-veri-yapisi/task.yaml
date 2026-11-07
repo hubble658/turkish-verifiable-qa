@@ -1,0 +1,138 @@
+id: gen-k-5001-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  airline/queue.py içindeki SeatQueue sınıfını FIFO kuyruk olarak gerçekleştir; push sona eklesin, pop baştan çıkarsın, __len__ eleman sayısını, __bool__ doluluğu, __add__ iki kuyruğu birleştirip yeni kuyruk döndürsün, __eq__ aynı sırada aynı elemanları taşıyanları eşit saysın, __repr__ "SeatQueue([...])" biçimini versin.
+
+setup: |
+  mkdir -p airline
+  cat > airline/queue.py <<'QUEUE'
+  class SeatQueue:
+      def __init__(self):
+          self._items = []
+
+      def __len__(self):
+          raise NotImplementedError
+
+      def __bool__(self):
+          raise NotImplementedError
+
+      def push(self, item):
+          raise NotImplementedError
+
+      def pop(self):
+          raise NotImplementedError
+
+      def __add__(self, other):
+          raise NotImplementedError
+
+      def __eq__(self, other):
+          raise NotImplementedError
+
+      def __repr__(self):
+          raise NotImplementedError
+  QUEUE
+  cat > airline/loader.py <<'LOADER'
+  from airline.queue import SeatQueue
+
+
+  def load_requests(lines):
+      q = SeatQueue()
+      for line in lines:
+          line = line.strip()
+          if not line:
+              continue
+          name, seat = line.split(':')
+          q.push((name.strip(), seat.strip()))
+      return q
+  LOADER
+  cat > requests.txt <<'REQ'
+  ada:B12
+  bora:A4
+  cem:C7
+  REQ
+
+goal_tr: >
+  airline/queue.py icindeki SeatQueue sinifini FIFO kuyruk olarak
+  gerceklestir; push sona ekler, pop bastan cikarir, __len__ eleman
+  sayisini, __bool__ dolulugu, __add__ iki kuyrugu birlestirip yeni kuyruk
+  dondurur, __eq__ ayni sirada ayni elemanlari tasiyan kuyruklari esit
+  sayar, __repr__ ise "SeatQueue([...])" bicimini verir.
+
+reference_solution: |
+  cat > airline/queue.py <<'QUEUE'
+  class SeatQueue:
+      def __init__(self):
+          self._items = []
+
+      def __len__(self):
+          return len(self._items)
+
+      def __bool__(self):
+          return len(self._items) > 0
+
+      def push(self, item):
+          self._items.append(item)
+
+      def pop(self):
+          if not self._items:
+              raise IndexError("pop from empty SeatQueue")
+          return self._items.pop(0)
+
+      def __add__(self, other):
+          merged = SeatQueue()
+          merged._items = list(self._items) + list(other._items)
+          return merged
+
+      def __eq__(self, other):
+          if not isinstance(other, SeatQueue):
+              return NotImplemented
+          return self._items == other._items
+
+      def __repr__(self):
+          return "SeatQueue({0!r})".format(self._items)
+  QUEUE
+
+outputs:
+  - {path: airline/queue.py, kind: program, run: 'python3 -c ''from airline.queue import SeatQueue as Q; from airline.loader import load_requests as L; q=L(open("requests.txt").read().splitlines()); assert len(q)==3 and bool(q); assert q.pop()==("ada","B12"); assert q.pop()==("bora","A4"); a=Q(); a.push(1); a.push(2); b=Q(); b.push(3); m=a+b; assert len(m)==3 and m._items==[1,2,3]; assert a==a and a!=b; assert repr(a)=="SeatQueue([1, 2])"; e=Q(); assert not e; assert repr(e)=="SeatQueue([])"; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from airline.queue import SeatQueue as Q; from airline.loader import load_requests as L; q=L(open("requests.txt").read().splitlines()); assert len(q)==3 and bool(q); assert q.pop()==("ada","B12"); assert q.pop()==("bora","A4"); a=Q(); a.push(1); a.push(2); b=Q(); b.push(3); m=a+b; assert len(m)==3 and m._items==[1,2,3]; assert a==a and a!=b; assert repr(a)=="SeatQueue([1, 2])"; e=Q(); assert not e; assert repr(e)=="SeatQueue([])"; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5001
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: ucus-rezervasyonlari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: terse
+    direnc: yok
+    bukulme: orta
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: kuyruk
+      karmasiklik: duz
+      kalip: operator-asiri-yukleme
+      akis: cok-dosya-birlestirme
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,68 @@
+id: gen-s-7273-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kayıtlar dizinindeki her .txt dosyasındaki sicaklik= satırlarını, cikti altında dosyayla aynı adlı dizine sicaklik.txt olarak kopyala; cikti/istanbul/sicaklik.txt ve cikti/ankara/sicaklik.txt oluşsun.
+
+setup: |
+  mkdir -p kayitlar
+  cat > kayitlar/istanbul.txt <<'TXT'
+  2024-03-01 12:00 sicaklik=18 nem=55
+  2024-03-02 12:00 sicaklik=20 nem=60
+  2024-03-03 12:00 sicaklik=15 nem=70
+  TXT
+  cat > kayitlar/ankara.txt <<'TXT'
+  2024-03-01 12:00 sicaklik=10 nem=40
+  2024-03-02 12:00 sicaklik=12 nem=45
+  2024-03-03 12:00 sicaklik=8 nem=50
+  TXT
+
+goal_tr: >
+  kayitlar dizinindeki her .txt dosyasi icin, o dosyada sicaklik= gecen
+  satirlari dosya adiyla ayni isimli bir alt dizine kopyala; sonuc olarak
+  kayitlar altinda her sehir icin bir dizin ve icinde o sehrin sicaklik
+  satirlarini barindiran bir dosya olussun
+
+reference_solution: |
+  mkdir -p cikti
+  find kayitlar -maxdepth 1 -name '*.txt' | xargs -I{} basename {} .txt | xargs -I{} sh -c 'mkdir -p cikti/{} && grep "sicaklik=" kayitlar/{}.txt > cikti/{}/sicaklik.txt'
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/istanbul/sicaklik.txt, kind: file}
+  - {path: cikti/ankara/sicaklik.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [ankara, istanbul]}
+  - {op: file_lines_eq, path: cikti/ankara/sicaklik.txt, value: ['2024-03-01 12:00 sicaklik=10 nem=40', '2024-03-02 12:00 sicaklik=12 nem=45', '2024-03-03 12:00 sicaklik=8 nem=50']}
+  - {op: file_lines_eq, path: cikti/istanbul/sicaklik.txt, value: ['2024-03-01 12:00 sicaklik=18 nem=55', '2024-03-02 12:00 sicaklik=20 nem=60', '2024-03-03 12:00 sicaklik=15 nem=70']}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7273
+    bundle: cok-dosya-ara
+    tools:
+    - xargs
+    - grep
+    konu: hava-durumu-kayitlari
+    hedef: denetle
+    girdi: duz-metin
+    kaynak: iki-dosya-capraz
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: terse
+    direnc: bom
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,193 @@
+id: gen-k-9042-veri-yapisi
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  school/rank.py içindeki PriorityQueue.pop metodunu, her zaman en yüksek notu önce verecek şekilde düzelt. school/report.py içindeki top_courses fonksiyonunu, school/rank.py'de tanımlı ranked dekoratörünü kullanarak yaz ve en yüksek k dersi doğru sırada döndürecek biçimde tamamla; school/records.py ve school/rank.py dosyalarındaki mevcut yapı korunsun.
+
+setup: |
+  mkdir -p school
+  cat > school/records.py <<'REC'
+  class Transcript:
+      def __init__(self):
+          self._grades = []
+
+      def add(self, course, grade):
+          self._grades.append((course, grade))
+
+      def courses(self):
+          return list(self._grades)
+  REC
+  cat > school/rank.py <<'RANK'
+  class PriorityQueue:
+      def __init__(self):
+          self._items = []
+
+      def push(self, priority, value):
+          self._items.append((priority, value))
+
+      def pop(self):
+          if not self._items:
+              raise IndexError("empty")
+          best = 0
+          for i in range(1, len(self._items)):
+              if self._items[i][0] < self._items[best][0]:
+                  best = i
+          return self._items.pop(best)[1]
+
+      def __len__(self):
+          return len(self._items)
+
+
+  def ranked(method):
+      def wrapper(self, k):
+          return method(self, k)
+      return wrapper
+  RANK
+  cat > school/report.py <<'REPORT'
+  from school.rank import PriorityQueue
+
+
+  def top_courses(transcript, k):
+      pq = PriorityQueue()
+      for course, grade in transcript.courses():
+          pq.push(grade, course)
+      result = []
+      while len(result) < k and len(pq) > 0:
+          result.append(pq.pop())
+      return list(reversed(result))
+  REPORT
+
+goal_tr: >
+  school/rank.py icindeki PriorityQueue.pop metodunu en yuksek notu once
+  verecek sekilde duzelt ve school/report.py icindeki top_courses
+  fonksiyonunu, school/rank.py'de tanimli ranked dekoratorunu kullanarak
+  yazip en yuksek k dersi dogru sirada dondurecek bicimde tamamla.
+
+reference_solution: |
+  cat > school/rank.py <<'RANK'
+  class PriorityQueue:
+      def __init__(self):
+          self._items = []
+
+      def push(self, priority, value):
+          self._items.append((priority, value))
+
+      def pop(self):
+          if not self._items:
+              raise IndexError("empty")
+          best = 0
+          for i in range(1, len(self._items)):
+              if self._items[i][0] > self._items[best][0]:
+                  best = i
+          return self._items.pop(best)[1]
+
+      def __len__(self):
+          return len(self._items)
+
+
+  def ranked(method):
+      def wrapper(self, k):
+          pq = PriorityQueue()
+          for course, grade in self.courses():
+              pq.push(grade, course)
+          result = []
+          while len(result) < k and len(pq) > 0:
+              result.append(pq.pop())
+          return result
+      return wrapper
+  RANK
+  cat > school/report.py <<'REPORT'
+  from school.rank import ranked
+
+
+  class Report:
+      def __init__(self, transcript):
+          self._transcript = transcript
+
+      def courses(self):
+          return self._transcript.courses()
+
+      @ranked
+      def top_courses(self, k):
+          raise AssertionError("decorator must supply the body")
+
+
+  def top_courses(transcript, k):
+      return Report(transcript).top_courses(k)
+  REPORT
+
+ara_adim: |
+  cat > school/rank.py <<'RANK'
+  class PriorityQueue:
+      def __init__(self):
+          self._items = []
+
+      def push(self, priority, value):
+          self._items.append((priority, value))
+
+      def pop(self):
+          if not self._items:
+              raise IndexError("empty")
+          best = 0
+          for i in range(1, len(self._items)):
+              if self._items[i][0] > self._items[best][0]:
+                  best = i
+          return self._items.pop(best)[1]
+
+      def __len__(self):
+          return len(self._items)
+
+
+  def ranked(method):
+      def wrapper(self, k):
+          return method(self, k)
+      return wrapper
+  RANK
+
+outputs:
+  - {path: school/report.py, kind: program, run: 'python3 -c ''from school.records import Transcript as T; from school.report import top_courses as f; t=T(); t.add("math",70); t.add("art",95); t.add("chem",85); assert f(t,2)==["art","chem"], f(t,2); assert f(t,1)==["art"]; assert f(t,3)==["art","chem","math"]; print("TAMAM")'''}
+  - {path: school/rank.py, kind: program, run: 'python3 -c ''from school.rank import PriorityQueue as Q; q=Q(); q.push(70,"math"); q.push(95,"art"); q.push(85,"chem"); assert q.pop()=="art", "pop"; assert q.pop()=="chem"; assert q.pop()=="math"; assert len(q)==0; print("ILERLEME-TAMAM")'''}
+  - {path: school/records.py, kind: program, run: 'python3 -c ''from school.records import Transcript as T; t=T(); t.add("math",70); t.add("art",95); assert t.courses()==[("math",70),("art",95)], t.courses(); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from school.rank import PriorityQueue as Q; q=Q(); q.push(70,"math"); q.push(95,"art"); q.push(85,"chem"); assert q.pop()=="art", "pop"; assert q.pop()=="chem"; assert q.pop()=="math"; assert len(q)==0; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from school.records import Transcript as T; from school.report import top_courses as f; t=T(); t.add("math",70); t.add("art",95); t.add("chem",85); assert f(t,2)==["art","chem"], f(t,2); assert f(t,1)==["art"]; assert f(t,3)==["art","chem","math"]; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from school.records import Transcript as T; t=T(); t.add("math",70); t.add("art",95); assert t.courses()==[("math",70),("art",95)], t.courses(); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9042
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: ogrenci-transkripti
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: kolay
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: oncelik-kuyrugu
+      karmasiklik: orta
+      kalip: dekorator
+      akis: bellek-ici
+      topoloji: uc-modul-zincir
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

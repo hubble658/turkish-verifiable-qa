@@ -1,0 +1,92 @@
+id: gen-k-8314-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  stock/ops/search.py yaz. build_index(records) kayıtları (sku, delta) olarak sku'ya göre artan sıralı döndürsün; find_net(index, sku) ikili aramayla net hareketi, yoksa None döndürsün.
+
+setup: |
+  mkdir -p stock/ops
+  cat > stock/ops/__init__.py <<'PY'
+  PY
+  cat > stock/__init__.py <<'PY'
+  PY
+  cat > stock/ops/moves.py <<'PY'
+  def parse_moves(records):
+      return [(r[0], int(r[1])) for r in records]
+  PY
+
+goal_tr: >
+  stock/ops/search.py dosyasini yaz; icinde build_index(records) fonksiyonu
+  kayitlardan (sku, delta) demetlerini sku'ya gore artan sirali bir liste
+  olarak dondursun ve find_net(index, sku) fonksiyonu ikili arama ile o
+  skunun toplam net hareketini, yoksa None dondursun.
+
+reference_solution: |
+  cat > stock/ops/search.py <<'PY'
+  from stock.ops.moves import parse_moves
+
+
+  def build_index(records):
+      totals = {}
+      for sku, delta in parse_moves(records):
+          totals[sku] = totals.get(sku, 0) + delta
+      return sorted(totals.items())
+
+
+  def find_net(index, sku):
+      lo, hi = 0, len(index) - 1
+      while lo <= hi:
+          mid = (lo + hi) // 2
+          name, net = index[mid]
+          if name == sku:
+              return net
+          if name < sku:
+              lo = mid + 1
+          else:
+              hi = mid - 1
+      return None
+  PY
+
+outputs:
+  - {path: stock/ops/search.py, kind: program, run: 'python3 -c ''from stock.ops.search import build_index as b, find_net as f; recs=[("b",5),("a",3),("b",-1),("c",7),("a",2)]; idx=b(recs); assert idx==[("a",5),("b",4),("c",7)], idx; assert f(idx,"a")==5; assert f(idx,"b")==4; assert f(idx,"c")==7; assert f(idx,"z") is None; assert f([],"a") is None; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from stock.ops.search import build_index as b, find_net as f; recs=[("b",5),("a",3),("b",-1),("c",7),("a",2)]; idx=b(recs); assert idx==[("a",5),("b",4),("c",7)], idx; assert f(idx,"a")==5; assert f(idx,"b")==4; assert f(idx,"c")==7; assert f(idx,"z") is None; assert f([],"a") is None; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8314
+    bundle: yarisma
+    tools:
+    - python3
+    konu: stok-hareketleri
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: terse
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-ikili-arama
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: bellek-ici
+      topoloji: paket-alt-paket
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

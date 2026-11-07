@@ -1,0 +1,138 @@
+id: gen-k-5079-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  fx/ledger.py dosyasını, içindeki Ledger sınıfı entries.txt satırlarındaki her işlemi işleyecek şekilde gerçekleştir. Her satır bir işlem türü, para birimi, tutar ve yöntem içeriyor; her işlemin tutarını fx/rates.py içindeki to_usd ile USD cinsine çevir ve fx/fees.py içindeki fee_for ile hesaplanan komisyonu yatırma işlemlerinde ekle, çekme işlemlerinde düş. apply çağrılarını bir dekoratörle kaydet ve bu kayıtları self.log içinde tut. settle(entries) metodu verilen işlemleri uygulayıp güncel bakiyeyi döndürsün, audit() metodu ise bakiyeyi ve kaydedilen işlem sayısını içeren bir özet döndürsün.
+
+setup: |
+  mkdir -p fx
+  cat > fx/rates.py <<'RATES'
+  RATES = {"USD": 1.0, "EUR": 0.9, "GBP": 0.8, "JPY": 150.0}
+
+
+  def to_usd(amount, currency):
+      return amount / RATES[currency]
+  RATES
+  cat > fx/fees.py <<'FEES'
+  FEES = {"wire": 0.01, "card": 0.02, "cash": 0.0}
+
+
+  def fee_for(method, amount_usd):
+      return amount_usd * FEES[method]
+  FEES
+  cat > fx/ledger.py <<'LEDGER'
+  from fx.rates import to_usd
+  from fx.fees import fee_for
+
+
+  class Ledger:
+      def __init__(self):
+          self.balance = 0.0
+          self.log = []
+
+      def apply(self, entry):
+          raise NotImplementedError
+
+      def settle(self, entries):
+          raise NotImplementedError
+
+      def audit(self):
+          raise NotImplementedError
+  LEDGER
+  cat > entries.txt <<'ENTRIES'
+  deposit,USD,100.0,cash
+  deposit,EUR,90.0,wire
+  withdraw,GBP,80.0,card
+  deposit,JPY,15000.0,cash
+  ENTRIES
+
+goal_tr: >
+  fx/ledger.py icindeki Ledger sinifini, entries.txt satirlarindaki her
+  islemi USD cinsine cevirip komisyonu duserek/ekleyerek uygulayan, apply
+  cagrilarini bir dekoratorle kaydeden ve settle() ile audit() ozetlerini
+  dogru donduren bicimde gerceklestir.
+
+reference_solution: |
+  cat > fx/ledger.py <<'LEDGER'
+  from fx.rates import to_usd
+  from fx.fees import fee_for
+
+
+  def _recorded(func):
+      def wrapper(self, *args, **kwargs):
+          result = func(self, *args, **kwargs)
+          self.log.append(result)
+          return result
+      return wrapper
+
+
+  class Ledger:
+      def __init__(self):
+          self.balance = 0.0
+          self.log = []
+
+      @_recorded
+      def apply(self, entry):
+          kind, currency, amount, method = entry
+          amount = float(amount)
+          usd = to_usd(amount, currency)
+          fee = fee_for(method, usd)
+          if kind == "deposit":
+              self.balance += usd - fee
+          else:
+              self.balance -= usd + fee
+          return {"kind": kind, "usd": usd, "fee": fee}
+
+      def settle(self, entries):
+          for entry in entries:
+              self.apply(entry)
+          return self.balance, len(self.log)
+
+      def audit(self):
+          total_fee = sum(item["fee"] for item in self.log)
+          return round(total_fee, 6), round(self.balance, 6)
+  LEDGER
+
+outputs:
+  - {path: fx/ledger.py, kind: program, run: 'python3 -c ''from fx.ledger import Ledger; raw=[l.split(",") for l in open("entries.txt").read().strip().splitlines()]; L=Ledger(); bal,n=L.settle(raw); assert n==4, n; assert abs(bal-197.0)<1e-6, bal; f,b=L.audit(); assert abs(f-3.0)<1e-6, f; assert abs(b-197.0)<1e-6, b; assert L.log[0]["kind"]=="deposit"; assert abs(L.log[0]["usd"]-100.0)<1e-6; assert abs(L.log[2]["fee"]-2.0)<1e-6; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from fx.ledger import Ledger; raw=[l.split(",") for l in open("entries.txt").read().strip().splitlines()]; L=Ledger(); bal,n=L.settle(raw); assert n==4, n; assert abs(bal-197.0)<1e-6, bal; f,b=L.audit(); assert abs(f-3.0)<1e-6, f; assert abs(b-197.0)<1e-6, b; assert L.log[0]["kind"]=="deposit"; assert abs(L.log[0]["usd"]-100.0)<1e-6; assert abs(L.log[2]["fee"]-2.0)<1e-6; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5079
+    bundle: yarisma
+    tools:
+    - python3
+    konu: kur-cevrimleri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: benzetim
+      karmasiklik: duz
+      kalip: dekorator
+      akis: cok-dosya-birlestirme
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

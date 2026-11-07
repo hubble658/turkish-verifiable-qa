@@ -1,0 +1,201 @@
+id: gen-k-2008-veri-yapisi-v2
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  clinic/schedule.py içindeki Schedule sınıfını tamamla. Sınıfın merge() metodu, aynı hekimin bitişik ya da kesişen randevu aralıklarını tek bir aralıkta birleştirip sonucu (başlangıç, bitiş, hekim) üçlüleri halinde, başlangıca göre artan sırada döndürsün. total_minutes() metodu, birleştirilmiş aralıkların toplam süresini dakika cinsinden döndürsün. overlaps(other) metodu ise başka bir Schedule nesnesiyle herhangi bir çakışma olup olmadığını doğru şekilde döndürsün. clinic/records.py dosyasındaki load_visits fonksiyonu zaten mevcut ve randevu kayıtlarını okuyor; onu olduğu gibi kullan. Girdi olarak visits.txt dosyası kullanılacak; bu dosyada her satırda noktalı virgülle ayrılmış başlangıç, bitiş ve hekim bilgisi var.
+
+setup: |
+  mkdir -p clinic
+  cat > clinic/records.py <<'RECORDS'
+  def load_visits(path):
+      rows = []
+      with open(path, encoding="ascii") as fh:
+          for line in fh:
+              line = line.strip()
+              if not line:
+                  continue
+              parts = line.split(";")
+              rows.append((int(parts[0]), int(parts[1]), parts[2]))
+      return rows
+  RECORDS
+  cat > clinic/schedule.py <<'SCHEDULE'
+  from clinic.records import load_visits
+
+
+  class Schedule:
+      def __init__(self, path):
+          self.path = path
+          self.visits = load_visits(path)
+          self.merged = self._merge_visits(self.visits)
+
+      def _merge_visits(self, visits):
+          by_doctor = {}
+          for start, end, doctor in visits:
+              by_doctor.setdefault(doctor, []).append((start, end))
+          merged = []
+          for doctor in sorted(by_doctor):
+              spans = sorted(by_doctor[doctor])
+              for start, end in spans:
+                  if merged and merged[-1][2] == doctor and start <= merged[-1][1]:
+                      prev_start, prev_end, _ = merged[-1]
+                      merged[-1] = (prev_start, max(prev_end, end), doctor)
+                  else:
+                      merged.append((start, end, doctor))
+          return merged
+
+      def merge(self):
+          return []
+
+      def total_minutes(self):
+          return 0
+
+      def overlaps(self, other):
+          raise NotImplementedError
+  SCHEDULE
+  cat > visits.txt <<'VISITS'
+  540;600;dr-ayse
+  600;660;dr-ayse
+  660;720;dr-ayse
+  480;540;dr-bora
+  540;570;dr-bora
+  900;960;dr-ceren
+  VISITS
+
+goal_tr: >
+  clinic/schedule.py icindeki Schedule sinifini, ayni hekimin
+  bitisik/kesisen randevu araliklarini birlestirip merge() ile [(baslangic,
+  bitis, hekim)] listesini baslangica gore artan sirada, total_minutes() ile
+  birlestirilmis toplam dakikayi, overlaps(other) ile baska bir Schedule ile
+  cakisma olup olmadigini dogru dondurecek bicimde tamamla.
+
+reference_solution: |
+  cat > clinic/schedule.py <<'SCHEDULE'
+  from clinic.records import load_visits
+
+
+  class Schedule:
+      def __init__(self, path):
+          self.path = path
+          self.visits = load_visits(path)
+          self.merged = self._merge_visits(self.visits)
+
+      def _merge_visits(self, visits):
+          by_doctor = {}
+          for start, end, doctor in visits:
+              by_doctor.setdefault(doctor, []).append((start, end))
+          merged = []
+          for doctor in sorted(by_doctor):
+              spans = sorted(by_doctor[doctor])
+              for start, end in spans:
+                  if merged and merged[-1][2] == doctor and start <= merged[-1][1]:
+                      prev_start, prev_end, _ = merged[-1]
+                      merged[-1] = (prev_start, max(prev_end, end), doctor)
+                  else:
+                      merged.append((start, end, doctor))
+          merged.sort(key=lambda item: (item[0], item[2]))
+          return merged
+
+      def merge(self):
+          return self.merged
+
+      def total_minutes(self):
+          return sum(end - start for start, end, _ in self.merged)
+
+      def overlaps(self, other):
+          for a_start, a_end, _ in self.merged:
+              for b_start, b_end, _ in other.merged:
+                  if a_start < b_end and b_start < a_end:
+                      return True
+          return False
+  SCHEDULE
+  cat > other.txt <<'OTHER'
+  540;570;dr-derya
+  OTHER
+
+ara_adim: |
+  cat > clinic/schedule.py <<'SCHEDULE'
+  from clinic.records import load_visits
+
+
+  class Schedule:
+      def __init__(self, path):
+          self.path = path
+          self.visits = load_visits(path)
+          self.merged = self._merge_visits(self.visits)
+
+      def _merge_visits(self, visits):
+          by_doctor = {}
+          for start, end, doctor in visits:
+              by_doctor.setdefault(doctor, []).append((start, end))
+          merged = []
+          for doctor in sorted(by_doctor):
+              spans = sorted(by_doctor[doctor])
+              for start, end in spans:
+                  if merged and merged[-1][2] == doctor and start <= merged[-1][1]:
+                      prev_start, prev_end, _ = merged[-1]
+                      merged[-1] = (prev_start, max(prev_end, end), doctor)
+                  else:
+                      merged.append((start, end, doctor))
+          merged.sort(key=lambda item: (item[0], item[2]))
+          return merged
+
+      def merge(self):
+          return self.merged
+
+      def total_minutes(self):
+          return 0
+
+      def overlaps(self, other):
+          raise NotImplementedError
+  SCHEDULE
+  cat > other.txt <<'OTHER'
+  540;570;dr-derya
+  OTHER
+
+outputs:
+  - {path: clinic/schedule.py, kind: program, run: 'python3 -c ''from clinic.schedule import Schedule as S; s=S("visits.txt"); assert s.merge()==[(480,570,"dr-bora"),(540,720,"dr-ayse"),(900,960,"dr-ceren")], s.merge(); assert s.total_minutes()==330, s.total_minutes(); assert S("other.txt").overlaps(s) is True; print("TAMAM")'''}
+  - {path: clinic/schedule.py, kind: program, run: 'python3 -c ''from clinic.schedule import Schedule as S; s=S("visits.txt"); assert s.merge()==[(480,570,"dr-bora"),(540,720,"dr-ayse"),(900,960,"dr-ceren")], s.merge(); print("ILERLEME-TAMAM")'''}
+  - {path: clinic/records.py, kind: program, run: 'python3 -c ''from clinic.records import load_visits as f; rows=f("visits.txt"); assert rows[0]==(540,600,"dr-ayse"), rows[0]; assert rows[-1]==(900,960,"dr-ceren"), rows[-1]; assert len(rows)==6, len(rows); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from clinic.schedule import Schedule as S; s=S("visits.txt"); assert s.merge()==[(480,570,"dr-bora"),(540,720,"dr-ayse"),(900,960,"dr-ceren")], s.merge(); assert s.total_minutes()==330, s.total_minutes(); assert S("other.txt").overlaps(s) is True; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from clinic.schedule import Schedule as S; s=S("visits.txt"); assert s.merge()==[(480,570,"dr-bora"),(540,720,"dr-ayse"),(900,960,"dr-ceren")], s.merge(); print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from clinic.records import load_visits as f; rows=f("visits.txt"); assert rows[0]==(540,600,"dr-ayse"), rows[0]; assert rows[-1]==(900,960,"dr-ceren"), rows[-1]; assert len(rows)==6, len(rows); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: veri-yapisi
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-2008
+    bundle: veri-yapisi
+    tools:
+    - python3
+    konu: hastane-randevulari
+    hedef: veri-yapisi
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: aralik-birlestirme
+      karmasiklik: orta
+      kalip: durumlu-sinif
+      akis: dosya-okuma
+      topoloji: yildiz
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

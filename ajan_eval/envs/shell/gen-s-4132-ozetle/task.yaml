@@ -1,0 +1,67 @@
+id: gen-s-4132-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  depo/giris klasöründeki tüm .txt dosyalarındaki adet satırlarındaki sayıları topla ve bu toplamı depo/ozet/toplam.txt dosyasına yaz. Ayrıca toplam adet sayısı kadar satır içeren depo/ozet/sayac.txt dosyasını oluştur.
+
+  Şu şartlar sağlanmalı:
+  - depo/giris altındaki her .txt dosyasındaki adet satırları dikkate alınmalı.
+  - Adet satırlarındaki değerler toplanmalı ve sonuç depo/ozet/toplam.txt dosyasına yazılmalı.
+  - depo/ozet/toplam.txt içinde yalnızca toplam sayı bulunmalı.
+  - depo/ozet/sayac.txt dosyası oluşturulmalı ve içinde toplam adet kadar satır olmalı; her satırda bir sayı yer almalı.
+  - depo/ozet dizini yoksa oluşturulmalı.
+
+setup: |
+  mkdir -p depo/giris
+  printf 'urun:kirmizi-kalem\nadet:12\n' > "depo/giris/kirmizi kalem.txt"
+  printf 'urun:mavi-defter\nadet:5\n' > "depo/giris/mavi defter.txt"
+  printf 'urun:yesil-silgi\nadet:40\n' > "depo/giris/yesil silgi.txt"
+
+goal_tr: >
+  depo/giris altindaki .txt dosyalarindaki adet satirlarini toplayip toplami
+  depo/ozet/toplam.txt dosyasina yaz ve toplam adet kadar satir iceren
+  depo/ozet/sayac.txt dosyasini olustur
+
+reference_solution: |
+  mkdir -p depo/ozet
+  find depo/giris -type f -name '*.txt' -print0 | xargs -0 awk -F: '/^adet:/{s+=$2} END{print s}' > depo/ozet/toplam.txt
+  wc -l < depo/ozet/toplam.txt > /dev/null
+  seq "$(cat depo/ozet/toplam.txt)" | sed 's/.*//' > depo/ozet/sayac.txt
+
+outputs:
+  - {path: depo/ozet/toplam.txt, kind: file}
+  - {path: depo/ozet/sayac.txt, kind: file}
+
+checks:
+  - {op: is_file, path: depo/ozet/sayac.txt}
+  - {op: file_content_eq, path: depo/ozet/toplam.txt, value: '57'}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4132
+    bundle: dizin-istatistik
+    tools:
+    - wc
+    - find
+    konu: envanter
+    hedef: ozetle
+    girdi: duz-metin
+    kaynak: iki-dosya-capraz
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: bosluklu-ad
+    bukulme: olcek
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

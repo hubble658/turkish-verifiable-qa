@@ -1,0 +1,83 @@
+id: gen-s-3185-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  girdi/hava.ini dosyasındaki her bölüm için cikti dizini altında bölüm adıyla birer dizin oluştur; yani cikti/istanbul, cikti/ankara, cikti/izmir ve cikti/antalya dizinleri oluşsun. Her bölümün sicaklik değerini, o bölüme ait dizin içindeki sicaklik.txt dosyasına yaz; dosyanın içeriği yalnızca sayı olsun, başka hiçbir şey bulunmasın. Ayrıca cikti/satir_sayisi.txt dosyasını oluştur.
+
+setup: |
+  mkdir -p girdi
+  cat > girdi/hava.ini <<'INI'
+  [istanbul]
+  sicaklik=22
+  nem=65
+  durum=acik
+
+  [ankara]
+  sicaklik=18
+  nem=40
+  durum=parcali
+
+  [izmir]
+  sicaklik=27
+  nem=55
+  durum=acik
+
+  [antalya]
+  sicaklik=31
+  nem=70
+  durum=gunesli
+  INI
+
+goal_tr: >
+  girdi/hava.ini dosyasindaki her bolum icin cikti/<bolum-adi> adli bir
+  dizin olustur ve o bolumun sicaklik degerini o dizindeki sicaklik.txt
+  dosyasina sadece sayi olarak yaz
+
+reference_solution: |
+  for b in $(grep '^\[' girdi/hava.ini | tr -d '[]'); do mkdir -p "cikti/$b"; grep -A3 "^\[$b\]" girdi/hava.ini | grep '^sicaklik=' | cut -d= -f2 > "cikti/$b/sicaklik.txt"; done; wc -l < girdi/hava.ini > cikti/satir_sayisi.txt
+
+outputs:
+  - {path: cikti, kind: dir}
+  - {path: cikti/istanbul/sicaklik.txt, kind: file}
+  - {path: cikti/ankara/sicaklik.txt, kind: file}
+  - {path: cikti/izmir/sicaklik.txt, kind: file}
+  - {path: cikti/antalya/sicaklik.txt, kind: file}
+  - {path: cikti/satir_sayisi.txt, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: cikti, value: [ankara, antalya, istanbul, izmir, satir_sayisi.txt]}
+  - {op: file_content_eq, path: cikti/ankara/sicaklik.txt, value: '18'}
+  - {op: file_content_eq, path: cikti/antalya/sicaklik.txt, value: '31'}
+  - {op: file_content_eq, path: cikti/istanbul/sicaklik.txt, value: '22'}
+  - {op: file_content_eq, path: cikti/izmir/sicaklik.txt, value: '27'}
+  - {op: file_content_eq, path: cikti/satir_sayisi.txt, value: '19'}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3185
+    bundle: say
+    tools:
+    - grep
+    - wc
+    konu: hava-durumu-kayitlari
+    hedef: dogrula
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: dizin-yapisi
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,119 @@
+id: gen-k-8021-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  cal/events.py içindeki busy_slots fonksiyonunu, verilen bir metindeki tüm etkinliklerin birleştirilmiş meşgul aralıklarını "HH:MM" çiftleri biçiminde doğru döndürecek şekilde gerçekleştir. Fonksiyon, cal/lexer.py içindeki tokenize ve cal/merge.py içindeki merge_intervals yardımcılarını kullanmalı; var olan bu iki modüldeki davranışı değiştirmeden yalnızca cal/events.py içindeki gövdeyi tamamla. Çıktı, başlangıç ve bitiş saatlerinden oluşan çiftlerin listesi olsun.
+
+setup: |
+  mkdir -p cal
+  cat > cal/lexer.py <<'LEXER'
+  def tokenize(text):
+      """Split 'HH:MM-HH:MM Title' lines into (start, end, title) tuples."""
+      out = []
+      for raw in text.strip().splitlines():
+          line = raw.strip()
+          if not line or line.startswith("#"):
+              continue
+          span, title = line.split(" ", 1)
+          start, end = span.split("-")
+          out.append((start, end, title.strip()))
+      return out
+  LEXER
+  cat > cal/merge.py <<'MERGE'
+  def merge_intervals(intervals):
+      """Given [(start, end)] as 'HH:MM' strings, return merged intervals."""
+      def to_min(s):
+          h, m = s.split(":")
+          return int(h) * 60 + int(m)
+
+      def to_str(x):
+          return "%02d:%02d" % (x // 60, x % 60)
+
+      blocks = sorted((to_min(a), to_min(b)) for a, b in intervals)
+      merged = []
+      for a, b in blocks:
+          if merged and a <= merged[-1][1]:
+              if b > merged[-1][1]:
+                  merged[-1][1] = b
+          else:
+              merged.append([a, b])
+      return [(to_str(a), to_str(b)) for a, b in merged]
+  MERGE
+  cat > cal/events.py <<'EVENTS'
+  from cal.lexer import tokenize
+  from cal.merge import merge_intervals
+
+
+  def busy_slots(text):
+      """Return merged busy intervals for all events in text."""
+      raise NotImplementedError
+  EVENTS
+  cat > agenda.txt <<'AGENDA'
+  09:00-10:30 Standup
+  # break
+  10:00-11:00 Review
+  13:15-14:00 Lunch
+  13:45-15:30 Workshop
+  AGENDA
+
+goal_tr: >
+  cal/events.py icindeki busy_slots fonksiyonunu, cal/lexer.py ve
+  cal/merge.py yardimcilariyla, verilen metindeki tum etkinliklerin
+  birlestirilmis mesgul araliklarini "HH:MM" ciftleri halinde dogru
+  dondurecek bicimde gerceklestir.
+
+reference_solution: |
+  cat > cal/events.py <<'EVENTS'
+  from cal.lexer import tokenize
+  from cal.merge import merge_intervals
+
+
+  def busy_slots(text):
+      """Return merged busy intervals for all events in text."""
+      tokens = tokenize(text)
+      return merge_intervals([(s, e) for s, e, _ in tokens])
+  EVENTS
+
+outputs:
+  - {path: cal/events.py, kind: program, run: 'python3 -c ''from cal.events import busy_slots as f; t=open("agenda.txt").read(); assert f(t)==[("09:00","11:00"),("13:15","15:30")], f(t); assert f("")==[]; assert f("08:00-08:30 A\n08:30-09:00 B")==[("08:00","09:00")]; assert f("10:00-10:10 X\n10:05-10:20 Y\n10:30-10:45 Z")==[("10:00","10:20"),("10:30","10:45")]; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from cal.events import busy_slots as f; t=open("agenda.txt").read(); assert f(t)==[("09:00","11:00"),("13:15","15:30")], f(t); assert f("")==[]; assert f("08:00-08:30 A\n08:30-09:00 B")==[("08:00","09:00")]; assert f("10:00-10:10 X\n10:05-10:20 Y\n10:30-10:45 Z")==[("10:00","10:20"),("10:30","10:45")]; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8021
+    bundle: yarisma
+    tools:
+    - python3
+    konu: takvim-etkinlikleri
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: metin-ayristirma
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: bellek-ici
+      topoloji: yildiz
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

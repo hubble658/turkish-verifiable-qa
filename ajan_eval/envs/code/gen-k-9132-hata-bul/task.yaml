@@ -1,0 +1,165 @@
+id: gen-k-9132-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) kargo/events.py dosyasındaki Shipment.add_hop metodunu, sıfır ve negatif ağırlıkları sessizce atlayacak şekilde düzelt.
+
+  2) kargo/report.py dosyasındaki total_weight fonksiyonunu, parçalı akıştan gelen tüm durak ağırlıklarını doğru şekilde toplayacak biçimde düzelt.
+
+  3) kargo/feed.py dosyasını, feed_part1.txt ve feed_part2.txt gibi parçalı akış parçalarını işleyip kargo/report.py içindeki total_weight fonksiyonuna doğru durak ağırlıklarını sağlayacak şekilde gözden geçir ve gerekliyse düzelt.
+
+setup: |
+  mkdir -p kargo
+  cat > kargo/events.py <<'EVENTS'
+  from dataclasses import dataclass, field
+
+
+  @dataclass
+  class Shipment:
+      code: str
+      hops: list = field(default_factory=list)
+
+      def add_hop(self, city, weight):
+          w = int(weight)
+          if w < 0:
+              return
+          self.hops.append((city, w))
+  EVENTS
+  cat > kargo/feed.py <<'FEED'
+  from kargo.events import Shipment
+
+
+  def parse_feed(chunks):
+      shipments = {}
+      for chunk in chunks:
+          for line in chunk.strip().splitlines():
+              if not line:
+                  continue
+              code, city, weight = line.split(';')
+              if code not in shipments:
+                  shipments[code] = Shipment(code)
+              shipments[code].add_hop(city, weight)
+      return shipments
+  FEED
+  cat > kargo/report.py <<'REPORT'
+  from kargo.feed import parse_feed
+
+
+  def total_weight(chunks, code):
+      shipments = parse_feed(chunks)
+      if code not in shipments:
+          return 0
+      total = 0
+      for city, weight in shipments[code].hops:
+          total = weight
+      return total
+  REPORT
+  cat > feed_part1.txt <<'P1'
+  K1;istanbul;7
+  K2;ankara;4
+  K1;izmir;3
+  P1
+  cat > feed_part2.txt <<'P2'
+  K1;bursa;5
+  K2;ankara;6
+  K3;adana;9
+  P2
+
+goal_tr: >
+  kargo/events.py icindeki Shipment.add_hop metodunu sifir ve negatif
+  agirliklari sessizce atlayacak bicimde duzelt, ardindan kargo/report.py
+  icindeki total_weight fonksiyonunu parcali akistan gelen tum durak
+  agirliklarini dogru toplayacak bicimde duzelt.
+
+reference_solution: |
+  cat > kargo/events.py <<'EVENTS'
+  from dataclasses import dataclass, field
+
+
+  @dataclass
+  class Shipment:
+      code: str
+      hops: list = field(default_factory=list)
+
+      def add_hop(self, city, weight):
+          w = int(weight)
+          if w <= 0:
+              return
+          self.hops.append((city, w))
+  EVENTS
+  cat > kargo/report.py <<'REPORT'
+  from kargo.feed import parse_feed
+
+
+  def total_weight(chunks, code):
+      shipments = parse_feed(chunks)
+      if code not in shipments:
+          return 0
+      total = 0
+      for city, weight in shipments[code].hops:
+          total += weight
+      return total
+  REPORT
+
+ara_adim: |
+  cat > kargo/report.py <<'REPORT'
+  from kargo.feed import parse_feed
+
+
+  def total_weight(chunks, code):
+      shipments = parse_feed(chunks)
+      if code not in shipments:
+          return 0
+      total = 0
+      for city, weight in shipments[code].hops:
+          total += weight
+      return total
+  REPORT
+
+outputs:
+  - {path: kargo/report.py, kind: program, run: 'python3 -c ''from kargo.report import total_weight as f; c=[open("feed_part1.txt").read(), open("feed_part2.txt").read()]; assert f(c,"K1")==15, f(c,"K1"); assert f(c,"K2")==10; assert f(c,"K3")==9; assert f(c,"K9")==0; print("TAMAM")'''}
+  - {path: kargo/events.py, kind: program, run: 'python3 -c ''from kargo.events import Shipment as S; s=S("K1"); s.add_hop("a",0); s.add_hop("b",-4); s.add_hop("c",7); assert s.hops==[("c",7)], s.hops; print("ILERLEME-TAMAM")'''}
+  - {path: kargo/feed.py, kind: program, run: 'python3 -c ''from kargo.feed import parse_feed as f; c=[open("feed_part1.txt").read(), open("feed_part2.txt").read()]; s=f(c); assert sorted(s)==["K1","K2","K3"], sorted(s); assert len(s["K1"].hops)==3; assert s["K2"].hops==[("ankara",4),("ankara",6)]; print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from kargo.events import Shipment as S; s=S("K1"); s.add_hop("a",0); s.add_hop("b",-4); s.add_hop("c",7); assert s.hops==[("c",7)], s.hops; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from kargo.report import total_weight as f; c=[open("feed_part1.txt").read(), open("feed_part2.txt").read()]; assert f(c,"K1")==15, f(c,"K1"); assert f(c,"K2")==10; assert f(c,"K3")==9; assert f(c,"K9")==0; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from kargo.feed import parse_feed as f; c=[open("feed_part1.txt").read(), open("feed_part2.txt").read()]; s=f(c); assert sorted(s)==["K1","K2","K3"], sorted(s); assert len(s["K1"].hops)==3; assert s["K2"].hops==[("ankara",4),("ankara",6)]; print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9132
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: kargo-takibi
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-toplama-sirasi
+      karmasiklik: orta
+      kalip: dataclass-dogrulama
+      akis: parcali-akis
+      topoloji: yildiz
+      zincir: 2
+      regresyon: true
+      bagimli: true
+      kesif_zor: false

@@ -1,0 +1,148 @@
+id: gen-k-9604-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 22
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Depo ekibi için hazırladığımız sipariş raporu üzerinde son birkaç gündür uğraşıyoruz; müşterilerden gelen geri bildirimler can sıkıcı olmaya başladı. Dün akşam bir kez daha baktım, sorun yalnızca rakamlarda değil, raporun kendisini toplama biçiminde de var. Şimdi bunu düzeltmeni istiyorum.
+
+  store/report/summary.py, store/core/items.py ve store/core/totals.py dosyalarındaki davranışları düzelt. Satır tutarları ve genel toplam, miktar ile birim fiyatın çarpımı olacak şekilde hesaplanmalı; şu an çıkan değer bu çarpımdan farklı. Ayrıca aynı sku birden fazla satırda geçtiğinde miktarların birleştirilmesi gerekiyor, şu an birleşmiyor. Son olarak rapor, satır sayısı olarak ham satır sayısını bildiriyor; bunun yerine birleştirilmiş benzersiz satır sayısını bildirmeli.
+
+setup: |
+  mkdir -p store/core store/report
+  cat > store/core/__init__.py <<'EOF'
+  EOF
+  cat > store/report/__init__.py <<'EOF'
+  EOF
+  cat > store/core/items.py <<'ITEMS'
+  def build_index(rows):
+      index = {}
+      for row in rows:
+          sku = row["sku"]
+          index[sku] = {"qty": row["qty"], "price": row["price"]}
+      return index
+  ITEMS
+  cat > store/core/totals.py <<'TOTALS'
+  from store.core.items import build_index
+
+
+  def line_total(entry):
+      return entry["qty"] + entry["price"]
+
+
+  def grand_total(rows):
+      index = build_index(rows)
+      return sum(line_total(v) for v in index.values())
+  TOTALS
+  cat > store/report/summary.py <<'SUMMARY'
+  from store.core.totals import grand_total
+
+
+  def describe(rows):
+      return {"count": len(rows), "total": grand_total(rows)}
+  SUMMARY
+  cat > orders.py <<'DATA'
+  ORDERS = [
+      {"sku": "A1", "qty": 2, "price": 10.0},
+      {"sku": "B2", "qty": 3, "price": 5.0},
+      {"sku": "C3", "qty": 1, "price": 2.5},
+  ]
+  DATA
+
+goal_tr: >
+  store paketindeki siparis raporu yanlis toplam uretiyor: satir tutarlari
+  ve genel toplam, miktar ile birim fiyatin carpimi olmasi gerekirken farkli
+  bir deger cikiyor; ayrica ayni sku birden fazla satirda gectiginde
+  miktarlar birlesmiyor ve rapor satir sayisini ham satir sayisi olarak
+  bildiriyor. Bu davranislari duzelt.
+
+reference_solution: |
+  cat > store/core/items.py <<'ITEMS'
+  def build_index(rows):
+      index = {}
+      for row in rows:
+          sku = row["sku"]
+          if sku in index:
+              index[sku]["qty"] += row["qty"]
+          else:
+              index[sku] = {"qty": row["qty"], "price": row["price"]}
+      return index
+  ITEMS
+  cat > store/core/totals.py <<'TOTALS'
+  from store.core.items import build_index
+
+
+  def line_total(entry):
+      return entry["qty"] * entry["price"]
+
+
+  def grand_total(rows):
+      index = build_index(rows)
+      return sum(line_total(v) for v in index.values())
+  TOTALS
+  cat > store/report/summary.py <<'SUMMARY'
+  from store.core.totals import grand_total
+
+
+  def describe(rows):
+      return {"count": len({r["sku"] for r in rows}), "total": grand_total(rows)}
+  SUMMARY
+
+ara_adim: |
+  cat > store/core/items.py <<'ITEMS'
+  def build_index(rows):
+      index = {}
+      for row in rows:
+          sku = row["sku"]
+          if sku in index:
+              index[sku]["qty"] += row["qty"]
+          else:
+              index[sku] = {"qty": row["qty"], "price": row["price"]}
+      return index
+  ITEMS
+
+outputs:
+  - {path: store/report/summary.py, kind: program, run: 'python3 -c ''from store.report.summary import describe as f; from orders import ORDERS; assert f(ORDERS)=={"count":3,"total":37.5}, f(ORDERS); assert f(ORDERS+[{"sku":"A1","qty":1,"price":10.0}])=={"count":3,"total":47.5}, f(ORDERS+[{"sku":"A1","qty":1,"price":10.0}]); print("TAMAM")'''}
+  - {path: store/core/items.py, kind: program, run: 'python3 -c ''from store.core.items import build_index as f; idx=f([{"sku":"A1","qty":2,"price":10.0},{"sku":"A1","qty":3,"price":10.0}]); assert idx=={"A1":{"qty":5,"price":10.0}}, idx; print("ILERLEME-TAMAM")'''}
+  - {path: store/core/totals.py, kind: program, run: 'python3 -c ''from store.core.totals import line_total as f; assert f({"qty":2,"price":10.0})==20.0, f({"qty":2,"price":10.0}); assert f({"qty":3,"price":5.0})==15.0, f({"qty":3,"price":5.0}); print("REGRESYON-TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from store.core.items import build_index as f; idx=f([{"sku":"A1","qty":2,"price":10.0},{"sku":"A1","qty":3,"price":10.0}]); assert idx=={"A1":{"qty":5,"price":10.0}}, idx; print("ILERLEME-TAMAM")''', value: ILERLEME-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from store.core.totals import line_total as f; assert f({"qty":2,"price":10.0})==20.0, f({"qty":2,"price":10.0}); assert f({"qty":3,"price":5.0})==15.0, f({"qty":3,"price":5.0}); print("REGRESYON-TAMAM")''', value: REGRESYON-TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from store.report.summary import describe as f; from orders import ORDERS; assert f(ORDERS)=={"count":3,"total":37.5}, f(ORDERS); assert f(ORDERS+[{"sku":"A1","qty":1,"price":10.0}])=={"count":3,"total":47.5}, f(ORDERS+[{"sku":"A1","qty":1,"price":10.0}]); print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-9604
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: siparis-kayitlari
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: orta
+    adim: 8
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: tip-karismasi
+      karmasiklik: derin
+      kalip: duz-fonksiyon
+      akis: ic-ice-yapi
+      topoloji: paket-alt-paket
+      zincir: 3
+      regresyon: true
+      bagimli: true
+      kesif_zor: true

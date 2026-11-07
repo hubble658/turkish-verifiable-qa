@@ -1,0 +1,66 @@
+id: gen-s-3240-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) randevular.json dosyasındaki her randevu için id, hasta, tarih ve bölüm bilgilerini noktalı virgülle ayrılmış tek bir satır haline getir.
+
+  2) Elde ettiğin tüm satırları randevu id değerine göre artan sırada diz.
+
+  3) Dizilmiş satırları randevular.txt dosyasına yaz; dosyada her satırda bir randevu olsun ve biçim "id;hasta;tarih;bolum" şeklinde olsun.
+
+setup: |
+  cat > randevular.json <<'JSON'
+  {"hastane":"Merkez Klinik","randevular":[
+  {"id":101,"hasta":"Ayse Yilmaz","tarih":"2024-03-01","bolum":"Kardiyoloji"},
+  {"id":102,"hasta":"Mehmet Demir","tarih":"2024-03-02","bolum":"Dermatoloji"},
+  {"id":103,"hasta":"Zeynep Kaya","tarih":"2024-03-03","bolum":"Noroloji"},
+  {"id":104,"hasta":"Ali Celik","tarih":"2024-03-04","bolum":"Ortopedi"},
+  {"id":105,"hasta":"Fatma Sahin","tarih":"2024-03-05","bolum":"Kardiyoloji"}
+  ]}
+  JSON
+
+goal_tr: >
+  randevular.json dosyasindaki her randevu icin "id;hasta;tarih;bolum"
+  biciminde noktali virgulle ayrilmis bir satir uret ve tum satirlari
+  randevu id'sine gore artan sirada randevular.txt dosyasina yaz
+
+reference_solution: |
+  printf '%s\n' "$(sed -n 's/.*"id":\([0-9]*\),"hasta":"\([^"]*\)","tarih":"\([^"]*\)","bolum":"\([^"]*\)".*/\1;\2;\3;\4/p' randevular.json)" > /dev/null
+  grep -o '"id":[0-9]*,"hasta":"[^"]*","tarih":"[^"]*","bolum":"[^"]*"' randevular.json | sed 's/"id"://; s/,"hasta":"/;/; s/","tarih":"/;/; s/","bolum":"/;/; s/"$//' | sort -t';' -k1,1n > randevular.txt
+  seq 1 1 > /dev/null
+
+outputs:
+  - {path: randevular.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: randevular.txt, value: [101;Ayse Yilmaz;2024-03-01;Kardiyoloji, 102;Mehmet Demir;2024-03-02;Dermatoloji, 103;Zeynep Kaya;2024-03-03;Noroloji, 104;Ali Celik;2024-03-04;Ortopedi, 105;Fatma Sahin;2024-03-05;Kardiyoloji]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3240
+    bundle: uret
+    tools:
+    - printf
+    - seq
+    konu: hastane-randevulari
+    hedef: donustur
+    girdi: json
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: veriye-bak
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

@@ -1,0 +1,118 @@
+id: gen-k-5037-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  docs/index.py içindeki index_documents fonksiyonunu düzelt; fonksiyon her belgenin tüm parçalarını sırayla toplayıp {doc_id: [metin, ...]} sözlüğünü eksiksiz döndürsün. docs/index.py dosyasını bu düzeltilmiş haliyle oluştur.
+
+  Şu şartlar sağlanmalı:
+  - docs/index.py dosyası oluşturulmalı ve index_documents fonksiyonunu içermeli.
+  - Fonksiyon, docs/chunks.py içindeki split_chunks fonksiyonunu kullanmalı.
+  - Fonksiyon, stream.txt içeriği verildiğinde her belgenin tüm parçalarını eksiksiz toplamalı; herhangi bir parça atlanmamalı.
+  - Dönen sözlük {doc_id: [metin, ...]} biçiminde olmalı ve her belgenin parçaları sırayla yer almalı.
+  - Fonksiyon, ilk belgeyi işledikten sonra erken dönüş yapmamalı; tüm belgeler işlenmeli.
+
+setup: |
+  mkdir -p docs
+  cat > docs/chunks.py <<'CHUNKS'
+  from dataclasses import dataclass
+
+
+  @dataclass
+  class Chunk:
+      doc_id: str
+      seq: int
+      text: str
+
+
+  def split_chunks(stream):
+      """Split a raw stream 'doc|seq|text' lines into Chunk records."""
+      chunks = []
+      for line in stream.strip().splitlines():
+          doc_id, seq, text = line.split('|', 2)
+          chunks.append(Chunk(doc_id, int(seq), text))
+      return chunks
+  CHUNKS
+  cat > docs/index.py <<'INDEX'
+  from docs.chunks import split_chunks
+
+
+  def index_documents(stream):
+      """Return {doc_id: [text, text, ...]} for every document."""
+      result = {}
+      for chunk in split_chunks(stream):
+          result.setdefault(chunk.doc_id, [])
+          if chunk.seq >= 0:
+              result[chunk.doc_id].append(chunk.text)
+              return result
+      return result
+  INDEX
+  cat > stream.txt <<'DATA'
+  alpha|0|first line
+  alpha|1|second line
+  beta|0|beta body
+  alpha|2|third line
+  DATA
+
+goal_tr: >
+  docs/index.py icindeki index_documents fonksiyonunu, her belgenin tum
+  parcalarini sirayla toplayip {doc_id: [metin, ...]} sozlugunu eksiksiz
+  dondurecek bicimde duzelt.
+
+reference_solution: |
+  cat > docs/index.py <<'INDEX'
+  from docs.chunks import split_chunks
+
+
+  def index_documents(stream):
+      """Return {doc_id: [text, text, ...]} for every document."""
+      result = {}
+      for chunk in split_chunks(stream):
+          result.setdefault(chunk.doc_id, [])
+          if chunk.seq >= 0:
+              result[chunk.doc_id].append(chunk.text)
+      return result
+  INDEX
+
+outputs:
+  - {path: docs/index.py, kind: program, run: 'python3 -c ''from docs.index import index_documents as f; t=open("stream.txt").read(); r=f(t); assert r=={"alpha":["first line","second line","third line"],"beta":["beta body"]}, r; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from docs.index import index_documents as f; t=open("stream.txt").read(); r=f(t); assert r=={"alpha":["first line","second line","third line"],"beta":["beta body"]}, r; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5037
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: metin-belgeleri
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: erken-donus
+      karmasiklik: duz
+      kalip: dataclass-dogrulama
+      akis: parcali-akis
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

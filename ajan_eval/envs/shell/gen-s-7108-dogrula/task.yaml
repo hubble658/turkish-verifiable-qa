@@ -1,0 +1,73 @@
+id: gen-s-7108-dogrula
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sunucu.ini dosyasındaki her bölüm başlığını ve o bölümün durum anahtarını "baslik=durum" biçiminde birleştir. Yalnızca durum değeri aktif olan satırları, bölüm sırasını koruyarak aktif_bolumler.txt dosyasına yaz. Anahtar adlarındaki ve değerlerdeki boşluklar temizlenmiş olsun.
+
+setup: |
+  cat > sunucu.ini <<'INI'
+  [sunucu]
+  ad = alpha
+  ip = 10.0.0.1
+  durum = aktif
+  [servis]
+  ad = web
+  port = 8080
+  durum = aktif
+  [servis]
+  ad = db
+  port = 5432
+  durum = aktif
+  [kullanici]
+  ad = admin
+  rol = yonetici
+  durum = aktif
+  INI
+
+goal_tr: >
+  sunucu.ini dosyasindaki her bolum basligini ([...] satirlari) ve her
+  bolumun durum anahtarini "baslik=durum" biciminde birlestirip, yalnizca
+  durum degeri aktif olan satirlari bolum sirasini koruyarak
+  aktif_bolumler.txt dosyasina yaz; anahtar adlarindaki ve degerlerdeki
+  bosluklar temizlenmis olsun.
+
+reference_solution: |
+  sed -n 's/^\[\(.*\)\]$/\1/p; s/^[[:space:]]*durum[[:space:]]*=[[:space:]]*\(.*\)$/\1/p' sunucu.ini > gecici.txt
+  sed -n '1~2h; 2~2{H;g;s/\n/=/p}' gecici.txt | tr -d ' ' > aktif_bolumler.txt
+  rm -f gecici.txt
+
+outputs:
+  - {path: aktif_bolumler.txt, kind: lines}
+
+checks:
+  - {op: file_lines_eq, path: aktif_bolumler.txt, value: [sunucu=aktif, servis=aktif, servis=aktif, kullanici=aktif]}
+
+metadata:
+  domain: dogrula
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7108
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: sunucu-loglari
+    hedef: dogrula
+    girdi: ini
+    kaynak: tek-dosya
+    cikti: satir-listesi
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: yok
+    bukulme: kirli-veri
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

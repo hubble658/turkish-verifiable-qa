@@ -1,0 +1,141 @@
+id: gen-k-5140-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 10
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  sessions/analyze.py içindeki active_windows fonksiyonunu iki işaretçi yöntemiyle gerçekleştirmen gerekiyor. Her kullanıcı için yalnızca o kullanıcının kendi olaylarından oluşan, en fazla `limit` olay içeren bitişik bir zaman penceresi bulunmalı; önce olay sayısını en büyük yapan pencere, olay sayısı eşitse zaman aralığı (bitiş eksi başlangıç) en küçük olan pencere, bu da eşitse en erken başlayan pencere seçilmeli. Fonksiyon sonucu kullanıcı adından (başlangıç_ts, bitiş_ts, olay_sayısı) üçlüsüne giden bir eşleme olarak döndürmelidir. sessions/analyze.py dışındaki sessions/records.py ve sessions/parse.py dosyaları olduğu gibi korunmalı, load_events fonksiyonundan gelen olay kayıtları kullanıcı, eylem ve zaman damgası alanlarından oluşur.
+
+setup: |
+  mkdir -p sessions
+  cat > sessions/records.py <<'REC'
+  class SessionError(Exception):
+      pass
+
+
+  class BadRecord(SessionError):
+      pass
+
+
+  def iter_records(lines):
+      for line in lines:
+          line = line.strip()
+          if not line or line.startswith('#'):
+              continue
+          parts = line.split(',')
+          if len(parts) < 3:
+              raise BadRecord(line)
+          yield parts[0], parts[1], int(parts[2])
+  REC
+  cat > sessions/parse.py <<'PARSE'
+  from sessions.records import iter_records
+
+
+  def load_events(text):
+      events = []
+      for rec in iter_records(text.splitlines()):
+          events.append(rec)
+      return events
+  PARSE
+  cat > sessions/analyze.py <<'ANALYZE'
+  from sessions.parse import load_events
+
+
+  def active_windows(text, limit):
+      raise NotImplementedError
+  ANALYZE
+  cat > data.log <<'LOG'
+  # session log sample
+  alice,login,10
+  bob,login,12
+  alice,view,14
+  alice,view,15
+  bob,view,20
+  bob,view,22
+  bob,logout,30
+  alice,logout,40
+  LOG
+
+goal_tr: >
+  sessions/analyze.py icindeki active_windows fonksiyonunu iki-isaretci
+  yontemiyle gerceklestir: her kullanici icin kendi olaylarindan olusan, en
+  fazla `limit` olay iceren bitisik bir zaman penceresi bul; once olay
+  sayisini en buyuk yapan, esitlikte zaman araligini (bitis eksi baslangic)
+  en kucuk yapan, yine esitlikte en erken baslayan pencereyi sec ve sonucu
+  kullanici -> (baslangic_ts, bitis_ts, olay_sayisi) eslesmesi olarak
+  dondur.
+
+reference_solution: |
+  cat > sessions/analyze.py <<'ANALYZE'
+  from sessions.parse import load_events
+
+
+  def active_windows(text, limit):
+      events = load_events(text)
+      by_user = {}
+      for user, action, ts in events:
+          by_user.setdefault(user, []).append(ts)
+
+      result = {}
+      for user, stamps in by_user.items():
+          stamps.sort()
+          best = None
+          left = 0
+          for right in range(len(stamps)):
+              while right - left + 1 > limit:
+                  left += 1
+              count = right - left + 1
+              start = stamps[left]
+              end = stamps[right]
+              span = end - start
+              if best is None:
+                  best = (start, end, count)
+              elif count > best[2]:
+                  best = (start, end, count)
+              elif count == best[2] and span < best[1] - best[0]:
+                  best = (start, end, count)
+          result[user] = best
+      return result
+  ANALYZE
+
+outputs:
+  - {path: sessions/analyze.py, kind: program, run: 'python3 -c ''from sessions.analyze import active_windows as f; t=open("data.log").read(); r=f(t,2); assert r["alice"]==(14,15,2), r; assert r["bob"]==(20,22,2), r; r2=f(t,3); assert r2["alice"]==(10,15,3), r2; assert r2["bob"]==(12,22,3), r2; r3=f(t,1); assert r3["alice"]==(10,10,1), r3; assert r3["bob"]==(12,12,1), r3; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from sessions.analyze import active_windows as f; t=open("data.log").read(); r=f(t,2); assert r["alice"]==(14,15,2), r; assert r["bob"]==(20,22,2), r; r2=f(t,3); assert r2["alice"]==(10,15,3), r2; assert r2["bob"]==(12,22,3), r2; r3=f(t,1); assert r3["alice"]==(10,10,1), r3; assert r3["bob"]==(12,12,1), r3; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5140
+    bundle: yarisma
+    tools:
+    - python3
+    konu: kullanici-oturumlari
+    hedef: yarisma
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: yok
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: zor
+    adim: 2
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: iki-isaretci
+      karmasiklik: duz
+      kalip: istisna-hiyerarsisi
+      akis: parcali-akis
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

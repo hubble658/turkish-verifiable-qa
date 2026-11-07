@@ -1,0 +1,116 @@
+id: gen-k-5055-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  depo/raf.py dosyasını yaz. depo.siralama.sirala ile artan puana göre sıralanmış kayıtlar üzerinde ikili arama yapıp hedef puana en yakın kaydın kodunu döndüren, çağrı sayısını tutan bir Raf sınıfı olsun; ara(kayitlar, hedef) metodu @sayac dekoratörüyle sarmalanıp her çağrıda cagri_sayisi bir artsın.
+
+setup: |
+  mkdir -p depo
+  cat > depo/kayitlar.py <<'KAYITLAR'
+  def ham_kayitlar():
+      return [
+          ("A-12", 3, 40),
+          ("B-07", 1, 90),
+          ("C-33", 5, 12),
+          ("D-01", 2, 55),
+          ("E-88", 4, 21),
+          ("F-45", 1, 70),
+          ("G-19", 2, 33),
+          ("H-60", 3, 18),
+      ]
+  KAYITLAR
+  cat > depo/siralama.py <<'SIRALAMA'
+  def puan(kayit):
+      kod, adet, birim = kayit
+      return adet * birim
+
+
+  def sirala(kayitlar):
+      return sorted(kayitlar, key=puan)
+  SIRALAMA
+
+goal_tr: >
+  depo/raf.py dosyasini yaz: depo.siralama.sirala ile artan puana gore
+  siralanmis kayitlar uzerinde ikili arama yapan, hedef puana en yakin
+  kaydin kodunu donduren ve cagri sayisini tutan bir `Raf` sinifi tanimla;
+  `ara(kayitlar, hedef)` metodu bir `@sayac` dekoratoru ile sarmalanmis
+  olmali ve her cagride `cagri_sayisi` bir artmali.
+
+reference_solution: |
+  cat > depo/raf.py <<'RAF'
+  from depo.siralama import puan, sirala
+
+
+  def sayac(fonksiyon):
+      def sarmal(raf, kayitlar, hedef):
+          raf.cagri_sayisi += 1
+          return fonksiyon(raf, kayitlar, hedef)
+      return sarmal
+
+
+  class Raf:
+      def __init__(self):
+          self.cagri_sayisi = 0
+
+      @sayac
+      def ara(self, kayitlar, hedef):
+          sirali = sirala(kayitlar)
+          dusuk = 0
+          yuksek = len(sirali) - 1
+          while dusuk < yuksek:
+              orta = (dusuk + yuksek) // 2
+              if puan(sirali[orta]) < hedef:
+                  dusuk = orta + 1
+              else:
+                  yuksek = orta
+          aday = sirali[dusuk]
+          if dusuk > 0:
+              onceki = sirali[dusuk - 1]
+              if abs(puan(onceki) - hedef) < abs(puan(aday) - hedef):
+                  aday = onceki
+          return aday[0]
+  RAF
+
+outputs:
+  - {path: depo/raf.py, kind: program, run: 'python3 -c ''from depo.kayitlar import ham_kayitlar; from depo.raf import Raf; r=Raf(); k=ham_kayitlar(); assert r.ara(k,60)=="C-33"; assert r.ara(k,0)=="H-60"; assert r.ara(k,999)=="A-12"; assert r.ara(k,66)=="G-19"; assert r.ara(k,42)=="H-60"; assert r.cagri_sayisi==5; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from depo.kayitlar import ham_kayitlar; from depo.raf import Raf; r=Raf(); k=ham_kayitlar(); assert r.ara(k,60)=="C-33"; assert r.ara(k,0)=="H-60"; assert r.ara(k,999)=="A-12"; assert r.ara(k,66)=="G-19"; assert r.ara(k,42)=="H-60"; assert r.cagri_sayisi==5; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-5055
+    bundle: yarisma
+    tools:
+    - python3
+    konu: depo-raf-yerlesimi
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: terse
+    direnc: yok
+    bukulme: zor
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: siralama-ikili-arama
+      karmasiklik: duz
+      kalip: dekorator
+      akis: cok-dosya-birlestirme
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,79 @@
+id: gen-s-4042-donustur
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  Bugün istasyonlardan gelen ham kayıtları düzenleme günüydü; sabah toplantısında sensör verilerinin artık tek tek metin dosyalarında tutulmasının işimizi zorlaştırdığı konuşuldu. Öğleden sonra bu işi toparlamaya karar verdim, çünkü ileride bu verileri başka araçlarla işlemek isteyeceğiz ve düzgün bir yapıya ihtiyacımız olacak. Bu yüzden olcumler klasöründeki tüm .log dosyalarını işleyip tek bir olcumler.json dosyası üretmeni istiyorum.
+
+  Bu olcumler.json dosyası geçerli bir JSON dizisi olsun. İçindeki her eleman, ilgili satırın geldiği dosyanın adını "dosya" alanında, ayrıca "sicaklik", "nem" ve "basinc" alanlarını taşısın. Sayısal alanlar JSON içinde sayı olarak yazılsın, metin olarak değil. Kısacası her satır bir elemana karşılık gelsin ve elemanlar {"dosya": <ad>, "sicaklik": <deger>, "nem": <deger>, "basinc": <deger>} biçiminde olsun.
+
+setup: |
+  mkdir -p olcumler
+  cat > olcumler/s1.log <<'LOG'
+  SICAKLIK=21.5|NEM=40|BASINC=1013
+  SICAKLIK=22.0|NEM=42|BASINC=1012
+  SICAKLIK=20.5|NEM=38|BASINC=1014
+  LOG
+  cat > olcumler/s2.log <<'LOG'
+  SICAKLIK=19.0|NEM=35|BASINC=1015
+  SICAKLIK=23.5|NEM=45|BASINC=1011
+  LOG
+  cat > olcumler/s3.log <<'LOG'
+  SICAKLIK=18.0|NEM=33|BASINC=1016
+  SICAKLIK=24.0|NEM=47|BASINC=1010
+  SICAKLIK=21.0|NEM=41|BASINC=1013
+  LOG
+
+goal_tr: >
+  olcumler klasorundeki her .log dosyasindaki her satiri SICAKLIK, NEM ve
+  BASINC alanlarina ayirip dosya adi ile birlikte olcumler.json adli gecerli
+  bir JSON dizisine donustur; her eleman {"dosya": <ad>, "sicaklik":
+  <deger>, "nem": <deger>, "basinc": <deger>} biciminde olsun ve sayisal
+  alanlar sayi olarak yazilsin.
+
+reference_solution: |
+  for f in olcumler/*.log; do
+    b=$(basename "$f")
+    sed "s/^/$b|/; s/[A-Z]*=//g; s/|/ /g" "$f"
+  done | tr ' ' ',' > gecici.txt
+  {
+    printf '['
+    awk -F, '{printf "%s{\"dosya\":\"%s\",\"sicaklik\":%s,\"nem\":%s,\"basinc\":%s}", (NR==1?"":","), $1, $2, $3, $4}' gecici.txt
+    printf ']'
+  } > olcumler.json
+  rm -f gecici.txt
+
+outputs:
+  - {path: olcumler.json, kind: json}
+
+checks:
+  - {op: json_eq, path: olcumler.json, value: [{dosya: s1.log, sicaklik: 21.5, nem: 40, basinc: 1013}, {dosya: s1.log, sicaklik: 22.0, nem: 42, basinc: 1012}, {dosya: s1.log, sicaklik: 20.5, nem: 38, basinc: 1014}, {dosya: s2.log, sicaklik: 19.0, nem: 35, basinc: 1015}, {dosya: s2.log, sicaklik: 23.5, nem: 45, basinc: 1011}, {dosya: s3.log, sicaklik: 18.0, nem: 33, basinc: 1016}, {dosya: s3.log, sicaklik: 24.0, nem: 47, basinc: 1010}, {dosya: s3.log, sicaklik: 21.0, nem: 41, basinc: 1013}]}
+
+metadata:
+  domain: donustur
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4042
+    bundle: metin-duzenle
+    tools:
+    - sed
+    - tr
+    konu: sensor-olcumleri
+    hedef: donustur
+    girdi: log-satiri
+    kaynak: cok-dosya
+    cikti: json
+    kesif: veriye-bak
+    uslup: baglam-gomulu
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

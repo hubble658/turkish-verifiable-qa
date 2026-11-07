@@ -1,0 +1,63 @@
+id: gen-s-3237-ayikla
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kitaplar klasöründeki her .txt dosyasını okuyup içindeki Durum satırına göre değerlendir. Durumu oduncte olan dosyaları cikti/oduncte klasörüne, rafta olanları cikti/rafta klasörüne, kayip olanları da cikti/kayip klasörüne aynı adla kopyala.
+
+setup: |
+  mkdir -p kitaplar
+  printf 'Kitap: Simyaci\r\nYazar: Coelho\r\nDurum: oduncte\r\n' > kitaplar/a.txt
+  printf 'Kitap: Tutunamayanlar\r\nYazar: Atay\r\nDurum: rafta\r\n' > kitaplar/b.txt
+  printf 'Kitap: Ince Memed\r\nYazar: Kemal\r\nDurum: oduncte\r\n' > kitaplar/c.txt
+  printf 'Kitap: Calikusu\r\nYazar: Guntekin\r\nDurum: kayip\r\n' > kitaplar/d.txt
+
+goal_tr: >
+  kitaplar klasorundeki her .txt dosyasindan Durum satirini okuyup, durumu
+  oduncte olan dosyalari cikti/oduncte, rafta olanlari cikti/rafta, kayip
+  olanlari cikti/kayip klasorune ayni adla kopyala
+
+reference_solution: |
+  mkdir -p cikti/oduncte cikti/rafta cikti/kayip
+  find kitaplar -name '*.txt' | xargs grep -l 'Durum: oduncte' | xargs -I{} cp {} cikti/oduncte/
+  find kitaplar -name '*.txt' | xargs grep -l 'Durum: rafta' | xargs -I{} cp {} cikti/rafta/
+  find kitaplar -name '*.txt' | xargs grep -l 'Durum: kayip' | xargs -I{} cp {} cikti/kayip/
+
+outputs:
+  - {path: cikti/oduncte, kind: dir}
+  - {path: cikti/rafta, kind: dir}
+  - {path: cikti/kayip, kind: dir}
+
+checks:
+  - {op: dir_entries_eq, path: cikti/kayip, value: [d.txt]}
+  - {op: dir_entries_eq, path: cikti/oduncte, value: [a.txt, c.txt]}
+  - {op: dir_entries_eq, path: cikti/rafta, value: [b.txt]}
+
+metadata:
+  domain: ayikla
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-3237
+    bundle: cok-dosya-ara
+    tools:
+    - xargs
+    - grep
+    konu: kutuphane-kayitlari
+    hedef: ayikla
+    girdi: duz-metin
+    kaynak: cok-dosya
+    cikti: birden-cok-dosya
+    kesif: veriye-bak
+    uslup: duz-hedef
+    direnc: crlf
+    bukulme: yok
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

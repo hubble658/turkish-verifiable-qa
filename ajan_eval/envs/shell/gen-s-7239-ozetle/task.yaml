@@ -1,0 +1,70 @@
+id: gen-s-7239-ozetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  siparisler.json'daki her ürün için toplam adedi ve toplam tutarı hesapla. yedek/ altındakileri katma, ürün adına göre alfabetik sıralı ürün,toplam_adet,toplam_tutar başlıklarıyla ozet.csv yap.
+
+setup: |
+  cat > siparisler.json <<'JSON'
+  {"siparisler":[
+  {"masa":1,"urun":"mercimek","adet":2,"fiyat":45},
+  {"masa":2,"urun":"kebap","adet":1,"fiyat":180},
+  {"masa":1,"urun":"ayran","adet":3,"fiyat":15},
+  {"masa":3,"urun":"kebap","adet":2,"fiyat":180},
+  {"masa":2,"urun":"mercimek","adet":1,"fiyat":45},
+  {"masa":3,"urun":"ayran","adet":2,"fiyat":15}
+  ]}
+  JSON
+  mkdir -p yedek
+  cat > yedek/siparisler.json <<'JSON'
+  {"siparisler":[{"masa":9,"urun":"cop","adet":99,"fiyat":1}]}
+  JSON
+
+goal_tr: >
+  siparisler.json icindeki her urun icin toplam adedi ve toplam tutari
+  (adet*fiyat) hesaplayip urun adina gore alfabetik sirali olarak
+  urun,toplam_adet,toplam_tutar basliklariyla ozet.csv dosyasina yaz; yedek/
+  altindaki dosyalari dikkate alma.
+
+reference_solution: |
+  cut -d'"' -f4,8,12 siparisler.json | grep -v '^$' > /tmp/alanlar.txt
+  paste -d',' - - - < /tmp/alanlar.txt > /tmp/kayitlar.txt
+  awk -F',' 'NR>0 && $3 ~ /^[0-9]+$/ {adet[$1]+=$2; tutar[$1]+=$2*$3} END {for (u in adet) printf "%s,%d,%d\n", u, adet[u], tutar[u]}' /tmp/kayitlar.txt | sort > /tmp/govde.csv
+  printf 'urun,toplam_adet,toplam_tutar\n' > ozet.csv
+  cat /tmp/govde.csv >> ozet.csv
+
+outputs:
+  - {path: ozet.csv, kind: file}
+
+checks:
+  - {op: file_content_eq, path: ozet.csv, value: 'urun,toplam_adet,toplam_tutar'}
+
+metadata:
+  domain: ozetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7239
+    bundle: sutun
+    tools:
+    - cut
+    - paste
+    konu: restoran-siparisleri
+    hedef: ozetle
+    girdi: json
+    kaynak: tek-dosya
+    cikti: csv
+    kesif: veriye-bak
+    uslup: terse
+    direnc: yok
+    bukulme: tuzak-dosya
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

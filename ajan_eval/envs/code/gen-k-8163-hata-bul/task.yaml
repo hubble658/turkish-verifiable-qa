@@ -1,0 +1,156 @@
+id: gen-k-8163-hata-bul
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  game/scoreboard.py içindeki build_board fonksiyonunu düzelt. Öyle ki her "round" olayında oyuncuların o tur içinde topladığı puanlar sıfırlansın, ancak oyuncuların toplam puanları korunsun. Böylece her "round" olayından sonra o turda toplanan puanlar sıfırdan başlasın.
+
+  Bunu yaparken game/state.py dosyasındaki mevcut yapıyı koru; gerekirse bu dosyada da gerekli düzenlemeleri yap. game/scoreboard.py içindeki leader fonksiyonu, en yüksek toplam puana sahip oyuncuyu doğru şekilde döndürmeye devam etsin.
+
+  Şu şartlar sağlanmalı:
+  - game/state.py ve game/scoreboard.py dosyaları mevcut olmalı.
+  - build_board, "score" olaylarında puanları ilgili oyuncunun toplamına eklemeli.
+  - build_board, "round" olayında oyuncuların tur içi puanlarını sıfırlamalı, toplam puanları değiştirmemeli.
+  - Bir "round" olayından sonra gelen "score" olayları yeni turun puanı olarak sayılmalı.
+  - leader, oyuncular arasından en yüksek toplam puana sahip oyuncunun adını döndürmeli.
+  - Hiç oyuncu yoksa leader None döndürmeli.
+
+setup: |
+  mkdir -p game
+  cat > game/state.py <<'STATE'
+  def fresh_state():
+      return {"players": {}, "round": 0}
+
+
+  def add_score(state, name, points):
+      players = state["players"]
+      if name not in players:
+          players[name] = {"total": 0, "history": []}
+      players[name]["total"] += points
+      players[name]["history"].append(points)
+      state["round"] += 1
+      return state
+
+
+  def new_round(state):
+      state["round"] += 1
+      return state
+  STATE
+  cat > game/scoreboard.py <<'SCORE'
+  from game.state import fresh_state, add_score, new_round
+
+
+  def build_board(events):
+      state = fresh_state()
+      for event in events:
+          kind = event["kind"]
+          if kind == "score":
+              add_score(state, event["name"], event["points"])
+          elif kind == "round":
+              new_round(state)
+      return state
+
+
+  def leader(state):
+      players = state["players"]
+      if not players:
+          return None
+      best = max(players.items(), key=lambda kv: kv[1]["total"])
+      return best[0]
+  SCORE
+
+goal_tr: >
+  game/scoreboard.py icindeki build_board fonksiyonunu, her tur olayinda
+  oyuncularin tur-ici puanlarinin sifirlanip toplamin korunacagi ve leader
+  fonksiyonunun en yuksek toplamli oyuncuyu dogru dondurecegi bicimde
+  duzelt; boylece her "round" olayindan sonra o turda toplanan puanlar
+  sifirdan baslasin.
+
+reference_solution: |
+  cat > game/state.py <<'STATE'
+  def fresh_state():
+      return {"players": {}, "round": 0}
+
+
+  def add_score(state, name, points):
+      players = state["players"]
+      if name not in players:
+          players[name] = {"total": 0, "history": []}
+      players[name]["total"] += points
+      players[name]["history"].append(points)
+      return state
+
+
+  def new_round(state):
+      state["round"] += 1
+      for info in state["players"].values():
+          info["history"] = []
+      return state
+  STATE
+  cat > game/scoreboard.py <<'SCORE'
+  from game.state import fresh_state, add_score, new_round
+
+
+  def build_board(events):
+      state = fresh_state()
+      for event in events:
+          kind = event["kind"]
+          if kind == "score":
+              add_score(state, event["name"], event["points"])
+          elif kind == "round":
+              new_round(state)
+      return state
+
+
+  def leader(state):
+      players = state["players"]
+      if not players:
+          return None
+      best = max(players.items(), key=lambda kv: kv[1]["total"])
+      return best[0]
+  SCORE
+
+outputs:
+  - {path: game/state.py, kind: program, run: 'python3 -c ''from game.state import fresh_state, add_score, new_round; s=fresh_state(); add_score(s,"a",10); add_score(s,"a",5); add_score(s,"b",7); assert s["players"]["a"]["history"]==[10,5]; assert s["players"]["b"]["history"]==[7]; new_round(s); assert s["round"]==1; assert s["players"]["a"]["history"]==[]; assert s["players"]["b"]["history"]==[]; assert s["players"]["a"]["total"]==15; add_score(s,"a",3); assert s["players"]["a"]["history"]==[3]; assert s["players"]["a"]["total"]==18; print("TAMAM")'''}
+  - {path: game/scoreboard.py, kind: program, run: 'python3 -c ''from game.scoreboard import build_board, leader; ev=[{"kind":"score","name":"a","points":10},{"kind":"score","name":"b","points":7},{"kind":"round"},{"kind":"score","name":"a","points":2},{"kind":"score","name":"b","points":9}]; s=build_board(ev); assert s["round"]==1; assert s["players"]["a"]["history"]==[2]; assert s["players"]["b"]["history"]==[9]; assert s["players"]["a"]["total"]==12; assert s["players"]["b"]["total"]==16; assert leader(s)=="b"; ev2=[{"kind":"score","name":"x","points":5}]; s2=build_board(ev2); assert leader(s2)=="x"; assert build_board([])["round"]==0; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from game.state import fresh_state, add_score, new_round; s=fresh_state(); add_score(s,"a",10); add_score(s,"a",5); add_score(s,"b",7); assert s["players"]["a"]["history"]==[10,5]; assert s["players"]["b"]["history"]==[7]; new_round(s); assert s["round"]==1; assert s["players"]["a"]["history"]==[]; assert s["players"]["b"]["history"]==[]; assert s["players"]["a"]["total"]==15; add_score(s,"a",3); assert s["players"]["a"]["history"]==[3]; assert s["players"]["a"]["total"]==18; print("TAMAM")''', value: TAMAM}
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from game.scoreboard import build_board, leader; ev=[{"kind":"score","name":"a","points":10},{"kind":"score","name":"b","points":7},{"kind":"round"},{"kind":"score","name":"a","points":2},{"kind":"score","name":"b","points":9}]; s=build_board(ev); assert s["round"]==1; assert s["players"]["a"]["history"]==[2]; assert s["players"]["b"]["history"]==[9]; assert s["players"]["a"]["total"]==12; assert s["players"]["b"]["total"]==16; assert leader(s)=="b"; ev2=[{"kind":"score","name":"x","points":5}]; s2=build_board(ev2); assert leader(s2)=="x"; assert build_board([])["round"]==0; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: hata-bul
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8163
+    bundle: hata-bul
+    tools:
+    - python3
+    konu: oyun-skor-tablosu
+    hedef: hata-bul
+    girdi: python
+    kaynak: cok-dosya
+    cikti: program
+    kesif: veriye-bak
+    uslup: kabul-kriteri
+    direnc: yok
+    bukulme: orta
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: yanlis-durum-sifirlama
+      karmasiklik: duz
+      kalip: duz-fonksiyon
+      akis: ic-ice-yapi
+      topoloji: iki-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

@@ -1,0 +1,84 @@
+id: gen-s-7060-denetle
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 16
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) olcumler klasöründeki sicaklik.txt ve nem.txt dosyalarındaki sensör ölçümlerini sensör kimliğine göre birleştir.
+
+  2) Yalnızca her iki dosyada da ölçümü olan sensörleri dahil et; sensör, sicaklik ve nem sütunlarını içeren bir CSV dosyasını sensör kimliğine göre artan sırada olcumler/birlesik.csv olarak oluştur.
+
+  3) Birleşik CSV dosyasındaki satır sayısını, yalnızca sayı olacak ve her satırda bir tane bulunacak şekilde olcumler/satir_sayisi.txt dosyasına yaz.
+
+setup: |
+  mkdir -p olcumler
+  cat > olcumler/sicaklik.txt <<'TXT'
+  s1 21
+  s2 19
+  s3 24
+  s4 22
+  TXT
+  cat > olcumler/nem.txt <<'TXT'
+  s1 40
+  s3 55
+  s4 47
+  s5 60
+  TXT
+
+goal_tr: >
+  olcumler klasorundeki sicaklik.txt ve nem.txt dosyalarindaki sensor
+  olcumlerini sensor kimligine gore birlestirip, yalnizca her iki dosyada da
+  olcumu olan sensorler icin sensor, sicaklik ve nem sutunlarini iceren,
+  sensor kimligine gore artan sirada bir CSV dosyasini olcumler/birlesik.csv
+  olarak uret
+
+reference_solution: |
+  find olcumler -name 'sicaklik.txt' -o -name 'nem.txt' | sort > /tmp/dosyalar.txt
+  cd olcumler
+  cut -d' ' -f1 sicaklik.txt | sort > .sic_id
+  cut -d' ' -f1 nem.txt | sort > .nem_id
+  comm -12 .sic_id .nem_id > .ortak_id
+  while read -r sid; do
+    sc=$(awk -v k="$sid" '$1==k{print $2}' sicaklik.txt)
+    nm=$(awk -v k="$sid" '$1==k{print $2}' nem.txt)
+    printf '%s,%s,%s\n' "$sid" "$sc" "$nm"
+  done < .ortak_id > birlesik.csv
+  rm -f .sic_id .nem_id .ortak_id
+  cd ..
+  wc -l < olcumler/birlesik.csv > olcumler/satir_sayisi.txt
+
+outputs:
+  - {path: olcumler/birlesik.csv, kind: file}
+  - {path: olcumler/satir_sayisi.txt, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: olcumler/birlesik.csv, value: ['s1,21,40', 's3,24,55', 's4,22,47']}
+  - {op: file_content_eq, path: olcumler/satir_sayisi.txt, value: '3'}
+
+metadata:
+  domain: denetle
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7060
+    bundle: dizin-istatistik
+    tools:
+    - wc
+    - find
+    konu: sensor-olcumleri
+    hedef: denetle
+    girdi: duz-metin
+    kaynak: iki-dosya-capraz
+    cikti: csv
+    kesif: yok
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: yok
+    adim: 5
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

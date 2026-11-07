@@ -1,0 +1,84 @@
+id: gen-s-7207-onar
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  vardiya_a.txt ve vardiya_b.txt dosyalarındaki her personel satırını kaynak, personel, tarih, başlangıç, bitiş sütunlarıyla birleştir; yalnızca bu iki dosyada farklı olan satırları personel kimliğine göre artan sırada vardiya_fark.csv dosyasına yaz, ilk satır başlık olsun.
+
+setup: |
+  cat > vardiya_a.txt <<'DATA'
+  A001 2024-03-01 08:00 16:00
+  A002 2024-03-01 16:00 00:00
+  A003 2024-03-02 08:00 16:00
+  A004 2024-03-02 16:00 00:00
+  A005 2024-03-03 08:00 16:00
+  DATA
+
+  cat > vardiya_b.txt <<'DATA'
+  A001 2024-03-01 08:00 16:00
+  A002 2024-03-01 16:00 23:00
+  A003 2024-03-02 08:00 16:00
+  A004 2024-03-02 16:00 00:00
+  A006 2024-03-03 16:00 00:00
+  DATA
+
+goal_tr: >
+  vardiya_a.txt ve vardiya_b.txt dosyalarindaki her personel satirini
+  kaynak,personel,tarih,baslangic,bitis sutunlariyla birlestirip yalnizca
+  iki dosyada farkli olan satirlari personel kimligine gore artan sirada
+  vardiya_fark.csv dosyasina yaz; ilk satir baslik olsun.
+
+reference_solution: |
+  awk 'BEGIN{print "kaynak,personel,tarih,baslangic,bitis"} {print "A,"$0}' vardiya_a.txt > a_isaretli.csv
+  awk '{print "B,"$0}' vardiya_b.txt > b_isaretli.csv
+  sort a_isaretli.csv b_isaretli.csv | uniq -u | grep -v '^kaynak,' > fark_isaretli.csv
+  python3 -c "
+  satirlar = []
+  with open('fark_isaretli.csv') as f:
+      for ham in f:
+          ham = ham.rstrip('\n')
+          if not ham:
+              continue
+          parcalar = ham.split(',')
+          satirlar.append(parcalar)
+  satirlar.sort(key=lambda s: (s[1], s[0]))
+  with open('vardiya_fark.csv', 'w') as f:
+      f.write('kaynak,personel,tarih,baslangic,bitis\n')
+      for s in satirlar:
+          f.write(','.join(s) + '\n')
+  "
+  rm -f a_isaretli.csv b_isaretli.csv fark_isaretli.csv
+
+outputs:
+  - {path: vardiya_fark.csv, kind: file}
+
+checks:
+  - {op: file_lines_eq, path: vardiya_fark.csv, value: ['kaynak,personel,tarih,baslangic,bitis', 'A,A001 2024-03-01 08:00 16:00', 'B,A001 2024-03-01 08:00 16:00', 'A,A002 2024-03-01 16:00 00:00', 'B,A002 2024-03-01 16:00 23:00', 'A,A003 2024-03-02 08:00 16:00', 'B,A003 2024-03-02 08:00 16:00', 'A,A004 2024-03-02 16:00 00:00', 'B,A004 2024-03-02 16:00 00:00', 'A,A005 2024-03-03 08:00 16:00', 'B,A006 2024-03-03 16:00 00:00']}
+
+metadata:
+  domain: onar
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7207
+    bundle: python-veri
+    tools:
+    - python3
+    konu: personel-vardiyalari
+    hedef: onar
+    girdi: sabit-genislik
+    kaynak: iki-dosya-capraz
+    cikti: csv
+    kesif: veriye-bak
+    uslup: kisit-sakli
+    direnc: yok
+    bukulme: yok
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

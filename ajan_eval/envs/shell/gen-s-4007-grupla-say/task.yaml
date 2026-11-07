@@ -1,0 +1,77 @@
+id: gen-s-4007-grupla-say
+split: single_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 8
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  envanter/sunucular.txt ve envanter/kayitlar.txt dosyalarını host adına göre birleştirip her şehirdeki aktif sunucu sayısını, şehir anahtarlı geçerli bir JSON nesnesi olarak envanter/ozet.json dosyasına yaz.
+
+  Şu şartlar sağlanmalı:
+  - envanter/sunucular.txt ve envanter/kayitlar.txt host adına göre birleştirilmeli.
+  - envanter/notlar.txt dikkate alınmamalı.
+  - Yalnızca durumu aktif olan sunucular sayılmalı.
+  - Sonuç, şehir adlarının anahtar olduğu geçerli bir JSON nesnesi olmalı.
+  - Çıktı envanter/ozet.json dosyasına yazılmalı.
+
+setup: |
+  mkdir -p envanter
+  cat > envanter/sunucular.txt <<'TXT'
+  istanbul web-01
+  ankara db-01
+  izmir web-02
+  istanbul db-02
+  ankara cache-01
+  TXT
+  cat > envanter/kayitlar.txt <<'TXT'
+  web-01 aktif
+  db-01 pasif
+  web-02 aktif
+  db-02 aktif
+  cache-01 pasif
+  TXT
+  cat > envanter/notlar.txt <<'TXT'
+  web-01 yedek
+  db-02 yedek
+  TXT
+
+goal_tr: >
+  envanter/sunucular.txt ve envanter/kayitlar.txt dosyalarini host adina
+  gore birlestirip her sehirdeki aktif sunucu sayisini sehir anahtarli
+  gecerli JSON nesnesi olarak envanter/ozet.json dosyasina yaz
+
+reference_solution: |
+  grep ' aktif' envanter/kayitlar.txt | cut -d' ' -f1 | xargs -I{} grep ' {}$' envanter/sunucular.txt | cut -d' ' -f1 | sort | uniq -c | awk '{print $2, $1}' | awk '{a[$1]+=$2} END {printf "{"; n=0; for (k in a) {n++; printf "%s\"%s\": %d", (n>1?", ":""), k, a[k]} printf "}\n"}' > envanter/ozet.json
+
+outputs:
+  - {path: envanter/ozet.json, kind: json, run: cat envanter/ozet.json}
+
+checks:
+  - {op: json_eq, path: envanter/ozet.json, value: {istanbul: 2, izmir: 1}}
+
+metadata:
+  domain: grupla-say
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-4007
+    bundle: cok-dosya-ara
+    tools:
+    - xargs
+    - grep
+    konu: envanter
+    hedef: grupla-say
+    girdi: json
+    kaynak: iki-dosya-capraz
+    cikti: json
+    kesif: yok
+    uslup: kabul-kriteri
+    direnc: baslik-yok
+    bukulme: tuzak-dosya
+    adim: 1
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}

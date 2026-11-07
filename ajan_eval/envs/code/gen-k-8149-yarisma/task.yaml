@@ -1,0 +1,116 @@
+id: gen-k-8149-yarisma
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 12
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  1) school/report.py dosyasını, school/ranking.py içindeki ranked_names fonksiyonunu kullanacak şekilde yaz; fonksiyon en yüksek puandan başlayıp eşit puanda isim alfabetik olacak biçimde ilk `limit` ismin sıralı listesini döndürsün.
+
+  2) build_report fonksiyonunu bir closure fabrikası olarak yaz: build_report(text, limit) çağrıldığında dışarıdan verilen text ile çalışan bir next_name fonksiyonu döndürsün.
+
+  3) Döndürülen next_name fonksiyonu her çağrıldığında sıradaki bir sonraki ismi döndürsün ve isimler tükendiğinde StopIteration yükseltsin.
+
+setup: |
+  mkdir -p school
+  cat > school/raw_scores.py <<'RAW'
+  def load_scores(text):
+      rows = []
+      for line in text.strip().splitlines():
+          name, score = line.split(':')
+          rows.append((name.strip(), int(score.strip())))
+      return rows
+  RAW
+  cat > school/ranking.py <<'RANK'
+  from school.raw_scores import load_scores
+
+
+  def ranked_names(text, limit):
+      rows = load_scores(text)
+      rows.sort(key=lambda r: r[1], reverse=True)
+      return [r[0] for r in rows[:limit]]
+  RANK
+  cat > school/report.py <<'REPORT'
+  from school.ranking import ranked_names
+
+
+  def build_report(text, limit):
+      names = ranked_names(text, limit)
+      return names
+  REPORT
+  cat > scores.txt <<'SCORES'
+  ada: 91
+  bora: 77
+  cem: 88
+  demir: 77
+  ece: 95
+  SCORES
+
+goal_tr: >
+  school/report.py dosyasindaki build_report fonksiyonunu, school/ranking.py
+  icindeki ranked_names'i kullanarak en yuksek puandan baslayip esit puanda
+  isim alfabetik olacak sekilde ilk `limit` ismin sirali listesini
+  dondurecek bicimde yaz; ayrica bu fonksiyon bir closure fabrikasi olmali:
+  build_report(text, limit) cagrildiginda disaridan verilen text ile calisan
+  ve her cagrida bir sonraki ismi donduren bir next_name fonksiyonu
+  dondursun, tukenince StopIteration yukseltsin.
+
+reference_solution: |
+  cat > school/report.py <<'REPORT'
+  from school.ranking import ranked_names
+
+
+  def build_report(text, limit):
+      names = ranked_names(text, limit)
+      state = {"index": 0}
+
+      def next_name():
+          i = state["index"]
+          if i >= len(names):
+              raise StopIteration
+          state["index"] = i + 1
+          return names[i]
+
+      return next_name
+  REPORT
+
+outputs:
+  - {path: school/report.py, kind: program, run: 'python3 -c ''from school.report import build_report as b; t=open("scores.txt").read(); n=b(t,3); assert n()=="ece"; assert n()=="ada"; assert n()=="cem"; ok=False; exec("try:\n    n()\nexcept StopIteration:\n    ok=True"); assert ok; print("TAMAM")'''}
+
+checks:
+  - {op: run_stdout_eq, cmd: 'python3 -c ''from school.report import build_report as b; t=open("scores.txt").read(); n=b(t,3); assert n()=="ece"; assert n()=="ada"; assert n()=="cem"; ok=False; exec("try:\n    n()\nexcept StopIteration:\n    ok=True"); assert ok; print("TAMAM")''', value: TAMAM}
+
+metadata:
+  domain: yarisma
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: k-8149
+    bundle: yarisma
+    tools:
+    - python3
+    konu: sinav-sonuclari
+    hedef: yarisma
+    girdi: python
+    kaynak: tek-dosya
+    cikti: program
+    kesif: dosyayi-bul
+    uslup: numarali-emir
+    direnc: yok
+    bukulme: kolay
+    adim: 3
+    image: verifiable-dataset/base:latest
+    aile: kod
+    metadata:
+      ayrinti: acgozlu
+      karmasiklik: duz
+      kalip: closure-fabrika
+      akis: cok-dosya-birlestirme
+      topoloji: uc-modul-zincir
+      zincir: 0
+      regresyon: false
+      bagimli: false
+      kesif_zor: false

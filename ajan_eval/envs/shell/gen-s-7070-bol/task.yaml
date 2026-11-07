@@ -1,0 +1,108 @@
+id: gen-s-7070-bol
+split: multi_step
+image: verifiable-dataset/base:latest
+workdir: /workspace
+max_turns: 14
+
+# Bu task uretildi ve heniz tamamlanmadi: prompt creative writing
+# asamasinda, alt_solutions ise rakip cozum asamasinda eklenecek.
+prompt: |
+  kitaplar içindeki her .txt dosyasını türüne göre ayır; her tür için bolumler altında aynı adlı alt dizin oluşturup satırlarını oraya tur.txt olarak yaz. Sonra bolumler'i bolumler.tar.gz olarak arşivle.
+
+setup: |
+  mkdir -p kitaplar
+  cat > kitaplar/roman.txt <<'EOF'
+  ROMAN Sefiller VictorHugo 1862 odunc
+  ROMAN SucluVeCeza Dostoyevski 1866 rafta
+  ROMAN MadamBovary Flaubert 1856 odunc
+  ROMAN AnnaKarenina Tolstoy 1877 rafta
+  ROMAN DonKisot Cervantes 1605 kayip
+  ROMAN UcurtmaAvcisi Hosseini 2003 odunc
+  ROMAN YuzuklerinEfendisi Tolkien 1954 rafta
+  ROMAN KisUykusu Pamuk 2014 odunc
+  EOF
+  cat > kitaplar/siir.txt <<'EOF'
+  SIIR SafakVakti OrhanVeli 1949 odunc
+  SIIR Memleketim NazimHikmet 1930 rafta
+  SIIR OtuzBesYas CahitSitki 1949 kayip
+  SIIR MonnaRosa AttilaIlhan 1954 odunc
+  SIIR BenSanaMecburum AttilaIlhan 1960 rafta
+  EOF
+  cat > kitaplar/tarih.txt <<'EOF'
+  TARIH OsmanliTarihi HalilInalcik 1973 rafta
+  TARIH TurklerinTarihi IlberOrtayli 2006 odunc
+  TARIH SelcukluDevleti OsmanTuran 1948 rafta
+  EOF
+  cat > kitaplar/felsefe.txt <<'EOF'
+  FELSEFE Devlet Platon 1995 odunc
+  FELSEFE Etika Spinoza 1677 kayip
+  FELSEFE BoyleKonustuZerdust Nietzsche 1883 rafta
+  FELSEFE YontemUzerine Descartes 1637 odunc
+  FELSEFE SofieDunyasi Gaarder 1991 rafta
+  EOF
+
+goal_tr: >
+  kitaplar dizinindeki her .txt dosyasini turune gore ayirip her tur icin
+  bolumler dizininde ayni adli bir alt dizin olustur ve dosyanin satirlarini
+  o turun alt dizinine tur.txt olarak yaz; ardindan bolumler dizinini tar
+  ile birlestirip gzip ile sikistirarak tek bir bolumler.tar.gz arsivi uret
+
+reference_solution: |
+  mkdir -p bolumler
+  for f in kitaplar/*.txt; do
+    b=$(basename "$f" .txt)
+    mkdir -p "bolumler/$b"
+    cp "$f" "bolumler/$b/tur.txt"
+  done
+  tar -cf bolumler.tar bolumler
+  gzip -f bolumler.tar
+  mv bolumler.tar.gz bolumler.tar.gz 2>/dev/null || true
+
+outputs:
+  - {path: bolumler, kind: dir}
+  - {path: bolumler.tar.gz, kind: file}
+
+checks:
+  - {op: dir_entries_eq, path: bolumler, value: [felsefe, roman, siir, tarih]}
+  - {op: run_stdout_eq, cmd: tar -tzf bolumler.tar.gz | sort, value: 'bolumler/
+
+    bolumler/felsefe/
+
+    bolumler/felsefe/tur.txt
+
+    bolumler/roman/
+
+    bolumler/roman/tur.txt
+
+    bolumler/siir/
+
+    bolumler/siir/tur.txt
+
+    bolumler/tarih/
+
+    bolumler/tarih/tur.txt'}
+
+metadata:
+  domain: bol
+  language: tr
+  generated: true
+  pipeline: spec-1
+  seed:
+    id: s-7070
+    bundle: arsiv
+    tools:
+    - tar
+    - gzip
+    konu: kutuphane-kayitlari
+    hedef: bol
+    girdi: log-satiri
+    kaynak: cok-dosya
+    cikti: dizin-yapisi
+    kesif: yok
+    uslup: terse
+    direnc: yok
+    bukulme: olcek
+    adim: 4
+    image: verifiable-dataset/base:latest
+    aile: kabuk
+    metadata: {}
