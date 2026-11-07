@@ -42,21 +42,21 @@ configs:
   data_files: veri/satranc.jsonl.gz
 - config_name: izgara_bulmaca
   data_files: veri/izgara_bulmaca.jsonl.gz
-- config_name: talimat_takibi
-  data_files: veri/talimat_takibi.jsonl.gz
 - config_name: ajan_terminal
   data_files: veri/ajan_terminal.jsonl.gz
+- config_name: regex
+  data_files: veri/regex.jsonl.gz
 - config_name: karakter_islemleri
   data_files: veri/karakter_islemleri.jsonl.gz
 ---
 
 # Doğrulanabilir Türkçe Soru Veri Seti
 
-Cevabı programla kontrol edilebilen **80.159** Türkçe soru ve görev: mantık bulmacaları, hesaplama, Excel formülü, optimizasyon, SQL yazma, SQL çıktısı tahmini, MEB ders kitaplarından kısa cevaplı sorular; ayrıca satranç, ızgara bulmacaları, karakter işlemleri ve talimat takibi. Her sorunun yanında altın cevap ve onu puanlayan kod var: Excel ve SQL cevapları çalıştırılarak, sayılar toleransla, bulmacalar normalize eşleşmeyle puanlanır.
+Cevabı programla kontrol edilebilen **78.159** Türkçe soru ve görev, 15 set: mantık bulmacaları, hesaplama, Excel formülü, optimizasyon, SQL yazma, SQL çıktısı tahmini, MEB ders kitaplarından kısa cevaplı sorular; ayrıca satranç, ızgara bulmacaları, regex, karakter işlemleri ve çok turlu terminal (ajan) görevleri. Her sorunun yanında altın cevap ve onu puanlayan kod var: Excel ve SQL cevapları çalıştırılarak, sayılar toleransla, bulmacalar normalize eşleşmeyle puanlanır.
 
-Sürüm: 30 Ekim 2026.
+Sürüm: 7 Kasım 2026.
 
-> **Yalnız veriyi kullanacaksanız:** Hugging Face sürümü düz bir tablodur. Her satırda modele verilecek hazır istem (`istem`) ve altın cevap (`cevap`) bulunur: https://huggingface.co/datasets/hubble658/turkish-verifiable-qa. Bu depo ise puanlama kodunu ve SQL veritabanlarını içerir. `puanla()` HF satırını da doğrudan kabul eder.
+> **Yalnız veriyi kullanacaksanız:** Hugging Face sürümü düz bir tablodur. Her satırda modele verilecek hazır istem (`istem`) ve altın cevap (`cevap`) bulunur: https://huggingface.co/datasets/hubble658/turkish-verifiable-qa. HF'de `train` ve `test` ayrı bölümlerdir. Bu depo ise puanlama kodunu, SQL veritabanlarını ve ajan görevlerinin ortamlarını (`ajan_eval/`) içerir. `puanla()` HF satırını da doğrudan kabul eder.
 
 ## İçerik
 
@@ -74,19 +74,18 @@ Sürüm: 30 Ekim 2026.
 | `sql_turspider.jsonl.gz` | 7.902 | `turspider_filtreli` | Gerçek SQLite'ta çalıştırma | SQL sorgusu |
 | `satranc.jsonl.gz` | 3.000 | `hizli_uyarlama` (Lichess, CC0) | Lichess çözümü + zorlayıcı-mat çözücü | İlk hamle (SAN/UCI) |
 | `izgara_bulmaca.jsonl.gz` | 2.000 | `hizli_uretim` | Program (çözücü, BFS, Dijkstra/Kruskal) | Izgara ya da sayı |
-| `talimat_takibi.jsonl.gz` | 2.000 | `hizli_uyarlama` (IFEval_tr) 350 / `hizli_uretim` 1.650 | Program (Türkçe IFEval denetleyicisi) | Talimatlara uyan serbest metin |
 | `ajan_terminal.jsonl.gz` | 1.590 (kabuk 884, kod 706) | özgün | Kum havuzunda çalıştırılıp `checks` kurallarıyla denetlenir; kurallar örnek çözümden türetilmiştir | Çok turlu komut çalıştırma; dosya ya da kod üretimi |
 | `regex.jsonl.gz` | 1.728 (yazma 1.695, çıkarma 33) | `hizli_uretim` 1.483 / `hizli_uyarlama` 245 (StructuredRegex MIT, müşteri mesajları CC BY 4.0) | Program (DFA eşdeğerliği ya da gizli testler) | Python regex'i |
 | `karakter_islemleri.jsonl.gz` | 1.200 (Sezar, işlem zinciri, ters yazma; 400'er) | `hizli_uretim` (cümleler GECTurk, Apache-2.0) | Program (Türkçe alfabe ve harf kuralları) | Metin |
-| **Toplam** | **80.159** | | | |
+| **Toplam** | **78.159** | | | |
 
-**Köken:** `koken` alanı sorunun kaynağını verir: `ozgun` (bu çalışmada üretildi, 62.329 soru), `turspider_filtreli` (dış setten filtrelendi, 7.902 soru), `hizli_uyarlama` (dış kaynaktan hızlı uyarlama, 3.595) ya da `hizli_uretim` (programla hızlı üretim, 6.333). Altın cevabın nasıl belirlendiği tablonun "Cevabı kim belirler" sütununda; altını LLM'e dayanan tek setler MEB setleridir (Bilinen sınırlar). Dış setlerde altın sonuç bu paket için yeniden çalıştırılarak hesaplandı; soru metniyle SQL'in uyumu kaynak setin kalitesine bağlı (TURSpider insan çevirisi). Cognipeer seti 3 Kasım'da çıkarıldı (aşağıda).
+**Köken:** `koken` alanı sorunun kaynağını verir: `ozgun` (bu çalışmada üretildi, 62.329 soru), `turspider_filtreli` (dış setten filtrelendi, 7.902 soru), `hizli_uyarlama` (dış kaynaktan hızlı uyarlama, 3.245) ya da `hizli_uretim` (programla hızlı üretim, 4.683). Altın cevabın nasıl belirlendiği tablonun "Cevabı kim belirler" sütununda; altını LLM'e dayanan tek setler MEB setleridir (Bilinen sınırlar). Ajan görevlerinde görevi ve örnek çözümü LLM yazdı, kontroller örnek çözümün çalıştırılmasından türetildi. Dış setlerde altın sonuç bu paket için yeniden çalıştırılarak hesaplandı; soru metniyle SQL'in uyumu kaynak setin kalitesine bağlı (TURSpider insan çevirisi). Cognipeer seti 3 Kasım'da çıkarıldı (aşağıda).
 
 **Karakter işlemleri (4 Kasım):** Türkçe metin üzerinde karakter düzeyinde işlem ölçer, Türkçe dil bilgisini değil. Düşük skorda tokenizasyonun payı olabilir (`belgeler` / YONTEM §23).
 
 ## Satır şeması
 
-**Train / test:** Her satırda `bolum` alanı vardır: train 71.874, test 8.285. Modeli `train` ile eğitin, `test` ile ölçün. SQL testi train'de olmayan veritabanlarından oluşur: `sql_belediye` Sakarya + Ankara, `sql_istatistik` Deprem + Wikidata (bunları `ATTACH` eden Eurostat soruları dahil), `sql_turspider` özgün `dev` bölümü (20 veritabanı). Bu veritabanlarından türeyen `sql_cikti_tahmini` satırları ve MEB'de ölçüm sorularıyla aynı konudan ya da pasaj çiftinden olan sorular da testtedir. Karşılaştırılabilir ve ucuz ölçüm için `benchmark/test_kumesi.jsonl` içinde `olcum: true` olan 4.400 satırı kullanın: 44 üretim başlığının her birinden 100 soru ya da görev. Şablondan üretilen setlerde (ör. `hesaplama`, `bulmaca`) aynı şablon iki bölümde de bulunur; bu bilinçlidir, yani test bu setlerde yeni parametreyi ölçer, yeni soru türünü değil. 2 Kasım skorları dört SQL setine aktarılamaz, diğer 22 türde geçerlidir.
+**Train / test:** Her satırda `bolum` alanı vardır: train 69.974, test 8.185. Modeli `train` ile eğitin, `test` ile ölçün. SQL testi train'de olmayan veritabanlarından oluşur: `sql_belediye` Sakarya + Ankara, `sql_istatistik` Deprem + Wikidata (bunları `ATTACH` eden Eurostat soruları dahil), `sql_turspider` özgün `dev` bölümü (20 veritabanı). Bu veritabanlarından türeyen `sql_cikti_tahmini` satırları ve MEB'de ölçüm sorularıyla aynı konudan ya da pasaj çiftinden olan sorular da testtedir. Karşılaştırılabilir ve ucuz ölçüm için `benchmark/test_kumesi.jsonl` içinde `olcum: true` olan 4.200 satırı kullanın: 42 üretim başlığının her birinden 100 soru ya da görev. Şablondan üretilen setlerde (ör. `hesaplama`, `bulmaca`) aynı şablon iki bölümde de bulunur; bu bilinçlidir, yani test bu setlerde yeni parametreyi ölçer, yeni soru türünü değil. 2 Kasım skorları dört SQL setine aktarılamaz, diğer 22 türde geçerlidir.
 
 **Regex (5 Kasım):** T1'de karar çoğunlukla DFA eşdeğerliğiyle verilir; 20 öğe ve otomata çevrilemeyen cevaplar gizli testlere düşer. Yolu `puanla_ayrinti` içindeki `via` söyler, ayrı raporlayın. Açık sınırlar (T3 gevşek regex, cevap ayıklama, train/test ortak 7 altın): `belgeler` / YONTEM §19.1.
 
@@ -97,7 +96,7 @@ Her dosya satır başına bir JSON nesnesi içerir:
 | Alan | Anlam |
 |---|---|
 | `id` | Benzersiz kimlik |
-| `kaynak` | `bulmaca`, `hesaplama`, `korpus` (MEB), `solver`, `sql`; ek setlerde set adı (`satranc`, `izgara_bulmaca`, `talimat_takibi`, `karakter_islemleri`) |
+| `kaynak` | `bulmaca`, `hesaplama`, `korpus` (MEB), `solver`, `sql`; ek setlerde set adı (`satranc`, `izgara_bulmaca`, `regex`, `karakter_islemleri`, `ajan_terminal`) |
 | `kategori` | Alt set (ör. `birim_donusumu`, `sql_belediye`, `korpus_capraz_eslestirmeli`) |
 | `alt_tip` | Şablon ya da soru tipi |
 | `bolum` | `train` ya da `test` (kimlikler ve ölçüm alt kümesi `benchmark/test_kumesi.jsonl`) |
@@ -114,15 +113,14 @@ Hugging Face'ten:
 
 ```python
 from datasets import load_dataset
-ds = load_dataset("hubble658/turkish-verifiable-qa", "hesaplama", split="train")   # set adı = config
-egitim = ds.filter(lambda r: r["bolum"] == "train")
-test = ds.filter(lambda r: r["bolum"] == "test")
+egitim = load_dataset("hubble658/turkish-verifiable-qa", "hesaplama", split="train")   # set adı = config
+test = load_dataset("hubble658/turkish-verifiable-qa", "hesaplama", split="test")
 ```
 
-Puanlama kodu ve veritabanları depoda; puanlamak için depoyu indirin:
+Puanlama kodu ve veritabanları bu depoda (HF'de yalnız veri var); puanlamak için depoyu indirin:
 
 ```bash
-huggingface-cli download hubble658/turkish-verifiable-qa --repo-type dataset --local-dir turkish-verifiable-qa
+git clone https://github.com/hubble658/turkish-verifiable-qa
 cd turkish-verifiable-qa
 pip install openpyxl          # yalnız LibreOffice yedeği için; çekirdek puanlama standart kütüphaneyle çalışır
 bash araclar/turspider_indir.sh   # sql_turspider için 166 veritabanı (~470 MB)
@@ -140,7 +138,7 @@ for satir in map(json.loads, gzip.open("veri/hesaplama.jsonl.gz", "rt", encoding
 - `istem(satir)`: Ölçümlerde kullanılan istemi kurar. SQL setlerinde şemayı veritabanından üretir; çıktı tahmininde tablo dökümünü ekler.
 - `puanla(satir, metin)`: Kategoriye göre doğru puanlayıcıyı çağırır.
 - **MEB setleri:** Hızlı eşleşme tutmazsa, isteğe bağlı bir hakem modele danışılır: `puanla(satir, metin, hakem=lambda istem_metni: ...)`. Hakem verilmezse skor bir alt sınırdır.
-- **Doğrulama:** `python3 araclar/altin_sinama.py veri/*.jsonl.gz` her satırın altın cevabını kendi puanlayıcısından geçirir. `--ters` bayrağı bariz yanlış cevapların, `--yakin` bayrağı az bozulmuş cevapların (tam sayı +1, ondalık %5, birimde %15) reddedildiğini sınar. Bu sürümde altın sınama 137.784/137.784 geçiyor (3 Kasım ek setleri: 10.990/10.990; talimat takibinde altın metin olmadığı için altın sınama yok, ters sınama 12.990/12.990). Ters sınamada 7 kabul var; bunların altın cevabı sınamada kullanılan yanlış değere (98.765,4321) gerçekten %0,5'ten yakın.
+- **Doğrulama:** `python3 araclar/altin_sinama.py veri/*.jsonl.gz` her satırın altın cevabını kendi puanlayıcısından geçirir. `--ters` bayrağı bariz yanlış cevapların, `--yakin` bayrağı az bozulmuş cevapların (tam sayı +1, ondalık %5, birimde %15) reddedildiğini sınar. Bu sürümde (7 Kasım) altın sınama 76.569/76.569 geçiyor, ters sınama 76.562/76.569 (ajan terminal görevleri `ajan_eval/` ile sınanır, bu sayılara girmez). Ters sınamadaki 7 kabul birim dönüşümü (2) ve fizik (5) sorularında; bunların altın cevabı sınamada kullanılan yanlış değere (98.765,4321) gerçekten %0,5'ten yakın.
 
 **Gerekenler:**
 - Python ≥ 3.10.
@@ -232,7 +230,7 @@ SQL yazma için `sql_belediye`, `sql_istatistik` ve `sql_turspider` kalıyor. Be
 
 26 türün her birinden 100 soru, 2.600 soru (3 Kasım'da Cognipeer'in 100 sorusu çıkarıldı): kimlikler `benchmark/alt_kume.jsonl`, betik `araclar/benchmark.py` (seç → batch gönder → puanla → MEB hakemi → rapor), sonuçlar `benchmark/sonuclar.json`. Ayar: paketteki istem, temperature 0, tek deneme; 24B ve düşünmesiz Flash 8.000 token, düşünen Flash `reasoning_effort=high` 32.000 token. MEB'de kural tutmazsa DeepSeek-V4-Flash hakem. 100 soruda 95% güven aralığı en kötü ±10 puan.
 
-3 Kasım'da eklenen 3 ek set (satranç, ızgara bulmacaları, talimat takibi) bu benchmark'ta yok; yalnız küçük pilot sonuçları var (yöntem belgesi §15). Pilotta düşünen V4-Flash: satranç %48, ızgara %90.
+Sonradan eklenen 5 set (satranç, ızgara bulmacaları, regex, karakter işlemleri, ajan terminal) bu benchmark'ta yok; satranç ve ızgara için yalnız küçük pilot sonuçları var (yöntem belgesi §15; düşünen V4-Flash: satranç %48, ızgara %90). Test bölümünün tamamıyla yeni ölçüm `araclar/tam_test.py` ile sürüyor; sonuçlar eklenecek.
 
 | Tür | Mistral-Small-3.2-24B | V4-Flash (düşünmesiz) | V4-Flash (düşünen, high) |
 |---|---:|---:|---:|
@@ -289,8 +287,13 @@ Veri seti **CC BY-SA 4.0** ile dağıtılır. TURSpider alt seti CC BY-SA olduğ
 | Trabzon, Sakarya açık veri | Belediye açık veri lisansı (ticari kullanım dahil, atıfla) |
 | Eurostat, Dünya Bankası WDI | CC BY 4.0 |
 | Wikidata | CC0 |
+| OCHA HDX / HGK il ve ilçe sınırları (SQL istatistik, Excel veritabanı) | CC BY-IGO |
 | USGS deprem kataloğu | Kamu malı |
 | TURSpider (github.com/alibugra/TURSpider) | CC BY-SA 4.0 |
+| Lichess bulmaca veritabanı (`satranc`) | CC0 |
+| StructuredRegex (`regex`, 212 soru, Türkçe çeviri) | MIT |
+| `emreseyhan/Turkish-customer-service-conversations` (`regex`, 33 soru; IBAN, kart, TCKN değerleri uydurma) | CC BY 4.0 |
+| GECTurk (`karakter_islemleri` başlangıç cümleleri) | Apache-2.0 |
 | MEB ders kitapları | Alıntılar FSEK m.35 kapsamında. `meb_tek_ders` satırlarının bir kısmında `gerekce` alanı kitaptan tek cümle içeriyor. Kaynak her satırda: "MEB `ders` dersi `sinif`. sınıf ders kitabı" (`orijinal.ders`, `orijinal.sinif`, `orijinal.unite_no`, `orijinal.konu_baslik`) |
 
 Her SQL ve Excel kaydında `lisans` ya da `orijinal.lisans` alanı bulunur.
