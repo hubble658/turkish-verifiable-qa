@@ -71,15 +71,15 @@ Sürüm: 7 Kasım 2026.
 | `sql_cikti_tahmini.jsonl.gz` | 3.321 | özgün | Gerçek SQLite'ta çalıştırma | Verilen SQL'in çıktısı (JSON tablo) |
 | `meb_tek_ders.jsonl.gz` | 2.758 | özgün | LLM + kitap pasajı, LLM tutarlılık kontrolü | Kısa cevap |
 | `meb_capraz.jsonl.gz` | 3.979 | özgün | LLM + iki ders pasajı, LLM hakem | Kısa cevap |
-| `sql_turspider.jsonl.gz` | 7.902 | `turspider_filtreli` | Gerçek SQLite'ta çalıştırma | SQL sorgusu |
-| `satranc.jsonl.gz` | 3.000 | `hizli_uyarlama` (Lichess, CC0) | Lichess çözümü + zorlayıcı-mat çözücü | İlk hamle (SAN/UCI) |
-| `izgara_bulmaca.jsonl.gz` | 2.000 | `hizli_uretim` | Program (çözücü, BFS, Dijkstra/Kruskal) | Izgara ya da sayı |
+| `sql_turspider.jsonl.gz` | 7.902 | `dis_kaynak` (TURSpider, CC BY-SA 4.0) | Gerçek SQLite'ta çalıştırma | SQL sorgusu |
+| `satranc.jsonl.gz` | 3.000 | `dis_kaynak` (Lichess, CC0) | Lichess çözümü + zorlayıcı-mat çözücü | İlk hamle (SAN/UCI) |
+| `izgara_bulmaca.jsonl.gz` | 2.000 | özgün | Program (çözücü, BFS, Dijkstra/Kruskal) | Izgara ya da sayı |
 | `ajan_terminal.jsonl.gz` | 1.590 (kabuk 884, kod 706) | özgün | Kum havuzunda çalıştırılıp `checks` kurallarıyla denetlenir; kurallar örnek çözümden türetilmiştir | Çok turlu komut çalıştırma; dosya ya da kod üretimi |
-| `regex.jsonl.gz` | 1.728 (yazma 1.695, çıkarma 33) | `hizli_uretim` 1.483 / `hizli_uyarlama` 245 (StructuredRegex MIT, müşteri mesajları CC BY 4.0) | Program (DFA eşdeğerliği ya da gizli testler) | Python regex'i |
-| `karakter_islemleri.jsonl.gz` | 1.200 (Sezar, işlem zinciri, ters yazma; 400'er) | `hizli_uretim` (cümleler GECTurk, Apache-2.0) | Program (Türkçe alfabe ve harf kuralları) | Metin |
+| `regex.jsonl.gz` | 1.728 (yazma 1.695, çıkarma 33) | özgün 1.483 / `dis_kaynak` 245 (StructuredRegex MIT, müşteri mesajları CC BY 4.0) | Program (DFA eşdeğerliği ya da gizli testler) | Python regex'i |
+| `karakter_islemleri.jsonl.gz` | 1.200 (Sezar, işlem zinciri, ters yazma; 400'er) | özgün (cümleler GECTurk, Apache-2.0) | Program (Türkçe alfabe ve harf kuralları) | Metin |
 | **Toplam** | **78.096** | | | |
 
-**Köken:** `koken` alanı sorunun kaynağını verir: `ozgun` (bu çalışmada üretildi, 62.266 soru), `turspider_filtreli` (dış setten filtrelendi, 7.902 soru), `hizli_uyarlama` (dış kaynaktan hızlı uyarlama, 3.245) ya da `hizli_uretim` (programla hızlı üretim, 4.683). Altın cevabın nasıl belirlendiği tablonun "Cevabı kim belirler" sütununda; altını LLM'e dayanan tek setler MEB setleridir (Bilinen sınırlar). Ajan görevlerinde görevi ve örnek çözümü LLM yazdı, kontroller örnek çözümün çalıştırılmasından türetildi. Dış setlerde altın sonuç bu paket için yeniden çalıştırılarak hesaplandı; soru metniyle SQL'in uyumu kaynak setin kalitesine bağlı (TURSpider insan çevirisi). Cognipeer seti 3 Kasım'da çıkarıldı (aşağıda).
+**Köken:** `koken` alanı sorunun kaynağını verir: `ozgun` (bu çalışmada üretildi, 66.949 soru) ya da `dis_kaynak` (açık lisanslı dış kaynaktan alındı ya da uyarlandı, 11.147 soru: TURSpider 7.902, satranç 3.000, regex 245). 7 Kasım'a kadar dört değer vardı (`turspider_filtreli`, `hizli_uyarlama`, `hizli_uretim`); iki gruba indirildi. Altın cevabın nasıl belirlendiği tablonun "Cevabı kim belirler" sütununda; altını LLM'e dayanan tek setler MEB setleridir (Bilinen sınırlar). Ajan görevlerinde görevi ve örnek çözümü LLM yazdı, kontroller örnek çözümün çalıştırılmasından türetildi. Dış setlerde altın sonuç bu paket için yeniden çalıştırılarak hesaplandı; soru metniyle SQL'in uyumu kaynak setin kalitesine bağlı (TURSpider insan çevirisi). Cognipeer seti 3 Kasım'da çıkarıldı (aşağıda).
 
 **Karakter işlemleri (4 Kasım):** Türkçe metin üzerinde karakter düzeyinde işlem ölçer, Türkçe dil bilgisini değil. Düşük skorda tokenizasyonun payı olabilir (`belgeler` / YONTEM §23).
 
@@ -100,7 +100,7 @@ Her dosya satır başına bir JSON nesnesi içerir:
 | `kategori` | Alt set (ör. `birim_donusumu`, `sql_belediye`, `korpus_capraz_eslestirmeli`) |
 | `alt_tip` | Şablon ya da soru tipi |
 | `bolum` | `train` ya da `test` (kimlikler ve ölçüm alt kümesi `benchmark/test_kumesi.jsonl`) |
-| `koken` | `ozgun` / `turspider_filtreli`; 3 Kasım ek setleri `hizli_uyarlama` (dış kaynaktan hızlı uyarlama) / `hizli_uretim` (programla hızlı üretim) |
+| `koken` | `ozgun` (bu çalışmada üretildi) / `dis_kaynak` (dış kaynaktan alındı ya da uyarlandı) |
 | `zorluk` | **Şimdilik `null`.** Tüm setlere aynı ayarla koşulacak son benchmark'tan doldurulacak |
 | `zorluk_uretim` | Üretimdeki etiket. Setler arasında karşılaştırılamaz (bulmacada kolay/zor, hesaplama ve SQL'de orta/zor, TURSpider'da easy…extra; MEB, solver ve çıktı tahmininde `null`) |
 | `soru` | Soru metni (istem değil; istem `puanlama.istem` ile kurulur) |

@@ -113,10 +113,10 @@
    "xml_uretimi|ozgun": 1200
   },
   "izgara_bulmaca": {
-   "izgara_bulmaca|hizli_uretim": 2000
+   "izgara_bulmaca|ozgun": 2000
   },
   "karakter_islemleri": {
-   "karakter_islemleri|hizli_uretim": 1200
+   "karakter_islemleri|ozgun": 1200
   },
   "meb_capraz": {
    "korpus_capraz_eslestirmeli|ozgun": 3979
@@ -125,12 +125,12 @@
    "korpus_tek_ders|ozgun": 2758
   },
   "regex": {
-   "regex_cikarma|hizli_uyarlama": 33,
-   "regex_yazma|hizli_uretim": 1483,
-   "regex_yazma|hizli_uyarlama": 212
+   "regex_cikarma|dis_kaynak": 33,
+   "regex_yazma|dis_kaynak": 212,
+   "regex_yazma|ozgun": 1483
   },
   "satranc": {
-   "satranc|hizli_uyarlama": 3000
+   "satranc|dis_kaynak": 3000
   },
   "solver": {
    "solver|ozgun": 4986
@@ -145,7 +145,7 @@
    "sql_istatistik|ozgun": 9234
   },
   "sql_turspider": {
-   "sql_turspider|turspider_filtreli": 7902
+   "sql_turspider|dis_kaynak": 7902
   }
  },
  "veritabanlari": [
