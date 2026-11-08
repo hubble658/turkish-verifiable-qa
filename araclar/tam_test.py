@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """Degerlendirme protokolu (2026-11-07; KULLANIM.md "Degerlendirme protokolu"). 2 Kasim alt kumesine dokunmaz.
 
-Kapsam: olcum kumesi (benchmark/test_kumesi.jsonl icinde `olcum: true`; 3.999 metin sorusu). --tam ile test bolumunun
+Kapsam: olcum kumesi (benchmark/test_kumesi.jsonl icinde `olcum: true`), MEB haric 12 set (2026-11-09; --meb ile dahil). --tam ile test bolumunun
 tamami (`neden: attach` satirlari kosulur ama skora girmez; olcum kumesinde yoklar). ajan_terminal ayri (ajan_eval/, cok turlu).
 Ayar: paketteki istem(), tek deneme. Dusunen modellerde 32.000 cikti tokeni, temperature 0 (Qwen: model kartinin onerdigi
 0,6 / top_p 0,95). Puanlama tamamen kurala dayali: LLM hakem yok (MEB: kural eslesmesi + `orijinal.kabul_edilen`).
-Ana skor set ortalamasi (her set esit agirlikta); baslik ortalamasi ve mikro ek bilgi.
+Ana skor 12 setin ortalamasi (her set esit agirlikta); baslik ortalamasi ve mikro ek bilgi.
 
 Akis (hazirla agsizdir; para harcayan komutlar --onay ister. API anahtari DEEPINFRA_API_KEY ortam degiskeninde.
 Puanlama icin chess, greenery==4.2.3, regex, openpyxl, formulas gerekir; LibreOffice olcumlerde kuruluydu):
@@ -35,6 +35,9 @@ from puanlama import istem, orijinal  # noqa: E402
 PAKET = bm.PAKET
 TEST_KUMESI = PAKET / "benchmark" / "test_kumesi.jsonl"
 DISARIDA = {"ajan_terminal"}
+# 2026-11-09 kullanici karari: MEB olcumden ayrildi (veri setinde kalir). Kural eslesmesi esdeger yazimlari kaciriyor ve
+# bazi sorular birden cok dogru cevaba acik; hakemsiz puanlanamiyor (YONTEM §29-30). --meb ile yine kosulabilir.
+MEB_SETLERI = {"meb_tek_ders", "meb_capraz"}
 # Model listesi 7 Kasim kullanici karari: V4-Flash uretim ve suzgecte kullanildigi icin listede yok; 24B cikti.
 MODELLER = {"qwen": "Qwen/Qwen3.5-9B", "qwen_dusunmesiz": "Qwen/Qwen3.5-9B", "gemma": "google/gemma-4-31B-it",
             "oss": "openai/gpt-oss-120b", "cosmos": "ytu-ce-cosmos/Turkish-Gemma-9b-v0.1"}
@@ -63,12 +66,12 @@ def baslik(s, r):
     return s
 
 
-def test_satirlari(tam=False):
-    """(set, satir, skorda). Varsayilan olcum kumesi; tam=True test bolumunun tamami."""
+def test_satirlari(tam=False, meb=False):
+    """(set, satir, skorda). Varsayilan olcum kumesi; tam=True test bolumunun tamami. meb=False MEB setlerini atlar."""
     secim = {(t["set"], t["id"]): t for t in map(json.loads, open(TEST_KUMESI, encoding="utf-8")) if tam or t.get("olcum")}
     for p in sorted((PAKET / "veri").glob("*.jsonl.gz")):
         s = p.name[: -len(".jsonl.gz")]
-        if s in DISARIDA:
+        if s in DISARIDA or (s in MEB_SETLERI and not meb):
             continue
         for l in gzip.open(p, "rt", encoding="utf-8"):
             r = json.loads(l)
@@ -90,7 +93,7 @@ def istek_olustur(m, s, r):
 
 
 def hazirla(a, D):
-    satirlar = list(test_satirlari(a.tam))
+    satirlar = list(test_satirlari(a.tam, a.meb))
     girdi_token = sum(len(istem(r)) / KARAKTER_TOKEN for _, r, _ in satirlar)
     print(f"{len(satirlar)} satir; skorlanan {sum(x[2] for x in satirlar)}; yaklasik {girdi_token / 1e6:.2f} M girdi token")
     print(Counter(s for s, _, _ in satirlar))
@@ -208,7 +211,7 @@ def al(a, D):
     cev = batch_al(D, a.model)
     if cev is None:
         return print("henüz bitmedi")
-    satirlar = list(test_satirlari(a.tam))
+    satirlar = list(test_satirlari(a.tam, a.meb))
     sigmadi = set(json.loads((D / f"sigmadi_{a.model}.json").read_text())) if (D / f"sigmadi_{a.model}.json").exists() else set()
     bos = (None, {}, None, None)
     isler = [(s, r, cev.get(f"{s}#{r['id']}", bos)[0]) for s, r, _ in satirlar]
@@ -236,7 +239,7 @@ def al(a, D):
 def rapor(a, D):
     tablo = {}
     sigmayan = {x for p in D.glob("sigmadi_*.json") for x in json.loads(p.read_text())}
-    kapsam = {(s, r["id"]) for s, r, _ in test_satirlari(a.tam)}  # olcum kumesi ya da --tam; sonuc dosyasi tam testten de gelebilir
+    kapsam = {(s, r["id"]) for s, r, _ in test_satirlari(a.tam, a.meb)}  # olcum kumesi ya da --tam; sonuc dosyasi tam testten de gelebilir
     for m in MODELLER:
         p = D / f"sonuc_{m}.jsonl"
         if not p.exists():
@@ -282,6 +285,7 @@ def main():
     ap.add_argument("--dir", required=True)
     ap.add_argument("--model", choices=list(MODELLER), help="hazirla: yalniz bu model (verilmezse hepsi)")
     ap.add_argument("--tam", action="store_true", help="olcum kumesi yerine test bolumunun tamami")
+    ap.add_argument("--meb", action="store_true", help="MEB setlerini de dahil et (protokolde yok, 2026-11-09)")
     ap.add_argument("--onay", action="store_true", help="para harcayan komutlar icin zorunlu")
     ap.add_argument("--base-url")
     ap.add_argument("--ornek", type=int, default=2, help="pilot: set basina soru")

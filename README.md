@@ -235,7 +235,7 @@ SQL yazma için `sql_belediye`, `sql_istatistik` ve `sql_turspider` kalıyor.
 
 Skorların başkalarınca aynı şekilde alınabilmesi için ölçümler bu kurallarla yapılır. Model sonuçları ölçümler tamamlanınca eklenecek; bu sürümde skor yok.
 
-**Küme.** Ölçüm kümesi: `benchmark/test_kumesi.jsonl` içinde `olcum: true` olan 4.199 satır, hepsi `test` bölümünden. 3.999 metin sorusu (14 set) ve 200 ajan terminal görevi. Her alt başlıktan ~100 soru alınır; bulmaca, hesaplama, ızgara, satranç, solver, karakter işlemleri, Excel veritabanı ve ajan terminalde test bölümünün tamamı kümededir. SQL setleri, iki MEB seti ve regex 100'er soru (MEB tek ders 99). Birden çok veritabanını bağlayan ATTACH soruları (`neden: attach`) ölçüm kümesinde yok. İsteyen test bölümünün tamamını (8.171) da kullanabilir; ölçüm kümesi testin başlık ortalamasını ve set ortalamasını ±0,5 puan içinde verdi (6 Kasım, Qwen3.5-9B düşünmesiz, 7 Kasım MEB güncellemesinden önceki puanlayıcıyla).
+**Küme.** Ölçüm kümesi: `benchmark/test_kumesi.jsonl` içinde `olcum: true` olan 4.199 satır, hepsi `test` bölümünden. 3.999 metin sorusu (14 set) ve 200 ajan terminal görevi; MEB ölçüme girmediği için değerlendirilen 3.800 metin sorusu, 12 set (aşağıda). Her alt başlıktan ~100 soru alınır; bulmaca, hesaplama, ızgara, satranç, solver, karakter işlemleri, Excel veritabanı ve ajan terminalde test bölümünün tamamı kümededir. SQL setleri, iki MEB seti ve regex 100'er soru (MEB tek ders 99). Birden çok veritabanını bağlayan ATTACH soruları (`neden: attach`) ölçüm kümesinde yok. İsteyen test bölümünün tamamını (8.171) da kullanabilir; ölçüm kümesi testin başlık ortalamasını ve set ortalamasını ±0,5 puan içinde verdi (6 Kasım, Qwen3.5-9B düşünmesiz, 7 Kasım MEB güncellemesinden önceki puanlayıcıyla).
 
 **İstem ve cevap.** İstem `puanlama.istem(satir)`: tek kullanıcı mesajı, sistem mesajı yok, soru başına tek deneme. Puanlanan yalnız modelin cevap metnidir (`message.content`); düşünme metni (`reasoning_content`) puanlanmaz.
 
@@ -253,7 +253,9 @@ Sınıra takılan, boş dönen ya da istek hatası alan cevap yanlış sayılır
 
 **Puanlama.** `puanla(satir, metin)`, tamamen kurala dayalı; LLM hakem yok. Puanlayıcı hatası ve zaman aşımı yanlış sayılır, ayrıca raporlanır. Regex'te kararın DFA eşdeğerliğiyle mi gizli testlerle mi verildiği (`via`) ayrı yazılır.
 
-**Skor.** Ana skor **set ortalaması**: 14 metin setinin her biri eşit ağırlıkta. Başlık ortalaması (40 başlık) ve mikro doğruluk ek bilgi olarak verilir. Başlık ortalamasında bulmaca ve hesaplama 40 başlığın 17'sini tuttuğu için skor kolay setlere kayar; bu yüzden ana skor olarak kullanılmaz. Ajan terminal çok turlu olduğu için (`ajan_eval/`) ayrı raporlanır. MEB skorları, altınları LLM ile doğrulandığından kesin setlerden ayrıca da gösterilir. 100 soruluk bir sette tek modelin 95% güven aralığı en kötü ±10 puandır. Qwen'in düşünen ayarı örneklemeli olduğu için tekrar koşulduğunda set skorları birkaç puan oynayabilir.
+**Skor.** Ana skor **set ortalaması**: 12 metin setinin her biri eşit ağırlıkta. Başlık ortalaması (38 başlık) ve mikro doğruluk ek bilgi olarak verilir. Başlık ortalamasında bulmaca ve hesaplama 38 başlığın 17'sini tuttuğu için skor kolay setlere kayar; bu yüzden ana skor olarak kullanılmaz. Ajan terminal çok turlu olduğu için (`ajan_eval/`) ayrı raporlanır. 100 soruluk bir sette tek modelin 95% güven aralığı en kötü ±10 puandır. Qwen'in düşünen ayarı örneklemeli olduğu için tekrar koşulduğunda set skorları birkaç puan oynayabilir.
+
+**MEB ölçüme girmiyor (9 Kasım).** `meb_tek_ders` ve `meb_capraz` veri setinde duruyor, ama değerlendirmeye ve ana skora alınmıyor. Kısa sözel cevaplar kuralla yalnız yazım düzeyinde karşılaştırılabiliyor: eşdeğer ama farklı yazılmış cevaplar ve birden çok doğru cevaba açık sorular LLM hakem olmadan ayırt edilemiyor (bir denetimde Gemma-4-31B'nin yanlış sayılan MEB cevaplarının ~üçte biri gerçekte doğru çıktı). İsteyen `--meb` ile koşabilir; skoru kurala dayalı alt sınırdır.
 
 **Araç.** `araclar/tam_test.py`: `hazirla` (istek dosyaları ve maliyet tahmini), `gonder` (DeepInfra Batch), `kos` (vLLM), `al` (cevapları indirip puanlar), `rapor` (set ortalaması, başlık ortalaması, kesilme, puanlayıcı hatası; çıktı klasörüne `sonuclar.json` yazar). Varsayılan küme ölçüm kümesidir, `--tam` testin tamamını kullanır. Ortam: Python 3.10, `requirements.txt`; regex puanlaması süreç havuzunda yapılır.
 
@@ -269,7 +271,7 @@ python3 araclar/tam_test.py al      --dir sonuc --model gemma --tam  # bitince i
 python3 araclar/tam_test.py rapor   --dir sonuc --tam                # sonuc/sonuclar.json; ölçüm kümesi için --tam'sız
 ```
 
-Modeller: `qwen`, `qwen_dusunmesiz`, `gemma`, `oss`, `cosmos` (Cosmos: vLLM sunucusu ve `kos --base-url ...`). Başka bir OpenAI uyumlu sunucu için `kos --base-url <url>` kullanılabilir. `--tam` testin tamamı (7.971 metin isteği; ATTACH'li 109 soru koşulur, skora girmez), `--tam`'sız ölçüm kümesi (3.999).
+Modeller: `qwen`, `qwen_dusunmesiz`, `gemma`, `oss`, `cosmos` (Cosmos: vLLM sunucusu ve `kos --base-url ...`). Başka bir OpenAI uyumlu sunucu için `kos --base-url <url>` kullanılabilir. `--tam` testin tamamı (6.963 metin isteği; ATTACH'li 109 soru koşulur, skora girmez), `--tam`'sız ölçüm kümesi (3.800). MEB varsayılan olarak dışarıda; `--meb` ile eklenir.
 
 Ajan terminal görevleri çok turlu olduğu için ayrı koşulur (Linux, `bwrap`, `pip install -r ajan_eval/requirements.txt`):
 
