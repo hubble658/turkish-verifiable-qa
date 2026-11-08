@@ -165,7 +165,7 @@ for satir in map(json.loads, gzip.open("veri/hesaplama.jsonl.gz", "rt", encoding
 - **MEB.** Kural eşleşmesi yalnız emin olduğunda doğru der; emin olmadığı cevap yanlış sayılır (LLM hakem yok):
   - cevaptaki bağımsız sayıların tamamı metindeki sırasıyla ve işaretleriyle altınla aynı olmalı (harfe bitişik rakam, ör. CO2, sayı sayılmaz); sayılar aynıysa metin de tutmalı ("298" ~ "298 K" geçer, "2 mol" ~ "2 L" geçmez),
   - altında olmayan olumsuzluk ya da seçenek sözcüğü (değil, hayır, yok, ya da, veya) varsa eşleşme kabul edilmez,
-  - metinde: parantezler atıldıktan sonra normalize eşitlik ya da altın cevabın sözcüklerinin model cevabında sırasıyla geçmesi,
+  - metinde: parantezler atıldıktan sonra normalize eşitlik ya da altın cevabın sözcüklerinin model cevabında sırasıyla geçmesi; sözcükte Türkçe ek iki yönde tolere edilir: cevap ekli ("azalır" ~ "azalırlar") ya da kök hâlinde (8 Kasım: 5+ harfli kök ve bilinen bir ek, "idrar" ~ "idrarla", "karbon" ~ "karbonu"), ünsüz yumuşaması dahil ("esneklik" ~ "esnekliği", "haploid" ~ "haploit"),
   - bu kurallar altının yanında `orijinal.kabul_edilen` listesindeki eşdeğer yazımlarla da denenir (7 Kasım; 5.564 soruda 16.711 yazım, ör. "Karbondioksit" için "CO2", "yarıya iner" için "yarısına iner").
 
   Bu yüzden MEB skoru, eşdeğer ama listede olmayan yazımları kaçırabilir; skor bu anlamda bir alt sınırdır. Altın cevaplar LLM ile doğrulandığı için MEB skorlarını kesin setlerden ayrı raporlayın.

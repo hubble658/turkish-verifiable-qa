@@ -28,12 +28,40 @@ def _sozcukler(s):
     return re.findall(r"[\wçğıöşü]+", _tr_lower(s))
 
 
+_YUMUSAMA = {"k": "ğ", "ç": "c", "t": "d", "p": "b"}
+# 2026-11-08: cevaptaki sozcuk altinin kokuyse kabul edilen ekler ("idrar" ~ "idrarla", "karbon" ~ "karbonu")
+_EKLER = {"a", "e", "ı", "i", "u", "ü", "ya", "ye", "yı", "yi", "yu", "yü", "na", "ne", "nı", "ni", "nu", "nü",
+          "la", "le", "yla", "yle", "da", "de", "ta", "te", "dan", "den", "tan", "ten", "ın", "in", "un", "ün",
+          "nın", "nin", "nun", "nün", "sı", "si", "su", "sü", "lar", "ler", "dır", "dir", "dur", "dür", "tır", "tir",
+          "tur", "tür"}
+
+
+def _yumusak(s):
+    return s[:-1] + _YUMUSAMA[s[-1]] if len(s) >= 3 and s[-1] in _YUMUSAMA else None
+
+
+def _sozcuk_esit(k, u):
+    """Altin sozcugu k ile cevap sozcugu u ayni sozcuk mu (Turkce ek tolere).
+    - cevap ekli: 3+ harfli k'nin kendisi ya da yumusamis hali u'nun basi ("azalır" ~ "azalırlar", "esneklik" ~ "esnekliği");
+    - cevap kok (2026-11-08): 5+ harfli u'nun kendisi ya da yumusamis hali k'nin basi ve aradaki fark bilinen bir ek
+      ("idrarla" ~ "idrar", "karbonu" ~ "karbon", "esnekliği" ~ "esneklik"). Kisa sozcuk ("C", "su", "O2") birebir olmali."""
+    if u == k or (len(k) >= 3 and u.startswith(k)):
+        return True
+    ky = _yumusak(k)
+    if ky and u.startswith(ky):
+        return True
+    if len(u) >= 5:
+        for kok in (u, _yumusak(u)):
+            if kok and k.startswith(kok) and k[len(kok):] in _EKLER:
+                return True
+    return False
+
+
 def _icinde(kisa, uzun):
-    """kisa'nin sozcukleri uzun'da ardisik geciyor mu; 3+ harfli sozcukte Turkce ek tolere edilir
-    ("azalır" ~ "azalırlar"), kisa sozcuk ("C", "su", "O2") birebir olmali."""
+    """kisa'nin sozcukleri uzun'da ardisik geciyor mu (sozcukler _sozcuk_esit ile karsilastirilir)."""
     n = len(kisa)
     for i in range(len(uzun) - n + 1):
-        if all(u == k or (len(k) >= 3 and u.startswith(k)) for k, u in zip(kisa, uzun[i:i + n])):
+        if all(_sozcuk_esit(k, u) for k, u in zip(kisa, uzun[i:i + n])):
             return True
     return False
 
