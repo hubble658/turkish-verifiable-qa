@@ -28,7 +28,9 @@ case "$MODEL" in
   qwen)            kos qwen Qwen/Qwen3.5-9B "$DI" native --sicaklik 0.6 --top-p 0.95 --max-tokens 32000 ;;
   qwen_dusunmesiz) kos qwen_dusunmesiz Qwen/Qwen3.5-9B "$DI" native --reasoning-effort none --sicaklik 0 --max-tokens 16000 ;;
   gemma)           kos gemma google/gemma-4-31B-it "$DI" native --reasoning-effort high --sicaklik 0 --max-tokens 32000 ;;
-  oss)             kos oss openai/gpt-oss-120b "$DI" native --reasoning-effort high --sicaklik 0 --max-tokens 32000 ;;
+  # gpt-oss metin protokoluyle (2026-11-09): DeepInfra gpt-oss'un ikinci ve sonraki turlardaki arac cagrilarini
+  # ayristiramiyor, cagriyi dusunme alanina koyuyor; native kosuda gorevler 2-3. turda bitiyordu (200'de 50, gecersiz).
+  oss)             kos oss openai/gpt-oss-120b "$DI" text --reasoning-effort high --sicaklik 0 --max-tokens 32000 ;;
   cosmos)          kos cosmos ytu-ce-cosmos/Turkish-Gemma-9b-v0.1 "${COSMOS_URL:?}" text --sicaklik 0 --max-tokens 2048 ;;
   *) echo "bilinmeyen model: $MODEL"; exit 1 ;;
 esac
